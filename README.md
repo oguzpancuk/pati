@@ -53,10 +53,48 @@ periyodik olarak (örn. saatte bir cron ile) çalıştırılması gerekir:
 npm run check-regions
 ```
 
-### Mobile
+### Mobile — Emülatörde Çalıştırma
+
+**Ön koşullar** (React Native'in [Ortam Kurulumu](https://reactnative.dev/docs/set-up-your-environment) rehberini takip edin):
+
+- **Android:** Android Studio + en az bir AVD (Android Virtual Device) kurulu ve
+  emülatör açık olmalı. `ANDROID_HOME` ortam değişkeni ayarlanmış olmalı.
+- **iOS (yalnızca macOS):** Xcode kurulu olmalı, komut satırı araçları seçili olmalı,
+  ve CocoaPods (`sudo gem install cocoapods` veya `bundle install`).
+
+**Backend'i önce ayağa kaldırın** (yukarıdaki adımlarla), çünkü mobil uygulama
+API'ye ihtiyaç duyar. Backend `npm run dev` ile 3000 portunda çalışırken:
 
 ```bash
 cd mobile
 npm install
-npm run android   # veya npm run ios
 ```
+
+**Android:**
+
+```bash
+npm run android
+```
+
+Uygulama `src/api/client.ts` içinde Android emülatöründen backend'e otomatik olarak
+`10.0.2.2:3000` üzerinden bağlanacak şekilde ayarlıdır (Android emülatörü "localhost"u
+kendi üzerinde arar, bu yüzden host makineye özel bir adres gerekir).
+
+Haritanın görünmesi için bir Google Maps API anahtarına ihtiyacınız var:
+1. [Google Cloud Console](https://console.cloud.google.com/)'da "Maps SDK for Android"ı etkinleştirip bir API anahtarı oluşturun.
+2. `mobile/android/app/src/main/res/values/google_maps_api.xml.example` dosyasını aynı klasöre `google_maps_api.xml` olarak kopyalayın ve anahtarınızı yapıştırın (bu dosya `.gitignore`'dadır, repoya gitmez).
+
+**iOS:**
+
+```bash
+cd ios && bundle install && bundle exec pod install && cd ..
+npm run ios
+```
+
+iOS Simülatörü host makineyle ağı paylaştığı için `localhost:3000` doğrudan çalışır,
+ekstra bir ayar gerekmez. Harita için de (Apple Maps kullanıldığından) API anahtarı
+gerekmez.
+
+**Gerçek bir cihazda test ediyorsanız:** `src/api/client.ts` içindeki `API_BASE_URL`
+değerini bilgisayarınızın yerel ağdaki IP adresiyle (örn. `http://192.168.1.5:3000/api`)
+değiştirin — cihaz "localhost"u kendi üzerinde arar.
