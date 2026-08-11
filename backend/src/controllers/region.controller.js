@@ -1,13 +1,30 @@
 const pool = require('../config/db');
 
+// Bölge durumu, o bölgedeki en son aksiyonun ne kadar eski olduğuna göre anlık hesaplanır:
+// son 8 saat içinde aksiyon varsa yeşil, 24 saat içindeyse sarı, daha eskiyse (veya hiç yoksa) kırmızı.
+const STATUS_CASE_SQL = `
+  CASE
+    WHEN la.last_action_at IS NULL THEN 'red'
+    WHEN la.last_action_at > now() - interval '8 hours' THEN 'green'
+    WHEN la.last_action_at > now() - interval '24 hours' THEN 'yellow'
+    ELSE 'red'
+  END
+`;
+
+const REGION_SELECT_SQL = `
+  SELECT r.id, r.name,
+         ${STATUS_CASE_SQL} AS status,
+         la.last_action_at AS status_updated_at,
+         ST_AsGeoJSON(r.boundary)::json AS boundary
+  FROM regions r
+  LEFT JOIN LATERAL (
+    SELECT max(created_at) AS last_action_at FROM feeding_actions WHERE region_id = r.id
+  ) la ON true
+`;
+
 async function listRegions(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT id, name, status, status_updated_at,
-              ST_AsGeoJSON(boundary)::json AS boundary
-       FROM regions
-       ORDER BY name`
-    );
+    const result = await pool.query(`${REGION_SELECT_SQL} ORDER BY r.name`);
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -16,12 +33,7 @@ async function listRegions(req, res, next) {
 
 async function getRegion(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT id, name, status, status_updated_at,
-              ST_AsGeoJSON(boundary)::json AS boundary
-       FROM regions WHERE id = $1`,
-      [req.params.id]
-    );
+    const result = await pool.query(`${REGION_SELECT_SQL} WHERE r.id = $1`, [req.params.id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Bölge bulunamadı' });
     }
@@ -32,7 +44,6 @@ async function getRegion(req, res, next) {
 }
 
 async function addAction(req, res, next) {
-  const client = await pool.connect();
   try {
     const { actionType, animalId } = req.body;
     const regionId = req.params.id;
@@ -41,48 +52,24 @@ async function addAction(req, res, next) {
       return res.status(400).json({ error: 'actionType food, water veya sighting olmalıdır' });
     }
 
-    await client.query('BEGIN');
-
-    const action = await client.query(
+    const action = await pool.query(
       `INSERT INTO feeding_actions (region_id, animal_id, user_id, action_type)
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [regionId, animalId || null, req.user.userId, actionType]
     );
 
-    // Basit kural: son 24 saatte hiç aksiyon yoksa kırmızı, az aksiyon varsa sarı, yeterliyse yeşil.
-    const counts = await client.query(
-      `SELECT count(*)::int AS count FROM feeding_actions
-       WHERE region_id = $1 AND created_at > now() - interval '24 hours'`,
-      [regionId]
-    );
-    const recentCount = counts.rows[0].count;
-    const newStatus = recentCount >= 3 ? 'green' : recentCount >= 1 ? 'yellow' : 'red';
+    // Bir aksiyon eklendiğinde bölge her zaman "yeşil"e döner; kırmızıya geçiş yalnızca
+    // uzun süre aksiyon gelmemesiyle oluşur ve bildirimleri scripts/check-stale-regions.js
+    // periyodik olarak tetikler (bkz. README).
+    await pool.query('UPDATE regions SET status = $1, status_updated_at = now() WHERE id = $2', [
+      'green',
+      regionId,
+    ]);
 
-    const region = await client.query('SELECT name, status FROM regions WHERE id = $1', [regionId]);
-    const statusChanged = region.rows[0]?.status !== newStatus;
-
-    await client.query(
-      'UPDATE regions SET status = $1, status_updated_at = now() WHERE id = $2',
-      [newStatus, regionId]
-    );
-
-    if (statusChanged && newStatus === 'red') {
-      await client.query(
-        `INSERT INTO notifications (user_id, region_id, message)
-         SELECT DISTINCT user_id, $1, $2
-         FROM feeding_actions WHERE region_id = $1`,
-        [regionId, `${region.rows[0]?.name || 'Bölge'} bölgesi acil yardıma ihtiyaç duyuyor (Kırmızı)`]
-      );
-    }
-
-    await client.query('COMMIT');
-    res.status(201).json({ action: action.rows[0], regionStatus: newStatus });
+    res.status(201).json({ action: action.rows[0], regionStatus: 'green' });
   } catch (err) {
-    await client.query('ROLLBACK');
     next(err);
-  } finally {
-    client.release();
   }
 }
 
-module.exports = { listRegions, getRegion, addAction };
+module.exports = { listRegions, getRegion, addAction, STATUS_CASE_SQL };

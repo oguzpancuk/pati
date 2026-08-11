@@ -18,7 +18,9 @@ async function getMe(req, res, next) {
 async function getMyAnimals(req, res, next) {
   try {
     const result = await pool.query(
-      `SELECT a.* FROM animals a
+      `SELECT a.id, a.species, a.name, a.color, a.size, a.markings, a.region_id, a.created_at,
+              ST_AsGeoJSON(a.location)::json AS location
+       FROM animals a
        JOIN user_animal_care c ON c.animal_id = a.id
        WHERE c.user_id = $1
        ORDER BY a.created_at DESC`,

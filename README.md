@@ -44,6 +44,15 @@ npm run migrate        # PostGIS şemasını oluşturur
 npm run dev
 ```
 
+Bölge durumu (yeşil/sarı/kırmızı), o bölgedeki en son mama/su/görüldü aksiyonunun ne
+kadar eski olduğuna göre `GET /api/regions` çağrılarında anlık hesaplanır. Bir bölge 24
+saattir aksiyon almadığında "Kırmızı" bildirimlerinin gönderilmesi için aşağıdaki script'in
+periyodik olarak (örn. saatte bir cron ile) çalıştırılması gerekir:
+
+```bash
+npm run check-regions
+```
+
 ### Mobile
 
 ```bash
