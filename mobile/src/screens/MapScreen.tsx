@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Button,
+  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -58,6 +59,7 @@ type PendingPin = LatLng | null;
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
+  const hasCenteredOnUser = useRef(false);
   const [actions, setActions] = useState<CareAction[]>([]);
   const [status, setStatus] = useState<CareStatus | null>(null);
   const [pendingPin, setPendingPin] = useState<PendingPin>(null);
@@ -75,6 +77,19 @@ export default function MapScreen() {
       if (loc) {
         const statusData = await fetchCareStatus(loc.lat, loc.lng);
         setStatus(statusData);
+
+        if (!hasCenteredOnUser.current) {
+          hasCenteredOnUser.current = true;
+          mapRef.current?.animateToRegion(
+            {
+              latitude: loc.lat,
+              longitude: loc.lng,
+              latitudeDelta: 0.03,
+              longitudeDelta: 0.03,
+            },
+            500
+          );
+        }
       }
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
@@ -198,33 +213,38 @@ export default function MapScreen() {
         </TouchableOpacity>
       </View>
 
-      {pendingPin ? (
-        <View style={styles.actions}>
-          <View style={styles.actionButton}>
-            <Button
-              title="Mama Bıraktım"
-              onPress={() => handleChooseAction('food')}
-              disabled={submitting}
-            />
-          </View>
-          <View style={styles.actionButton}>
-            <Button
-              title="Su Bıraktım"
-              onPress={() => handleChooseAction('water')}
-              disabled={submitting}
-            />
-          </View>
-          <View style={styles.actionButton}>
-            <Button title="İptal" color="#c62828" onPress={() => setPendingPin(null)} />
-          </View>
-        </View>
-      ) : (
+      {!pendingPin && (
         <View style={styles.hint}>
           <Text style={styles.hintText}>
             Mama/su bıraktığınız konumu işaretlemek için haritaya dokunun.
           </Text>
         </View>
       )}
+
+      <Modal visible={!!pendingPin} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Bu konuma ne bıraktınız?</Text>
+            <View style={styles.modalButton}>
+              <Button
+                title="Mama Bıraktım"
+                onPress={() => handleChooseAction('food')}
+                disabled={submitting}
+              />
+            </View>
+            <View style={styles.modalButton}>
+              <Button
+                title="Su Bıraktım"
+                onPress={() => handleChooseAction('water')}
+                disabled={submitting}
+              />
+            </View>
+            <View style={styles.modalButton}>
+              <Button title="İptal" color="#c62828" onPress={() => setPendingPin(null)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {(loading || submitting) && (
         <View style={styles.loadingOverlay} pointerEvents="none">
@@ -268,13 +288,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   hintText: { textAlign: 'center', color: '#555' },
-  actions: {
-    flexDirection: 'row',
-    padding: 12,
-    gap: 12,
-    backgroundColor: '#fff',
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  actionButton: { flex: 1 },
+  modalCard: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalButton: { marginBottom: 10 },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
