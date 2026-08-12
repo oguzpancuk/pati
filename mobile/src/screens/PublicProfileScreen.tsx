@@ -98,7 +98,7 @@ export default function PublicProfileScreen({ route }: any) {
       <Text style={styles.sectionTitle}>Rozetler</Text>
       <View style={styles.badgeRow}>
         {(['feeder', 'water', 'registrar'] as const).map((category) => {
-          const badge = profile.badges[category];
+          const badge = profile.badges?.[category] ?? { streakDays: 0, tier: null };
           return (
             <View key={category} style={styles.badgeCard}>
               <Text style={styles.badgeEmoji}>{badge.tier ? TIER_EMOJI[badge.tier] : '⬜'}</Text>

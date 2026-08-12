@@ -41,7 +41,15 @@ async function uploadAvatar(req, res, next) {
       'UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING id, name, email, role, avatar_url, created_at',
       [avatarUrl, req.user.userId]
     );
-    res.json(result.rows[0]);
+
+    // İstemci bu yanıtı doğrudan mevcut profilin yerine koyuyor; getMe ile aynı
+    // şekli (stats + badges dahil) döndürmezsek profil ekranı eksik alanlarla
+    // render edilmeye çalışıp çöküyor.
+    const [stats, badges] = await Promise.all([
+      getStats(req.user.userId),
+      getUserBadges(req.user.userId),
+    ]);
+    res.json({ ...result.rows[0], stats, badges });
   } catch (err) {
     if (req.file) {
       fs.unlink(req.file.path, () => {});

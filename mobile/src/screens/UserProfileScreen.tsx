@@ -67,7 +67,9 @@ export default function UserProfileScreen({ navigation }: any) {
     setUploading(true);
     try {
       const updated = await uploadAvatar({ uri: asset.uri, type: asset.type, fileName: asset.fileName });
-      setMe(updated);
+      // Yanıtı doğrudan yerine koymak yerine mevcut profille birleştiriyoruz:
+      // eksik bir alan gelse bile ekran render edilebilir durumda kalır.
+      setMe((prev) => (prev ? { ...prev, ...updated } : updated));
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
@@ -138,7 +140,7 @@ export default function UserProfileScreen({ navigation }: any) {
       </View>
       <View style={styles.badgeRow}>
         {(['feeder', 'water', 'registrar'] as const).map((category) => {
-          const badge = me.badges[category];
+          const badge = me.badges?.[category] ?? { streakDays: 0, tier: null };
           const nextThreshold = NEXT_TIER_THRESHOLD[badge.tier ?? 'none'];
           return (
             <TouchableOpacity
