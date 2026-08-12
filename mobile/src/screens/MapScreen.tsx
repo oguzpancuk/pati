@@ -1,5 +1,13 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Button, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Button,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import MapView, {
   Circle,
@@ -97,14 +105,19 @@ export default function MapScreen() {
     if (!pendingPin) return;
     const pin = pendingPin;
 
-    const photoResult = await launchCamera({ mediaType: 'photo', saveToPhotos: false });
-    if (photoResult.didCancel || !photoResult.assets?.[0]?.uri) {
-      return;
-    }
-    const asset = photoResult.assets[0];
-
-    setSubmitting(true);
     try {
+      const photoResult = await launchCamera({ mediaType: 'photo', saveToPhotos: false });
+      if (photoResult.didCancel) {
+        return;
+      }
+      const asset = photoResult.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert('Fotoğraf alınamadı', photoResult.errorMessage ?? 'Bilinmeyen hata');
+        return;
+      }
+
+      setSubmitting(true);
+
       const device = await getCurrentLocation();
       const distance = distanceMeters(device, { lat: pin.latitude, lng: pin.longitude });
       if (distance > MAX_DISTANCE_TO_PIN_METERS) {
@@ -116,7 +129,7 @@ export default function MapScreen() {
       }
 
       await addCareAction(pin.latitude, pin.longitude, actionType, device.lat, device.lng, {
-        uri: asset.uri!,
+        uri: asset.uri,
         type: asset.type,
         fileName: asset.fileName,
       });
@@ -127,6 +140,13 @@ export default function MapScreen() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function zoomBy(factor: number) {
+    mapRef.current?.getCamera().then((camera) => {
+      const zoom = camera.zoom ?? 6;
+      mapRef.current?.animateCamera({ zoom: zoom + factor }, { duration: 200 });
+    });
   }
 
   return (
@@ -169,6 +189,15 @@ export default function MapScreen() {
         {pendingPin && <Marker coordinate={pendingPin} pinColor="#1976d2" />}
       </MapView>
 
+      <View style={styles.zoomControls}>
+        <TouchableOpacity style={styles.zoomButton} onPress={() => zoomBy(1)}>
+          <Text style={styles.zoomButtonText}>+</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.zoomButton} onPress={() => zoomBy(-1)}>
+          <Text style={styles.zoomButtonText}>−</Text>
+        </TouchableOpacity>
+      </View>
+
       {pendingPin ? (
         <View style={styles.actions}>
           <View style={styles.actionButton}>
@@ -209,6 +238,26 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  zoomControls: {
+    position: 'absolute',
+    right: 12,
+    bottom: 96,
+  },
+  zoomButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  zoomButtonText: { fontSize: 22, fontWeight: '600', color: '#333' },
   banner: {
     backgroundColor: '#c62828',
     padding: 12,
