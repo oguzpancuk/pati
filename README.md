@@ -32,10 +32,16 @@ stray/
 - Haritanın kırmızıdan yeşile boyanması: hiç bakım yoksa kırmızı, işaretlenen
   noktalar etrafında (24 saat içinde solan, ne kadar çok kişi işaretlediyse o kadar
   belirgin) yeşil
-- Konum bazlı bakım eksikliği kontrolü (500m/24 saat, banner ile uyarı)
+- Konum bazlı bakım eksikliği kontrolü (500m/24 saat, banner ile uyarı), Mama/Su
+  haritaları ayrı ayrı görüntülenebilir
 - Hayvan profili oluşturma (manuel, en az 2 fotoğraf zorunlu, kedi/köpek için
-  çoktan seçmeli cins/desen listesi) ve yakındaki hayvanları listeleme
+  çoktan seçmeli cins/desen listesi), fotoğraflı liste ve tür filtresiyle
+  yakındaki hayvanları listeleme
 - Hayvan sağlık ve ilaç kaydı
+- Kullanıcı profili: profil fotoğrafı, rozetler (mama/su/hayvan kaydetme —
+  bronz/gümüş/altın/elmas, ardışık gün serisine göre) ve arkadaşlık sistemi
+  (kullanıcı arama, istek gönderme/kabul etme, başka kullanıcıların profilini
+  görüntüleme)
 
 ## Başlarken — Baştan Sona Kurulum
 
@@ -90,8 +96,8 @@ npm run dev
 ```
 `Stray API listening on port 3000` görünce hazır — **bu terminali açık bırakın.**
 
-> Şema zaman zaman değişiyor (en son: `animals.size` kaldırılıp `animals.breed`
-> eklendi, hayvan fotoğrafları da artık zorunlu ve dosya yüklemeli).
+> Şema zaman zaman değişiyor (en son: `users.avatar_url` ve `friendships` tablosu
+> eklendi).
 > Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
 > `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
 >
@@ -173,6 +179,11 @@ IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
    görür, **Yeni Hayvan Ekle** ile konumunuz otomatik alınarak yeni bir profil
    oluşturabilirsiniz.
 6. **Profilim** sekmesinden çıkış yapabilirsiniz.
+
+**Rozetler:** Mama, su ve hayvan kaydetme için ayrı ayrı hesaplanır; bir kategoride
+en uzun ardışık gün serisine göre kademe belirlenir ve bir kere kazanılan rozet
+kalıcıdır (aktif seri bozulsa bile düşürülmez): 1 gün → Bronz, 7 gün üst üste →
+Gümüş, 30 gün üst üste → Altın, 365 gün üst üste → Elmas.
 
 **Uzaktan test için konum override'ı:** `oguzpancuk@gmail.com` hesabıyla giriş
 yapıldığında (yalnızca geliştirme derlemelerinde, `__DEV__`), gerçek GPS yerine

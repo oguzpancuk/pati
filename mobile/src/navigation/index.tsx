@@ -10,6 +10,8 @@ import AnimalsScreen from '../screens/AnimalsScreen';
 import AddAnimalScreen from '../screens/AddAnimalScreen';
 import AnimalProfileScreen from '../screens/AnimalProfileScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
+import PublicProfileScreen from '../screens/PublicProfileScreen';
+import FindFriendsScreen from '../screens/FindFriendsScreen';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -20,6 +22,8 @@ export type MainStackParamList = {
   Tabs: undefined;
   AddAnimal: undefined;
   AnimalProfile: { animalId: number };
+  PublicProfile: { userId: number };
+  FindFriends: undefined;
 };
 
 export type MainTabParamList = {
@@ -64,6 +68,16 @@ function MainNavigator() {
         name="AnimalProfile"
         component={AnimalProfileScreen}
         options={{ title: 'Hayvan Profili' }}
+      />
+      <MainStack.Screen
+        name="PublicProfile"
+        component={PublicProfileScreen}
+        options={{ title: 'Kullanıcı Profili' }}
+      />
+      <MainStack.Screen
+        name="FindFriends"
+        component={FindFriendsScreen}
+        options={{ title: 'Arkadaş Bul' }}
       />
     </MainStack.Navigator>
   );

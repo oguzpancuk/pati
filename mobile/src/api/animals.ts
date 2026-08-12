@@ -11,6 +11,7 @@ export interface Animal {
   created_at: string;
   location: GeoJSON.Point;
   distance_meters?: number;
+  cover_photo_url?: string | null;
 }
 
 export interface HealthRecord {
@@ -36,10 +37,11 @@ export interface AnimalDetail extends Animal {
 export async function fetchAnimals(
   lat?: number,
   lng?: number,
-  radiusMeters?: number
+  radiusMeters?: number,
+  species?: 'cat' | 'dog'
 ): Promise<Animal[]> {
   const { data } = await apiClient.get<Animal[]>('/animals', {
-    params: lat && lng ? { lat, lng, radiusMeters } : undefined,
+    params: lat && lng ? { lat, lng, radiusMeters, species } : { species },
   });
   return data;
 }

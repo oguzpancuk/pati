@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'vet', 'admin')),
+    avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -71,3 +72,18 @@ CREATE TABLE IF NOT EXISTS care_actions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_care_actions_location ON care_actions USING GIST (location);
+
+-- Arkadaşlık istekleri/ilişkileri. 'pending' durumundaki bir satır iken karşı taraf
+-- da istek gönderirse uygulama katmanında otomatik 'accepted' yapılır (bkz.
+-- friendship.controller.js). Kabul edilmiş bir ilişki, iki yönden de sorgulanabilir
+-- olması için requester/addressee ayrımı yalnızca isteği kimin başlattığını gösterir.
+CREATE TABLE IF NOT EXISTS friendships (
+    id SERIAL PRIMARY KEY,
+    requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    addressee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    responded_at TIMESTAMPTZ,
+    CHECK (requester_id <> addressee_id),
+    UNIQUE (requester_id, addressee_id)
+);

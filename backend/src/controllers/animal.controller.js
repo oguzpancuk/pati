@@ -1,28 +1,51 @@
 const fs = require('fs');
 const pool = require('../config/db');
 
+const COVER_PHOTO_JOIN = `
+  LEFT JOIN LATERAL (
+    SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
+  ) cover ON true
+`;
+
 async function listAnimals(req, res, next) {
   try {
-    const { lat, lng, radiusMeters } = req.query;
+    const { lat, lng, radiusMeters, species } = req.query;
+    if (species && !['cat', 'dog'].includes(species)) {
+      return res.status(400).json({ error: 'species cat veya dog olmalıdır' });
+    }
+    const speciesFilter = species ? 'AND a.species = $SPECIES' : '';
 
     if (lat && lng) {
-      const result = await pool.query(
-        `SELECT id, species, name, color, breed, markings, created_at,
-                ST_AsGeoJSON(location)::json AS location,
-                ST_Distance(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
-         FROM animals
-         WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
-         ORDER BY distance_meters`,
-        [lng, lat, radiusMeters || 2000]
-      );
+      const params = [lng, lat, radiusMeters || 2000];
+      let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
+                        ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url,
+                        ST_Distance(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
+                 FROM animals a
+                 ${COVER_PHOTO_JOIN}
+                 WHERE ST_DWithin(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
+                 ${speciesFilter}
+                 ORDER BY distance_meters`;
+      if (species) {
+        params.push(species);
+        sql = sql.replace('$SPECIES', `$${params.length}`);
+      }
+      const result = await pool.query(sql, params);
       return res.json(result.rows);
     }
 
-    const result = await pool.query(
-      `SELECT id, species, name, color, breed, markings, created_at,
-              ST_AsGeoJSON(location)::json AS location
-       FROM animals ORDER BY created_at DESC LIMIT 100`
-    );
+    const params = [];
+    let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
+                      ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url
+               FROM animals a
+               ${COVER_PHOTO_JOIN}
+               WHERE true
+               ${speciesFilter}
+               ORDER BY a.created_at DESC LIMIT 100`;
+    if (species) {
+      params.push(species);
+      sql = sql.replace('$SPECIES', `$${params.length}`);
+    }
+    const result = await pool.query(sql, params);
     res.json(result.rows);
   } catch (err) {
     next(err);

@@ -44,7 +44,7 @@ const TURKEY_POLYGON: LatLng[] = [
 ];
 
 const MAX_DISTANCE_TO_PIN_METERS = 10;
-const ACTION_CIRCLE_RADIUS_METERS = 400;
+const ACTION_CIRCLE_RADIUS_METERS = 60;
 const USER_ZOOM_DELTA = 0.03;
 const MIN_DELTA = 0.001;
 const MAX_DELTA = 40;
@@ -69,6 +69,7 @@ export default function MapScreen() {
   const [actions, setActions] = useState<CareAction[]>([]);
   const [status, setStatus] = useState<CareStatus | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
+  const [viewType, setViewType] = useState<'food' | 'water'>('food');
   const [pendingPin, setPendingPin] = useState<PendingPin>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -106,13 +107,13 @@ export default function MapScreen() {
     setLoading(true);
     try {
       const [actionData, loc] = await Promise.all([
-        fetchCareActionsInBounds(TURKEY_BOUNDS),
+        fetchCareActionsInBounds(TURKEY_BOUNDS, viewType),
         getCurrentLocation().catch(() => null),
       ]);
       setActions(actionData);
       if (loc) {
         setMyLocation(loc);
-        const statusData = await fetchCareStatus(loc.lat, loc.lng);
+        const statusData = await fetchCareStatus(loc.lat, loc.lng, viewType);
         setStatus(statusData);
         centerOnUser(loc);
       }
@@ -122,7 +123,7 @@ export default function MapScreen() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [viewType]);
 
   useFocusEffect(
     useCallback(() => {
@@ -211,10 +212,30 @@ export default function MapScreen() {
       {status?.needsAttention && (
         <View style={styles.banner}>
           <Text style={styles.bannerText}>
-            Bulunduğunuz konumun 500m çevresinde son 24 saatte mama/su bırakılmamış.
+            Bulunduğunuz konumun 500m çevresinde son 24 saatte {viewType === 'food' ? 'mama' : 'su'}{' '}
+            bırakılmamış.
           </Text>
         </View>
       )}
+
+      <View style={styles.viewTypeRow}>
+        <TouchableOpacity
+          style={[styles.viewTypeButton, viewType === 'food' && styles.viewTypeButtonSelected]}
+          onPress={() => setViewType('food')}
+        >
+          <Text style={[styles.viewTypeText, viewType === 'food' && styles.viewTypeTextSelected]}>
+            Mama
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.viewTypeButton, viewType === 'water' && styles.viewTypeButtonSelected]}
+          onPress={() => setViewType('water')}
+        >
+          <Text style={[styles.viewTypeText, viewType === 'water' && styles.viewTypeTextSelected]}>
+            Su
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <MapView
         ref={mapRef}
@@ -335,6 +356,23 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   bannerText: { color: '#fff', textAlign: 'center' },
+  viewTypeRow: {
+    flexDirection: 'row',
+    padding: 8,
+    gap: 8,
+    backgroundColor: '#fff',
+  },
+  viewTypeButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  viewTypeButtonSelected: { backgroundColor: '#2e7d32', borderColor: '#2e7d32' },
+  viewTypeText: { color: '#333', fontWeight: '600' },
+  viewTypeTextSelected: { color: '#fff' },
   hint: {
     padding: 12,
     backgroundColor: '#fff',

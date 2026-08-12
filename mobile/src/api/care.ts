@@ -23,14 +23,23 @@ export interface Bounds {
   maxLng: number;
 }
 
-export async function fetchCareActionsInBounds(bounds: Bounds): Promise<CareAction[]> {
-  const { data } = await apiClient.get<CareAction[]>('/care-actions', { params: bounds });
+export async function fetchCareActionsInBounds(
+  bounds: Bounds,
+  actionType?: 'food' | 'water'
+): Promise<CareAction[]> {
+  const { data } = await apiClient.get<CareAction[]>('/care-actions', {
+    params: { ...bounds, actionType },
+  });
   return data;
 }
 
-export async function fetchCareStatus(lat: number, lng: number): Promise<CareStatus> {
+export async function fetchCareStatus(
+  lat: number,
+  lng: number,
+  actionType?: 'food' | 'water'
+): Promise<CareStatus> {
   const { data } = await apiClient.get<CareStatus>('/care-actions/status', {
-    params: { lat, lng },
+    params: { lat, lng, actionType },
   });
   return data;
 }
