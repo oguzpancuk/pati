@@ -26,8 +26,13 @@ stray/
 ## MVP Kapsamı
 
 - Kullanıcı kaydı ve giriş sistemi
-- İnteraktif ısı haritası: kullanıcıların bıraktığı mama/su noktaları
-- Konum bazlı bakım eksikliği kontrolü (500m/24 saat)
+- Türkiye'ye odaklı harita: haritaya dokunup pin bırakarak "Mama Bıraktım" /
+  "Su Bıraktım" işaretleme — fotoğraf çekimi zorunlu, kullanıcının anlık konumu
+  işaretlediği pinden 10 metreden uzaksa reddedilir
+- Haritanın kırmızıdan yeşile boyanması: hiç bakım yoksa kırmızı, işaretlenen
+  noktalar etrafında (24 saat içinde solan, ne kadar çok kişi işaretlediyse o kadar
+  belirgin) yeşil
+- Konum bazlı bakım eksikliği kontrolü (500m/24 saat, banner ile uyarı)
 - Hayvan profili oluşturma (manuel) ve yakındaki hayvanları listeleme
 - Hayvan sağlık ve ilaç kaydı
 
@@ -84,9 +89,13 @@ npm run dev
 ```
 `Stray API listening on port 3000` görünce hazır — **bu terminali açık bırakın.**
 
-> Şema daha önce değişti (bölge/bildirim tabloları kaldırıldı, `care_actions` eklendi).
-> Eski bir veritabanınız varsa migrasyondan önce sıfırlayın:
+> Şema zaman zaman değişiyor (en son: `care_actions`'a fotoğraf zorunluluğu eklendi).
+> Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
 > `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
+>
+> Bakım fotoğrafları backend'in yerel diskine (`backend/uploads/`) kaydedilir ve
+> `/uploads/...` altında servis edilir — bulut depolama (S3 vb.) kullanmaz, bu yüzden
+> yalnızca geliştirme/MVP amaçlıdır.
 
 ### 4. Mobil bağımlılıkları kurun
 
@@ -113,8 +122,9 @@ echo 'export PATH="/opt/homebrew/opt/ruby/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-**Pod install** (native bir bağımlılık — konum kütüphanesi — eklendiği için mobil
-tarafta değişiklik olduysa bunu tekrar çalıştırmanız gerekir):
+**Pod install** (native bağımlılıklar — konum ve kamera kütüphaneleri — eklendiği
+için mobil tarafta her `npm install` sonrası bunu tekrar çalıştırmanız gerekir;
+atlarsanız "The package '...' doesn't seem to be linked" hatası alırsınız):
 ```bash
 cd ios
 bundle install
@@ -149,14 +159,18 @@ IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
 
 1. **Kayıt Ol** ekranından yeni hesap oluşturun.
 2. Konum izni isteyecek — **izin verin** (harita ve bakım kontrolü buna dayanıyor).
-3. **Harita** sekmesinde bulunduğunuz yerin etrafını görürsünüz; henüz kimse mama/su
-   bırakmadıysa üstte kırmızı bir "bakım eksik" uyarısı çıkar. **Mama Bıraktım**'a
-   basınca anlık konumunuza bir nokta eklenir ve harita üzerinde turuncu bir daire
-   olarak görünür, uyarı kaybolur.
-4. **Hayvanlar** sekmesinde yakınınızdaki kayıtlı hayvanları (mesafeye göre sıralı)
+3. **Harita** sekmesinde Türkiye'nin tamamı görünür; henüz bakım yapılmamış yerler
+   kırmızı, işaretlenmiş noktaların çevresi yeşildir. Bulunduğunuz konumun 500m
+   çevresinde son 24 saatte bakım yoksa üstte kırmızı bir uyarı çıkar.
+4. Mama/su bırakmak için **haritaya dokunarak bir pin bırakın**, çıkan **Mama
+   Bıraktım** / **Su Bıraktım** butonlarından birini seçin. Kamera açılır —
+   fotoğraf çekmeden işaretleme tamamlanmaz. Fotoğraftan sonra anlık konumunuz
+   pinden 10 metreden uzaksa işlem reddedilir ve ne kadar uzakta olduğunuz
+   söylenir; yaklaşıp tekrar deneyin.
+5. **Hayvanlar** sekmesinde yakınınızdaki kayıtlı hayvanları (mesafeye göre sıralı)
    görür, **Yeni Hayvan Ekle** ile konumunuz otomatik alınarak yeni bir profil
    oluşturabilirsiniz.
-5. **Profilim** sekmesinden çıkış yapabilirsiniz.
+6. **Profilim** sekmesinden çıkış yapabilirsiniz.
 
 ## Sık Karşılaşılan Sorunlar
 

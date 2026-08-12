@@ -6,11 +6,13 @@ const userRoutes = require('./routes/user.routes');
 const careRoutes = require('./routes/care.routes');
 const animalRoutes = require('./routes/animal.routes');
 const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
+const { UPLOADS_DIR } = require('./config/upload');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS care_actions (
     location GEOGRAPHY(POINT, 4326) NOT NULL,
     user_id INTEGER NOT NULL REFERENCES users(id),
     action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('food', 'water')),
+    photo_url TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
