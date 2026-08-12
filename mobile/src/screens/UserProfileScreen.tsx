@@ -26,6 +26,7 @@ import {
   uploadAvatar,
 } from '../api/users';
 import { BADGE_LABELS, CATEGORY_LABELS, NEXT_TIER_THRESHOLD, TIER_EMOJI } from '../badges';
+import BadgeCatalogModal from '../components/BadgeCatalogModal';
 
 export default function UserProfileScreen({ navigation }: any) {
   const { logout } = useAuth();
@@ -34,6 +35,7 @@ export default function UserProfileScreen({ navigation }: any) {
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [catalogVisible, setCatalogVisible] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -128,13 +130,22 @@ export default function UserProfileScreen({ navigation }: any) {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Rozetlerim</Text>
+      <View style={styles.badgesHeader}>
+        <Text style={styles.sectionTitle}>Rozetlerim</Text>
+        <TouchableOpacity onPress={() => setCatalogVisible(true)}>
+          <Text style={styles.linkText}>Tüm rozetler</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.badgeRow}>
         {(['feeder', 'water', 'registrar'] as const).map((category) => {
           const badge = me.badges[category];
           const nextThreshold = NEXT_TIER_THRESHOLD[badge.tier ?? 'none'];
           return (
-            <View key={category} style={styles.badgeCard}>
+            <TouchableOpacity
+              key={category}
+              style={styles.badgeCard}
+              onPress={() => setCatalogVisible(true)}
+            >
               <Text style={styles.badgeEmoji}>{badge.tier ? TIER_EMOJI[badge.tier] : '⬜'}</Text>
               <Text style={styles.badgeLabel}>
                 {badge.tier ? BADGE_LABELS[category][badge.tier] : CATEGORY_LABELS[category]}
@@ -144,10 +155,16 @@ export default function UserProfileScreen({ navigation }: any) {
                   ? `${badge.streakDays} / ${nextThreshold} gün`
                   : `${badge.streakDays} gün (en üst seviye)`}
               </Text>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>
+
+      <BadgeCatalogModal
+        visible={catalogVisible}
+        onClose={() => setCatalogVisible(false)}
+        badges={me.badges}
+      />
 
       <Text style={styles.sectionTitle}>Bakım Verdiğim Hayvanlar</Text>
       <FlatList
@@ -225,6 +242,12 @@ const styles = StyleSheet.create({
   meta: { color: '#555', marginTop: 4 },
   sectionTitle: { fontSize: 18, fontWeight: '600', marginTop: 8, marginBottom: 8 },
   subTitle: { fontSize: 14, fontWeight: '600', color: '#555', marginTop: 8, marginBottom: 4 },
+  badgesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  linkText: { color: '#2e7d32', fontWeight: '600' },
   badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   badgeCard: {
     flex: 1,

@@ -54,8 +54,13 @@ const MAX_DELTA = 40;
 // key zorunluluğu getirirdi). Bunun yerine kırmızı bir taban katmanının üstüne, ağırlığa
 // göre saydamlaşan yeşil daireler çiziyoruz: hiç bakım yoksa kırmızı görünür, taze/çok
 // sayıda aksiyon olan yerlerde daireler üst üste binip belirgin yeşile döner.
+// Opaklıklar bilinçli olarak düşük tutuldu; altındaki sokak/işletme isimleri okunabilir
+// kalmalı, katmanlar haritayı gizlememeli.
+const BASE_RED_FILL = 'rgba(198, 40, 40, 0.15)';
+const MAX_GREEN_ALPHA = 0.3;
+
 function weightToGreenAlpha(weight: number) {
-  return Math.min(Math.max(weight, 0), 1) * 0.55;
+  return Math.min(Math.max(weight, 0), 1) * MAX_GREEN_ALPHA;
 }
 
 type PendingPin = LatLng | null;
@@ -248,7 +253,7 @@ export default function MapScreen() {
       >
         <Polygon
           coordinates={TURKEY_POLYGON}
-          fillColor="rgba(198, 40, 40, 0.35)"
+          fillColor={BASE_RED_FILL}
           strokeColor="transparent"
         />
 
@@ -289,26 +294,24 @@ export default function MapScreen() {
       {!pendingPin && (
         <View style={styles.hint}>
           <Text style={styles.hintText}>
-            Mama/su bıraktığınız konumu işaretlemek için haritaya dokunun.
+            {viewType === 'food' ? 'Mama' : 'Su'} bıraktığınız konumu işaretlemek için haritaya
+            dokunun.
           </Text>
         </View>
       )}
 
+      {/* Hangi harita açıksa yalnızca ona ait aksiyon sunuluyor: mama haritasındayken
+          su eklemek (ya da tersi) kafa karıştırıcı ve görüntülenen katmanla tutarsız. */}
       <Modal visible={!!pendingPin} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Bu konuma ne bıraktınız?</Text>
+            <Text style={styles.modalTitle}>
+              Bu konuma {viewType === 'food' ? 'mama' : 'su'} bıraktığınızı işaretleyin
+            </Text>
             <View style={styles.modalButton}>
               <Button
-                title="Mama Bıraktım"
-                onPress={() => handleChooseAction('food')}
-                disabled={submitting}
-              />
-            </View>
-            <View style={styles.modalButton}>
-              <Button
-                title="Su Bıraktım"
-                onPress={() => handleChooseAction('water')}
+                title={viewType === 'food' ? 'Mama Bıraktım' : 'Su Bıraktım'}
+                onPress={() => handleChooseAction(viewType)}
                 disabled={submitting}
               />
             </View>
