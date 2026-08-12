@@ -12,17 +12,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Bölgeler (harita üzerindeki bakım/durum alanları)
-CREATE TABLE IF NOT EXISTS regions (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(150) NOT NULL,
-    boundary GEOGRAPHY(POLYGON, 4326) NOT NULL,
-    status VARCHAR(10) NOT NULL DEFAULT 'yellow' CHECK (status IN ('green', 'yellow', 'red')),
-    status_updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS idx_regions_boundary ON regions USING GIST (boundary);
-
 -- Hayvanlar
 CREATE TABLE IF NOT EXISTS animals (
     id SERIAL PRIMARY KEY,
@@ -32,7 +21,6 @@ CREATE TABLE IF NOT EXISTS animals (
     size VARCHAR(20) CHECK (size IN ('small', 'medium', 'large')),
     markings TEXT,
     location GEOGRAPHY(POINT, 4326) NOT NULL,
-    region_id INTEGER REFERENCES regions(id) ON DELETE SET NULL,
     created_by INTEGER NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -59,7 +47,7 @@ CREATE TABLE IF NOT EXISTS health_records (
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Kullanıcı ile hayvan arasındaki bakım (kaydırma/takip) ilişkisi
+-- Kullanıcı ile hayvan arasındaki bakım (takip) ilişkisi
 CREATE TABLE IF NOT EXISTS user_animal_care (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
@@ -67,22 +55,15 @@ CREATE TABLE IF NOT EXISTS user_animal_care (
     PRIMARY KEY (user_id, animal_id)
 );
 
--- Bölge aksiyonları: "Mama Bıraktım", "Su Bıraktım", "Hayvan Görüldü"
-CREATE TABLE IF NOT EXISTS feeding_actions (
+-- Bakım noktaları: kullanıcıların mama/su bıraktığı tam konumlar.
+-- Bölge/idari sınır kavramı yok; harita bu noktaların yoğunluğuna göre ısı haritası
+-- olarak renklendirilir ve "son 24 saatte 500m içinde bakım var mı" sorgusu buradan hesaplanır.
+CREATE TABLE IF NOT EXISTS care_actions (
     id SERIAL PRIMARY KEY,
-    region_id INTEGER NOT NULL REFERENCES regions(id) ON DELETE CASCADE,
-    animal_id INTEGER REFERENCES animals(id) ON DELETE SET NULL,
+    location GEOGRAPHY(POINT, 4326) NOT NULL,
     user_id INTEGER NOT NULL REFERENCES users(id),
-    action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('food', 'water', 'sighting')),
+    action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('food', 'water')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Bildirimler
-CREATE TABLE IF NOT EXISTS notifications (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    region_id INTEGER REFERENCES regions(id) ON DELETE CASCADE,
-    message TEXT NOT NULL,
-    is_read BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+CREATE INDEX IF NOT EXISTS idx_care_actions_location ON care_actions USING GIST (location);

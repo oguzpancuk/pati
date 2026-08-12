@@ -7,9 +7,9 @@ export interface Animal {
   color: string | null;
   size: string | null;
   markings: string | null;
-  region_id: number | null;
   created_at: string;
   location: GeoJSON.Point;
+  distance_meters?: number;
 }
 
 export interface HealthRecord {
@@ -26,9 +26,13 @@ export interface AnimalDetail extends Animal {
   healthRecords: HealthRecord[];
 }
 
-export async function fetchAnimals(lat?: number, lng?: number): Promise<Animal[]> {
+export async function fetchAnimals(
+  lat?: number,
+  lng?: number,
+  radiusMeters?: number
+): Promise<Animal[]> {
   const { data } = await apiClient.get<Animal[]>('/animals', {
-    params: lat && lng ? { lat, lng } : undefined,
+    params: lat && lng ? { lat, lng, radiusMeters } : undefined,
   });
   return data;
 }
@@ -46,7 +50,6 @@ export interface CreateAnimalInput {
   markings?: string;
   lat: number;
   lng: number;
-  regionId?: number;
 }
 
 export async function createAnimal(input: CreateAnimalInput): Promise<Animal> {

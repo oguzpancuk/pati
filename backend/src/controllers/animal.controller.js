@@ -6,7 +6,7 @@ async function listAnimals(req, res, next) {
 
     if (lat && lng) {
       const result = await pool.query(
-        `SELECT id, species, name, color, size, markings, region_id, created_at,
+        `SELECT id, species, name, color, size, markings, created_at,
                 ST_AsGeoJSON(location)::json AS location,
                 ST_Distance(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
          FROM animals
@@ -18,7 +18,7 @@ async function listAnimals(req, res, next) {
     }
 
     const result = await pool.query(
-      `SELECT id, species, name, color, size, markings, region_id, created_at,
+      `SELECT id, species, name, color, size, markings, created_at,
               ST_AsGeoJSON(location)::json AS location
        FROM animals ORDER BY created_at DESC LIMIT 100`
     );
@@ -31,7 +31,7 @@ async function listAnimals(req, res, next) {
 async function getAnimal(req, res, next) {
   try {
     const animalResult = await pool.query(
-      `SELECT id, species, name, color, size, markings, region_id, created_by, created_at,
+      `SELECT id, species, name, color, size, markings, created_by, created_at,
               ST_AsGeoJSON(location)::json AS location
        FROM animals WHERE id = $1`,
       [req.params.id]
@@ -57,7 +57,7 @@ async function getAnimal(req, res, next) {
 
 async function createAnimal(req, res, next) {
   try {
-    const { species, name, color, size, markings, lat, lng, regionId } = req.body;
+    const { species, name, color, size, markings, lat, lng } = req.body;
     if (!species || !['cat', 'dog'].includes(species)) {
       return res.status(400).json({ error: 'species cat veya dog olmalıdır' });
     }
@@ -66,10 +66,10 @@ async function createAnimal(req, res, next) {
     }
 
     const result = await pool.query(
-      `INSERT INTO animals (species, name, color, size, markings, location, region_id, created_by)
-       VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography, $8, $9)
-       RETURNING id, species, name, color, size, markings, region_id, created_at`,
-      [species, name || null, color || null, size || null, markings || null, lng, lat, regionId || null, req.user.userId]
+      `INSERT INTO animals (species, name, color, size, markings, location, created_by)
+       VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography, $8)
+       RETURNING id, species, name, color, size, markings, created_at`,
+      [species, name || null, color || null, size || null, markings || null, lng, lat, req.user.userId]
     );
 
     const animal = result.rows[0];

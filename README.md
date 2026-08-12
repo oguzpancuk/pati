@@ -26,11 +26,10 @@ stray/
 ## MVP Kapsamı
 
 - Kullanıcı kaydı ve giriş sistemi
-- İnteraktif harita ve bölge sistemi (yeşil/sarı/kırmızı durum kodlaması)
-- Mama/Su ekleme ve takibi
-- Hayvan profili oluşturma (manuel)
+- İnteraktif ısı haritası: kullanıcıların bıraktığı mama/su noktaları
+- Konum bazlı bakım eksikliği kontrolü (500m/24 saat)
+- Hayvan profili oluşturma (manuel) ve yakındaki hayvanları listeleme
 - Hayvan sağlık ve ilaç kaydı
-- Basit bildirim sistemi
 
 ## Başlarken
 
@@ -44,14 +43,16 @@ npm run migrate        # PostGIS şemasını oluşturur
 npm run dev
 ```
 
-Bölge durumu (yeşil/sarı/kırmızı), o bölgedeki en son mama/su/görüldü aksiyonunun ne
-kadar eski olduğuna göre `GET /api/regions` çağrılarında anlık hesaplanır. Bir bölge 24
-saattir aksiyon almadığında "Kırmızı" bildirimlerinin gönderilmesi için aşağıdaki script'in
-periyodik olarak (örn. saatte bir cron ile) çalıştırılması gerekir:
+Bölge/idari sınır kavramı yoktur — kullanıcılar haritada tam bir konuma "Mama Bıraktım"
+veya "Su Bıraktım" aksiyonu ekler (`POST /api/care-actions`). `GET /api/care-actions`,
+belirtilen konumun etrafındaki noktaları (ısı haritası için ağırlıklarıyla birlikte)
+döner. `GET /api/care-actions/status?lat=&lng=` ise o konumun 500 metre yarıçapında
+son 24 saatte bakım yapılıp yapılmadığını (`needsAttention`) söyler — mobil uygulama
+bunu kullanıcının anlık konumuyla her harita açılışında/yenilemesinde sorgular.
 
-```bash
-npm run check-regions
-```
+> Not: Bu, projenin ilk sürümündeki bölge/bildirim tablolarının yerini almıştır. Daha
+> önce migrasyonu çalıştırdıysanız veritabanınızı sıfırlayıp (`DROP SCHEMA public CASCADE;
+> CREATE SCHEMA public;`) `npm run migrate`'i tekrar çalıştırmanız gerekir.
 
 ### Mobile — Emülatörde Çalıştırma
 
