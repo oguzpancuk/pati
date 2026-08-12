@@ -31,71 +31,154 @@ stray/
 - Hayvan profili oluşturma (manuel) ve yakındaki hayvanları listeleme
 - Hayvan sağlık ve ilaç kaydı
 
-## Başlarken
+## Başlarken — Baştan Sona Kurulum
 
-### Backend
+### 1. Repoyu klonlayın
+
+GitHub artık HTTPS üzerinden şifreyle git işlemine izin vermiyor — klonlarken şifre
+yerine bir [Personal Access Token](https://github.com/settings/tokens) (classic,
+`repo` yetkisiyle) girmeniz gerekir; kullanıcı adı istendiğinde GitHub kullanıcı
+adınızı, şifre istendiğinde token'ı yapıştırın.
+
+```bash
+git clone https://github.com/oguzpancuk/Stray.git
+cd Stray
+```
+
+Repo zaten klonluysa `git pull origin main` ile güncelleyin.
+
+### 2. Veritabanını Docker ile başlatın
+
+```bash
+docker run -d \
+  --name stray-db \
+  -p 5433:5432 \
+  -e POSTGRES_USER=stray \
+  -e POSTGRES_PASSWORD=stray \
+  -e POSTGRES_DB=stray \
+  imresamu/postgis:16-3.4
+```
+(`imresamu/postgis`, resmi `postgis/postgis` imajının Apple Silicon/arm64 dahil
+çoklu-mimari topluluk sürümüdür — `postgis/postgis` kullanırsanız Apple Silicon
+Mac'lerde emülasyon uyarısı alırsınız, zararsızdır ama yavaştır. Port `5433` seçildi
+çünkü `5432` genelde Mac'lerde önceden kurulu bir PostgreSQL tarafından kullanılıyor;
+sizde boşsa `-p 5432:5432` da kullanabilirsiniz.)
+
+`docker ps` ile `stray-db`'nin `Up` durumda olduğunu doğrulayın.
+
+### 3. Backend'i kurup çalıştırın
 
 ```bash
 cd backend
-cp .env.example .env   # veritabanı bağlantı bilgilerini doldurun
+cp .env.example .env
+```
+`.env` içinde `DATABASE_URL`'in yukarıdaki Docker ayarlarıyla eşleştiğinden emin olun:
+```
+DATABASE_URL=postgresql://stray:stray@localhost:5433/stray
+JWT_SECRET=herhangi-uzun-bir-rastgele-metin
+```
+```bash
 npm install
-npm run migrate        # PostGIS şemasını oluşturur
+npm run migrate
 npm run dev
 ```
+`Stray API listening on port 3000` görünce hazır — **bu terminali açık bırakın.**
 
-Bölge/idari sınır kavramı yoktur — kullanıcılar haritada tam bir konuma "Mama Bıraktım"
-veya "Su Bıraktım" aksiyonu ekler (`POST /api/care-actions`). `GET /api/care-actions`,
-belirtilen konumun etrafındaki noktaları (ısı haritası için ağırlıklarıyla birlikte)
-döner. `GET /api/care-actions/status?lat=&lng=` ise o konumun 500 metre yarıçapında
-son 24 saatte bakım yapılıp yapılmadığını (`needsAttention`) söyler — mobil uygulama
-bunu kullanıcının anlık konumuyla her harita açılışında/yenilemesinde sorgular.
+> Şema daha önce değişti (bölge/bildirim tabloları kaldırıldı, `care_actions` eklendi).
+> Eski bir veritabanınız varsa migrasyondan önce sıfırlayın:
+> `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
 
-> Not: Bu, projenin ilk sürümündeki bölge/bildirim tablolarının yerini almıştır. Daha
-> önce migrasyonu çalıştırdıysanız veritabanınızı sıfırlayıp (`DROP SCHEMA public CASCADE;
-> CREATE SCHEMA public;`) `npm run migrate`'i tekrar çalıştırmanız gerekir.
+### 4. Mobil bağımlılıkları kurun
 
-### Mobile — Emülatörde Çalıştırma
-
-**Ön koşullar** (React Native'in [Ortam Kurulumu](https://reactnative.dev/docs/set-up-your-environment) rehberini takip edin):
-
-- **Android:** Android Studio + en az bir AVD (Android Virtual Device) kurulu ve
-  emülatör açık olmalı. `ANDROID_HOME` ortam değişkeni ayarlanmış olmalı.
-- **iOS (yalnızca macOS):** Xcode kurulu olmalı, komut satırı araçları seçili olmalı,
-  ve CocoaPods (`sudo gem install cocoapods` veya `bundle install`).
-
-**Backend'i önce ayağa kaldırın** (yukarıdaki adımlarla), çünkü mobil uygulama
-API'ye ihtiyaç duyar. Backend `npm run dev` ile 3000 portunda çalışırken:
-
+Yeni bir terminalde:
 ```bash
-cd mobile
+cd Stray/mobile
 npm install
 ```
 
-**Android:**
+### 5a. iOS'ta çalıştırma (yalnızca Mac)
 
+**Xcode:** App Store'dan tam **Xcode** kurulu olmalı (yalnızca Command Line Tools
+yetmez). Kurulumdan sonra:
+```bash
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+sudo xcodebuild -license accept
+```
+
+**Ruby/CocoaPods:** macOS'un önceden yüklü Ruby'si (2.6.x) çok eski, CocoaPods'un
+bağımlılıkları en az Ruby 3.0 ister:
+```bash
+brew install ruby
+echo 'export PATH="/opt/homebrew/opt/ruby/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Pod install** (native bir bağımlılık — konum kütüphanesi — eklendiği için mobil
+tarafta değişiklik olduysa bunu tekrar çalıştırmanız gerekir):
+```bash
+cd ios
+bundle install
+bundle exec pod install
+cd ..
+```
+
+**Çalıştırın:**
+```bash
+npm run ios
+```
+`localhost:3000`'e doğrudan erişir, harita için API key gerekmez (Apple Maps kullanır).
+
+### 5b. Android'de çalıştırma
+
+**Ön koşul:** Android Studio kurulu, bir sanal cihaz (AVD) oluşturulmuş ve **açık**.
+
+**Google Maps API key (harita için şart):**
+1. [Google Cloud Console](https://console.cloud.google.com/)'da "Maps SDK for Android"ı etkinleştirip bir anahtar oluşturun.
+2. `mobile/android/app/src/main/res/values/google_maps_api.xml.example` dosyasını aynı klasöre `google_maps_api.xml` adıyla kopyalayın, `YOUR_GOOGLE_MAPS_API_KEY` yerine anahtarınızı yazın.
+
+**Çalıştırın:**
 ```bash
 npm run android
 ```
+Backend'e otomatik olarak `10.0.2.2:3000` üzerinden bağlanır (Android emülatörü
+"localhost"u kendi üzerinde arar). Gerçek bir cihazda test ediyorsanız
+`mobile/src/api/client.ts` içindeki `API_BASE_URL`'i bilgisayarınızın yerel ağ
+IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
 
-Uygulama `src/api/client.ts` içinde Android emülatöründen backend'e otomatik olarak
-`10.0.2.2:3000` üzerinden bağlanacak şekilde ayarlıdır (Android emülatörü "localhost"u
-kendi üzerinde arar, bu yüzden host makineye özel bir adres gerekir).
+### 6. Uygulamada gezinme
 
-Haritanın görünmesi için bir Google Maps API anahtarına ihtiyacınız var:
-1. [Google Cloud Console](https://console.cloud.google.com/)'da "Maps SDK for Android"ı etkinleştirip bir API anahtarı oluşturun.
-2. `mobile/android/app/src/main/res/values/google_maps_api.xml.example` dosyasını aynı klasöre `google_maps_api.xml` olarak kopyalayın ve anahtarınızı yapıştırın (bu dosya `.gitignore`'dadır, repoya gitmez).
+1. **Kayıt Ol** ekranından yeni hesap oluşturun.
+2. Konum izni isteyecek — **izin verin** (harita ve bakım kontrolü buna dayanıyor).
+3. **Harita** sekmesinde bulunduğunuz yerin etrafını görürsünüz; henüz kimse mama/su
+   bırakmadıysa üstte kırmızı bir "bakım eksik" uyarısı çıkar. **Mama Bıraktım**'a
+   basınca anlık konumunuza bir nokta eklenir ve harita üzerinde turuncu bir daire
+   olarak görünür, uyarı kaybolur.
+4. **Hayvanlar** sekmesinde yakınınızdaki kayıtlı hayvanları (mesafeye göre sıralı)
+   görür, **Yeni Hayvan Ekle** ile konumunuz otomatik alınarak yeni bir profil
+   oluşturabilirsiniz.
+5. **Profilim** sekmesinden çıkış yapabilirsiniz.
 
-**iOS:**
+## Sık Karşılaşılan Sorunlar
 
-```bash
-cd ios && bundle install && bundle exec pod install && cd ..
-npm run ios
-```
-
-iOS Simülatörü host makineyle ağı paylaştığı için `localhost:3000` doğrudan çalışır,
-ekstra bir ayar gerekmez. Harita için de (Apple Maps kullanıldığından) API anahtarı
-gerekmez.
-
-**Gerçek bir cihazda test ediyorsanız:** `src/api/client.ts` içindeki `API_BASE_URL`
-değerini bilgisayarınızın yerel ağdaki IP adresiyle (örn. `http://192.168.1.5:3000/api`)
-değiştirin — cihaz "localhost"u kendi üzerinde arar.
+- **`git clone`/`push` "Invalid username or token"**: GitHub artık şifre kabul
+  etmiyor, yukarıdaki 1. adımdaki gibi bir Personal Access Token kullanın.
+- **`ffi-*.gem requires ruby >= 3.0`**: Sistem Ruby'si eski, yukarıdaki 5a adımındaki
+  Homebrew Ruby kurulumunu yapın.
+- **`xcodebuild requires Xcode, but active developer directory is CommandLineTools`**:
+  Tam Xcode kurulu değil/seçili değil, 5a adımını uygulayın.
+- **`Unable to open base configuration reference file ... Pods-StrayMobile.debug.xcconfig`**:
+  `pod install` çalıştırılmamış, 5a adımındaki CocoaPods kurulumunu yapın.
+- **`unable to attach DB: ... database is locked`** (Xcode build hatası): Genelde
+  eski bir build önbelleği takılı kalıyor. Sırayla deneyin:
+  ```bash
+  killall -9 XCBBuildService Xcode xcodebuild 2>/dev/null
+  rm -rf ~/Library/Developer/Xcode/DerivedData
+  rm -rf ~/Library/Caches/com.apple.dt.XCBuild ~/Library/Caches/com.apple.dt.Xcode
+  ```
+  Hâlâ çözülmezse Mac'i yeniden başlatıp tek bir terminalden tekrar deneyin.
+- **Docker: `ports are not available: ... address already in use`**: Port `5432`
+  başka bir Postgres tarafından kullanılıyor, 2. adımdaki gibi `5433` gibi farklı bir
+  host portu kullanın (ve `DATABASE_URL`'i buna göre güncelleyin).
+- **Docker: `platform does not match host platform` uyarısı**: Apple Silicon'da
+  zararsız bir uyarı (emülasyonla çalışır), ama 2. adımdaki `imresamu/postgis`
+  imajı bunu tamamen ortadan kaldırır.
