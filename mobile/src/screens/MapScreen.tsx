@@ -68,6 +68,7 @@ export default function MapScreen() {
   const hasCenteredOnUser = useRef(false);
   const [actions, setActions] = useState<CareAction[]>([]);
   const [status, setStatus] = useState<CareStatus | null>(null);
+  const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [pendingPin, setPendingPin] = useState<PendingPin>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -110,6 +111,7 @@ export default function MapScreen() {
       ]);
       setActions(actionData);
       if (loc) {
+        setMyLocation(loc);
         const statusData = await fetchCareStatus(loc.lat, loc.lng);
         setStatus(statusData);
         centerOnUser(loc);
@@ -241,6 +243,15 @@ export default function MapScreen() {
             strokeColor="transparent"
           />
         ))}
+
+        {myLocation && (
+          <Circle
+            center={{ latitude: myLocation.lat, longitude: myLocation.lng }}
+            radius={10}
+            fillColor="rgba(25, 118, 210, 0.7)"
+            strokeColor="#1976d2"
+          />
+        )}
 
         {pendingPin && <Marker coordinate={pendingPin} pinColor="#1976d2" />}
       </MapView>

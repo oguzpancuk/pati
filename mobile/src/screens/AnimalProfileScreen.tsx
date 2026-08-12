@@ -22,7 +22,7 @@ export default function AnimalProfileScreen({ route }: any) {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>{animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}</Text>
       <Text style={styles.meta}>
-        {animal.color ?? '-'} · {animal.size ?? '-'}
+        {animal.color ?? '-'} · {animal.breed ?? '-'}
       </Text>
       {animal.markings ? <Text style={styles.meta}>İşaretler: {animal.markings}</Text> : null}
 

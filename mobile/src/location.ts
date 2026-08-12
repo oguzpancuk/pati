@@ -1,9 +1,28 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PermissionsAndroid, Platform } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 
 export interface Coordinates {
   lat: number;
   lng: number;
+}
+
+// Test amaçlı: bu hesapla giriş yapıldığında gerçek GPS yerine hep Kadıköy
+// konumu döndürülür (uzaktan test edebilmek için). Yalnızca __DEV__ derlemelerinde
+// aktiftir, prod derlemede bu dal hiç çalışmaz.
+const LOCATION_OVERRIDE_EMAIL = 'oguzpancuk@gmail.com';
+const LOCATION_OVERRIDE_COORDS: Coordinates = { lat: 40.9905, lng: 29.0277 }; // Kadıköy, İstanbul
+
+async function getLocationOverride(): Promise<Coordinates | null> {
+  if (!__DEV__) return null;
+  try {
+    const stored = await AsyncStorage.getItem('user');
+    if (!stored) return null;
+    const user = JSON.parse(stored);
+    return user?.email === LOCATION_OVERRIDE_EMAIL ? LOCATION_OVERRIDE_COORDS : null;
+  } catch {
+    return null;
+  }
 }
 
 async function requestAndroidPermission(): Promise<boolean> {
@@ -14,6 +33,11 @@ async function requestAndroidPermission(): Promise<boolean> {
 }
 
 export async function getCurrentLocation(): Promise<Coordinates> {
+  const override = await getLocationOverride();
+  if (override) {
+    return override;
+  }
+
   if (Platform.OS === 'android') {
     const granted = await requestAndroidPermission();
     if (!granted) {

@@ -33,7 +33,8 @@ stray/
   noktalar etrafında (24 saat içinde solan, ne kadar çok kişi işaretlediyse o kadar
   belirgin) yeşil
 - Konum bazlı bakım eksikliği kontrolü (500m/24 saat, banner ile uyarı)
-- Hayvan profili oluşturma (manuel) ve yakındaki hayvanları listeleme
+- Hayvan profili oluşturma (manuel, en az 2 fotoğraf zorunlu, kedi/köpek için
+  çoktan seçmeli cins/desen listesi) ve yakındaki hayvanları listeleme
 - Hayvan sağlık ve ilaç kaydı
 
 ## Başlarken — Baştan Sona Kurulum
@@ -89,7 +90,8 @@ npm run dev
 ```
 `Stray API listening on port 3000` görünce hazır — **bu terminali açık bırakın.**
 
-> Şema zaman zaman değişiyor (en son: `care_actions`'a fotoğraf zorunluluğu eklendi).
+> Şema zaman zaman değişiyor (en son: `animals.size` kaldırılıp `animals.breed`
+> eklendi, hayvan fotoğrafları da artık zorunlu ve dosya yüklemeli).
 > Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
 > `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
 >
@@ -171,6 +173,11 @@ IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
    görür, **Yeni Hayvan Ekle** ile konumunuz otomatik alınarak yeni bir profil
    oluşturabilirsiniz.
 6. **Profilim** sekmesinden çıkış yapabilirsiniz.
+
+**Uzaktan test için konum override'ı:** `oguzpancuk@gmail.com` hesabıyla giriş
+yapıldığında (yalnızca geliştirme derlemelerinde, `__DEV__`), gerçek GPS yerine
+her zaman Kadıköy konumu kullanılır — bu sayede Türkiye dışından da 10m mesafe
+kontrolü gerektiren akışlar test edilebilir. Bkz. `mobile/src/location.ts`.
 
 ## Sık Karşılaşılan Sorunlar
 

@@ -18,7 +18,10 @@ CREATE TABLE IF NOT EXISTS animals (
     species VARCHAR(10) NOT NULL CHECK (species IN ('cat', 'dog')),
     name VARCHAR(120),
     color VARCHAR(120),
-    size VARCHAR(20) CHECK (size IN ('small', 'medium', 'large')),
+    -- Serbest metin: mobil uygulama türe göre (kedi/köpek) sabit bir seçenek listesi
+    -- sunar (Tekir, Sarman, Kangal, Melez vb.), burada CHECK kısıtlaması yok ki yeni
+    -- bir tür eklemek migrasyon gerektirmesin.
+    breed VARCHAR(50),
     markings TEXT,
     location GEOGRAPHY(POINT, 4326) NOT NULL,
     created_by INTEGER NOT NULL REFERENCES users(id),

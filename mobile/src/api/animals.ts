@@ -1,11 +1,12 @@
 import { apiClient } from './client';
+import type { PhotoAsset } from './care';
 
 export interface Animal {
   id: number;
   species: 'cat' | 'dog';
   name: string | null;
   color: string | null;
-  size: string | null;
+  breed: string | null;
   markings: string | null;
   created_at: string;
   location: GeoJSON.Point;
@@ -21,8 +22,14 @@ export interface HealthRecord {
   recorded_at: string;
 }
 
+export interface AnimalPhoto {
+  id: number;
+  url: string;
+  created_at: string;
+}
+
 export interface AnimalDetail extends Animal {
-  photos: { id: number; url: string; created_at: string }[];
+  photos: AnimalPhoto[];
   healthRecords: HealthRecord[];
 }
 
@@ -46,7 +53,7 @@ export interface CreateAnimalInput {
   species: 'cat' | 'dog';
   name?: string;
   color?: string;
-  size?: string;
+  breed?: string;
   markings?: string;
   lat: number;
   lng: number;
@@ -54,6 +61,20 @@ export interface CreateAnimalInput {
 
 export async function createAnimal(input: CreateAnimalInput): Promise<Animal> {
   const { data } = await apiClient.post<Animal>('/animals', input);
+  return data;
+}
+
+export async function addAnimalPhoto(animalId: number, photo: PhotoAsset): Promise<AnimalPhoto> {
+  const form = new FormData();
+  form.append('photo', {
+    uri: photo.uri,
+    type: photo.type ?? 'image/jpeg',
+    name: photo.fileName ?? 'photo.jpg',
+  } as unknown as Blob);
+
+  const { data } = await apiClient.post<AnimalPhoto>(`/animals/${animalId}/photos`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return data;
 }
 
