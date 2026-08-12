@@ -17,7 +17,7 @@ import MapView, {
   Polygon,
   Region as MapRegion,
 } from 'react-native-maps';
-import { launchCamera } from 'react-native-image-picker';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import {
   addCareAction,
   CareAction,
@@ -25,7 +25,7 @@ import {
   fetchCareActionsInBounds,
   fetchCareStatus,
 } from '../api/care';
-import { distanceMeters, getCurrentLocation } from '../location';
+import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 
 // Türkiye'nin yaklaşık coğrafi sınır kutusu (kesin idari sınır değil).
 // Harita bu alana odaklanır ve kullanıcı bu kutunun dışına fazla kayamaz.
@@ -45,6 +45,9 @@ const TURKEY_POLYGON: LatLng[] = [
 
 const MAX_DISTANCE_TO_PIN_METERS = 10;
 const ACTION_CIRCLE_RADIUS_METERS = 400;
+const USER_ZOOM_DELTA = 0.03;
+const MIN_DELTA = 0.001;
+const MAX_DELTA = 40;
 
 // react-native-maps'in Heatmap bileşeni yalnızca Google Maps sağlayıcısında çalışıyor
 // (iOS'ta Apple Maps kullandığımız için desteklenmiyor, Google'a geçmek iOS'ta da API
@@ -59,12 +62,44 @@ type PendingPin = LatLng | null;
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
+  const currentRegionRef = useRef<MapRegion>(TURKEY_REGION);
+  const mapReadyRef = useRef(false);
+  const pendingCenterRef = useRef<Coordinates | null>(null);
   const hasCenteredOnUser = useRef(false);
   const [actions, setActions] = useState<CareAction[]>([]);
   const [status, setStatus] = useState<CareStatus | null>(null);
   const [pendingPin, setPendingPin] = useState<PendingPin>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  function centerOnUser(loc: Coordinates) {
+    if (hasCenteredOnUser.current) return;
+    if (!mapReadyRef.current) {
+      // Harita native tarafta henüz hazır değilse animateToRegion sessizce yok
+      // sayılabiliyor; hazır olduğunda tekrar denemek için konumu saklıyoruz.
+      pendingCenterRef.current = loc;
+      return;
+    }
+    hasCenteredOnUser.current = true;
+    mapRef.current?.animateToRegion(
+      {
+        latitude: loc.lat,
+        longitude: loc.lng,
+        latitudeDelta: USER_ZOOM_DELTA,
+        longitudeDelta: USER_ZOOM_DELTA,
+      },
+      500
+    );
+  }
+
+  function handleMapReady() {
+    mapReadyRef.current = true;
+    if (pendingCenterRef.current) {
+      const loc = pendingCenterRef.current;
+      pendingCenterRef.current = null;
+      centerOnUser(loc);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,25 +112,14 @@ export default function MapScreen() {
       if (loc) {
         const statusData = await fetchCareStatus(loc.lat, loc.lng);
         setStatus(statusData);
-
-        if (!hasCenteredOnUser.current) {
-          hasCenteredOnUser.current = true;
-          mapRef.current?.animateToRegion(
-            {
-              latitude: loc.lat,
-              longitude: loc.lng,
-              latitudeDelta: 0.03,
-              longitudeDelta: 0.03,
-            },
-            500
-          );
-        }
+        centerOnUser(loc);
       }
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useFocusEffect(
@@ -105,6 +129,7 @@ export default function MapScreen() {
   );
 
   function handleRegionChangeComplete(region: MapRegion) {
+    currentRegionRef.current = region;
     const { latitude, longitude } = region;
     if (
       latitude < TURKEY_BOUNDS.minLat ||
@@ -121,13 +146,24 @@ export default function MapScreen() {
     const pin = pendingPin;
 
     try {
-      const photoResult = await launchCamera({ mediaType: 'photo', saveToPhotos: false });
+      let photoResult = await launchCamera({ mediaType: 'photo', saveToPhotos: false });
+
+      // Simülatörlerde gerçek kamera donanımı yok. Geliştirme sırasında akışın
+      // geri kalanını test edebilmek için galeriden seçmeye izin veriyoruz;
+      // gerçek cihazda bu dal hiç tetiklenmez.
+      if (__DEV__ && photoResult.errorCode === 'camera_unavailable') {
+        photoResult = await launchImageLibrary({ mediaType: 'photo' });
+      }
+
       if (photoResult.didCancel) {
         return;
       }
       const asset = photoResult.assets?.[0];
       if (!asset?.uri) {
-        Alert.alert('Fotoğraf alınamadı', photoResult.errorMessage ?? 'Bilinmeyen hata');
+        Alert.alert(
+          'Fotoğraf alınamadı',
+          photoResult.errorMessage ?? photoResult.errorCode ?? 'Bilinmeyen hata'
+        );
         return;
       }
 
@@ -158,10 +194,14 @@ export default function MapScreen() {
   }
 
   function zoomBy(factor: number) {
-    mapRef.current?.getCamera().then((camera) => {
-      const zoom = camera.zoom ?? 6;
-      mapRef.current?.animateCamera({ zoom: zoom + factor }, { duration: 200 });
-    });
+    const current = currentRegionRef.current;
+    const nextRegion: MapRegion = {
+      ...current,
+      latitudeDelta: Math.min(MAX_DELTA, Math.max(MIN_DELTA, current.latitudeDelta * factor)),
+      longitudeDelta: Math.min(MAX_DELTA, Math.max(MIN_DELTA, current.longitudeDelta * factor)),
+    };
+    currentRegionRef.current = nextRegion;
+    mapRef.current?.animateToRegion(nextRegion, 200);
   }
 
   return (
@@ -179,6 +219,7 @@ export default function MapScreen() {
         style={styles.map}
         mapType="standard"
         initialRegion={TURKEY_REGION}
+        onMapReady={handleMapReady}
         onRegionChangeComplete={handleRegionChangeComplete}
         onPress={(e) => setPendingPin(e.nativeEvent.coordinate)}
       >
@@ -205,10 +246,10 @@ export default function MapScreen() {
       </MapView>
 
       <View style={styles.zoomControls}>
-        <TouchableOpacity style={styles.zoomButton} onPress={() => zoomBy(1)}>
+        <TouchableOpacity style={styles.zoomButton} onPress={() => zoomBy(0.5)}>
           <Text style={styles.zoomButtonText}>+</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.zoomButton} onPress={() => zoomBy(-1)}>
+        <TouchableOpacity style={styles.zoomButton} onPress={() => zoomBy(2)}>
           <Text style={styles.zoomButtonText}>−</Text>
         </TouchableOpacity>
       </View>
