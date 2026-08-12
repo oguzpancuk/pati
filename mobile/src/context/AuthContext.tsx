@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as authApi from '../api/auth';
+import { setSessionExpiredHandler } from '../api/client';
 
 interface AuthContextValue {
   user: authApi.User | null;
@@ -23,6 +24,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setIsLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    // API katmanı 401 aldığında saklanan oturumu zaten temizliyor; burada da
+    // kullanıcıyı sıfırlayarak giriş ekranına dönmesini sağlıyoruz.
+    setSessionExpiredHandler(() => setUser(null));
+    return () => setSessionExpiredHandler(null);
   }, []);
 
   async function persistSession(response: authApi.AuthResponse) {

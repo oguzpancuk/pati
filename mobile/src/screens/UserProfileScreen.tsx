@@ -33,6 +33,7 @@ export default function UserProfileScreen({ navigation }: any) {
   const [myAnimals, setMyAnimals] = useState<Animal[]>([]);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -44,8 +45,9 @@ export default function UserProfileScreen({ navigation }: any) {
       setMe(meData);
       setMyAnimals(animalsRes.data);
       setFriendships(friendshipsData);
+      setLoadError(null);
     } catch (err: any) {
-      Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
+      setLoadError(err?.response?.data?.error ?? err?.message ?? 'Profil yüklenemedi');
     }
   }, []);
 
@@ -89,10 +91,20 @@ export default function UserProfileScreen({ navigation }: any) {
     }
   }
 
+  // Profil verisi gelmese bile çıkış yapabilmek kritik: aksi halde geçersiz bir
+  // oturumla uygulamada kilitli kalınıyor.
   if (!me) {
     return (
       <View style={styles.center}>
-        <Text>Yükleniyor...</Text>
+        <Text style={styles.errorText}>{loadError ?? 'Yükleniyor...'}</Text>
+        {loadError && (
+          <>
+            <View style={styles.retryButton}>
+              <Button title="Tekrar Dene" onPress={load} />
+            </View>
+            <Button title="Çıkış Yap" onPress={logout} color="#c62828" />
+          </>
+        )}
       </View>
     );
   }
@@ -200,7 +212,9 @@ export default function UserProfileScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  errorText: { textAlign: 'center', color: '#555', marginBottom: 16 },
+  retryButton: { marginBottom: 12 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   avatar: { width: 72, height: 72, borderRadius: 36 },
   avatarPlaceholder: { backgroundColor: '#2e7d32', justifyContent: 'center', alignItems: 'center' },

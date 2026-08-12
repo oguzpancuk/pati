@@ -22,3 +22,24 @@ apiClient.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+// Oturum geçersizleştiğinde (token süresi dolmuş ya da kullanıcı silinmiş)
+// saklanan oturumu temizleyip AuthProvider'a haber veriyoruz; aksi halde
+// uygulama, hiçbir isteği geçmeyen "yarı giriş yapmış" bir durumda takılıyor.
+type SessionExpiredHandler = () => void;
+let onSessionExpired: SessionExpiredHandler | null = null;
+
+export function setSessionExpiredHandler(handler: SessionExpiredHandler | null) {
+  onSessionExpired = handler;
+}
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error?.response?.status === 401) {
+      await AsyncStorage.multiRemove(['token', 'user']);
+      onSessionExpired?.();
+    }
+    return Promise.reject(error);
+  }
+);
