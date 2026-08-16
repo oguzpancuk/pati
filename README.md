@@ -104,6 +104,29 @@ npm run dev
 ```
 `Stray API listening on port 3000` görünce hazır — **bu terminali açık bırakın.**
 
+### 3b. (Opsiyonel) Demo verisi yükleyin
+
+Boş bir uygulama yerine dolu bir harita ile başlamak için:
+
+```bash
+npm run seed
+```
+
+100 kullanıcı, her birine 2 hayvan (200 hayvan), Kadıköy çevresine dağılmış
+mama/su kayıtları ve hayvan profillerinde sohbet oluşturur. Kullanıcıların 20'si
+30 gün, 30'u 7 gün üst üste mama/su bırakmış olur — böylece Altın/Gümüş/Bronz
+rozetlerin hepsi veride görünür. Hayvanların bir kısmında birden fazla kişi
+yorum yaptığı için çok bakım verenli sohbet de test edilebilir.
+
+Tüm demo hesapların girişi: `test1@stray.test` … `test100@stray.test`,
+şifre `password123`.
+
+> Android emülatöründe test edecekseniz fotoğraf URL'lerinin `10.0.2.2` üzerinden
+> kurulması için: `PUBLIC_BASE_URL=http://10.0.2.2:3000 npm run seed`
+>
+> Script mevcut demo veriyi görürse tekrar çalışmaz; sıfırdan üretmek için
+> veritabanını sıfırlayıp `npm run migrate && npm run seed` yapın.
+
 > Şema zaman zaman değişiyor (en son: `animal_comments` tablosu ve
 > `animals.location_updated_at` eklendi).
 > Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
