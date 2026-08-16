@@ -105,7 +105,29 @@ async function getPublicProfile(req, res, next) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    const [stats, badges] = await Promise.all([getStats(targetId), getUserBadges(targetId)]);
+    const [stats, badges, animals, friendCount] = await Promise.all([
+      getStats(targetId),
+      getUserBadges(targetId),
+      pool.query(
+        `SELECT a.id, a.species, a.name, a.breed, a.created_at,
+                ST_AsGeoJSON(a.location)::json AS location,
+                cover.url AS cover_photo_url
+         FROM animals a
+         JOIN user_animal_care uac ON uac.animal_id = a.id
+         LEFT JOIN LATERAL (
+           SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
+         ) cover ON true
+         WHERE uac.user_id = $1
+         ORDER BY uac.created_at DESC
+         LIMIT 50`,
+        [targetId]
+      ),
+      pool.query(
+        `SELECT count(*)::int AS count FROM friendships
+         WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
+        [targetId]
+      ),
+    ]);
 
     let friendshipStatus = 'none';
     let friendshipId = null;
@@ -128,7 +150,15 @@ async function getPublicProfile(req, res, next) {
       }
     }
 
-    res.json({ ...userResult.rows[0], stats, badges, friendshipStatus, friendshipId });
+    res.json({
+      ...userResult.rows[0],
+      stats,
+      badges,
+      animals: animals.rows,
+      friendCount: friendCount.rows[0].count,
+      friendshipStatus,
+      friendshipId,
+    });
   } catch (err) {
     next(err);
   }

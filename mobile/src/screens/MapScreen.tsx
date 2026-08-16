@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import MapView, {
   Circle,
   LatLng,
+  MapPressEvent,
   Marker,
   Polygon,
   Region as MapRegion,
@@ -52,6 +53,16 @@ const USER_ZOOM_DELTA = 0.03;
 const MIN_DELTA = 0.001;
 const MAX_DELTA = 40;
 
+// Hayvan avatarları yalnızca sokak ölçeğine yakınlaşınca çizilir; şehir/ülke
+// ölçeğinde onlarca avatar üst üste binip haritayı tamamen kapatıyordu.
+const ANIMAL_VISIBLE_MAX_DELTA = 0.02;
+
+// Bir marker'a dokunulduğunda MapView'in onPress'i de tetikleniyor (Android'de
+// action alanıyla ayırt edilebiliyor, iOS'ta edilemiyor). Marker dokunuşundan
+// hemen sonra gelen harita dokunuşunu yok saymak için kısa bir pencere tutuyoruz;
+// aksi halde hayvana tıklarken mama/su popup'ı da açılıyor.
+const MARKER_PRESS_GUARD_MS = 600;
+
 // react-native-maps'in Heatmap bileşeni yalnızca Google Maps sağlayıcısında çalışıyor
 // (iOS'ta Apple Maps kullandığımız için desteklenmiyor, Google'a geçmek iOS'ta da API
 // key zorunluluğu getirirdi). Bunun yerine kırmızı bir taban katmanının üstüne, ağırlığa
@@ -74,6 +85,7 @@ export default function MapScreen({ navigation }: any) {
   const mapReadyRef = useRef(false);
   const pendingCenterRef = useRef<Coordinates | null>(null);
   const hasCenteredOnUser = useRef(false);
+  const markerPressedAtRef = useRef(0);
   const [actions, setActions] = useState<CareAction[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [status, setStatus] = useState<CareStatus | null>(null);
@@ -82,6 +94,7 @@ export default function MapScreen({ navigation }: any) {
   const [pendingPin, setPendingPin] = useState<PendingPin>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [animalsVisible, setAnimalsVisible] = useState(false);
 
   function centerOnUser(loc: Coordinates) {
     if (hasCenteredOnUser.current) return;
@@ -146,6 +159,8 @@ export default function MapScreen({ navigation }: any) {
 
   function handleRegionChangeComplete(region: MapRegion) {
     currentRegionRef.current = region;
+    setAnimalsVisible(region.latitudeDelta <= ANIMAL_VISIBLE_MAX_DELTA);
+
     const { latitude, longitude } = region;
     if (
       latitude < TURKEY_BOUNDS.minLat ||
@@ -155,6 +170,20 @@ export default function MapScreen({ navigation }: any) {
     ) {
       mapRef.current?.animateToRegion(TURKEY_REGION, 300);
     }
+  }
+
+  function handleMapPress(event: MapPressEvent) {
+    // Android bunu doğrudan söylüyor; iOS'ta marker dokunuşundan sonraki kısa
+    // pencereye bakarak ayırt ediyoruz.
+    if (event.nativeEvent.action === 'marker-press') return;
+    if (Date.now() - markerPressedAtRef.current < MARKER_PRESS_GUARD_MS) return;
+    setPendingPin(event.nativeEvent.coordinate);
+  }
+
+  function handleAnimalPress(animalId: number) {
+    markerPressedAtRef.current = Date.now();
+    setPendingPin(null);
+    navigation.navigate('AnimalProfile', { animalId });
   }
 
   async function handleChooseAction(actionType: 'food' | 'water') {
@@ -257,7 +286,7 @@ export default function MapScreen({ navigation }: any) {
         initialRegion={TURKEY_REGION}
         onMapReady={handleMapReady}
         onRegionChangeComplete={handleRegionChangeComplete}
-        onPress={(e) => setPendingPin(e.nativeEvent.coordinate)}
+        onPress={handleMapPress}
       >
         <Polygon
           coordinates={TURKEY_POLYGON}
@@ -287,21 +316,21 @@ export default function MapScreen({ navigation }: any) {
           />
         )}
 
-        {animals.map((animal) => (
-          <Marker
-            key={`animal-${animal.id}`}
-            coordinate={{
-              latitude: animal.location.coordinates[1],
-              longitude: animal.location.coordinates[0],
-            }}
-            title={animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
-            onPress={() => navigation.navigate('AnimalProfile', { animalId: animal.id })}
-            tracksViewChanges={false}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={36} />
-          </Marker>
-        ))}
+        {animalsVisible &&
+          animals.map((animal) => (
+            <Marker
+              key={`animal-${animal.id}`}
+              coordinate={{
+                latitude: animal.location.coordinates[1],
+                longitude: animal.location.coordinates[0],
+              }}
+              onPress={() => handleAnimalPress(animal.id)}
+              tracksViewChanges={false}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
+              <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={36} />
+            </Marker>
+          ))}
 
         {pendingPin && <Marker coordinate={pendingPin} pinColor="#1976d2" />}
       </MapView>
@@ -321,6 +350,11 @@ export default function MapScreen({ navigation }: any) {
             {viewType === 'food' ? 'Mama' : 'Su'} bıraktığınız konumu işaretlemek için haritaya
             dokunun.
           </Text>
+          {!animalsVisible && animals.length > 0 && (
+            <Text style={styles.hintSubText}>
+              Hayvanları görmek için haritayı yakınlaştırın.
+            </Text>
+          )}
         </View>
       )}
 
@@ -405,6 +439,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   hintText: { textAlign: 'center', color: '#555' },
+  hintSubText: { textAlign: 'center', color: '#888', fontSize: 12, marginTop: 4 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',

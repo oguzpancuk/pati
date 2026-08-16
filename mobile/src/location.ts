@@ -7,11 +7,15 @@ export interface Coordinates {
   lng: number;
 }
 
-// Test amaçlı: bu hesapla giriş yapıldığında gerçek GPS yerine hep Kadıköy
-// konumu döndürülür (uzaktan test edebilmek için). Yalnızca __DEV__ derlemelerinde
-// aktiftir, prod derlemede bu dal hiç çalışmaz.
-const LOCATION_OVERRIDE_EMAIL = 'oguzpancuk@gmail.com';
-const LOCATION_OVERRIDE_COORDS: Coordinates = { lat: 40.9905, lng: 29.0277 }; // Kadıköy, İstanbul
+// Test amaçlı: bu hesaplarla giriş yapıldığında gerçek GPS yerine hep Kadıköy
+// civarında sabit bir konum döndürülür (uzaktan test edebilmek için). İki hesap
+// birbirine yakın ama aynı noktada değil; böylece iki kullanıcıyla mükerrer
+// hayvan tespiti ve 10m yakınlık kontrolü gerçekçi şekilde denenebiliyor.
+// Yalnızca __DEV__ derlemelerinde aktiftir, prod derlemede bu dal hiç çalışmaz.
+const LOCATION_OVERRIDES: Record<string, Coordinates> = {
+  'oguzpancuk@gmail.com': { lat: 40.9905, lng: 29.0277 }, // Kadıköy, Rıhtım
+  'sumeyyeayan@gmail.com': { lat: 40.9892, lng: 29.0301 }, // Kadıköy, Bahariye (~250m ötesi)
+};
 
 async function getLocationOverride(): Promise<Coordinates | null> {
   if (!__DEV__) return null;
@@ -19,7 +23,7 @@ async function getLocationOverride(): Promise<Coordinates | null> {
     const stored = await AsyncStorage.getItem('user');
     if (!stored) return null;
     const user = JSON.parse(stored);
-    return user?.email === LOCATION_OVERRIDE_EMAIL ? LOCATION_OVERRIDE_COORDS : null;
+    return LOCATION_OVERRIDES[user?.email] ?? null;
   } catch {
     return null;
   }

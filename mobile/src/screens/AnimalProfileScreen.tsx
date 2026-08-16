@@ -291,7 +291,7 @@ export default function AnimalProfileScreen({ route }: any) {
         )}
         <View style={styles.composerRow}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.composerInput]}
             placeholder="Yorum yazın..."
             value={draft}
             onChangeText={setDraft}
@@ -302,42 +302,47 @@ export default function AnimalProfileScreen({ route }: any) {
       </View>
 
       <Modal visible={recordModalVisible} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
+        <KeyboardAvoidingView
+          style={styles.modalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Sağlık Kaydı Ekle</Text>
-            <View style={styles.chipRow}>
-              {RECORD_TYPE_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[styles.tagChip, recordType === option && styles.tagChipSelected]}
-                  onPress={() => setRecordType(option)}
-                >
-                  <Text
-                    style={[styles.tagText, recordType === option && styles.tagTextSelected]}
+            <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
+              <View style={styles.chipRow}>
+                {RECORD_TYPE_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[styles.tagChip, recordType === option && styles.tagChipSelected]}
+                    onPress={() => setRecordType(option)}
                   >
-                    {RECORD_TYPE_LABELS[option]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text style={[styles.tagText, recordType === option && styles.tagTextSelected]}>
+                      {RECORD_TYPE_LABELS[option]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                style={[styles.input, styles.modalInput]}
+                placeholder="Örn. Göz enfeksiyonu"
+                value={recordDescription}
+                onChangeText={setRecordDescription}
+                multiline
+              />
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <View style={styles.modalButton}>
+                <Button title="Kaydet" onPress={handleSaveRecord} disabled={savingRecord} />
+              </View>
+              <Button
+                title="İptal"
+                color="#c62828"
+                onPress={() => setRecordModalVisible(false)}
+                disabled={savingRecord}
+              />
             </View>
-            <TextInput
-              style={[styles.input, styles.modalInput]}
-              placeholder="Örn. Göz enfeksiyonu"
-              value={recordDescription}
-              onChangeText={setRecordDescription}
-              multiline
-            />
-            <View style={styles.modalButton}>
-              <Button title="Kaydet" onPress={handleSaveRecord} disabled={savingRecord} />
-            </View>
-            <Button
-              title="İptal"
-              color="#c62828"
-              onPress={() => setRecordModalVisible(false)}
-              disabled={savingRecord}
-            />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={!!logRecord} transparent animationType="slide">
@@ -442,13 +447,13 @@ const styles = StyleSheet.create({
   tagTextSelected: { color: '#fff', fontWeight: '600' },
   composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   input: {
-    flex: 1,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
     padding: 10,
     maxHeight: 100,
   },
+  composerInput: { flex: 1 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -456,9 +461,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  modalCard: { width: '100%', backgroundColor: '#fff', borderRadius: 12, padding: 20 },
+  modalCard: {
+    width: '100%',
+    maxHeight: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+  },
   modalTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  modalScroll: { flexGrow: 0 },
   modalInput: { minHeight: 70, textAlignVertical: 'top', marginBottom: 12 },
+  modalActions: { marginTop: 4 },
   modalButton: { marginBottom: 10 },
   logCard: {
     width: '100%',

@@ -33,6 +33,15 @@ export interface Me {
 
 export type FriendshipStatus = 'none' | 'self' | 'friends' | 'pending_sent' | 'pending_received';
 
+export interface ProfileAnimal {
+  id: number;
+  species: 'cat' | 'dog';
+  name: string | null;
+  breed: string | null;
+  created_at: string;
+  cover_photo_url: string | null;
+}
+
 export interface PublicProfile {
   id: number;
   name: string;
@@ -40,6 +49,8 @@ export interface PublicProfile {
   created_at: string;
   stats: UserStats;
   badges: UserBadges;
+  animals: ProfileAnimal[];
+  friendCount: number;
   friendshipStatus: FriendshipStatus;
   friendshipId: number | null;
 }

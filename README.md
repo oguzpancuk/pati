@@ -193,10 +193,12 @@ en uzun ardışık gün serisine göre kademe belirlenir ve bir kere kazanılan 
 kalıcıdır (aktif seri bozulsa bile düşürülmez): 1 gün → Bronz, 7 gün üst üste →
 Gümüş, 30 gün üst üste → Altın, 365 gün üst üste → Elmas.
 
-**Uzaktan test için konum override'ı:** `oguzpancuk@gmail.com` hesabıyla giriş
-yapıldığında (yalnızca geliştirme derlemelerinde, `__DEV__`), gerçek GPS yerine
-her zaman Kadıköy konumu kullanılır — bu sayede Türkiye dışından da 10m mesafe
-kontrolü gerektiren akışlar test edilebilir. Bkz. `mobile/src/location.ts`.
+**Uzaktan test için konum override'ı:** `oguzpancuk@gmail.com` ve
+`sumeyyeayan@gmail.com` hesaplarıyla giriş yapıldığında (yalnızca geliştirme
+derlemelerinde, `__DEV__`), gerçek GPS yerine her zaman Kadıköy'de sabit bir konum
+kullanılır — bu sayede Türkiye dışından da 10m mesafe kontrolü gerektiren akışlar
+test edilebilir. İki hesabın konumu birbirine yakın ama aynı değil (~250m), böylece
+iki kullanıcıyla mükerrer hayvan tespiti de denenebilir. Bkz. `mobile/src/location.ts`.
 
 ## Sık Karşılaşılan Sorunlar
 
