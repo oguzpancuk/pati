@@ -37,7 +37,15 @@ stray/
 - Hayvan profili oluşturma (manuel, en az 2 fotoğraf zorunlu, kedi/köpek için
   çoktan seçmeli cins/desen listesi), fotoğraflı liste ve tür filtresiyle
   yakındaki hayvanları listeleme
-- Hayvan sağlık ve ilaç kaydı
+- Hayvanlar haritada profil fotoğraflarıyla yuvarlak olarak görünür; dokununca
+  profiline gidilir. Yeni hayvan eklerken yakındaki kayıtlılar önce gösterilir,
+  "bu zaten kayıtlı" denirse hayvanın güncel konumu oraya taşınır ve profilinde
+  mini haritada gösterilir
+- Hayvan profilinde sohbet: bakım verenler ve o hayvanı kaydetmeye çalışanlar
+  yorum yapabilir (yorum yapan otomatik bakım listesine eklenir)
+- Hayvan sağlık ve ilaç kaydı: bakım verenler hastalık/tedavi kaydı ekleyebilir,
+  sohbette bir yorumu ilgili sağlık kaydına bağlayabilir ("şu hastalık için
+  ilacını verdim"), sağlık kaydına dokununca o kayda ait tüm yorumlar listelenir
 - Kullanıcı profili: profil fotoğrafı, rozetler (mama/su/hayvan kaydetme —
   bronz/gümüş/altın/elmas, ardışık gün serisine göre) ve arkadaşlık sistemi
   (kullanıcı arama, istek gönderme/kabul etme, başka kullanıcıların profilini
@@ -96,8 +104,8 @@ npm run dev
 ```
 `Stray API listening on port 3000` görünce hazır — **bu terminali açık bırakın.**
 
-> Şema zaman zaman değişiyor (en son: `users.avatar_url` ve `friendships` tablosu
-> eklendi).
+> Şema zaman zaman değişiyor (en son: `animal_comments` tablosu ve
+> `animals.location_updated_at` eklendi).
 > Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
 > `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
 >

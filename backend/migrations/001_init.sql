@@ -24,7 +24,11 @@ CREATE TABLE IF NOT EXISTS animals (
     -- bir tür eklemek migrasyon gerektirmesin.
     breed VARCHAR(50),
     markings TEXT,
+    -- Hayvanın en son görüldüğü konum. Biri "bu hayvan zaten kayıtlı" diyerek
+    -- görüldü bildirdiğinde bu alan güncellenir, yani sabit bir kayıt yeri değil
+    -- güncel konumu tutar.
     location GEOGRAPHY(POINT, 4326) NOT NULL,
+    location_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by INTEGER NOT NULL REFERENCES users(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -50,6 +54,21 @@ CREATE TABLE IF NOT EXISTS health_records (
     recorded_by INTEGER NOT NULL REFERENCES users(id),
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Hayvan profilindeki sohbet. Bir yorum isteğe bağlı olarak bir sağlık kaydına
+-- bağlanabilir (örn. "şu hastalık için ilacını verdim"); böylece sağlık kaydına
+-- tıklandığında o hastalıkla ilgili tüm yorumlar listelenebiliyor.
+CREATE TABLE IF NOT EXISTS animal_comments (
+    id SERIAL PRIMARY KEY,
+    animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    health_record_id INTEGER REFERENCES health_records(id) ON DELETE SET NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_animal_comments_animal ON animal_comments (animal_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_animal_comments_health_record ON animal_comments (health_record_id);
 
 -- Kullanıcı ile hayvan arasındaki bakım (takip) ilişkisi
 CREATE TABLE IF NOT EXISTS user_animal_care (

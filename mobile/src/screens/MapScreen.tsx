@@ -25,6 +25,8 @@ import {
   fetchCareActionsInBounds,
   fetchCareStatus,
 } from '../api/care';
+import { Animal, fetchAnimals } from '../api/animals';
+import AnimalAvatar from '../components/AnimalAvatar';
 import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 
 // Türkiye'nin yaklaşık coğrafi sınır kutusu (kesin idari sınır değil).
@@ -45,6 +47,7 @@ const TURKEY_POLYGON: LatLng[] = [
 
 const MAX_DISTANCE_TO_PIN_METERS = 10;
 const ACTION_CIRCLE_RADIUS_METERS = 60;
+const ANIMAL_RADIUS_METERS = 10000;
 const USER_ZOOM_DELTA = 0.03;
 const MIN_DELTA = 0.001;
 const MAX_DELTA = 40;
@@ -65,13 +68,14 @@ function weightToGreenAlpha(weight: number) {
 
 type PendingPin = LatLng | null;
 
-export default function MapScreen() {
+export default function MapScreen({ navigation }: any) {
   const mapRef = useRef<MapView>(null);
   const currentRegionRef = useRef<MapRegion>(TURKEY_REGION);
   const mapReadyRef = useRef(false);
   const pendingCenterRef = useRef<Coordinates | null>(null);
   const hasCenteredOnUser = useRef(false);
   const [actions, setActions] = useState<CareAction[]>([]);
+  const [animals, setAnimals] = useState<Animal[]>([]);
   const [status, setStatus] = useState<CareStatus | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [viewType, setViewType] = useState<'food' | 'water'>('food');
@@ -118,8 +122,12 @@ export default function MapScreen() {
       setActions(actionData);
       if (loc) {
         setMyLocation(loc);
-        const statusData = await fetchCareStatus(loc.lat, loc.lng, viewType);
+        const [statusData, animalData] = await Promise.all([
+          fetchCareStatus(loc.lat, loc.lng, viewType),
+          fetchAnimals(loc.lat, loc.lng, ANIMAL_RADIUS_METERS),
+        ]);
         setStatus(statusData);
+        setAnimals(animalData);
         centerOnUser(loc);
       }
     } catch (err: any) {
@@ -278,6 +286,22 @@ export default function MapScreen() {
             strokeColor="#1976d2"
           />
         )}
+
+        {animals.map((animal) => (
+          <Marker
+            key={`animal-${animal.id}`}
+            coordinate={{
+              latitude: animal.location.coordinates[1],
+              longitude: animal.location.coordinates[0],
+            }}
+            title={animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
+            onPress={() => navigation.navigate('AnimalProfile', { animalId: animal.id })}
+            tracksViewChanges={false}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={36} />
+          </Marker>
+        ))}
 
         {pendingPin && <Marker coordinate={pendingPin} pinColor="#1976d2" />}
       </MapView>

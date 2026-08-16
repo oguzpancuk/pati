@@ -55,7 +55,7 @@ async function listAnimals(req, res, next) {
 async function getAnimal(req, res, next) {
   try {
     const animalResult = await pool.query(
-      `SELECT id, species, name, color, breed, markings, created_by, created_at,
+      `SELECT id, species, name, color, breed, markings, created_by, created_at, location_updated_at,
               ST_AsGeoJSON(location)::json AS location
        FROM animals WHERE id = $1`,
       [req.params.id]
@@ -64,16 +64,70 @@ async function getAnimal(req, res, next) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
     }
 
-    const [photos, healthRecords] = await Promise.all([
+    const [photos, healthRecords, carers] = await Promise.all([
       pool.query('SELECT id, url, uploaded_by, created_at FROM animal_photos WHERE animal_id = $1 ORDER BY created_at DESC', [req.params.id]),
-      pool.query('SELECT id, record_type, description, vet_verified, recorded_by, recorded_at FROM health_records WHERE animal_id = $1 ORDER BY recorded_at DESC', [req.params.id]),
+      pool.query(
+        `SELECT h.id, h.record_type, h.description, h.vet_verified, h.recorded_by, h.recorded_at,
+                u.name AS recorded_by_name,
+                (SELECT count(*) FROM animal_comments c WHERE c.health_record_id = h.id)::int AS comment_count
+         FROM health_records h
+         JOIN users u ON u.id = h.recorded_by
+         WHERE h.animal_id = $1
+         ORDER BY h.recorded_at DESC`,
+        [req.params.id]
+      ),
+      pool.query(
+        `SELECT u.id, u.name, u.avatar_url FROM user_animal_care c
+         JOIN users u ON u.id = c.user_id
+         WHERE c.animal_id = $1
+         ORDER BY c.created_at`,
+        [req.params.id]
+      ),
     ]);
+
+    const isCarer = carers.rows.some((c) => c.id === req.user.userId);
 
     res.json({
       ...animalResult.rows[0],
       photos: photos.rows,
       healthRecords: healthRecords.rows,
+      carers: carers.rows,
+      isCarer,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Kayıtlı bir hayvanı yeniden gördüğünü bildirmek: hayvanın güncel konumunu
+// bildiren kişinin konumuna taşır ve bildireni bakım listesine ekler. Yeni bir
+// hayvan eklemeye çalışırken "bu zaten kayıtlı" denildiğinde de bu çağrılır.
+async function reportSighting(req, res, next) {
+  try {
+    const { lat, lng } = req.body;
+    if (lat === undefined || lng === undefined) {
+      return res.status(400).json({ error: 'lat ve lng zorunludur' });
+    }
+
+    const result = await pool.query(
+      `UPDATE animals
+       SET location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+           location_updated_at = now()
+       WHERE id = $3
+       RETURNING id, species, name, color, breed, markings, created_at, location_updated_at,
+                 ST_AsGeoJSON(location)::json AS location`,
+      [lng, lat, req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    }
+
+    await pool.query(
+      'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.user.userId, req.params.id]
+    );
+
+    res.json(result.rows[0]);
   } catch (err) {
     next(err);
   }
@@ -128,6 +182,14 @@ async function addPhoto(req, res, next) {
   }
 }
 
+async function isCarer(userId, animalId) {
+  const result = await pool.query(
+    'SELECT 1 FROM user_animal_care WHERE user_id = $1 AND animal_id = $2',
+    [userId, animalId]
+  );
+  return result.rows.length > 0;
+}
+
 async function addHealthRecord(req, res, next) {
   try {
     const { recordType, description, vetVerified } = req.body;
@@ -138,6 +200,13 @@ async function addHealthRecord(req, res, next) {
       return res.status(400).json({ error: 'description zorunludur' });
     }
 
+    // Sağlık kaydını yalnızca o hayvana bakım verenler ekleyebilir.
+    if (!(await isCarer(req.user.userId, req.params.id))) {
+      return res.status(403).json({
+        error: 'Sağlık kaydı ekleyebilmek için önce bu hayvana bakım veriyor olmalısınız',
+      });
+    }
+
     const isVet = req.user.role === 'vet' || req.user.role === 'admin';
     const result = await pool.query(
       `INSERT INTO health_records (animal_id, record_type, description, vet_verified, recorded_by)
@@ -145,6 +214,80 @@ async function addHealthRecord(req, res, next) {
        RETURNING id, record_type, description, vet_verified, recorded_by, recorded_at`,
       [req.params.id, recordType, description, Boolean(vetVerified) && isVet, req.user.userId]
     );
+    res.status(201).json({ ...result.rows[0], comment_count: 0 });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const COMMENT_SELECT_SQL = `
+  SELECT c.id, c.body, c.created_at, c.health_record_id,
+         u.id AS user_id, u.name AS user_name, u.avatar_url,
+         h.record_type AS health_record_type, h.description AS health_record_description
+  FROM animal_comments c
+  JOIN users u ON u.id = c.user_id
+  LEFT JOIN health_records h ON h.id = c.health_record_id
+`;
+
+async function listComments(req, res, next) {
+  try {
+    const { healthRecordId } = req.query;
+    const params = [req.params.id];
+    let filter = '';
+    if (healthRecordId) {
+      params.push(healthRecordId);
+      filter = `AND c.health_record_id = $${params.length}`;
+    }
+
+    const result = await pool.query(
+      `${COMMENT_SELECT_SQL}
+       WHERE c.animal_id = $1 ${filter}
+       ORDER BY c.created_at ASC
+       LIMIT 500`,
+      params
+    );
+    res.json(result.rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function addComment(req, res, next) {
+  try {
+    const { body, healthRecordId } = req.body;
+    if (!body || !String(body).trim()) {
+      return res.status(400).json({ error: 'body zorunludur' });
+    }
+
+    const animalCheck = await pool.query('SELECT id FROM animals WHERE id = $1', [req.params.id]);
+    if (animalCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    }
+
+    if (healthRecordId) {
+      const recordCheck = await pool.query(
+        'SELECT id FROM health_records WHERE id = $1 AND animal_id = $2',
+        [healthRecordId, req.params.id]
+      );
+      if (recordCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Sağlık kaydı bu hayvana ait değil' });
+      }
+    }
+
+    // Yorum yapmak, kişiyi bu hayvanın bakım listesine de ekler: sohbete katılan
+    // herkes fiilen o hayvanla ilgileniyor demektir.
+    await pool.query(
+      'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.user.userId, req.params.id]
+    );
+
+    const inserted = await pool.query(
+      `INSERT INTO animal_comments (animal_id, user_id, health_record_id, body)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [req.params.id, req.user.userId, healthRecordId || null, String(body).trim()]
+    );
+
+    const result = await pool.query(`${COMMENT_SELECT_SQL} WHERE c.id = $1`, [inserted.rows[0].id]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     next(err);
@@ -170,4 +313,14 @@ async function followAnimal(req, res, next) {
   }
 }
 
-module.exports = { listAnimals, getAnimal, createAnimal, addPhoto, addHealthRecord, followAnimal };
+module.exports = {
+  listAnimals,
+  getAnimal,
+  createAnimal,
+  reportSighting,
+  addPhoto,
+  addHealthRecord,
+  listComments,
+  addComment,
+  followAnimal,
+};

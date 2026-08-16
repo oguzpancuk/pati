@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Button,
   Image,
@@ -11,11 +12,23 @@ import {
   View,
 } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { addAnimalPhoto, createAnimal } from '../api/animals';
+import {
+  addAnimalPhoto,
+  Animal,
+  createAnimal,
+  fetchAnimals,
+  reportSighting,
+} from '../api/animals';
 import type { PhotoAsset } from '../api/care';
-import { getCurrentLocation } from '../location';
+import AnimalAvatar from '../components/AnimalAvatar';
+import { Coordinates, getCurrentLocation } from '../location';
 
 type Species = 'cat' | 'dog';
+
+// Aynı hayvanın ikinci kez kaydedilmesini önlemek için form açılmadan önce
+// yakındaki kayıtlı hayvanlar gösterilir. Yapay zekâ ile fotoğraf eşleştirme
+// yerine kullanıcı seçimine dayanıyor (bkz. PRD 4.3, sonraki faz).
+const DUPLICATE_CHECK_RADIUS_METERS = 500;
 
 const BREED_OPTIONS: Record<Species, string[]> = {
   cat: [
@@ -52,6 +65,45 @@ export default function AddAnimalScreen({ navigation }: any) {
   const [markings, setMarkings] = useState('');
   const [photos, setPhotos] = useState<PhotoAsset[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const [step, setStep] = useState<'checking' | 'duplicate-check' | 'form'>('checking');
+  const [nearby, setNearby] = useState<Animal[]>([]);
+  const [location, setLocation] = useState<Coordinates | null>(null);
+
+  const loadNearby = useCallback(async () => {
+    try {
+      const loc = await getCurrentLocation();
+      setLocation(loc);
+      const found = await fetchAnimals(loc.lat, loc.lng, DUPLICATE_CHECK_RADIUS_METERS);
+      setNearby(found);
+      setStep(found.length > 0 ? 'duplicate-check' : 'form');
+    } catch (err: any) {
+      // Konum alınamazsa mükerrer kontrolü yapamayız; kullanıcıyı engellemek
+      // yerine doğrudan forma geçiriyoruz.
+      Alert.alert('Konum alınamadı', err?.message ?? 'Yakındaki hayvanlar kontrol edilemedi');
+      setStep('form');
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNearby();
+  }, [loadNearby]);
+
+  async function handleExistingAnimal(animal: Animal) {
+    if (!location) {
+      navigation.replace('AnimalProfile', { animalId: animal.id });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await reportSighting(animal.id, location.lat, location.lng);
+      navigation.replace('AnimalProfile', { animalId: animal.id });
+    } catch (err: any) {
+      Alert.alert('Güncellenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   function handleSpeciesChange(next: Species) {
     setSpecies(next);
@@ -101,6 +153,58 @@ export default function AddAnimalScreen({ navigation }: any) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (step === 'checking') {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.checkingText}>Yakındaki kayıtlı hayvanlar kontrol ediliyor...</Text>
+      </View>
+    );
+  }
+
+  if (step === 'duplicate-check') {
+    return (
+      <ScrollView style={styles.container}>
+        <Text style={styles.duplicateTitle}>Bu hayvan zaten kayıtlı olabilir</Text>
+        <Text style={styles.duplicateSubtitle}>
+          Yakınınızda kayıtlı hayvanlar var. Eklemek istediğiniz hayvan bunlardan biriyse
+          seçin — konumu güncellenecek ve bakım listenize eklenecek.
+        </Text>
+
+        {nearby.map((animal) => (
+          <TouchableOpacity
+            key={animal.id}
+            style={styles.nearbyRow}
+            onPress={() => handleExistingAnimal(animal)}
+            disabled={submitting}
+          >
+            <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={52} />
+            <View style={styles.nearbyText}>
+              <Text style={styles.nearbyName}>
+                {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
+              </Text>
+              <Text style={styles.nearbyMeta}>
+                {animal.breed ?? '-'}
+                {animal.distance_meters !== undefined
+                  ? ` · ${Math.round(animal.distance_meters)} m uzakta`
+                  : ''}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        <View style={styles.newAnimalButton}>
+          <Button
+            title="Hiçbiri — Yeni Hayvan Kaydet"
+            onPress={() => setStep('form')}
+            disabled={submitting}
+          />
+        </View>
+        <View style={styles.bottomSpacer} />
+      </ScrollView>
+    );
   }
 
   return (
@@ -182,6 +286,21 @@ export default function AddAnimalScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  checkingText: { color: '#666', marginTop: 12, textAlign: 'center' },
+  duplicateTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  duplicateSubtitle: { color: '#666', marginBottom: 16 },
+  nearbyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  nearbyText: { flex: 1, marginLeft: 12 },
+  nearbyName: { fontSize: 16, fontWeight: '600' },
+  nearbyMeta: { color: '#555', marginTop: 2 },
+  newAnimalButton: { marginTop: 24 },
   label: { fontWeight: '600', marginTop: 12, marginBottom: 6 },
   input: {
     borderWidth: 1,
