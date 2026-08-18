@@ -11,6 +11,7 @@ import {
   sendFriendRequest,
 } from '../api/users';
 import { badgeProgressText, badgeTitle, sortBadges } from '../badges';
+import { mergeById } from '../paging';
 import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { BadgeSymbol } from '../components/badges';
@@ -65,7 +66,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     setLoadingMoreAnimals(true);
     try {
       const page = await fetchUserAnimals(userId, ANIMAL_PAGE, animals.length);
-      setAnimals((prev) => [...prev, ...page.animals]);
+      setAnimals((prev) => mergeById(prev, page.animals));
       setProfile((prev) => (prev ? { ...prev, animalCount: page.total } : prev));
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');

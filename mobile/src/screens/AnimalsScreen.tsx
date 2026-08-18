@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
 import { Coordinates, getCurrentLocation } from '../location';
+import { mergeById } from '../paging';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { Icon } from '../components/brand';
@@ -39,8 +40,14 @@ export default function AnimalsScreen({ navigation }: any) {
   // Konum ilk sayfada alınıp saklanıyor: sonraki sayfalar aynı merkezden
   // istenmeli, yoksa kullanıcı yürürken sayfalar birbirine karışır.
   const locationRef = useRef<Coordinates | null>(null);
+  // State'teki loading bayrağı bir sonraki render'a kadar eski kalıyor;
+  // onEndReached aynı karede iki kez tetiklenince aynı sayfa iki kez
+  // istenebiliyordu. Ref anında güncellendiği için ikinci isteği keser.
+  const inFlightRef = useRef(false);
 
   const load = useCallback(async (species: SpeciesFilter, offset: number) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     const isFirstPage = offset === 0;
     if (isFirstPage) setLoading(true);
     else setLoadingMore(true);
@@ -57,11 +64,12 @@ export default function AnimalsScreen({ navigation }: any) {
         limit: PAGE_SIZE,
         offset,
       });
-      setAnimals((prev) => (isFirstPage ? data : [...prev, ...data]));
+      setAnimals((prev) => (isFirstPage ? data : mergeById(prev, data)));
       setHasMore(data.length === PAGE_SIZE);
     } catch (err: any) {
       Alert.alert('Hayvanlar yüklenemedi', err?.message ?? 'Bilinmeyen hata');
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
       setLoadingMore(false);
     }

@@ -19,6 +19,7 @@ import {
   uploadAvatar,
 } from '../api/users';
 import { badgeProgressText, badgeTitle } from '../badges';
+import { mergeById } from '../paging';
 import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { AvatarPickerModal } from '../components/avatars';
@@ -91,7 +92,7 @@ export default function UserProfileScreen({ navigation }: any) {
     setLoadingMoreAnimals(true);
     try {
       const page = await fetchUserAnimals('me', PROFILE_PAGE, myAnimals.length);
-      setMyAnimals((prev) => [...prev, ...page.animals]);
+      setMyAnimals((prev) => mergeById(prev, page.animals));
       setAnimalTotal(page.total);
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');

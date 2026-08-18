@@ -43,6 +43,7 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
+import { mergeById } from '../paging';
 import { conditionsFor, VACCINE_TYPES } from '../taxonomy';
 import { fonts, makeStyles, radius, spacing, useTheme } from '../theme';
 
@@ -142,7 +143,7 @@ export default function AnimalProfileScreen({ route }: any) {
         limit: COMMENT_PAGE,
         offset: comments.length,
       });
-      setComments((prev) => [...page.comments, ...prev]);
+      setComments((prev) => mergeById(prev, page.comments, 'start'));
       setCommentTotal(page.total);
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');

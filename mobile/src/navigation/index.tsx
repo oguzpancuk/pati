@@ -72,6 +72,10 @@ const linking: LinkingOptions<MainStackParamList> = {
     return Linking.getInitialURL();
   },
   config: {
+    // Bağlantıyla açılan ekran her zaman sekmelerin ÜSTÜNE gelsin: aksi halde
+    // React Navigation yalnızca o ekranı kök yapıyor, sekme çubuğu ve geri
+    // tuşu kayboluyor.
+    initialRouteName: 'Tabs',
     screens: {
       Tabs: {
         screens: { Map: 'map', Animals: 'animals', Profile: 'profile' },
