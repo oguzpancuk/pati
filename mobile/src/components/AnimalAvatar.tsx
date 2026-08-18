@@ -1,5 +1,7 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
+import Icon from './brand/Icon';
+import { palette } from '../theme';
 
 interface Props {
   species: 'cat' | 'dog';
@@ -7,8 +9,10 @@ interface Props {
   size?: number;
 }
 
-// Hayvanın profil fotoğrafını yuvarlak olarak gösterir; fotoğraf yoksa türüne
-// göre bir emoji ile aynı yuvarlak çerçeveyi korur (haritada boş kutu görünmesin).
+// Hayvanın profil fotoğrafını yuvarlak olarak gösterir; fotoğraf yoksa aynı
+// yuvarlak çerçeveyi koruyan bir pati ikonu çizilir (haritada boş kutu
+// görünmesin). Emoji yerine ikon: her cihazda aynı çiziliyor ve marka rengini
+// alabiliyor.
 export default function AnimalAvatar({ species, photoUrl, size = 36 }: Props) {
   const frame = {
     width: size,
@@ -22,7 +26,7 @@ export default function AnimalAvatar({ species, photoUrl, size = 36 }: Props) {
 
   return (
     <View style={[styles.avatar, styles.placeholder, frame]}>
-      <Text style={{ fontSize: size * 0.5 }}>{species === 'cat' ? '🐱' : '🐶'}</Text>
+      <Icon name="paw" size={size * 0.58} color={species === 'cat' ? palette.brand : palette.brandDark} />
     </View>
   );
 }
@@ -30,8 +34,8 @@ export default function AnimalAvatar({ species, photoUrl, size = 36 }: Props) {
 const styles = StyleSheet.create({
   avatar: {
     borderWidth: 2,
-    borderColor: '#fff',
-    backgroundColor: '#f0f0f0',
+    borderColor: palette.surface,
+    backgroundColor: palette.brandTint,
   },
   placeholder: {
     justifyContent: 'center',

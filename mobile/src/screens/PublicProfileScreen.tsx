@@ -1,14 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   acceptFriendRequest,
@@ -22,6 +13,18 @@ import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import LevelBar from '../components/LevelBar';
 import RecentComments from '../components/RecentComments';
+import {
+  Avatar,
+  Button,
+  Card,
+  Divider,
+  LoadingState,
+  Screen,
+  SectionHeader,
+  Text,
+} from '../components/ui';
+import { Icon } from '../components/brand';
+import { palette, spacing } from '../theme';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -66,9 +69,9 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 
   if (!profile) {
     return (
-      <View style={styles.center}>
-        <Text>Yükleniyor...</Text>
-      </View>
+      <Screen>
+        <LoadingState label="Profil yükleniyor…" />
+      </Screen>
     );
   }
 
@@ -77,193 +80,179 @@ export default function PublicProfileScreen({ route, navigation }: any) {
       ? profile.featuredBadges
       : sortBadges(profile.badges.filter((b) => b.tier)).slice(0, 3);
 
+  const stats = [
+    { value: profile.stats.foodCount, label: 'Mama' },
+    { value: profile.stats.waterCount, label: 'Su' },
+    { value: profile.stats.animalCount, label: 'Kayıt' },
+    { value: profile.friendCount, label: 'Arkadaş' },
+  ];
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        {profile.avatar_url ? (
-          <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarPlaceholderText}>{profile.name.charAt(0).toUpperCase()}</Text>
-          </View>
-        )}
-        <Text style={styles.title}>{profile.name}</Text>
-        <Text style={styles.metaSmall}>{formatDate(profile.created_at)} tarihinde katıldı</Text>
-        {profile.rank && (
-          <Text style={styles.rankLine}>
-            Sıralama: {profile.rank.rank}. / {profile.rank.totalUsers} · {profile.points.total} puan
+    <Screen scroll>
+      <Card style={styles.headerCard}>
+        <View style={styles.headerTop}>
+          <Avatar uri={profile.avatar_url} name={profile.name} size={88} />
+          <Text variant="title" center style={styles.name}>
+            {profile.name}
           </Text>
-        )}
-      </View>
-
-      <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
-
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{profile.stats.foodCount}</Text>
-          <Text style={styles.statLabel}>Mama</Text>
+          <Text variant="caption" center>
+            {formatDate(profile.created_at)} tarihinde katıldı
+          </Text>
+          {profile.rank && (
+            <Text variant="captionStrong" color="brand" center style={styles.rankLine}>
+              {profile.rank.rank}. / {profile.rank.totalUsers} · {profile.points.total} puan
+            </Text>
+          )}
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{profile.stats.waterCount}</Text>
-          <Text style={styles.statLabel}>Su</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{profile.stats.animalCount}</Text>
-          <Text style={styles.statLabel}>Kaydettiği</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>{profile.friendCount}</Text>
-          <Text style={styles.statLabel}>Arkadaş</Text>
-        </View>
-      </View>
 
-      <View style={styles.actionArea}>
-        {profile.friendshipStatus === 'none' && (
-          <Button
-            title="Arkadaş Ekle"
-            onPress={() => runAction(() => sendFriendRequest(userId), 'Gönderilemedi')}
-            disabled={busy}
-          />
-        )}
-        {profile.friendshipStatus === 'pending_sent' && (
-          <Text style={styles.meta}>İstek gönderildi, yanıt bekleniyor.</Text>
-        )}
-        {profile.friendshipStatus === 'pending_received' && profile.friendshipId && (
-          <Button
-            title="Arkadaşlık İsteğini Kabul Et"
-            onPress={() =>
-              runAction(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
-            }
-            disabled={busy}
-          />
-        )}
-        {profile.friendshipStatus === 'friends' && profile.friendshipId && (
-          <Button
-            title="Arkadaşlıktan Çık"
-            color="#c62828"
-            onPress={() =>
-              runAction(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
-            }
-            disabled={busy}
-          />
-        )}
-      </View>
+        <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Rozetler</Text>
-        <TouchableOpacity onPress={() => setCatalogVisible(true)}>
-          <Text style={styles.linkText}>Tüm rozetler</Text>
-        </TouchableOpacity>
-      </View>
+        <Divider />
+
+        <View style={styles.statsRow}>
+          {stats.map((stat) => (
+            <View key={stat.label} style={styles.statBox}>
+              <Text variant="heading">{stat.value}</Text>
+              <Text variant="micro">{stat.label.toLocaleUpperCase('tr-TR')}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      {profile.friendshipStatus === 'none' && (
+        <Button
+          title="Arkadaş ekle"
+          onPress={() => runAction(() => sendFriendRequest(userId), 'Gönderilemedi')}
+          loading={busy}
+          fullWidth
+          icon={<Icon name="users" size={18} color={palette.textOnBrand} />}
+          style={styles.action}
+        />
+      )}
+      {profile.friendshipStatus === 'pending_sent' && (
+        <Card variant="tinted" padding="md" style={styles.action}>
+          <Text variant="caption" center>
+            İstek gönderildi, yanıt bekleniyor.
+          </Text>
+        </Card>
+      )}
+      {profile.friendshipStatus === 'pending_received' && profile.friendshipId && (
+        <Button
+          title="Arkadaşlık isteğini kabul et"
+          onPress={() =>
+            runAction(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
+          }
+          loading={busy}
+          fullWidth
+          style={styles.action}
+        />
+      )}
+      {profile.friendshipStatus === 'friends' && profile.friendshipId && (
+        <Button
+          title="Arkadaşlıktan çık"
+          variant="secondary"
+          onPress={() => runAction(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')}
+          loading={busy}
+          fullWidth
+          style={styles.action}
+        />
+      )}
+
+      <SectionHeader
+        title="Rozetler"
+        actionLabel="Tüm rozetler"
+        onAction={() => setCatalogVisible(true)}
+      />
       {/* Kullanıcı öne çıkanları seçtiyse onları, seçmediyse en güçlü rozetlerini
           gösteriyoruz; boş bir alan görünmesin. */}
-      <View style={styles.badgeRow}>
-        {displayBadges.length === 0 ? (
-          <Text style={styles.meta}>Henüz rozet kazanmamış.</Text>
-        ) : (
-          displayBadges.map((badge) => (
-            <TouchableOpacity
+      {displayBadges.length === 0 ? (
+        <Card variant="flat" style={styles.block}>
+          <Text variant="caption">Henüz rozet kazanmamış.</Text>
+        </Card>
+      ) : (
+        <View style={styles.badgeRow}>
+          {displayBadges.map((badge) => (
+            <Card
               key={badge.key}
+              variant="flat"
+              padding="md"
               style={styles.badgeCard}
               onPress={() => setCatalogVisible(true)}
             >
               <Text style={styles.badgeEmoji}>{badge.tier ? TIER_EMOJI[badge.tier] : '⬜'}</Text>
-              <Text style={styles.badgeLabel}>{badgeTitle(badge)}</Text>
-              <Text style={styles.badgeStreak}>{badgeProgressText(badge)}</Text>
-            </TouchableOpacity>
-          ))
-        )}
-      </View>
+              <Text variant="captionStrong" color="text" center numberOfLines={2}>
+                {badgeTitle(badge)}
+              </Text>
+              <Text variant="micro" center style={styles.badgeStreak}>
+                {badgeProgressText(badge)}
+              </Text>
+            </Card>
+          ))}
+        </View>
+      )}
 
-      <Text style={styles.sectionTitle}>Bakım Verdiği Hayvanlar</Text>
+      <SectionHeader title="Bakım verdiği hayvanlar" style={styles.sectionTop} />
       {profile.animals.length === 0 ? (
-        <Text style={styles.meta}>Henüz bir hayvana bakım vermiyor.</Text>
+        <Card variant="flat" style={styles.block}>
+          <Text variant="caption">Henüz bir hayvana bakım vermiyor.</Text>
+        </Card>
       ) : (
         profile.animals.map((animal) => (
-          <TouchableOpacity
+          <Card
             key={animal.id}
+            variant="flat"
+            padding="md"
             style={styles.animalRow}
             onPress={() => navigation.push('AnimalProfile', { animalId: animal.id })}
           >
             <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={44} />
             <View style={styles.animalText}>
-              <Text style={styles.animalName}>
+              <Text variant="subheading" numberOfLines={1}>
                 {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
               </Text>
-              <Text style={styles.metaSmall}>{animal.breed ?? '-'}</Text>
+              <Text variant="caption" numberOfLines={1}>
+                {animal.breed ?? 'Cinsi belirtilmemiş'}
+              </Text>
             </View>
-          </TouchableOpacity>
+            <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+          </Card>
         ))
       )}
 
-      <RecentComments
-        comments={profile.recentComments ?? []}
-        total={profile.commentCount ?? 0}
-        title="Son Yorumları"
-        emptyText="Henüz yorum yapmamış."
-        onSeeAll={() =>
-          navigation.push('UserComments', { userId: profile.id, name: profile.name })
-        }
-        onOpenAnimal={(animalId) => navigation.push('AnimalProfile', { animalId })}
-      />
+      <View style={styles.sectionTop}>
+        <RecentComments
+          comments={profile.recentComments ?? []}
+          total={profile.commentCount ?? 0}
+          title="Son yorumları"
+          emptyText="Henüz yorum yapmamış."
+          onSeeAll={() => navigation.push('UserComments', { userId: profile.id, name: profile.name })}
+          onOpenAnimal={(animalId) => navigation.push('AnimalProfile', { animalId })}
+        />
+      </View>
 
       <BadgeCatalogModal
         visible={catalogVisible}
         onClose={() => setCatalogVisible(false)}
         badges={profile.badges}
       />
-      <View style={styles.bottomSpacer} />
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { alignItems: 'center', marginBottom: 16 },
-  avatar: { width: 88, height: 88, borderRadius: 44 },
-  avatarPlaceholder: { backgroundColor: '#2e7d32', justifyContent: 'center', alignItems: 'center' },
-  avatarPlaceholderText: { color: '#fff', fontSize: 32, fontWeight: '700' },
-  title: { fontSize: 22, fontWeight: '700', marginTop: 12 },
-  meta: { color: '#555', marginTop: 4 },
-  metaSmall: { color: '#888', fontSize: 12, marginTop: 2 },
-  rankLine: { color: '#2e7d32', fontWeight: '600', marginTop: 6 },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
+  headerCard: { marginBottom: spacing.lg },
+  headerTop: { alignItems: 'center', marginBottom: spacing.lg },
+  name: { marginTop: spacing.md },
+  rankLine: { marginTop: spacing.xs },
+  statsRow: { flexDirection: 'row' },
   statBox: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 18, fontWeight: '700' },
-  statLabel: { color: '#888', fontSize: 12, marginTop: 2 },
-  actionArea: { alignItems: 'center', marginBottom: 16 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  linkText: { color: '#2e7d32', fontWeight: '600' },
-  sectionTitle: { fontSize: 18, fontWeight: '600', marginTop: 8, marginBottom: 8 },
-  badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  badgeCard: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
-    padding: 10,
-    alignItems: 'center',
-  },
-  badgeEmoji: { fontSize: 28 },
-  badgeLabel: { fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 4 },
-  badgeStreak: { fontSize: 11, color: '#888', marginTop: 2 },
-  animalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  animalText: { flex: 1, marginLeft: 12 },
-  animalName: { fontSize: 16, fontWeight: '600' },
-  bottomSpacer: { height: 40 },
+  action: { marginBottom: spacing.xl },
+  block: { marginBottom: spacing.sm },
+  badgeRow: { flexDirection: 'row', gap: spacing.sm },
+  badgeCard: { flex: 1, alignItems: 'center' },
+  badgeEmoji: { fontSize: 28, lineHeight: 34, marginBottom: spacing.xs },
+  badgeStreak: { marginTop: 2 },
+  sectionTop: { marginTop: spacing.xl },
+  animalRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  animalText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
 });

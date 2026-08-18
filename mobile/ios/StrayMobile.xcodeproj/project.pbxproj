@@ -14,6 +14,14 @@
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		7699B88040F8A987B510C191 /* libPods-StrayMobile-StrayMobileTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-StrayMobile-StrayMobileTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		4E6BC12CD8E7465EB586DDA8 /* Nunito-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */; };
+		493F68EC69014190AD710A84 /* Nunito-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */; };
+		E879F3C5B6DC455D9E076746 /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */; };
+		87304EA3538C41E892EEE0E5 /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */; };
+		DD6C8861EA3D4F4097643315 /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DFFFB3A31CFF46DBAE947CA0 /* Nunito-Regular.ttf */; };
+		E19D45B082FB41F4A6C5B678 /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DFFFB3A31CFF46DBAE947CA0 /* Nunito-Regular.ttf */; };
+		E41656121CD545A2B84BBB79 /* Nunito-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 88D20CE9712C42A29451D25C /* Nunito-ExtraBold.ttf */; };
+		F2BBEB04B01141F881DCCC17 /* Nunito-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 88D20CE9712C42A29451D25C /* Nunito-ExtraBold.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,7 +44,7 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = StrayMobile/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = StrayMobile/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = StrayMobile/main.m; sourceTree = "<group>"; };
-	    13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = StrayMobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = StrayMobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		19F6CBCC0A4E27FBF8BF4A61 /* libPods-StrayMobile-StrayMobileTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-StrayMobile-StrayMobileTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B4392A12AC88292D35C810B /* Pods-StrayMobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StrayMobile.debug.xcconfig"; path = "Target Support Files/Pods-StrayMobile/Pods-StrayMobile.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-StrayMobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StrayMobile.release.xcconfig"; path = "Target Support Files/Pods-StrayMobile/Pods-StrayMobile.release.xcconfig"; sourceTree = "<group>"; };
@@ -45,6 +53,10 @@
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = StrayMobile/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-StrayMobile-StrayMobileTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StrayMobile-StrayMobileTests.release.xcconfig"; path = "Target Support Files/Pods-StrayMobile-StrayMobileTests/Pods-StrayMobile-StrayMobileTests.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */ = {isa = PBXFileReference; name = "Nunito-SemiBold.ttf"; path = "../assets/fonts/Nunito-SemiBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */ = {isa = PBXFileReference; name = "Nunito-Bold.ttf"; path = "../assets/fonts/Nunito-Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		DFFFB3A31CFF46DBAE947CA0 /* Nunito-Regular.ttf */ = {isa = PBXFileReference; name = "Nunito-Regular.ttf"; path = "../assets/fonts/Nunito-Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		88D20CE9712C42A29451D25C /* Nunito-ExtraBold.ttf */ = {isa = PBXFileReference; name = "Nunito-ExtraBold.ttf"; path = "../assets/fonts/Nunito-ExtraBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,6 +136,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				FDED909ACF624070AB3E96FF /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -149,6 +162,18 @@
 			);
 			path = Pods;
 			sourceTree = "<group>";
+		};
+		FDED909ACF624070AB3E96FF /* Resources */ = {
+			isa = "PBXGroup";
+			children = (
+				7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */,
+				4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */,
+				DFFFB3A31CFF46DBAE947CA0 /* Nunito-Regular.ttf */,
+				88D20CE9712C42A29451D25C /* Nunito-ExtraBold.ttf */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+			path = "";
 		};
 /* End PBXGroup section */
 
@@ -236,6 +261,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				493F68EC69014190AD710A84 /* Nunito-SemiBold.ttf in Resources */,
+				87304EA3538C41E892EEE0E5 /* Nunito-Bold.ttf in Resources */,
+				E19D45B082FB41F4A6C5B678 /* Nunito-Regular.ttf in Resources */,
+				F2BBEB04B01141F881DCCC17 /* Nunito-ExtraBold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,6 +274,10 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				4E6BC12CD8E7465EB586DDA8 /* Nunito-SemiBold.ttf in Resources */,
+				E879F3C5B6DC455D9E076746 /* Nunito-Bold.ttf in Resources */,
+				DD6C8861EA3D4F4097643315 /* Nunito-Regular.ttf in Resources */,
+				E41656121CD545A2B84BBB79 /* Nunito-ExtraBold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,8 +1,12 @@
 import React from 'react';
+import { StyleSheet, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
+import { navigationTheme, palette, screenOptions, tabBarOptions } from '../theme';
+import { Icon, Logo } from '../components/brand';
+import type { IconName } from '../components/brand';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import MapScreen from '../screens/MapScreen';
@@ -52,9 +56,22 @@ function AuthNavigator() {
   );
 }
 
+const TAB_ICONS: Record<keyof MainTabParamList, IconName> = {
+  Map: 'pin',
+  Animals: 'paw',
+  Profile: 'user',
+};
+
 function MainTabs() {
   return (
-    <Tab.Navigator>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        ...tabBarOptions,
+        tabBarIcon: ({ color, size }) => (
+          <Icon name={TAB_ICONS[route.name]} size={size} color={color} />
+        ),
+      })}
+    >
       <Tab.Screen name="Map" component={MapScreen} options={{ title: 'Harita' }} />
       <Tab.Screen name="Animals" component={AnimalsScreen} options={{ title: 'Hayvanlar' }} />
       <Tab.Screen name="Profile" component={UserProfileScreen} options={{ title: 'Profilim' }} />
@@ -64,7 +81,7 @@ function MainTabs() {
 
 function MainNavigator() {
   return (
-    <MainStack.Navigator>
+    <MainStack.Navigator screenOptions={screenOptions}>
       <MainStack.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
       <MainStack.Screen
         name="AddAnimal"
@@ -106,11 +123,17 @@ export default function RootNavigator() {
   useCareAlerts(!!user);
 
   if (isLoading) {
-    return null;
+    // Oturum okunurken boş ekran yerine logo duruyor: uygulama bir anlığına
+    // beyaz/boş açılmıyor, açılış görseliyle sürekli bir geçiş oluyor.
+    return (
+      <View style={styles.splash}>
+        <Logo size={96} />
+      </View>
+    );
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       {user ? (
         // Rozet kutlama popup'ı navigasyonun üstünde duruyor ki hangi ekranda
         // kazanılırsa kazanılsın aynı yerden gösterilebilsin.
@@ -123,3 +146,12 @@ export default function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.background,
+  },
+});

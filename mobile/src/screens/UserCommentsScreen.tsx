@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { fetchUserComments, UserComment } from '../api/users';
 import AnimalAvatar from '../components/AnimalAvatar';
+import { Card, Chip, EmptyState, Screen, Text } from '../components/ui';
+import { spacing } from '../theme';
 
 const PAGE_SIZE = 30;
 
@@ -46,61 +48,68 @@ export default function UserCommentsScreen({ route, navigation }: any) {
   }, [load]);
 
   return (
-    <FlatList
-      style={styles.container}
-      data={comments}
-      keyExtractor={(item) => String(item.id)}
-      refreshing={loading && comments.length === 0}
-      onRefresh={() => load(0)}
-      onEndReachedThreshold={0.4}
-      onEndReached={() => {
-        if (!loading && comments.length < total) load(comments.length);
-      }}
-      ListHeaderComponent={
-        total > 0 ? <Text style={styles.header}>Toplam {total} yorum</Text> : null
-      }
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => navigation.push('AnimalProfile', { animalId: item.animal_id })}
-        >
-          <AnimalAvatar species={item.animal_species} photoUrl={item.animal_photo_url} size={44} />
-          <View style={styles.body}>
-            <View style={styles.metaRow}>
-              <Text style={styles.animalName}>
-                {item.animal_name ?? (item.animal_species === 'cat' ? 'Kedi' : 'Köpek')}
+    <Screen padded={false}>
+      <FlatList
+        data={comments}
+        keyExtractor={(item) => String(item.id)}
+        refreshing={loading && comments.length === 0}
+        onRefresh={() => load(0)}
+        onEndReachedThreshold={0.4}
+        onEndReached={() => {
+          if (!loading && comments.length < total) load(comments.length);
+        }}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          total > 0 ? (
+            <Text variant="label" style={styles.header}>
+              TOPLAM {total} YORUM
+            </Text>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <Card
+            variant="flat"
+            padding="md"
+            style={styles.row}
+            onPress={() => navigation.push('AnimalProfile', { animalId: item.animal_id })}
+          >
+            <AnimalAvatar species={item.animal_species} photoUrl={item.animal_photo_url} size={44} />
+            <View style={styles.body}>
+              <View style={styles.metaRow}>
+                <Text variant="bodyStrong" style={styles.animalName} numberOfLines={1}>
+                  {item.animal_name ?? (item.animal_species === 'cat' ? 'Kedi' : 'Köpek')}
+                </Text>
+                <Text variant="micro" style={styles.date}>
+                  {formatDate(item.created_at)}
+                </Text>
+              </View>
+              <Text variant="body" style={styles.text}>
+                {item.body}
               </Text>
-              <Text style={styles.date}>{formatDate(item.created_at)}</Text>
+              {item.health_record_id !== null && (
+                <Chip label="Sağlık kaydı" tone="warning" style={styles.healthTag} />
+              )}
             </View>
-            <Text style={styles.text}>{item.body}</Text>
-            {item.health_record_id !== null && (
-              <Text style={styles.healthTag}>Sağlık kaydına bağlı</Text>
-            )}
-          </View>
-        </TouchableOpacity>
-      )}
-      ListEmptyComponent={
-        !loading ? <Text style={styles.empty}>Henüz yorum yapılmamış.</Text> : null
-      }
-    />
+          </Card>
+        )}
+        ListEmptyComponent={
+          !loading ? (
+            <EmptyState emoji="💬" title="Yorum yok" description="Henüz yorum yapılmamış." />
+          ) : null
+        }
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { color: '#888', fontSize: 12, paddingHorizontal: 16, paddingTop: 12 },
-  row: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  body: { flex: 1, marginLeft: 12 },
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+  header: { marginBottom: spacing.md },
+  row: { flexDirection: 'row', marginBottom: spacing.sm },
+  body: { flex: 1, marginLeft: spacing.md },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  animalName: { fontWeight: '600', fontSize: 15, flexShrink: 1 },
-  date: { color: '#888', fontSize: 11, marginLeft: 8 },
-  text: { color: '#333', marginTop: 4, lineHeight: 20 },
-  healthTag: { color: '#ef6c00', fontSize: 11, marginTop: 4, fontWeight: '600' },
-  empty: { textAlign: 'center', color: '#888', marginTop: 32 },
+  animalName: { flexShrink: 1 },
+  date: { marginLeft: spacing.sm },
+  text: { marginTop: spacing.xs },
+  healthTag: { alignSelf: 'flex-start', marginTop: spacing.sm },
 });

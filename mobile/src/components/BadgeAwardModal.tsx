@@ -1,7 +1,10 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 import type { BadgeAward } from '../api/users';
 import { TIER_EMOJI, TIER_LABELS } from '../badges';
+import Button from './ui/Button';
+import Text from './ui/Text';
+import { palette, radius, shadow, spacing } from '../theme';
 
 interface Props {
   award: BadgeAward | null;
@@ -32,20 +35,24 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
     <Modal visible transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.kicker}>Yeni rozet kazandın!</Text>
+          <Text variant="micro" color="brand">
+            YENİ ROZET KAZANDIN!
+          </Text>
 
           <View style={styles.medallion}>
             <Text style={styles.medallionEmoji}>{TIER_EMOJI[award.tier]}</Text>
           </View>
 
-          <Text style={styles.title}>
+          <Text variant="title" center style={styles.title}>
             {TIER_LABELS[award.tier]} {award.label}
           </Text>
-          <Text style={styles.points}>+{award.pointsAwarded} puan</Text>
+          <Text variant="bodyStrong" color="brand">
+            +{award.pointsAwarded} puan
+          </Text>
 
           {leveledUp && (
             <View style={styles.levelUp}>
-              <Text style={styles.levelUpText}>
+              <Text variant="captionStrong" style={styles.levelUpText}>
                 Seviye atladın: {award.levelBefore} → {award.levelAfter}
               </Text>
             </View>
@@ -53,15 +60,20 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Text style={styles.statLabel}>Sıralama</Text>
-              <Text style={[styles.statValue, climbed && styles.statValueUp]}>
+              <Text variant="micro">SIRALAMA</Text>
+              <Text
+                variant="captionStrong"
+                center
+                color={climbed ? 'success' : 'text'}
+                style={styles.statValue}
+              >
                 {rankLine(award)}
               </Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.statBox}>
-              <Text style={styles.statLabel}>Toplam puan</Text>
-              <Text style={styles.statValue}>
+              <Text variant="micro">TOPLAM PUAN</Text>
+              <Text variant="captionStrong" center color="text" style={styles.statValue}>
                 {award.pointsBefore !== null && award.pointsBefore !== award.pointsAfter
                   ? `${award.pointsBefore} → ${award.pointsAfter}`
                   : `${award.pointsAfter ?? 0}`}
@@ -69,11 +81,13 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
             </View>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={onDismiss}>
-            <Text style={styles.buttonText}>
-              {remaining > 0 ? `Sıradaki rozet (${remaining})` : 'Harika!'}
-            </Text>
-          </TouchableOpacity>
+          <Button
+            title={remaining > 0 ? `Sıradaki rozet (${remaining})` : 'Harika!'}
+            onPress={onDismiss}
+            fullWidth
+            size="lg"
+            style={styles.button}
+          />
         </View>
       </View>
     </Modal>
@@ -83,70 +97,47 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: palette.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: spacing.xl,
   },
   card: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: palette.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     alignItems: 'center',
-  },
-  kicker: {
-    color: '#2e7d32',
-    fontWeight: '700',
-    fontSize: 12,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    ...shadow.modal,
   },
   medallion: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#e8f5e9',
+    width: 100,
+    height: 100,
+    borderRadius: radius.pill,
+    backgroundColor: palette.brandTint,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: spacing.lg,
   },
-  medallionEmoji: { fontSize: 52 },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 14,
-    textAlign: 'center',
-  },
-  points: { fontSize: 15, color: '#2e7d32', fontWeight: '600', marginTop: 4 },
+  medallionEmoji: { fontSize: 52, lineHeight: 62 },
+  title: { marginTop: spacing.lg, marginBottom: spacing.xs },
   levelUp: {
-    backgroundColor: '#fff3e0',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginTop: 12,
+    backgroundColor: palette.warningSoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    marginTop: spacing.md,
   },
-  levelUpText: { color: '#ef6c00', fontWeight: '700', fontSize: 13 },
+  levelUpText: { color: palette.onWarning },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    marginTop: 20,
-    marginBottom: 4,
+    marginTop: spacing.xl,
     width: '100%',
   },
-  statBox: { flex: 1, alignItems: 'center', paddingHorizontal: 6 },
-  divider: { width: 1, backgroundColor: '#eee' },
-  statLabel: { color: '#888', fontSize: 11, marginBottom: 4 },
-  statValue: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
-  statValueUp: { color: '#2e7d32' },
-  button: {
-    backgroundColor: '#2e7d32',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    marginTop: 22,
-    alignSelf: 'stretch',
-  },
-  buttonText: { color: '#fff', fontWeight: '700', textAlign: 'center', fontSize: 15 },
+  statBox: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.sm },
+  divider: { width: StyleSheet.hairlineWidth, backgroundColor: palette.border },
+  statValue: { marginTop: spacing.xs },
+  button: { marginTop: spacing.xl },
 });

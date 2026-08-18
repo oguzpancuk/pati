@@ -1,16 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchLeaderboard, LeaderboardEntry, LeaderboardResponse } from '../api/users';
 import { TIER_EMOJI } from '../badges';
+import { Avatar, Card, EmptyState, Screen, Text } from '../components/ui';
+import { palette, radius, spacing } from '../theme';
 
 function medalFor(rank: number) {
   if (rank === 1) return '🥇';
@@ -43,98 +37,104 @@ export default function LeaderboardScreen({ navigation }: any) {
   function renderRow(entry: LeaderboardEntry, highlight: boolean) {
     const medal = medalFor(entry.rank);
     return (
-      <TouchableOpacity
+      <Card
+        variant="flat"
+        padding="md"
         style={[styles.row, highlight && styles.rowHighlight]}
         onPress={() => navigation.navigate('PublicProfile', { userId: entry.id })}
       >
-        <Text style={styles.rank}>{medal ?? entry.rank}</Text>
-        {entry.avatar_url ? (
-          <Image source={{ uri: entry.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarText}>{entry.name.charAt(0).toUpperCase()}</Text>
-          </View>
-        )}
+        <View style={styles.rankBox}>
+          <Text variant={medal ? 'heading' : 'bodyStrong'} color={highlight ? 'brand' : 'textMuted'}>
+            {medal ?? entry.rank}
+          </Text>
+        </View>
+        <Avatar uri={entry.avatar_url} name={entry.name} size={40} style={styles.avatar} />
         <View style={styles.info}>
-          <Text style={styles.name}>{entry.name}</Text>
-          <Text style={styles.meta}>
-            {entry.level ? `${entry.level.emoji} Sv.${entry.level.level} ${entry.level.title} · ` : ''}
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {entry.name}
+          </Text>
+          <Text variant="caption" numberOfLines={1}>
+            {entry.level
+              ? `${entry.level.emoji} Sv.${entry.level.level} ${entry.level.title} · `
+              : ''}
             {entry.badgeCount} rozet
             {entry.topTier ? ` · ${TIER_EMOJI[entry.topTier]}` : ''}
           </Text>
         </View>
         <View style={styles.pointsBox}>
-          <Text style={styles.points}>{entry.points}</Text>
-          <Text style={styles.pointsLabel}>puan</Text>
+          <Text variant="subheading" color="brand">
+            {entry.points}
+          </Text>
+          <Text variant="micro">PUAN</Text>
         </View>
-      </TouchableOpacity>
+      </Card>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {data?.me && (
-        <View style={styles.myCard}>
-          <Text style={styles.myTitle}>Sıralamanız</Text>
-          <Text style={styles.myRank}>
-            {data.me.rank}. / {data.totalUsers}
-          </Text>
-          <Text style={styles.myMeta}>
-            {data.me.points} puan · rozetlerden {data.me.badgePoints}, yorumlardan{' '}
-            {data.me.commentPoints}
-          </Text>
-          {data.me.level && (
-            <Text style={styles.myLevel}>
-              {data.me.level.emoji} Seviye {data.me.level.level} · {data.me.level.title}
-            </Text>
-          )}
-        </View>
-      )}
-
+    <Screen padded={false}>
       <FlatList
         data={data?.entries ?? []}
         keyExtractor={(item) => String(item.id)}
         refreshing={loading}
         onRefresh={load}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          data?.me ? (
+            <Card style={styles.myCard}>
+              <Text variant="label">SIRALAMAN</Text>
+              <Text variant="display" style={styles.myRank}>
+                {data.me.rank}
+                <Text variant="heading" color="textMuted">
+                  {' '}
+                  / {data.totalUsers}
+                </Text>
+              </Text>
+              <Text variant="caption">
+                {data.me.points} puan · rozetlerden {data.me.badgePoints}, yorumlardan{' '}
+                {data.me.commentPoints}
+              </Text>
+              {data.me.level && (
+                <View style={styles.levelPill}>
+                  <Text variant="captionStrong" color="brandDark">
+                    {data.me.level.emoji} Seviye {data.me.level.level} · {data.me.level.title}
+                  </Text>
+                </View>
+              )}
+            </Card>
+          ) : null
+        }
         renderItem={({ item }) => renderRow(item, item.id === data?.me?.id)}
         ListEmptyComponent={
-          !loading ? <Text style={styles.empty}>Henüz sıralama verisi yok.</Text> : null
+          !loading ? (
+            <EmptyState
+              emoji="🏆"
+              title="Sıralama henüz boş"
+              description="İlk mama ve su kaydını bırakan buraya çıkar."
+            />
+          ) : null
         }
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  myCard: {
-    backgroundColor: '#e8f5e9',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#c8e6c9',
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+  myCard: { marginBottom: spacing.lg },
+  myRank: { marginTop: 2, marginBottom: spacing.xs },
+  levelPill: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+    backgroundColor: palette.brandSoft,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
   },
-  myTitle: { color: '#2e7d32', fontWeight: '600', fontSize: 12 },
-  myRank: { fontSize: 26, fontWeight: '700', marginTop: 2 },
-  myMeta: { color: '#555', fontSize: 12, marginTop: 2 },
-  myLevel: { color: '#2e7d32', fontSize: 12, fontWeight: '600', marginTop: 4 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  rowHighlight: { backgroundColor: '#f1f8e9' },
-  rank: { width: 34, fontSize: 15, fontWeight: '700', color: '#555' },
-  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
-  avatarPlaceholder: { backgroundColor: '#2e7d32', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontWeight: '700' },
-  info: { flex: 1 },
-  name: { fontSize: 15, fontWeight: '600' },
-  meta: { color: '#888', fontSize: 12, marginTop: 2 },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  rowHighlight: { borderColor: palette.brand, backgroundColor: palette.brandTint },
+  rankBox: { width: 34, alignItems: 'center' },
+  avatar: { marginHorizontal: spacing.md },
+  info: { flex: 1, marginRight: spacing.sm },
   pointsBox: { alignItems: 'flex-end' },
-  points: { fontSize: 16, fontWeight: '700' },
-  pointsLabel: { color: '#888', fontSize: 10 },
-  empty: { textAlign: 'center', color: '#888', marginTop: 32 },
 });

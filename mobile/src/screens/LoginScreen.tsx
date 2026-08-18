@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
+import { Button, Card, Input, Screen, Text } from '../components/ui';
+import { Wordmark } from '../components/brand';
+import { hitSlop, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
@@ -24,40 +27,64 @@ export default function LoginScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Stray'e Giriş Yap</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="E-posta"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Şifre"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <Button title={submitting ? 'Giriş yapılıyor...' : 'Giriş Yap'} onPress={handleLogin} disabled={submitting} />
-      <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
-        Hesabın yok mu? Kayıt ol
-      </Text>
-    </View>
+    <Screen edges={['top', 'bottom']} padded={false}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={styles.center}>
+          <Wordmark size="lg" tagline style={styles.brand} />
+
+          <Card style={styles.card}>
+            <Input
+              label="E-POSTA"
+              placeholder="ornek@eposta.com"
+              autoCapitalize="none"
+              autoComplete="email"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <Input
+              label="ŞİFRE"
+              placeholder="••••••••"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              containerStyle={styles.lastField}
+            />
+            <Button
+              title="Giriş yap"
+              onPress={handleLogin}
+              loading={submitting}
+              fullWidth
+              size="lg"
+            />
+          </Card>
+
+          <Pressable
+            onPress={() => navigation.navigate('Register')}
+            hitSlop={hitSlop}
+            style={styles.link}
+          >
+            <Text variant="caption" center>
+              Hesabın yok mu?{' '}
+              <Text variant="captionStrong" color="brand">
+                Kayıt ol
+              </Text>
+            </Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 24, textAlign: 'center' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  link: { marginTop: 16, textAlign: 'center', color: '#2e7d32' },
+  flex: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl },
+  brand: { marginBottom: spacing.xxl },
+  card: { paddingTop: spacing.xl },
+  lastField: { marginBottom: spacing.xl },
+  link: { marginTop: spacing.xl },
 });

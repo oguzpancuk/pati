@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Ad, AdSlot, fetchAd, recordAdClick, recordAdImpression } from '../api/ads';
+import Text from './ui/Text';
+import Icon from './brand/Icon';
+import { palette, radius, spacing } from '../theme';
 
 interface Props {
   slot: AdSlot;
@@ -62,57 +65,61 @@ export default function AdBanner({ slot, visible = true }: Props) {
   }
 
   return (
-    <TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
-      <Text style={styles.label}>Reklam</Text>
+    <Pressable
+      style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      onPress={handlePress}
+    >
+      {/* "REKLAM" etiketi zorunlu: kullanıcı neyin içerik neyin reklam olduğunu
+          ayırt edebilmeli. Marka renginden uzak, nötr bir tonda duruyor ki
+          uygulamanın kendi eylemleriyle karışmasın. */}
+      <Text variant="micro" style={styles.label}>
+        REKLAM
+      </Text>
       <View style={styles.row}>
         {ad.image_url ? (
           <Image source={{ uri: ad.image_url }} style={styles.image} />
         ) : (
           <View style={[styles.image, styles.imagePlaceholder]}>
-            <Text style={styles.imagePlaceholderText}>{ad.name.charAt(0).toUpperCase()}</Text>
+            <Text variant="subheading" color="textSubtle">
+              {ad.name.charAt(0).toLocaleUpperCase('tr-TR')}
+            </Text>
           </View>
         )}
         <View style={styles.text}>
-          <Text style={styles.headline} numberOfLines={1}>
+          <Text variant="bodyStrong" numberOfLines={1}>
             {ad.headline ?? ad.name}
           </Text>
           {ad.body && (
-            <Text style={styles.body} numberOfLines={2}>
+            <Text variant="caption" numberOfLines={2}>
               {ad.body}
             </Text>
           )}
         </View>
-        <Text style={styles.chevron}>›</Text>
+        <Icon name="chevronRight" size={18} color={palette.textSubtle} />
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderColor: '#e6e6e6',
-    borderRadius: 10,
-    backgroundColor: '#fafafa',
-    padding: 10,
-    marginTop: 14,
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    backgroundColor: palette.surfaceAlt,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    alignSelf: 'stretch',
   },
-  // "Reklam" etiketi zorunlu: kullanıcı neyin içerik neyin reklam olduğunu
-  // ayırt edebilmeli.
-  label: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    color: '#999',
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
+  pressed: { opacity: 0.85 },
+  label: { marginBottom: spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center' },
-  image: { width: 44, height: 44, borderRadius: 8, backgroundColor: '#eee' },
-  imagePlaceholder: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#dcdcdc' },
-  imagePlaceholderText: { fontSize: 18, fontWeight: '700', color: '#777' },
-  text: { flex: 1, marginLeft: 10 },
-  headline: { fontSize: 14, fontWeight: '600' },
-  body: { fontSize: 12, color: '#666', marginTop: 2 },
-  chevron: { fontSize: 22, color: '#bbb', marginLeft: 6 },
+  image: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.sm,
+    backgroundColor: palette.skeleton,
+  },
+  imagePlaceholder: { justifyContent: 'center', alignItems: 'center' },
+  text: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
 });

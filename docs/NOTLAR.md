@@ -221,6 +221,36 @@ giriş ekranına atıyor. Gerekçe: veritabanı sıfırlandığında elde kalan 
 token yüzünden uygulamanın "ne giriş yapabilir ne çıkış yapabilir" durumuna
 düşmesi yaşandı.
 
+### Yazı tipi ağırlığı `fontWeight` ile değil dosyayla veriliyor
+Nunito dört ayrı dosya olarak gömüldü (Regular/SemiBold/Bold/ExtraBold) ve
+tipografi token'ları `fontFamily: 'Nunito-Bold'` yazıyor, `fontWeight`
+yazmıyor. İkisi birlikte kullanıldığında Android sahte kalın (synthetic bold)
+üretip harfleri kalınlaştırarak bozuyor. Dosya adları PostScript adlarıyla
+birebir aynı tutuldu; Android font ailesini dosya adından, iOS PostScript
+adından okuduğu için ancak böyle tek bir `fontFamily` değeri iki platformda
+da çalışıyor.
+
+### Font `@expo-google-fonts`'tan alındı ama paket bağımlılık değil
+React Native `.ttf` istiyor. `@fontsource/nunito` yalnızca `.woff/.woff2`
+veriyor ve alfabelere göre parçalanmış — Türkçe karakterler `latin-ext`
+altında olduğu için tek bir parça alındığında ı/ğ/ş eksik kalıyordu.
+`@expo-google-fonts/nunito` tam ve bölünmemiş `.ttf` dosyalarını içerdiği için
+dosyalar oradan kopyalandı, paketin kendisi bağımlılık listesine eklenmedi
+(Expo çalışma zamanına ihtiyacımız yok). Lisans `mobile/assets/OFL-Nunito.txt`
+olarak birlikte taşınıyor — SIL OFL bunu şart koşuyor.
+
+### Emoji yerine SVG ikon
+Sekme, buton ve liste ikonları `components/brand/Icon.tsx` altında SVG olarak
+çiziliyor. Emoji her cihazda/OS sürümünde farklı çiziliyor, marka rengini
+alamıyor ve boyutu tipografiye bağlı. İstisna bilinçli: rozet kademeleri
+(🥇🥈🥉💎) ve seviye amblemleri emoji kaldı — onlar zaten "madalya" olarak
+okunuyor ve sunucudan geliyor.
+
+### Sekme çubuğuna sabit yükseklik verilmedi
+`tabBarStyle` içinde `height` yok. `@react-navigation/bottom-tabs` alt güvenli
+alanı kendisi ekliyor; sabit yükseklik verildiğinde çentikli/ana-çubuklu
+telefonlarda etiketler kırpılıyor.
+
 ---
 
 ## 3. Bilinen sınırlar ve teknik borç
@@ -285,6 +315,19 @@ düşmesi yaşandı.
     çıkmadan önce tamamen kaldırılmalı (`mobile/src/location.ts`).
 
 12. **CORS herkese açık** (`app.use(cors())`). Üretimde origin kısıtlanmalı.
+
+13. **Uygulama ikonu ve açılış görseli hâlâ React Native şablonu.** Marka
+    logosu bileşen olarak var (`components/brand/Logo.tsx`) ve uygulama içinde
+    kullanılıyor, ama `ios/.../Images.xcassets` ile
+    `android/.../mipmap-*` içindeki PNG'ler üretilmedi. Ana ekranda görünen ad
+    `pati` yapıldı; ikon değil.
+
+14. **Karanlık mod yok.** Renkler tek bir açık palet. Eklenecekse `palette` bir
+    tema nesnesine ve `useTheme()` kancasına dönüşmeli; bileşenler zaten token
+    okuduğu için ekran kodu değişmez.
+
+15. **Admin paneli mobil paletle hizalı değil.** Mobil "pati" kimliğine taşındı,
+    `admin/src/styles.css` hâlâ kendi renk değişkenlerinde (`--moss`, `--clay`).
 
 ---
 

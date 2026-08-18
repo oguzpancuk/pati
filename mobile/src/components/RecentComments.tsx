@@ -1,7 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { UserComment } from '../api/users';
 import AnimalAvatar from './AnimalAvatar';
+import Card from './ui/Card';
+import SectionHeader from './ui/SectionHeader';
+import Text from './ui/Text';
+import { spacing } from '../theme';
 
 interface Props {
   comments: UserComment[];
@@ -27,21 +31,22 @@ export default function RecentComments({
 }: Props) {
   return (
     <View>
-      <View style={styles.header}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        {total > 0 && (
-          <TouchableOpacity onPress={onSeeAll}>
-            <Text style={styles.link}>Tümünü gör ({total})</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <SectionHeader
+        title={title}
+        actionLabel={total > 0 ? `Tümünü gör (${total})` : undefined}
+        onAction={total > 0 ? onSeeAll : undefined}
+      />
 
       {comments.length === 0 ? (
-        <Text style={styles.empty}>{emptyText}</Text>
+        <Card variant="flat" style={styles.row}>
+          <Text variant="caption">{emptyText}</Text>
+        </Card>
       ) : (
         comments.map((comment) => (
-          <TouchableOpacity
+          <Card
             key={comment.id}
+            variant="flat"
+            padding="md"
             style={styles.row}
             onPress={() => onOpenAnimal(comment.animal_id)}
           >
@@ -52,16 +57,18 @@ export default function RecentComments({
             />
             <View style={styles.body}>
               <View style={styles.metaRow}>
-                <Text style={styles.animalName}>
+                <Text variant="bodyStrong" style={styles.animalName} numberOfLines={1}>
                   {comment.animal_name ?? (comment.animal_species === 'cat' ? 'Kedi' : 'Köpek')}
                 </Text>
-                <Text style={styles.date}>{formatDate(comment.created_at)}</Text>
+                <Text variant="micro" style={styles.date}>
+                  {formatDate(comment.created_at)}
+                </Text>
               </View>
-              <Text style={styles.text} numberOfLines={2}>
+              <Text variant="caption" numberOfLines={2} style={styles.text}>
                 {comment.body}
               </Text>
             </View>
-          </TouchableOpacity>
+          </Card>
         ))
       )}
     </View>
@@ -69,23 +76,10 @@ export default function RecentComments({
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '600', marginTop: 8, marginBottom: 8 },
-  link: { color: '#2e7d32', fontWeight: '600' },
-  empty: { color: '#555', marginBottom: 8 },
-  row: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  body: { flex: 1, marginLeft: 10 },
+  row: { flexDirection: 'row', marginBottom: spacing.sm },
+  body: { flex: 1, marginLeft: spacing.md },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  animalName: { fontWeight: '600', flexShrink: 1 },
-  date: { color: '#888', fontSize: 11, marginLeft: 8 },
-  text: { color: '#444', marginTop: 2, fontSize: 13, lineHeight: 18 },
+  animalName: { flexShrink: 1 },
+  date: { marginLeft: spacing.sm },
+  text: { marginTop: 2 },
 });

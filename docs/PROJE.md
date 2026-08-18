@@ -1,7 +1,8 @@
-# Stray — Proje Dokümanı
+# pati — Proje Dokümanı
 
 **Son güncelleme:** 18 Ağustos 2026
-**Depo:** https://github.com/oguzpancuk/Stray
+**Depo:** https://github.com/oguzpancuk/Stray (uygulamanın adı **pati**, depo adı
+hâlâ `Stray`)
 
 Bu doküman projenin bütününü tek yerde anlatır: ne yaptığı, nasıl çalıştığı,
 şu an nerede olduğu ve sırada ne olduğu. Ayrıntılar için:
@@ -9,7 +10,8 @@ Bu doküman projenin bütününü tek yerde anlatır: ne yaptığı, nasıl çal
 | Doküman | İçerik |
 | --- | --- |
 | [PRD.md](PRD.md) | Orijinal ürün gereksinimleri |
-| [YOL_HARITASI.md](YOL_HARITASI.md) | Kalan beş büyük iş, önerilen sıra ve yaklaşımlar |
+| [YOL_HARITASI.md](YOL_HARITASI.md) | Kalan işler, önerilen sıra ve yaklaşımlar |
+| [TASARIM.md](TASARIM.md) | Tasarım sistemi — token'lar, bileşenler, ekran kuralları |
 | [NOTLAR.md](NOTLAR.md) | Teknik kararların gerekçeleri, bilinen sınırlar, ortam tuzakları |
 | [../README.md](../README.md) | Kurulum ve çalıştırma adımları |
 
@@ -356,11 +358,13 @@ tıkta sıra bir sonrakine geçiyor.
 imleci. Markalara satış yapabilmek için gösterim ve tıklama ayrı ayrı
 kaydedilmeli.
 
-### 4. UI
-*Yaklaşım: ikiye bölünsün.* Renk/tipografi/boşluk token'larından oluşan küçük
-bir tasarım sistemi **hemen** çıkarılsın ki yeni gelen ekranlar onun üzerine
-kurulsun; **tam giydirme en sona** kalsın, çünkü bağış, reklam ve YZ eşleştirme
-yeni ekranlar ekleyecek ve erken yapılan giydirme tekrar edilmek zorunda kalır.
+### 4. UI — ✅ tamamlandı
+"pati" marka kimliği uygulandı: `mobile/src/theme/` altında renk/tipografi/
+boşluk token'ları, `components/ui/` altında 11 çekirdek bileşen,
+`components/brand/` altında SVG logo ve 20 ikonluk set. 11 ekranın tamamı bu
+sisteme taşındı, 171 sabit renk kodu sıfırlandı. Marka fontu Nunito gömüldü.
+Ayrıntı: [TASARIM.md](TASARIM.md). Kalan: uygulama ikonu/açılış görseli ve
+karanlık mod.
 
 ### 5. Admin sayfası (web)
 Tüm uygulamanın kontrol edileceği web tabanlı panel.
@@ -371,20 +375,18 @@ mevcut API üzerine. Önce altyapı: `users.role`, `requireAdmin` middleware,
 kullanıcı/hayvan/bakım kaydı yönetimi, mükerrer hayvan birleştirme, fotoğraf
 moderasyonu, reklamveren ve bağış kurumu yönetimi.
 
-### Önerilen sıra
+### Durum
 ```
-1. Admin paneli  ──┬──> 2. Reklam
-   + rol altyapısı └──> 3. Bağış
-4. Tasarım sistemi (erken, küçük)
-5. YZ eşleştirme (paralel yürüyebilir)
-6. UI giydirme (en son)
+✅ Admin paneli  ──┬──> ✅ Reklam
+   + rol altyapısı └──> ⏸️  Bağış — ertelendi (ödeme sağlayıcı, hukuk, mağaza)
+⏸️  YZ eşleştirme — park edildi (maliyet/hız ölçüldü, isabet ölçülemedi)
+✅ Tasarım sistemi + UI giydirme
+🚀 Yayına çıkma sprint'i ← SIRADA, kalan tek zorunlu blok
 ```
-**Admin önce**, çünkü hem reklam firmaları hem bağış kurumları oradan giriliyor
-— diğer ikisinin veri girişi ona bağlı. **Reklam ikinci**, çünkü teknik olarak
-en basiti ve dış bağımlılığı yok. **Bağış sonra**, çünkü ödeme sağlayıcı,
-hukuki kontrol ve mağaza kuralları kod yazmadan önce netleşmeli. **YZ
-eşleştirme** en büyük teknik belirsizlik olduğu için önce kısa bir deneme
-(spike) yapılması, isabetin yeterli olup olmadığının erken görülmesi mantıklı.
+Kalan iki özellik maddesi de dış bir bilgiye bağlı olduğu için beklemede:
+**bağış** ödeme sağlayıcı/hukuk/mağaza kurallarına, **YZ eşleştirme** ise gerçek
+fotoğraflarla yapılacak isabet ölçümüne. Kod tarafında bloke eden bir şey yok;
+sıradaki iş [yayına çıkma sprint'i](YOL_HARITASI.md#-yayına-çıkma-sprinti--ertelendi-unutulmayacak).
 
 ---
 

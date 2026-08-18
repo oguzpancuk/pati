@@ -1,15 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Button,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, {
   Circle,
   LatLng,
@@ -32,6 +24,9 @@ import AnimalAvatar from '../components/AnimalAvatar';
 import UserLocationMarker from '../components/UserLocationMarker';
 import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
+import { Banner, Button, Text } from '../components/ui';
+import { Icon } from '../components/brand';
+import { caredFill, mapColors, palette, radius, shadow, spacing } from '../theme';
 
 // Türkiye'nin yaklaşık coğrafi sınır kutusu (kesin idari sınır değil).
 // Harita bu alana odaklanır ve kullanıcı bu kutunun dışına fazla kayamaz.
@@ -75,7 +70,7 @@ const MARKER_PRESS_GUARD_MS = 600;
 // sayıda aksiyon olan yerlerde daireler üst üste binip belirgin yeşile döner.
 // Opaklıklar bilinçli olarak düşük tutuldu; altındaki sokak/işletme isimleri okunabilir
 // kalmalı, katmanlar haritayı gizlememeli.
-const BASE_RED_FILL = 'rgba(198, 40, 40, 0.15)';
+const BASE_RED_FILL = mapColors.needsCareFill;
 const MAX_GREEN_ALPHA = 0.3;
 
 function weightToGreenAlpha(weight: number) {
@@ -101,6 +96,8 @@ export default function MapScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
+
+  const typeLabel = viewType === 'food' ? 'mama' : 'su';
 
   function centerOnUser(loc: Coordinates) {
     if (hasCenteredOnUser.current) return;
@@ -261,48 +258,16 @@ export default function MapScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      {status?.needsAttention && (
-        <View style={styles.banner}>
-          <Text style={styles.bannerText}>
-            Bulunduğunuz konumun {status.radiusMeters}m çevresinde son{' '}
-            {status.windowHours} saatte {viewType === 'food' ? 'mama' : 'su'} bırakılmamış.
-          </Text>
-        </View>
-      )}
-
-      <View style={styles.viewTypeRow}>
-        <TouchableOpacity
-          style={[styles.viewTypeButton, viewType === 'food' && styles.viewTypeButtonSelected]}
-          onPress={() => setViewType('food')}
-        >
-          <Text style={[styles.viewTypeText, viewType === 'food' && styles.viewTypeTextSelected]}>
-            Mama
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.viewTypeButton, viewType === 'water' && styles.viewTypeButtonSelected]}
-          onPress={() => setViewType('water')}
-        >
-          <Text style={[styles.viewTypeText, viewType === 'water' && styles.viewTypeTextSelected]}>
-            Su
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       <MapView
         ref={mapRef}
-        style={styles.map}
+        style={StyleSheet.absoluteFill}
         mapType="standard"
         initialRegion={TURKEY_REGION}
         onMapReady={handleMapReady}
         onRegionChangeComplete={handleRegionChangeComplete}
         onPress={handleMapPress}
       >
-        <Polygon
-          coordinates={TURKEY_POLYGON}
-          fillColor={BASE_RED_FILL}
-          strokeColor="transparent"
-        />
+        <Polygon coordinates={TURKEY_POLYGON} fillColor={BASE_RED_FILL} strokeColor="transparent" />
 
         {actions.map((action) => (
           <Circle
@@ -312,7 +277,7 @@ export default function MapScreen({ navigation }: any) {
               longitude: action.location.coordinates[0],
             }}
             radius={ACTION_CIRCLE_RADIUS_METERS}
-            fillColor={`rgba(46, 125, 50, ${weightToGreenAlpha(Number(action.weight))})`}
+            fillColor={caredFill(weightToGreenAlpha(Number(action.weight)))}
             strokeColor="transparent"
           />
         ))}
@@ -324,9 +289,7 @@ export default function MapScreen({ navigation }: any) {
             tracksViewChanges={false}
             // Konum göstergesi haritanın dokunuşunu yutuyor; en doğal davranış
             // kendi konumuna dokununca oraya işaret koymak.
-            onPress={() =>
-              setPendingPin({ latitude: myLocation.lat, longitude: myLocation.lng })
-            }
+            onPress={() => setPendingPin({ latitude: myLocation.lat, longitude: myLocation.lng })}
           >
             <UserLocationMarker />
           </Marker>
@@ -348,27 +311,69 @@ export default function MapScreen({ navigation }: any) {
             </Marker>
           ))}
 
-        {pendingPin && <Marker coordinate={pendingPin} pinColor="#1976d2" />}
+        {pendingPin && <Marker coordinate={pendingPin} pinColor={palette.brand} />}
       </MapView>
 
+      {/* Üst katman: harita tam ekran, kontroller üstünde yüzüyor. */}
+      <SafeAreaView style={styles.topLayer} edges={['top']} pointerEvents="box-none">
+        <View style={styles.segment}>
+          {(['food', 'water'] as const).map((option) => {
+            const selected = viewType === option;
+            return (
+              <Pressable
+                key={option}
+                onPress={() => setViewType(option)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                style={[styles.segmentItem, selected && styles.segmentItemSelected]}
+              >
+                <Icon
+                  name={option === 'food' ? 'food' : 'water'}
+                  size={18}
+                  color={selected ? palette.textOnBrand : palette.textMuted}
+                />
+                <Text
+                  variant="bodyStrong"
+                  style={[
+                    styles.segmentLabel,
+                    { color: selected ? palette.textOnBrand : palette.textMuted },
+                  ]}
+                >
+                  {option === 'food' ? 'Mama' : 'Su'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {status?.needsAttention && (
+          <Banner
+            tone="danger"
+            emoji="⚠️"
+            title={`Buralarda ${typeLabel} yok`}
+            description={`${status.radiusMeters} m çevrede son ${status.windowHours} saatte ${typeLabel} bırakılmamış.`}
+            style={styles.banner}
+          />
+        )}
+      </SafeAreaView>
+
       <View style={styles.zoomControls}>
-        <TouchableOpacity style={styles.zoomButton} onPress={() => zoomBy(0.5)}>
+        <Pressable style={styles.zoomButton} onPress={() => zoomBy(0.5)} accessibilityLabel="Yakınlaştır">
           <Text style={styles.zoomButtonText}>+</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.zoomButton} onPress={() => zoomBy(2)}>
+        </Pressable>
+        <Pressable style={styles.zoomButton} onPress={() => zoomBy(2)} accessibilityLabel="Uzaklaştır">
           <Text style={styles.zoomButtonText}>−</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {!pendingPin && (
-        <View style={styles.hint}>
-          <Text style={styles.hintText}>
-            {viewType === 'food' ? 'Mama' : 'Su'} bıraktığınız konumu işaretlemek için haritaya
-            dokunun.
+        <View style={styles.hint} pointerEvents="none">
+          <Text variant="captionStrong" center>
+            {viewType === 'food' ? 'Mama' : 'Su'} bıraktığın yeri işaretlemek için haritaya dokun
           </Text>
           {!animalsVisible && animals.length > 0 && (
-            <Text style={styles.hintSubText}>
-              Hayvanları görmek için haritayı yakınlaştırın.
+            <Text variant="caption" center style={styles.hintSub}>
+              Hayvanları görmek için yakınlaştır
             </Text>
           )}
         </View>
@@ -379,19 +384,31 @@ export default function MapScreen({ navigation }: any) {
       <Modal visible={!!pendingPin} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              Bu konuma {viewType === 'food' ? 'mama' : 'su'} bıraktığınızı işaretleyin
+            <View style={styles.modalIcon}>
+              <Icon name={viewType === 'food' ? 'food' : 'water'} size={28} color={palette.brand} />
+            </View>
+            <Text variant="heading" center>
+              Bu noktaya {typeLabel} bıraktın mı?
             </Text>
-            <View style={styles.modalButton}>
-              <Button
-                title={viewType === 'food' ? 'Mama Bıraktım' : 'Su Bıraktım'}
-                onPress={() => handleChooseAction(viewType)}
-                disabled={submitting}
-              />
-            </View>
-            <View style={styles.modalButton}>
-              <Button title="İptal" color="#c62828" onPress={() => setPendingPin(null)} />
-            </View>
+            <Text variant="caption" center style={styles.modalDesc}>
+              Fotoğrafını çek, haritada herkes görsün.
+            </Text>
+
+            <Button
+              title={viewType === 'food' ? 'Mama bıraktım' : 'Su bıraktım'}
+              onPress={() => handleChooseAction(viewType)}
+              loading={submitting}
+              icon={<Icon name="camera" size={18} color={palette.textOnBrand} />}
+              fullWidth
+              size="lg"
+            />
+            <Button
+              title="Vazgeç"
+              variant="ghost"
+              onPress={() => setPendingPin(null)}
+              fullWidth
+              style={styles.modalCancel}
+            />
 
             {/* Mama haritasında mama markası, su haritasında su markası. */}
             <AdBanner
@@ -404,7 +421,9 @@ export default function MapScreen({ navigation }: any) {
 
       {(loading || submitting) && (
         <View style={styles.loadingOverlay} pointerEvents="none">
-          <ActivityIndicator size="large" />
+          <View style={styles.loadingPill}>
+            <ActivityIndicator size="small" color={palette.brand} />
+          </View>
         </View>
       )}
     </View>
@@ -412,79 +431,88 @@ export default function MapScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
-  zoomControls: {
-    position: 'absolute',
-    right: 12,
-    bottom: 96,
+  container: { flex: 1, backgroundColor: palette.background },
+  topLayer: { position: 'absolute', top: 0, left: 0, right: 0 },
+  segment: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    marginTop: spacing.md,
+    padding: 4,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surface,
+    ...shadow.raised,
   },
+  segmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.pill,
+  },
+  segmentItemSelected: { backgroundColor: palette.brand },
+  segmentLabel: { marginLeft: spacing.sm },
+  banner: { marginHorizontal: spacing.lg, marginTop: spacing.md, ...shadow.card },
+  zoomControls: { position: 'absolute', right: spacing.md, bottom: 110 },
   zoomButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#fff',
+    width: 42,
+    height: 42,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
+    marginBottom: spacing.sm,
+    ...shadow.card,
   },
-  zoomButtonText: { fontSize: 22, fontWeight: '600', color: '#333' },
-  banner: {
-    backgroundColor: '#c62828',
-    padding: 12,
-  },
-  bannerText: { color: '#fff', textAlign: 'center' },
-  viewTypeRow: {
-    flexDirection: 'row',
-    padding: 8,
-    gap: 8,
-    backgroundColor: '#fff',
-  },
-  viewTypeButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  viewTypeButtonSelected: { backgroundColor: '#2e7d32', borderColor: '#2e7d32' },
-  viewTypeText: { color: '#333', fontWeight: '600' },
-  viewTypeTextSelected: { color: '#fff' },
+  zoomButtonText: { fontSize: 22, lineHeight: 26, color: palette.textMuted },
   hint: {
-    padding: 12,
-    backgroundColor: '#fff',
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.xl,
+    backgroundColor: palette.surface,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    ...shadow.card,
   },
-  hintText: { textAlign: 'center', color: '#555' },
-  hintSubText: { textAlign: 'center', color: '#888', fontSize: 12, marginTop: 4 },
+  hintSub: { marginTop: 2 },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: palette.overlay,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: spacing.xl,
   },
   modalCard: {
-    width: '80%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: palette.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    alignItems: 'center',
+    ...shadow.modal,
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 16,
+  modalIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: palette.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
   },
-  modalButton: { marginBottom: 10 },
+  modalDesc: { marginTop: spacing.xs, marginBottom: spacing.xl },
+  modalCancel: { marginTop: spacing.xs },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  loadingPill: {
+    padding: spacing.lg,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surface,
+    ...shadow.raised,
   },
 });

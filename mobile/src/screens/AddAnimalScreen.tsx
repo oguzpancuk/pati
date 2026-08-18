@@ -1,28 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Button,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
-import {
-  addAnimalPhoto,
-  Animal,
-  createAnimal,
-  fetchAnimals,
-  reportSighting,
-} from '../api/animals';
+import { addAnimalPhoto, Animal, createAnimal, fetchAnimals, reportSighting } from '../api/animals';
 import type { PhotoAsset } from '../api/care';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Coordinates, getCurrentLocation } from '../location';
+import {
+  Banner,
+  Button,
+  Card,
+  Chip,
+  Input,
+  LoadingState,
+  Screen,
+  Text,
+} from '../components/ui';
+import { Icon } from '../components/brand';
+import { palette, radius, spacing } from '../theme';
 
 type Species = 'cat' | 'dog';
 
@@ -101,7 +96,10 @@ export default function AddAnimalScreen({ navigation }: any) {
       await reportSighting(animal.id, location.lat, location.lng);
       navigation.replace('AnimalProfile', { animalId: animal.id });
     } catch (err: any) {
-      Alert.alert('Güncellenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+      Alert.alert(
+        'Güncellenemedi',
+        err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -130,7 +128,7 @@ export default function AddAnimalScreen({ navigation }: any) {
 
   async function handleSubmit() {
     if (photos.length < MIN_PHOTOS) {
-      Alert.alert('Fotoğraf gerekli', `En az ${MIN_PHOTOS} fotoğraf eklemelisiniz.`);
+      Alert.alert('Fotoğraf gerekli', `En az ${MIN_PHOTOS} fotoğraf eklemelisin.`);
       return;
     }
 
@@ -160,184 +158,193 @@ export default function AddAnimalScreen({ navigation }: any) {
 
   if (step === 'checking') {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-        <Text style={styles.checkingText}>Yakındaki kayıtlı hayvanlar kontrol ediliyor...</Text>
-      </View>
+      <Screen>
+        <LoadingState label="Yakındaki kayıtlı hayvanlar kontrol ediliyor…" />
+      </Screen>
     );
   }
 
   if (step === 'duplicate-check') {
     return (
-      <ScrollView style={styles.container}>
-        <Text style={styles.duplicateTitle}>Bu hayvan zaten kayıtlı olabilir</Text>
-        <Text style={styles.duplicateSubtitle}>
-          Yakınınızda kayıtlı hayvanlar var. Eklemek istediğiniz hayvan bunlardan biriyse
-          seçin — konumu güncellenecek ve bakım listenize eklenecek.
-        </Text>
+      <Screen scroll>
+        <Banner
+          tone="warning"
+          emoji="🔎"
+          title="Bu hayvan zaten kayıtlı olabilir"
+          description="Eklemek istediğin hayvan aşağıdakilerden biriyse seç — konumu güncellenir ve bakım listene eklenir."
+          style={styles.duplicateBanner}
+        />
 
         {nearby.map((animal) => (
-          <TouchableOpacity
+          <Card
             key={animal.id}
+            variant="flat"
+            padding="md"
             style={styles.nearbyRow}
             onPress={() => handleExistingAnimal(animal)}
-            disabled={submitting}
           >
             <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={52} />
             <View style={styles.nearbyText}>
-              <Text style={styles.nearbyName}>
+              <Text variant="subheading" numberOfLines={1}>
                 {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
               </Text>
-              <Text style={styles.nearbyMeta}>
-                {animal.breed ?? '-'}
+              <Text variant="caption" numberOfLines={1}>
+                {animal.breed ?? 'Cinsi belirtilmemiş'}
                 {animal.distance_meters !== undefined
                   ? ` · ${Math.round(animal.distance_meters)} m uzakta`
                   : ''}
               </Text>
             </View>
-          </TouchableOpacity>
+            <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+          </Card>
         ))}
 
-        <View style={styles.newAnimalButton}>
-          <Button
-            title="Hiçbiri — Yeni Hayvan Kaydet"
-            onPress={() => setStep('form')}
-            disabled={submitting}
-          />
-        </View>
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+        <Button
+          title="Hiçbiri — yeni hayvan kaydet"
+          variant="secondary"
+          onPress={() => setStep('form')}
+          disabled={submitting}
+          fullWidth
+          style={styles.newAnimalButton}
+        />
+      </Screen>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.label}>Tür</Text>
+    <Screen scroll>
+      <Text variant="label" style={styles.label}>
+        TÜR
+      </Text>
       <View style={styles.chipRow}>
-        <View style={styles.speciesButton}>
-          <Button
-            title="Kedi"
-            onPress={() => handleSpeciesChange('cat')}
-            color={species === 'cat' ? '#2e7d32' : undefined}
-          />
-        </View>
-        <View style={styles.speciesButton}>
-          <Button
-            title="Köpek"
-            onPress={() => handleSpeciesChange('dog')}
-            color={species === 'dog' ? '#2e7d32' : undefined}
-          />
-        </View>
+        <Chip
+          label="Kedi"
+          selected={species === 'cat'}
+          onPress={() => handleSpeciesChange('cat')}
+          style={styles.speciesChip}
+        />
+        <Chip
+          label="Köpek"
+          selected={species === 'dog'}
+          onPress={() => handleSpeciesChange('dog')}
+          style={styles.speciesChip}
+        />
       </View>
 
-      <Text style={styles.label}>Cins / Desen</Text>
+      <Text variant="label" style={styles.label}>
+        CİNS / DESEN
+      </Text>
       <View style={styles.chipRow}>
         {BREED_OPTIONS[species].map((option) => (
-          <TouchableOpacity
+          <Chip
             key={option}
-            style={[styles.chip, breed === option && styles.chipSelected]}
+            label={option}
+            selected={breed === option}
             onPress={() => setBreed(option)}
-          >
-            <Text style={[styles.chipText, breed === option && styles.chipTextSelected]}>
-              {option}
-            </Text>
-          </TouchableOpacity>
+          />
         ))}
       </View>
 
-      <Text style={styles.label}>İsim (opsiyonel)</Text>
-      <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Örn. Pamuk" />
-
-      <Text style={styles.label}>Renk</Text>
-      <TextInput style={styles.input} value={color} onChangeText={setColor} placeholder="Örn. Sarı-beyaz" />
-
-      <Text style={styles.label}>İşaretler / Notlar</Text>
-      <TextInput
-        style={[styles.input, styles.multiline]}
+      <Input
+        label="İSİM (İSTEĞE BAĞLI)"
+        value={name}
+        onChangeText={setName}
+        placeholder="Örn. Pamuk"
+        containerStyle={styles.field}
+      />
+      <Input
+        label="RENK"
+        value={color}
+        onChangeText={setColor}
+        placeholder="Örn. Sarı-beyaz"
+        containerStyle={styles.field}
+      />
+      <Input
+        label="İŞARETLER / NOTLAR"
         value={markings}
         onChangeText={setMarkings}
         placeholder="Örn. Sol kulakta çentik"
         multiline
+        containerStyle={styles.field}
       />
 
-      <Text style={styles.label}>Fotoğraflar (en az {MIN_PHOTOS})</Text>
-      <View style={styles.chipRow}>
+      <Text variant="label" style={styles.label}>
+        FOTOĞRAFLAR (EN AZ {MIN_PHOTOS})
+      </Text>
+      <View style={styles.photoRow}>
         {photos.map((photo, index) => (
           <View key={photo.uri} style={styles.thumbnailWrapper}>
             <Image source={{ uri: photo.uri }} style={styles.thumbnail} />
-            <TouchableOpacity style={styles.removeButton} onPress={() => removePhoto(index)}>
-              <Text style={styles.removeButtonText}>×</Text>
-            </TouchableOpacity>
+            <Pressable
+              style={styles.removeButton}
+              onPress={() => removePhoto(index)}
+              accessibilityLabel="Fotoğrafı kaldır"
+            >
+              <Icon name="close" size={12} color={palette.textOnBrand} strokeWidth={2.6} />
+            </Pressable>
           </View>
         ))}
+        {photos.length < MAX_PHOTOS && (
+          <Pressable style={styles.addPhoto} onPress={handleAddPhotos}>
+            <Icon name="camera" size={22} color={palette.brand} />
+            <Text variant="micro" color="brand" style={styles.addPhotoText}>
+              EKLE
+            </Text>
+          </Pressable>
+        )}
       </View>
-      {photos.length < MAX_PHOTOS && (
-        <Button title="Fotoğraf Ekle" onPress={handleAddPhotos} />
-      )}
 
-      <Text style={styles.locationNote}>Konumunuz otomatik olarak kaydedilecek.</Text>
+      <Text variant="caption" center style={styles.locationNote}>
+        Konumun otomatik olarak kaydedilecek.
+      </Text>
 
       <Button
-        title={submitting ? 'Kaydediliyor...' : 'Hayvanı Kaydet'}
+        title="Hayvanı kaydet"
         onPress={handleSubmit}
-        disabled={submitting}
+        loading={submitting}
+        fullWidth
+        size="lg"
       />
-      <View style={styles.bottomSpacer} />
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  checkingText: { color: '#666', marginTop: 12, textAlign: 'center' },
-  duplicateTitle: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
-  duplicateSubtitle: { color: '#666', marginBottom: 16 },
-  nearbyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  nearbyText: { flex: 1, marginLeft: 12 },
-  nearbyName: { fontSize: 16, fontWeight: '600' },
-  nearbyMeta: { color: '#555', marginTop: 2 },
-  newAnimalButton: { marginTop: 24 },
-  label: { fontWeight: '600', marginTop: 12, marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-  },
-  multiline: { minHeight: 80, textAlignVertical: 'top' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  speciesButton: { flex: 1 },
-  chip: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  chipSelected: { backgroundColor: '#2e7d32', borderColor: '#2e7d32' },
-  chipText: { color: '#333' },
-  chipTextSelected: { color: '#fff', fontWeight: '600' },
+  duplicateBanner: { marginBottom: spacing.lg },
+  nearbyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  nearbyText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
+  newAnimalButton: { marginTop: spacing.xl },
+  label: { marginBottom: spacing.sm },
+  field: { marginBottom: spacing.lg },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+  speciesChip: { flex: 1, justifyContent: 'center' },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginBottom: spacing.lg },
   thumbnailWrapper: { position: 'relative' },
-  thumbnail: { width: 72, height: 72, borderRadius: 8 },
+  thumbnail: { width: 76, height: 76, borderRadius: radius.md, backgroundColor: palette.skeleton },
   removeButton: {
     position: 'absolute',
     top: -6,
     right: -6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#c62828',
+    width: 24,
+    height: 24,
+    borderRadius: radius.pill,
+    backgroundColor: palette.danger,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: palette.background,
   },
-  removeButtonText: { color: '#fff', fontWeight: '700', lineHeight: 18 },
-  locationNote: { color: '#888', marginTop: 16, marginBottom: 16, textAlign: 'center' },
-  bottomSpacer: { height: 40 },
+  addPhoto: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: palette.brand,
+    backgroundColor: palette.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPhotoText: { marginTop: 2 },
+  locationNote: { marginBottom: spacing.lg },
 });

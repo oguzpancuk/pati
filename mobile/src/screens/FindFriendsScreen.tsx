@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, StyleSheet } from 'react-native';
 import { searchUsers, UserSummary } from '../api/users';
+import { Avatar, Card, EmptyState, Input, Screen, Text } from '../components/ui';
+import { Icon } from '../components/brand';
+import { palette, spacing } from '../theme';
 
 export default function FindFriendsScreen({ navigation }: any) {
   const [query, setQuery] = useState('');
@@ -23,59 +26,57 @@ export default function FindFriendsScreen({ navigation }: any) {
   }
 
   return (
-    <View style={styles.container}>
-      <TextInput
-        style={styles.input}
-        placeholder="İsimle ara..."
+    <Screen padded={false}>
+      <Input
+        placeholder="İsimle ara…"
         value={query}
         onChangeText={handleSearch}
         autoFocus
+        autoCorrect={false}
+        containerStyle={styles.search}
       />
       <FlatList
         data={results}
         keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
-          <TouchableOpacity
+          <Card
+            variant="flat"
+            padding="md"
             style={styles.row}
             onPress={() => navigation.navigate('PublicProfile', { userId: item.id })}
           >
-            {item.avatar_url ? (
-              <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarPlaceholderText}>{item.name.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
-            <Text style={styles.name}>{item.name}</Text>
-          </TouchableOpacity>
+            <Avatar uri={item.avatar_url} name={item.name} size={40} />
+            <Text variant="bodyStrong" style={styles.name} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+          </Card>
         )}
         ListEmptyComponent={
-          !loading && query.trim() ? <Text style={styles.empty}>Kullanıcı bulunamadı.</Text> : null
+          !loading && query.trim() ? (
+            <EmptyState
+              emoji="🔍"
+              title="Kimseyi bulamadık"
+              description={`"${query.trim()}" ile eşleşen bir kullanıcı yok.`}
+            />
+          ) : !query.trim() ? (
+            <EmptyState
+              emoji="👋"
+              title="Arkadaşlarını bul"
+              description="Mahallendeki gönüllüleri adıyla arayabilirsin."
+            />
+          ) : null
         }
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
-  avatarPlaceholder: { backgroundColor: '#2e7d32', justifyContent: 'center', alignItems: 'center' },
-  avatarPlaceholderText: { color: '#fff', fontWeight: '700' },
-  name: { fontSize: 16 },
-  empty: { textAlign: 'center', color: '#888', marginTop: 32 },
+  search: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, marginBottom: spacing.sm },
+  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  name: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
 });

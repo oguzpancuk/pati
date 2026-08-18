@@ -1,21 +1,21 @@
 import React, { useCallback, useState } from 'react';
-import {
-  Alert,
-  Button,
-  FlatList,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, FlatList, Image, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
 import { getCurrentLocation } from '../location';
+import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
+import { Icon } from '../components/brand';
+import { palette, radius, spacing } from '../theme';
 
 const NEARBY_RADIUS_METERS = 5000;
 
 type SpeciesFilter = 'all' | 'cat' | 'dog';
+
+const FILTERS: { key: SpeciesFilter; label: string }[] = [
+  { key: 'all', label: 'Tümü' },
+  { key: 'cat', label: 'Kedi' },
+  { key: 'dog', label: 'Köpek' },
+];
 
 function formatDistance(meters?: number) {
   if (meters === undefined) return '';
@@ -54,30 +54,42 @@ export default function AnimalsScreen({ navigation }: any) {
   );
 
   return (
-    <View style={styles.container}>
+    <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <Button title="Yeni Hayvan Ekle" onPress={() => navigation.navigate('AddAnimal')} />
+        <View style={styles.titleRow}>
+          <View style={styles.titleCol}>
+            <Text variant="title">Yakındakiler</Text>
+            <Text variant="caption">5 km içindeki kayıtlı hayvanlar</Text>
+          </View>
+          <Button
+            title="Ekle"
+            size="sm"
+            icon={<Icon name="plus" size={16} color={palette.textOnBrand} />}
+            onPress={() => navigation.navigate('AddAnimal')}
+          />
+        </View>
         <View style={styles.filterRow}>
-          {(['all', 'cat', 'dog'] as SpeciesFilter[]).map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[styles.filterChip, filter === option && styles.filterChipSelected]}
-              onPress={() => setFilter(option)}
-            >
-              <Text style={[styles.filterText, filter === option && styles.filterTextSelected]}>
-                {option === 'all' ? 'Tümü' : option === 'cat' ? 'Kedi' : 'Köpek'}
-              </Text>
-            </TouchableOpacity>
+          {FILTERS.map((option) => (
+            <Chip
+              key={option.key}
+              label={option.label}
+              selected={filter === option.key}
+              onPress={() => setFilter(option.key)}
+            />
           ))}
         </View>
       </View>
+
       <FlatList
         data={animals}
         keyExtractor={(item) => String(item.id)}
         refreshing={loading}
         onRefresh={() => load(filter)}
+        contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity
+          <Card
+            variant="flat"
+            padding="md"
             style={styles.row}
             onPress={() => navigation.navigate('AnimalProfile', { animalId: item.id })}
           >
@@ -85,62 +97,58 @@ export default function AnimalsScreen({ navigation }: any) {
               <Image source={{ uri: item.cover_photo_url }} style={styles.thumbnail} />
             ) : (
               <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-                <Text style={styles.thumbnailPlaceholderText}>
-                  {item.species === 'cat' ? '🐱' : '🐶'}
-                </Text>
+                <Icon name="paw" size={26} color={palette.brand} />
               </View>
             )}
             <View style={styles.rowText}>
-              <Text style={styles.name}>
+              <Text variant="subheading" numberOfLines={1}>
                 {item.name ?? (item.species === 'cat' ? 'Kedi' : 'Köpek')}
               </Text>
-              <Text style={styles.meta}>
-                {item.breed ?? '-'} · {formatDistance(item.distance_meters)}
+              <Text variant="caption" numberOfLines={1}>
+                {item.breed ?? 'Cinsi belirtilmemiş'} · {formatDistance(item.distance_meters)}
               </Text>
             </View>
-          </TouchableOpacity>
+            <Icon name="chevronRight" size={20} color={palette.textSubtle} />
+          </Card>
         )}
         ListEmptyComponent={
           !loading ? (
-            <Text style={styles.empty}>Yakınınızda kayıtlı hayvan bulunamadı.</Text>
+            <EmptyState
+              emoji="🐾"
+              title="Yakınında kayıt yok"
+              description="5 km içinde kayıtlı hayvan bulunamadı. İlkini sen ekleyebilirsin."
+              actionTitle="Yeni hayvan ekle"
+              onAction={() => navigation.navigate('AddAnimal')}
+            />
           ) : null
         }
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  filterRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  filterChip: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  filterChipSelected: { backgroundColor: '#2e7d32', borderColor: '#2e7d32' },
-  filterText: { color: '#333' },
-  filterTextSelected: { color: '#fff', fontWeight: '600' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleCol: { flex: 1, marginRight: spacing.md },
+  filterRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
+  row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  thumbnail: {
+    width: 54,
+    height: 54,
+    borderRadius: radius.md,
+    marginRight: spacing.md,
+    backgroundColor: palette.skeleton,
   },
-  thumbnail: { width: 52, height: 52, borderRadius: 8, marginRight: 12 },
   thumbnailPlaceholder: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: palette.brandTint,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  thumbnailPlaceholderText: { fontSize: 24 },
-  rowText: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '600' },
-  meta: { color: '#555', marginTop: 4 },
-  empty: { textAlign: 'center', color: '#888', marginTop: 32 },
+  rowText: { flex: 1, marginRight: spacing.sm },
 });

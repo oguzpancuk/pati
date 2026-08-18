@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { Badge } from '../api/users';
 import {
   badgeGroup,
@@ -14,6 +14,10 @@ import {
   TIER_POINTS,
   type BadgeGroup,
 } from '../badges';
+import Button from './ui/Button';
+import Text from './ui/Text';
+import Icon from './brand/Icon';
+import { palette, radius, shadow, spacing } from '../theme';
 
 interface Props {
   visible: boolean;
@@ -81,10 +85,12 @@ export default function BadgeCatalogModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <Text style={styles.title}>Rozetler</Text>
-          <Text style={styles.subtitle}>
+          <Text variant="title" center>
+            Rozetler
+          </Text>
+          <Text variant="caption" center style={styles.subtitle}>
             {selectable
-              ? `Profilinizde gösterilecek en fazla ${maxFeatured} rozet seçin (${selection.length}/${maxFeatured}).`
+              ? `Profilinde gösterilecek en fazla ${maxFeatured} rozet seç (${selection.length}/${maxFeatured}).`
               : `${earnedCount} rozet kazanıldı. Kademeler: ${TIER_ORDER.map(
                   (t) => `${TIER_EMOJI[t]} ${TIER_LABELS[t]} ${TIER_POINTS[t]}p`
                 ).join(' · ')}`}
@@ -93,12 +99,12 @@ export default function BadgeCatalogModal({
           <ScrollView style={styles.scroll}>
             {GROUP_ORDER.map((group) => (
               <View key={group} style={styles.groupBlock}>
-                <Text style={styles.groupTitle}>{GROUP_LABELS[group]}</Text>
-                <Text style={styles.groupDesc}>{GROUP_DESCRIPTIONS[group]}</Text>
+                <Text variant="subheading">{GROUP_LABELS[group]}</Text>
+                <Text variant="caption" style={styles.groupDesc}>
+                  {GROUP_DESCRIPTIONS[group]}
+                </Text>
                 {grouped[group].length === 0 ? (
-                  <Text style={styles.emptyText}>
-                    Bu kategoride henüz bir rozet yolunda değilsiniz.
-                  </Text>
+                  <Text variant="caption">Bu kategoride henüz bir rozet yolunda değilsin.</Text>
                 ) : (
                   grouped[group].map((badge) => {
                     const selected = selection.includes(badge.key);
@@ -107,7 +113,7 @@ export default function BadgeCatalogModal({
                         ? true
                         : selectable && !selected && selection.length >= maxFeatured;
                     return (
-                      <TouchableOpacity
+                      <Pressable
                         key={badge.key}
                         style={[
                           styles.row,
@@ -117,18 +123,17 @@ export default function BadgeCatalogModal({
                         onPress={() => toggle(badge)}
                         disabled={!selectable || disabled}
                       >
-                        <Text style={styles.emoji}>
-                          {badge.tier ? TIER_EMOJI[badge.tier] : '🔒'}
-                        </Text>
+                        <Text style={styles.emoji}>{badge.tier ? TIER_EMOJI[badge.tier] : '🔒'}</Text>
                         <View style={styles.rowText}>
-                          <Text style={styles.badgeName}>
-                            {badgeTitle(badge)}
-                            {selected ? ' ✓' : ''}
-                          </Text>
-                          <Text style={styles.badgeDesc}>{badgeProgressText(badge)}</Text>
+                          <Text variant="bodyStrong">{badgeTitle(badge)}</Text>
+                          <Text variant="caption">{badgeProgressText(badge)}</Text>
                         </View>
-                        <Text style={styles.points}>{badge.points}p</Text>
-                      </TouchableOpacity>
+                        {selected ? (
+                          <Icon name="check" size={18} color={palette.brand} strokeWidth={2.4} />
+                        ) : (
+                          <Text variant="micro">{badge.points}P</Text>
+                        )}
+                      </Pressable>
                     );
                   })
                 )}
@@ -138,13 +143,18 @@ export default function BadgeCatalogModal({
 
           {selectable && onSaveFeatured ? (
             <>
-              <View style={styles.saveButton}>
-                <Button title={saving ? 'Kaydediliyor...' : 'Kaydet'} onPress={handleSave} disabled={saving} />
-              </View>
-              <Button title="Vazgeç" color="#c62828" onPress={onClose} disabled={saving} />
+              <Button title="Kaydet" onPress={handleSave} loading={saving} fullWidth />
+              <Button
+                title="Vazgeç"
+                variant="ghost"
+                onPress={onClose}
+                disabled={saving}
+                fullWidth
+                style={styles.secondary}
+              />
             </>
           ) : (
-            <Button title="Kapat" onPress={onClose} />
+            <Button title="Kapat" onPress={onClose} fullWidth />
           )}
         </View>
       </View>
@@ -155,41 +165,36 @@ export default function BadgeCatalogModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: palette.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.xl,
   },
   card: {
     width: '100%',
-    maxHeight: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
+    maxWidth: 440,
+    maxHeight: '86%',
+    backgroundColor: palette.surface,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    ...shadow.modal,
   },
-  title: { fontSize: 20, fontWeight: '700', textAlign: 'center' },
-  subtitle: { color: '#666', textAlign: 'center', marginTop: 6, marginBottom: 12, fontSize: 12 },
-  scroll: { marginBottom: 12 },
-  groupBlock: { marginBottom: 16 },
-  groupTitle: { fontSize: 16, fontWeight: '600' },
-  groupDesc: { color: '#888', fontSize: 11, marginBottom: 8 },
-  emptyText: { color: '#888', fontSize: 12 },
+  subtitle: { marginTop: spacing.xs, marginBottom: spacing.lg },
+  scroll: { marginBottom: spacing.lg },
+  groupBlock: { marginBottom: spacing.xl },
+  groupDesc: { marginBottom: spacing.md },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    padding: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
-    marginBottom: 6,
+    marginBottom: spacing.sm,
   },
-  rowEarned: { backgroundColor: '#fff', borderColor: '#ddd' },
-  rowLocked: { backgroundColor: '#fafafa', borderColor: '#eee', opacity: 0.7 },
-  rowSelected: { backgroundColor: '#e8f5e9', borderColor: '#2e7d32' },
-  emoji: { fontSize: 24, marginRight: 10 },
-  rowText: { flex: 1 },
-  badgeName: { fontWeight: '600' },
-  badgeDesc: { color: '#666', fontSize: 12, marginTop: 2 },
-  points: { color: '#888', fontSize: 11 },
-  saveButton: { marginBottom: 10 },
+  rowEarned: { backgroundColor: palette.surface, borderColor: palette.border },
+  rowLocked: { backgroundColor: palette.surfaceAlt, borderColor: palette.border, opacity: 0.65 },
+  rowSelected: { backgroundColor: palette.brandTint, borderColor: palette.brand },
+  emoji: { fontSize: 24, lineHeight: 30, marginRight: spacing.md },
+  rowText: { flex: 1, marginRight: spacing.sm },
+  secondary: { marginTop: spacing.xs },
 });

@@ -1,15 +1,22 @@
-# Stray — Sokak Hayvanları Takip Uygulaması
+# pati — Sokak Hayvanları Takip Uygulaması
+
+> **birlikte bakıyoruz**
 
 Türkiye'deki sokak hayvanlarının refahını iyileştirmek için tasarlanmış bir sosyal etki
 platformu. Hayvan severler, veterinerler ve aktivistlerin sokak köpekleri ve kedilerinin
 beslenme, sağlık ve refah durumunu koordine etmelerini sağlar.
+
+> Uygulamanın adı **pati**. Depo adı, npm paket adları ve Android paket adı
+> (`com.straymobile`) hâlâ `stray`; paket adı mağazaya yüklendikten sonra
+> değiştirilemediği için o karar yayına çıkma sprint'ine bırakıldı.
 
 ## Dokümantasyon
 
 | Doküman | İçerik |
 | --- | --- |
 | [docs/PROJE.md](docs/PROJE.md) | **Projenin bütünü tek yerde** — ne yaptığı, nasıl çalıştığı, nerede olduğu, sırada ne olduğu |
-| [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md) | Kalan beş büyük iş, önerilen sıra, yaklaşımlar ve karar bekleyen konular |
+| [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md) | Kalan işler, önerilen sıra, yaklaşımlar ve karar bekleyen konular |
+| [docs/TASARIM.md](docs/TASARIM.md) | Tasarım sistemi — token'lar, çekirdek bileşenler, yeni ekran eklerken kurallar |
 | [docs/NOTLAR.md](docs/NOTLAR.md) | Teknik kararların gerekçeleri, bilinen sınırlar, geliştirme ortamı tuzakları |
 | [docs/PRD.md](docs/PRD.md) | Orijinal ürün gereksinimleri |
 
@@ -243,6 +250,14 @@ Yeni bir terminalde:
 cd Stray/mobile
 npm install
 ```
+
+> **Yazı tipi:** Marka fontu Nunito `mobile/assets/fonts/` altında depoya dâhil
+> ve iOS/Android projelerine bağlı (`react-native.config.js`). Ek bir komut
+> gerekmiyor — ama font native tarafta yüklendiği için **ilk çalıştırmada
+> gerçek bir derleme** (`npm run ios` / `npm run android`) şart; yalnızca
+> Metro'yu yeniden başlatmak yetmez, yazılar sistem fontunda kalır.
+>
+> Fontlar elle değiştirilirse `npx react-native-asset` tekrar çalıştırılmalı.
 
 ### 5a. iOS'ta çalıştırma (yalnızca Mac)
 

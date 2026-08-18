@@ -16,9 +16,9 @@ Ayrıca üretime çıkmadan kapatılması gereken teknik borç listesi için bkz
 ✅ 1. Admin paneli (madde 5)  ──┬──> ✅ 2. Reklam (madde 3)
    + rol/yetki altyapısı        └──> ⏸️  Bağış (madde 2) — ertelendi,
                                           dış taraflar netleşince
-3. YZ hayvan eşleştirme (madde 1)  ← SIRADA (dış bağımlılığı yok)
-4. Tasarım sistemi (madde 4a)         (erken, küçük)
-5. UI giydirme (madde 4b)             (en son, tüm ekranlar oturunca)
+⏸️  3. YZ hayvan eşleştirme (madde 1) — park edildi, isabet ölçülemedi
+✅ 4. Tasarım sistemi + UI giydirme (madde 4)
+🚀 5. Yayına çıkma sprint'i           ← SIRADA, kalan tek zorunlu blok
 ```
 
 > **Bağış neden ertelendi:** Bloke ediciler kod değil dış taraflar — ödeme
@@ -365,35 +365,47 @@ ad_events     (id, advertiser_id, user_id, type 'impression'|'click', created_at
 
 ---
 
-## 4. UI
+## 4. UI — ✅ tasarım sistemi ve giydirme tamamlandı
 
-### 4a. Tasarım sistemi (erken yapılmalı, küçük iş)
-Bugün stiller her ekranda ayrı ayrı, doğrudan renk kodlarıyla yazılı
-(`#2e7d32`, `#c62828`...). Yeni ekranlar eklenmeden önce ortak bir tema dosyası
-çıkarılmalı:
-- Renk, tipografi, boşluk, köşe yarıçapı, gölge token'ları
-- Ortak bileşenler: `Button`, `Card`, `Chip`, `Avatar`, `Modal`, `EmptyState`
-- Karanlık tema desteği düşünülecekse token yapısı buna göre kurulmalı
+**Yapıldı (18 Ağustos 2026):** "pati" marka kimliği uygulandı. Ayrıntılı
+doküman: [TASARIM.md](TASARIM.md).
 
-Bu adım küçük ama sonraki her ekranı hızlandırıyor ve giydirme aşamasında
-yapılacak işi ciddi biçimde azaltıyor.
+- **Tema katmanı** `mobile/src/theme/`: renk, tipografi, boşluk, köşe, gölge
+  token'ları + navigasyon teması. Marka kimliğinden gelen beş renk sabit
+  (turuncu `#F47A4A`, krem `#FFF3E7`, koyu gri `#2B2B2B`, yeşil `#34A853`,
+  kırmızı `#FF5C5C`), gerisi bunlardan türetildi.
+- **Nunito gömüldü** (SIL OFL, 4 ağırlık, ~520 KB). Türkçe karakterlerin
+  tamamı var. iOS + Android bağlantısı `react-native-asset` ile yapıldı.
+- **Çekirdek bileşenler** `mobile/src/components/ui/`: `Text`, `Button`,
+  `Card`, `Screen`, `Input`, `Chip`, `Banner`, `Avatar`, `SectionHeader`,
+  `Divider`, `EmptyState`/`LoadingState`.
+- **Marka bileşenleri** `mobile/src/components/brand/`: SVG `Logo` (harita
+  pini + kalp içeren pati), `Wordmark`, 20 ikonluk `Icon` seti.
+- **11 ekranın tamamı** ve 7 bileşen bu sisteme taşındı. Sabit renk kodu
+  sayısı 171'den 0'a indi (kalanlar yalnızca `theme/` altında).
+- Ana ekranda görünen ad `pati` yapıldı.
 
-### 4b. Tam giydirme (en sona)
-Tüm ekranların görsel olarak elden geçirilmesi. En sona bırakılmasının sebebi:
-bağış, reklam ve YZ eşleştirme yeni ekranlar ekleyecek; erken yapılan giydirme
-tekrar edilmek zorunda kalır.
+**Ölçüm:** öncesinde 18 StyleSheet dosyasında 171 sabit hex, 28 farklı renk
+vardı (`#2e7d32` 33 kez, `#fff` 24, `#888` 23, `#eee` 19).
 
-### Yapılacaklar
-- [ ] Tema/token dosyası + ortak bileşen kütüphanesi
-- [ ] Mevcut ekranları ortak bileşenlere taşı
-- [ ] Uygulama ikonu, açılış ekranı, marka kimliği
-- [ ] Boş durum / yükleniyor / hata ekranlarının tutarlı hâle getirilmesi
-- [ ] Erişilebilirlik: kontrast, dokunma alanı boyutları, ekran okuyucu etiketleri
-- [ ] Tam görsel giydirme
+### Kalanlar
+- [ ] **Uygulama ikonu ve açılış görseli** — `Logo` bileşeni var ama
+      `Images.xcassets` / `mipmap-*` PNG'leri hâlâ şablon. Tasarım dosyasından
+      dışa aktarım gerekiyor.
+- [ ] **Karanlık mod** — bugün tek açık palet. Eklenecekse `palette` bir tema
+      nesnesine + `useTheme()` kancasına dönüşür; bileşenler token okuduğu için
+      ekranlar değişmez.
+- [ ] **Erişilebilirlik denetimi** — dokunma alanları 44 pt'ye çekildi ve
+      butonlara `accessibilityRole` verildi, ama kontrast oranları ve ekran
+      okuyucu etiketleri uçtan uca test edilmedi.
+- [ ] **Admin paneli** hâlâ kendi renklerinde; mobil palete hizalanmalı.
 
 ### Karar verilmesi gerekenler
-- Hazır bir tasarım var mı, yoksa sıfırdan mı kurulacak?
-- Bir tasarımcıyla mı çalışılacak?
+- ~~Hazır bir tasarım var mı?~~ → "pati" marka kimliği verildi, uygulandı
+- **Depo ve paket adı `Stray` kalsın mı?** Ana ekran adı `pati` oldu, ama
+  `com.straymobile` paket adı mağazaya yüklendikten sonra **değiştirilemiyor**.
+  Yayına çıkma sprint'inden önce karar verilmeli. **(açık)**
+- Karanlık mod bu sürümde olacak mı? **(açık)**
 
 ---
 

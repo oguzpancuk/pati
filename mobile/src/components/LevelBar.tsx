@@ -1,6 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { UserLevel } from '../api/users';
+import Text from './ui/Text';
+import { palette, radius, spacing } from '../theme';
 
 interface Props {
   level: UserLevel | null | undefined;
@@ -20,19 +22,23 @@ export default function LevelBar({ level, points }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <Text style={styles.emoji}>{level.emoji}</Text>
-        <View style={styles.titleBox}>
-          <Text style={styles.levelLabel}>Seviye {level.level}</Text>
-          <Text style={styles.title}>{level.title}</Text>
+        <View style={styles.emojiBox}>
+          <Text style={styles.emoji}>{level.emoji}</Text>
         </View>
-        <Text style={styles.points}>{points} puan</Text>
+        <View style={styles.titleBox}>
+          <Text variant="micro">SEVİYE {level.level}</Text>
+          <Text variant="subheading">{level.title}</Text>
+        </View>
+        <Text variant="bodyStrong" color="brand">
+          {points} puan
+        </Text>
       </View>
 
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${Math.round(level.progress * 100)}%` }]} />
       </View>
 
-      <Text style={styles.hint}>
+      <Text variant="caption" style={styles.hint}>
         {level.nextTitle
           ? `${level.nextTitle} için ${remaining} puan daha`
           : 'En üst seviyedesin 👑'}
@@ -43,24 +49,31 @@ export default function LevelBar({ level, points }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f4f7f4',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 12,
+    backgroundColor: palette.surfaceAlt,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
   },
   topRow: { flexDirection: 'row', alignItems: 'center' },
-  emoji: { fontSize: 28, marginRight: 10 },
+  emojiBox: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    backgroundColor: palette.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  emoji: { fontSize: 24, lineHeight: 30 },
   titleBox: { flex: 1 },
-  levelLabel: { color: '#888', fontSize: 11, fontWeight: '600' },
-  title: { fontSize: 16, fontWeight: '700' },
-  points: { fontSize: 14, fontWeight: '700', color: '#2e7d32' },
   track: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#dfe6df',
-    marginTop: 12,
+    height: 8,
+    borderRadius: radius.pill,
+    backgroundColor: palette.disabled,
+    marginTop: spacing.lg,
     overflow: 'hidden',
   },
-  fill: { height: 6, borderRadius: 3, backgroundColor: '#2e7d32' },
-  hint: { color: '#666', fontSize: 12, marginTop: 6 },
+  fill: { height: 8, borderRadius: radius.pill, backgroundColor: palette.brand },
+  hint: { marginTop: spacing.sm },
 });
