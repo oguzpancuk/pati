@@ -90,6 +90,35 @@ popup'ı olarak patlıyordu. `seed-demo.js` bu yüzden mevcut rozetleri
 > görecek. Sıfırdan bir veritabanında sorun değil, ama veri varken deploy
 > edilecekse benzer bir backfill çalıştırılmalı.
 
+### Reklam rotasyonu ayrı bir imleç tutmuyor
+"Her tıkta sıra bir sonraki markaya geçsin" isteniyordu. Sırayı bir imleç
+tablosunda tutmak yerine, **kullanıcının o yerleşimde kaç kez reklam gördüğünden**
+türetiyoruz: `index = gösterim_sayısı % marka_sayısı`. Gösterimleri zaten
+faturalama için kaydediyoruz, yani ekstra durum tutmadan hem kullanıcı bazında
+hem eşit dağılımlı bir sıra elde ediliyor.
+
+Global bir imleç yerine kullanıcı bazında olmasının sebebi: global imleçte iki
+kişi aynı anda açtığında ikisi de aynı markayı görür ve tek bir kullanıcı arka
+arkaya açtığında sıra atlar. Kullanıcı bazında herkes markaları sırayla görüyor.
+
+Bedeli: marka listesi değişince (ekleme/çıkarma) sıra kayıyor. Kabul edilebilir.
+
+### Gösterim, reklam getirilirken değil gösterilirken kaydediliyor
+`GET /api/ads` yan etkisiz; gösterim ayrı bir `POST` ile bildiriliyor. Böylece
+getirilip de ekrana gelmeyen bir reklam faturaya yazılmıyor ve rotasyon sırası
+gerçekten gösterilenlere göre ilerliyor. (GET'in kendisi gösterim kaydetseydi bir
+yeniden deneme ya da ön yükleme sayacı şişirirdi.)
+
+### Reklam bir yan özellik: hata akışı kesmiyor
+Reklam getirilemezse, gösterim/tık bildirilemezse ya da hedef adres açılamazsa
+kullanıcıya hata gösterilmiyor — bant sessizce görünmüyor. Mama bırakma akışının
+reklam yüzünden kesilmesi kabul edilemez. Yayında reklam yoksa da bant hiç
+çizilmiyor (boş kutu düzeni bozardı).
+
+### Bantta zorunlu "Reklam" etiketi
+Kullanıcının neyin içerik neyin reklam olduğunu ayırt edebilmesi gerekiyor. Bu
+hem dürüstlük hem de mağaza kuralları açısından beklenen bir şey.
+
 ### Kullanıcı silinmiyor, askıya alınıyor
 Admin panelinde "sil" yok, "askıya al" var. Gerekçe: kullanıcının bıraktığı bakım
 kayıtları haritanın verisi, yorumları da başkalarının okuduğu içerik — hesabı

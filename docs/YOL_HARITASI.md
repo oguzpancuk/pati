@@ -13,8 +13,8 @@ Ayrıca üretime çıkmadan kapatılması gereken teknik borç listesi için bkz
 ## Önerilen sıra
 
 ```
-1. Admin paneli (madde 5)   ──┬──> 2. Reklam (madde 3)
-   + rol/yetki altyapısı      └──> 3. Bağış (madde 2)
+✅ 1. Admin paneli (madde 5)  ──┬──> ✅ 2. Reklam (madde 3)
+   + rol/yetki altyapısı        └──>    3. Bağış (madde 2)   ← SIRADA
                                       │
 4. Tasarım sistemi (madde 4a) ────────┤   (erken, küçük)
                                       │
@@ -176,7 +176,27 @@ bronz/gümüş/altın/elmas (`donation:total`).
 
 ---
 
-## 3. Reklam
+## 3. Reklam — ✅ tamamlandı
+
+**Yapıldı (18 Ağustos 2026):** Üç yerleşim (`food_popup`, `water_popup`,
+`vet_health_record`), admin panelinde reklamveren yönetimi (görsel yükleme,
+kampanya tarih aralığı, yayına alma/durdurma, sıra), mobilde `AdBanner` bileşeni
+ve gösterim/tık ölçümü + CTR raporu.
+
+**Rotasyon kararı:** Ayrı bir imleç tablosu yok — sıra, kullanıcının o yerleşimde
+kaç kez reklam gördüğünden türetiliyor (`gösterim_sayısı % marka_sayısı`).
+Gösterimler zaten faturalama için kaydedildiğinden ekstra durum tutmadan hem
+**kullanıcı bazında** hem eşit dağılımlı bir sıra elde ediliyor. Global imleç
+tercih edilmedi: iki kişi aynı anda açtığında ikisi de aynı markayı görürdü.
+Gerekçenin tamamı [NOTLAR.md](NOTLAR.md) içinde.
+
+**Kalanlar:**
+- [ ] Giriş/gösterim uç noktalarına rate limit (sahte gösterim üretimine karşı)
+- [ ] Bağış yapmış kullanıcıya reklamsız deneyim (madde 2 gelince karar verilecek)
+- [ ] Reklam bandının kapatılabilir olup olmayacağı
+
+<details>
+<summary>Orijinal plan (referans için)</summary>
 
 ### İstenen akış
 Mama ve su ekleme pop-up'larının altında reklam çıkar: mama sayfasında mama
@@ -215,6 +235,8 @@ ad_events     (id, advertiser_id, user_id, type 'impression'|'click', created_at
 - [ ] Mobil: mama pop-up'ı, su pop-up'ı ve sağlık kaydı ekleme ekranına reklam
       bandı; tıklayınca hedef URL'i aç
 - [ ] Reklam yokken düzenin bozulmaması (boş slot durumu)
+
+</details>
 
 ### Karar verilmesi gerekenler
 - Rotasyon imleci global mi, kullanıcı başına mı?

@@ -1,5 +1,7 @@
+const fs = require('fs');
 const pool = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLog');
+const { SLOTS } = require('./ad.controller');
 
 const MAX_PAGE_SIZE = 100;
 
@@ -481,6 +483,190 @@ async function deleteComment(req, res, next) {
 }
 
 // -------------------------------------------------------------------------
+// Reklamverenler
+// -------------------------------------------------------------------------
+
+// Listede gösterim/tıklama sayıları da dönüyor: markaya "şu kadar gösterim, şu
+// kadar tık" diyebilmek reklamın satılabilmesinin ön koşulu.
+const ADVERTISER_SELECT_SQL = `
+  SELECT a.id, a.name, a.slot, a.headline, a.body, a.image_url, a.target_url,
+         a.active, a.starts_at, a.ends_at, a.sort_order, a.created_at,
+         COALESCE(e.impressions, 0)::int AS impressions,
+         COALESCE(e.clicks, 0)::int AS clicks
+  FROM advertisers a
+  LEFT JOIN (
+    SELECT advertiser_id,
+           count(*) FILTER (WHERE type = 'impression') AS impressions,
+           count(*) FILTER (WHERE type = 'click') AS clicks
+    FROM ad_events GROUP BY advertiser_id
+  ) e ON e.advertiser_id = a.id`;
+
+async function listAdvertisers(req, res, next) {
+  try {
+    const slot = req.query.slot;
+    const filter = filterBuilder();
+    if (SLOTS.includes(slot)) filter.add((i) => `a.slot = $${i}`, slot);
+
+    const rows = await pool.query(
+      `${ADVERTISER_SELECT_SQL} ${filter.where} ORDER BY a.slot, a.sort_order, a.id`,
+      filter.params
+    );
+    res.json({ advertisers: rows.rows, slots: SLOTS });
+  } catch (err) {
+    next(err);
+  }
+}
+
+function validateAdvertiser({ name, slot, targetUrl }) {
+  if (!name || !String(name).trim()) return 'Marka adı zorunludur';
+  if (!SLOTS.includes(slot)) return 'Geçersiz reklam yerleşimi';
+  if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
+    return 'Hedef adres http:// veya https:// ile başlamalıdır';
+  }
+  return null;
+}
+
+async function createAdvertiser(req, res, next) {
+  try {
+    const { name, slot, headline, body, targetUrl, imageUrl, startsAt, endsAt, sortOrder } =
+      req.body;
+    const error = validateAdvertiser({ name, slot, targetUrl });
+    if (error) return res.status(400).json({ error });
+
+    const inserted = await pool.query(
+      `INSERT INTO advertisers
+         (name, slot, headline, body, image_url, target_url, starts_at, ends_at, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [
+        String(name).trim(),
+        slot,
+        headline || null,
+        body || null,
+        imageUrl || null,
+        targetUrl,
+        startsAt || null,
+        endsAt || null,
+        Number(sortOrder) || 0,
+      ]
+    );
+
+    const id = inserted.rows[0].id;
+    await writeAuditLog(req.user.userId, 'advertiser.create', 'advertiser', id, { name, slot });
+
+    const result = await pool.query(`${ADVERTISER_SELECT_SQL} WHERE a.id = $1`, [id]);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateAdvertiser(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    const { name, slot, headline, body, targetUrl, imageUrl, active, startsAt, endsAt, sortOrder } =
+      req.body;
+
+    if (slot !== undefined && !SLOTS.includes(slot)) {
+      return res.status(400).json({ error: 'Geçersiz reklam yerleşimi' });
+    }
+    if (targetUrl !== undefined && !/^https?:\/\//i.test(targetUrl)) {
+      return res.status(400).json({ error: 'Hedef adres http:// veya https:// ile başlamalıdır' });
+    }
+
+    // COALESCE ile kısmi güncelleme: gönderilmeyen alan olduğu gibi kalıyor.
+    // active ve tarih alanları bilerek NULL'lanabilir olduğu için ayrı ele alınıyor.
+    const result = await pool.query(
+      `UPDATE advertisers SET
+         name = COALESCE($1, name),
+         slot = COALESCE($2, slot),
+         headline = COALESCE($3, headline),
+         body = COALESCE($4, body),
+         image_url = COALESCE($5, image_url),
+         target_url = COALESCE($6, target_url),
+         active = COALESCE($7, active),
+         starts_at = CASE WHEN $8::boolean THEN $9::timestamptz ELSE starts_at END,
+         ends_at = CASE WHEN $10::boolean THEN $11::timestamptz ELSE ends_at END,
+         sort_order = COALESCE($12, sort_order)
+       WHERE id = $13
+       RETURNING id`,
+      [
+        name ?? null,
+        slot ?? null,
+        headline ?? null,
+        body ?? null,
+        imageUrl ?? null,
+        targetUrl ?? null,
+        active ?? null,
+        startsAt !== undefined,
+        startsAt || null,
+        endsAt !== undefined,
+        endsAt || null,
+        sortOrder ?? null,
+        id,
+      ]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Reklam bulunamadı' });
+    }
+
+    await writeAuditLog(req.user.userId, 'advertiser.update', 'advertiser', id, req.body);
+
+    const updated = await pool.query(`${ADVERTISER_SELECT_SQL} WHERE a.id = $1`, [id]);
+    res.json(updated.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function uploadAdvertiserImage(req, res, next) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Görsel zorunludur' });
+    }
+    const id = Number(req.params.id);
+    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+
+    const result = await pool.query(
+      'UPDATE advertisers SET image_url = $1 WHERE id = $2 RETURNING id',
+      [imageUrl, id]
+    );
+    if (result.rows.length === 0) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(404).json({ error: 'Reklam bulunamadı' });
+    }
+
+    await writeAuditLog(req.user.userId, 'advertiser.image', 'advertiser', id, { imageUrl });
+
+    const updated = await pool.query(`${ADVERTISER_SELECT_SQL} WHERE a.id = $1`, [id]);
+    res.json(updated.rows[0]);
+  } catch (err) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    next(err);
+  }
+}
+
+async function deleteAdvertiser(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    const result = await pool.query(
+      'DELETE FROM advertisers WHERE id = $1 RETURNING id, name, slot',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Reklam bulunamadı' });
+    }
+
+    // ad_events.advertiser_id ON DELETE SET NULL: geçmiş rapor toplamları
+    // silinmiyor, yalnızca hangi markaya ait olduğu bağı kopuyor.
+    await writeAuditLog(req.user.userId, 'advertiser.delete', 'advertiser', id, result.rows[0]);
+    res.json({ deleted: true, advertiser: result.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// -------------------------------------------------------------------------
 // Denetim kaydı
 // -------------------------------------------------------------------------
 
@@ -515,5 +701,10 @@ module.exports = {
   deleteCareAction,
   listComments,
   deleteComment,
+  listAdvertisers,
+  createAdvertiser,
+  updateAdvertiser,
+  uploadAdvertiserImage,
+  deleteAdvertiser,
   listAuditLog,
 };

@@ -7,6 +7,7 @@ const LINKS = [
   { to: '/animals', label: 'Hayvanlar' },
   { to: '/care-actions', label: 'Bakım Kayıtları' },
   { to: '/comments', label: 'Yorumlar' },
+  { to: '/advertisers', label: 'Reklamlar' },
   { to: '/audit-log', label: 'Denetim Kaydı' },
 ];
 

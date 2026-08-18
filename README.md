@@ -72,8 +72,12 @@ stray/
   liderlik tablosu (profilden erişilir)
 - **Yönetim paneli (web):** gösterge paneli, kullanıcı yönetimi (rol değiştirme,
   askıya alma), hayvan yönetimi (düzenleme, silme, **mükerrer kayıt birleştirme**),
-  bakım kaydı fotoğraf moderasyonu, yorum moderasyonu ve her işlemin kaydedildiği
-  denetim kaydı
+  bakım kaydı fotoğraf moderasyonu, yorum moderasyonu, reklam yönetimi ve her
+  işlemin kaydedildiği denetim kaydı
+- **Reklam:** mama pop-up'ında mama markası, su pop-up'ında su markası, sağlık
+  kaydı eklerken veteriner kliniği. Aynı yerleşimdeki markalar sırayla gösterilir
+  — kullanıcı pop-up'ı her açtığında sıradaki markayı görür. Gösterim ve tıklama
+  ayrı ayrı kaydedilir (markaya rapor verebilmek için)
 
 ## Yapılacaklar
 
@@ -90,9 +94,10 @@ Ayrıntılı planlar, önerilen yaklaşımlar ve karar bekleyen konular için bk
   seçeneği en üstte çıkar. Toplam bağış miktarı rozet kazandırır.
   *(Ödeme sağlayıcı seçimi, pazaryeri/split-payment modeli ve hukuki kontrol
   gerekiyor)*
-- [ ] **3. Reklam** — Mama pop-up'ında mama, su pop-up'ında su, sağlık kaydı
-  eklerken veteriner kliniği reklamı. Markalar admin panelinden girilir, her
-  tıkta sıra bir sonrakine geçer. *(Kendi reklam sunucumuz + gösterim/tık ölçümü)*
+- [x] **3. Reklam** — ✅ Tamamlandı: mama pop-up'ında mama, su pop-up'ında su,
+  sağlık kaydı eklerken veteriner kliniği reklamı. Markalar admin panelinden
+  girilir, kullanıcı pop-up'ı her açtığında sıradaki markayı görür. Gösterim ve
+  tıklama ayrı ayrı ölçülüyor.
 - [ ] **4. UI** — Uygulamanın genel görsel giydirmesi. *(Önce küçük bir tasarım
   sistemi/token seti, tam giydirme en sona)*
 - [x] **5. Admin sayfası (web)** — ✅ Temel panel tamamlandı: gösterge paneli,
@@ -100,10 +105,10 @@ Ayrıntılı planlar, önerilen yaklaşımlar ve karar bekleyen konular için bk
   denetim kaydı. Reklamveren ve bağış kurumu ekranları 2. ve 3. maddelerle
   birlikte eklenecek.
 
-**Önerilen sıra:** ~~Admin paneli (5)~~ → Reklam (3) → Bağış (2), çünkü hem reklam
-firmaları hem bağış kurumları admin panelinden giriliyor. Tasarım sistemi erken,
-tam UI giydirmesi en sona. YZ eşleştirme (1) paralel yürüyebilir; en büyük
-teknik belirsizlik orada olduğu için önce kısa bir deneme yapılması öneriliyor.
+**Önerilen sıra:** ~~Admin paneli (5)~~ → ~~Reklam (3)~~ → **Bağış (2)** → YZ
+eşleştirme (1) → tam UI giydirmesi (4). Bağış için ödeme sağlayıcı seçimi ve
+hukuki kontrol kod yazmadan önce netleşmeli. YZ eşleştirme paralel yürüyebilir;
+en büyük teknik belirsizlik orada olduğu için önce kısa bir deneme öneriliyor.
 
 > ### 🚀 Yayına Çıkma Sprint'i — ertelendi, unutulmayacak
 >
@@ -211,8 +216,8 @@ Tüm demo hesapların girişi: `test1@stray.test` … `test100@stray.test`,
 > Script mevcut demo veriyi görürse tekrar çalışmaz; sıfırdan üretmek için
 > veritabanını sıfırlayıp `npm run migrate && npm run seed` yapın.
 
-> Şema zaman zaman değişiyor (en son: `audit_log` tablosu ve
-> `users.suspended_at`/`suspended_reason` eklendi).
+> Şema zaman zaman değişiyor (en son: `advertisers` ve `ad_events` tabloları
+> eklendi).
 > Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
 > `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
 >
@@ -316,6 +321,8 @@ isteklerini `localhost:3000`'e yönlendirir; backend başka bir adresteyse
   kaydın fotoğrafları, yorumları, sağlık kayıtları ve bakım verenleri hedefe taşınır)
 - **Bakım kayıtları** — fotoğraf moderasyonu; kanıt fotoğrafı geçersizse kaydı silin
 - **Yorumlar** — uygunsuz yorumları silme
+- **Reklamlar** — marka ekleme/düzenleme, yerleşim seçimi (mama / su / veteriner),
+  görsel yükleme, kampanya tarih aralığı, yayına alma-durdurma ve gösterim/tık/CTR raporu
 - **Denetim kaydı** — panelden yapılan her işlem, kimin yaptığı ve sebebiyle birlikte
 
 ### 6. Uygulamada gezinme

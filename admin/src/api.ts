@@ -139,6 +139,41 @@ export interface DashboardStats {
   healthRecordTypes: { record_type: string; count: number }[];
 }
 
+export type AdSlot = 'food_popup' | 'water_popup' | 'vet_health_record';
+
+export interface Advertiser {
+  id: number;
+  name: string;
+  slot: AdSlot;
+  headline: string | null;
+  body: string | null;
+  image_url: string | null;
+  target_url: string;
+  active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  sort_order: number;
+  created_at: string;
+  impressions: number;
+  clicks: number;
+}
+
+/** Görsel yüklemesi multipart olduğu için ortak JSON istemcisinin dışında. */
+export async function uploadAdvertiserImage(id: number, file: File): Promise<Advertiser> {
+  const form = new FormData();
+  form.append('image', file);
+  const res = await fetch(`/api/admin/advertisers/${id}/image`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getToken()}` },
+    body: form,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(res.status, (body as { error?: string }).error || `HTTP ${res.status}`);
+  }
+  return body as Advertiser;
+}
+
 export interface CurrentUser {
   id: number;
   name: string;

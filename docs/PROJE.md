@@ -150,11 +150,28 @@ hesaplar girebilir; her `/api/admin` isteği sunucuda `requireAdmin`'den geçer.
   taşınır, kaynak silinir (tek transaction)
 - **Bakım kayıtları** — kanıt fotoğraflarının moderasyonu
 - **Yorumlar** — uygunsuz yorumları silme
+- **Reklamlar** — marka ekleme/düzenleme, yerleşim, görsel, kampanya tarihleri,
+  yayına alma/durdurma ve gösterim/tık/CTR raporu
 - **Denetim kaydı** — panelden yapılan her işlem; kim, ne zaman, neyi, hangi
   sebeple değiştirdi
 
 İlk yönetici `npm run make-admin -- eposta@adresi.com` scriptiyle oluşturulur
 (admin uç noktaları zaten yönetici yetkisi istediği için API'den yapılamaz).
+
+### Reklam
+Hazır bir reklam ağı değil, kendi basit reklam sunucumuz — markalar admin
+panelinden elle giriliyor ve yerleşimler çok spesifik.
+
+- **Üç yerleşim:** mama pop-up'ı, su pop-up'ı, sağlık kaydı ekleme ekranı
+  (veteriner kliniği)
+- **Rotasyon:** aynı yerleşimdeki markalar sırayla gösteriliyor; kullanıcı
+  pop-up'ı her açtığında sıradaki markayı görüyor
+- **Ölçüm:** gösterim ve tıklama ayrı ayrı kaydediliyor, panelde CTR ile birlikte
+  raporlanıyor — bu olmadan markaya "şu kadar gösterim aldınız" denemez
+- Kampanya tarih aralığı ve yayına alma/durdurma; yayında reklam yoksa bant hiç
+  çizilmiyor
+- Bantta zorunlu "Reklam" etiketi: kullanıcı neyin içerik neyin reklam olduğunu
+  ayırt edebilmeli
 
 ### Demo verisi
 `npm run seed` ile 100 kullanıcı, 200 hayvan, Kadıköy çevresine dağılmış
@@ -200,6 +217,8 @@ care_actions       konum, tür (food/water), photo_url, zaman
 friendships        requester/addressee, pending|accepted
 user_badge_awards  rozetin ilk kazanıldığı an + o andaki puan/sıralama/seviye
 audit_log          panelden yapılan her değişiklik: kim, ne, ne zaman, neden
+advertisers        reklamveren: yerleşim, görsel, hedef adres, kampanya tarihleri
+ad_events          gösterim ve tıklama kayıtları (rotasyon + faturalama)
 ```
 Coğrafi kolonlar `GEOGRAPHY(POINT, 4326)` tipinde ve GIST index'li. Yakınlık
 sorguları `ST_DWithin`, harita penceresi `ST_MakeEnvelope`, istemciye dönüş
@@ -235,6 +254,9 @@ POST   /api/friendships | /:id/accept    DELETE /api/friendships/:id
 
 GET    /api/leaderboard
 
+GET    /api/ads?slot=...                  # yerleşim için sıradaki reklam
+POST   /api/ads/:id/impression            POST /api/ads/:id/click
+
                                           # hepsi requireAuth + requireAdmin
 GET    /api/admin/stats
 GET    /api/admin/users                   PATCH /api/admin/users/:id
@@ -242,6 +264,9 @@ GET    /api/admin/animals                 PATCH /api/admin/animals/:id
 DELETE /api/admin/animals/:id             POST  /api/admin/animals/:id/merge
 GET    /api/admin/care-actions            DELETE /api/admin/care-actions/:id
 GET    /api/admin/comments                DELETE /api/admin/comments/:id
+GET    /api/admin/advertisers             POST  /api/admin/advertisers
+PATCH  /api/admin/advertisers/:id         DELETE /api/admin/advertisers/:id
+POST   /api/admin/advertisers/:id/image
 GET    /api/admin/audit-log
 ```
 

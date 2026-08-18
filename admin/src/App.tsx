@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
 import Layout from './components/Layout';
+import Advertisers from './pages/Advertisers';
 import Animals from './pages/Animals';
 import AuditLog from './pages/AuditLog';
 import CareActions from './pages/CareActions';
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="animals" element={<Animals />} />
         <Route path="care-actions" element={<CareActions />} />
         <Route path="comments" element={<Comments />} />
+        <Route path="advertisers" element={<Advertisers />} />
         <Route path="audit-log" element={<AuditLog />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

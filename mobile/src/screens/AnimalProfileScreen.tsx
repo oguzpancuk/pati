@@ -27,6 +27,7 @@ import {
   HealthRecordType,
   markHealthRecordRecovered,
 } from '../api/animals';
+import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 
@@ -390,6 +391,10 @@ export default function AnimalProfileScreen({ route }: any) {
                 onChangeText={setRecordDescription}
                 multiline
               />
+
+              {/* Hastalık/tedavi kaydı girenler veteriner arayışında olabiliyor;
+                  reklam bu yüzden burada duruyor. */}
+              <AdBanner slot="vet_health_record" visible={recordModalVisible} />
             </ScrollView>
             <View style={styles.modalActions}>
               <View style={styles.modalButton}>

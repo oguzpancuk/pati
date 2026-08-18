@@ -10,6 +10,10 @@ const ACTION_LABELS: Record<string, string> = {
   'animal.merge': 'Hayvan birleştirildi',
   'careAction.delete': 'Bakım kaydı silindi',
   'comment.delete': 'Yorum silindi',
+  'advertiser.create': 'Reklam eklendi',
+  'advertiser.update': 'Reklam güncellendi',
+  'advertiser.image': 'Reklam görseli değişti',
+  'advertiser.delete': 'Reklam silindi',
 };
 
 const TARGET_LABELS: Record<string, string> = {
@@ -17,6 +21,13 @@ const TARGET_LABELS: Record<string, string> = {
   animal: 'hayvan',
   careAction: 'bakım kaydı',
   comment: 'yorum',
+  advertiser: 'reklam',
+};
+
+const SLOT_LABELS: Record<string, string> = {
+  food_popup: 'mama pop-up',
+  water_popup: 'su pop-up',
+  vet_health_record: 'sağlık kaydı',
 };
 
 export default function AuditLog() {
@@ -92,6 +103,16 @@ function summarize(entry: AuditEntry): string {
   if (typeof d.name === 'string' && entry.action === 'animal.delete') parts.push(`ad: ${d.name}`);
   if (typeof d.body === 'string') parts.push(`"${d.body.slice(0, 60)}"`);
   if (typeof d.action_type === 'string') parts.push(d.action_type === 'food' ? 'mama' : 'su');
+
+  // Reklam işlemleri
+  if (entry.target_type === 'advertiser') {
+    if (typeof d.name === 'string') parts.push(d.name);
+    if (typeof d.slot === 'string') parts.push(SLOT_LABELS[d.slot] ?? d.slot);
+    if (d.active === true) parts.push('yayına alındı');
+    if (d.active === false) parts.push('durduruldu');
+    if (typeof d.targetUrl === 'string') parts.push(d.targetUrl);
+    if (typeof d.imageUrl === 'string') parts.push('görsel yüklendi');
+  }
 
   if (parts.length === 0) {
     const json = JSON.stringify(d);

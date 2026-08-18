@@ -365,6 +365,28 @@ async function seed() {
     );
   }
 
+  // Örnek reklamverenler. Bunlar olmadan mama/su pop-up'ında ve sağlık kaydı
+  // ekranında reklam bandı hiç çizilmiyor ve özellik "çalışmıyor" gibi görünüyor.
+  // Her yerleşimde iki marka var ki rotasyon da denenebilsin.
+  console.log('Örnek reklamverenler ekleniyor...');
+  const DEMO_ADS = [
+    ['Pati Mama', 'food_popup', 'Pati Mama', 'Sokak dostları için tam tahıllı mama', 'https://ornek.example.com/pati-mama', 1],
+    ['Minnoş Kuru Mama', 'food_popup', 'Minnoş Mama', 'Kedilerin favorisi, 15 kg avantajlı paket', 'https://ornek.example.com/minnos', 2],
+    ['Berrak Kaynak Suyu', 'water_popup', 'Berrak Kaynak', 'Temiz su, mutlu pati', 'https://ornek.example.com/berrak', 1],
+    ['Damla Su', 'water_popup', 'Damla Su', 'Sokak kapları için 5 litrelik bidon', 'https://ornek.example.com/damla', 2],
+    ['Kadıköy Veteriner Kliniği', 'vet_health_record', 'Kadıköy Veteriner', '7/24 acil hizmet, sokak hayvanlarına indirim', 'https://ornek.example.com/vet-kadikoy', 1],
+    ['Pati Dostu Veteriner', 'vet_health_record', 'Pati Dostu Veteriner', 'Ücretsiz ilk muayene', 'https://ornek.example.com/pati-dostu', 2],
+  ];
+  const adValues = DEMO_ADS.map((_, i) => {
+    const b = i * 7;
+    return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7})`;
+  });
+  await pool.query(
+    `INSERT INTO advertisers (name, slot, headline, body, target_url, sort_order, image_url)
+     VALUES ${adValues.join(',')}`,
+    DEMO_ADS.flatMap((ad, i) => [...ad, photoUrls[i % photoUrls.length]])
+  );
+
   // Demo kullanıcıların rozetlerini "kazanılmış ve görülmüş" olarak işliyoruz.
   // Aksi halde bir demo hesapla ilk aksiyon yapıldığında 30 günlük serinin
   // biriktirdiği onlarca rozet aynı anda kutlama popup'ı olarak patlıyor.
@@ -401,7 +423,8 @@ async function seed() {
        (SELECT count(*) FROM care_actions)::int AS care_actions,
        (SELECT count(*) FROM animal_comments)::int AS comments,
        (SELECT count(*) FROM user_animal_care)::int AS carers,
-       (SELECT count(*) FROM user_badge_awards)::int AS badge_awards`
+       (SELECT count(*) FROM user_badge_awards)::int AS badge_awards,
+       (SELECT count(*) FROM advertisers)::int AS advertisers`
   );
 
   console.log('\nTamamlandı:');
@@ -411,6 +434,7 @@ async function seed() {
   console.log(`  Yorum          : ${counts.rows[0].comments}`);
   console.log(`  Bakım ilişkisi : ${counts.rows[0].carers}`);
   console.log(`  Kazanılmış rozet: ${counts.rows[0].badge_awards}`);
+  console.log(`  Reklamveren     : ${counts.rows[0].advertisers}`);
   console.log(`\n  30 günlük seri : ${streakSummary[30]} kullanıcı (Altın rozet)`);
   console.log(`  7 günlük seri  : ${streakSummary[7]} kullanıcı (Gümüş rozet)`);
   console.log(`  1-3 günlük     : ${streakSummary.short} kullanıcı (Bronz rozet)`);

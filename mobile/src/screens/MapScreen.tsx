@@ -27,6 +27,7 @@ import {
   fetchCareStatus,
 } from '../api/care';
 import { Animal, fetchAnimals } from '../api/animals';
+import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import UserLocationMarker from '../components/UserLocationMarker';
 import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
@@ -391,6 +392,12 @@ export default function MapScreen({ navigation }: any) {
             <View style={styles.modalButton}>
               <Button title="İptal" color="#c62828" onPress={() => setPendingPin(null)} />
             </View>
+
+            {/* Mama haritasında mama markası, su haritasında su markası. */}
+            <AdBanner
+              slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
+              visible={!!pendingPin}
+            />
           </View>
         </View>
       </Modal>

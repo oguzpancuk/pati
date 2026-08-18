@@ -171,3 +171,45 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_target ON audit_log (target_type, target_id);
+
+-- Reklamverenler. Hazır bir reklam ağı (AdMob vb.) yerine kendi basit reklam
+-- sunucumuz: markalar admin panelinden elle giriliyor ve yerleşimler çok
+-- spesifik (mama pop-up'ında mama markası, su pop-up'ında su markası, sağlık
+-- kaydı eklerken veteriner kliniği).
+CREATE TABLE IF NOT EXISTS advertisers (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    slot VARCHAR(30) NOT NULL CHECK (slot IN ('food_popup', 'water_popup', 'vet_health_record')),
+    headline VARCHAR(120),
+    body VARCHAR(200),
+    image_url TEXT,
+    target_url TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    -- Kampanya tarih aralığı; NULL = sınırsız.
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_advertisers_slot ON advertisers (slot, sort_order, id);
+
+-- Gösterim ve tıklama kayıtları. Markalara "şu kadar gösterim, şu kadar tık"
+-- diyebilmek için şart — bu ölçüm olmadan reklam satılamaz.
+--
+-- slot burada advertisers'tan kopyalanıyor (denormalize): reklamveren silinse
+-- bile geçmiş rapor ayakta kalsın ve rotasyon sayacı yerleşim bazında tek
+-- indeksle sayılabilsin diye.
+CREATE TABLE IF NOT EXISTS ad_events (
+    id SERIAL PRIMARY KEY,
+    advertiser_id INTEGER REFERENCES advertisers(id) ON DELETE SET NULL,
+    slot VARCHAR(30) NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    type VARCHAR(12) NOT NULL CHECK (type IN ('impression', 'click')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Rotasyon sırası kullanıcının o yerleşimdeki gösterim sayısından türetiliyor,
+-- bu yüzden bu indeks sıcak yolda (her pop-up açılışında) kullanılıyor.
+CREATE INDEX IF NOT EXISTS idx_ad_events_rotation ON ad_events (user_id, slot, type);
+CREATE INDEX IF NOT EXISTS idx_ad_events_report ON ad_events (advertiser_id, type);

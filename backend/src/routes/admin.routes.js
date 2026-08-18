@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth.middleware');
+const { upload } = require('../config/upload');
 const {
   getStats,
   listUsers,
@@ -12,6 +13,11 @@ const {
   deleteCareAction,
   listComments,
   deleteComment,
+  listAdvertisers,
+  createAdvertiser,
+  updateAdvertiser,
+  uploadAdvertiserImage,
+  deleteAdvertiser,
   listAuditLog,
 } = require('../controllers/admin.controller');
 
@@ -35,6 +41,12 @@ router.delete('/care-actions/:id', deleteCareAction);
 
 router.get('/comments', listComments);
 router.delete('/comments/:id', deleteComment);
+
+router.get('/advertisers', listAdvertisers);
+router.post('/advertisers', createAdvertiser);
+router.patch('/advertisers/:id', updateAdvertiser);
+router.post('/advertisers/:id/image', upload.single('image'), uploadAdvertiserImage);
+router.delete('/advertisers/:id', deleteAdvertiser);
 
 router.get('/audit-log', listAuditLog);
 
