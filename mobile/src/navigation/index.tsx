@@ -29,8 +29,11 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   Tabs: undefined;
-  AddAnimal: undefined;
-  AnimalProfile: { animalId: number };
+  // confirmedAnimalId: eşleştirme incelemesinden "bu o" ile dönüldüğünde dolu.
+  AddAnimal: { confirmedAnimalId?: number } | undefined;
+  // matchReview: hayvan ekleme akışında adaya bakarken; profil "inceleme"
+  // modunda açılır, altta "geri dön / bu o" çubuğu çıkar.
+  AnimalProfile: { animalId: number; matchReview?: boolean };
   PublicProfile: { userId: number };
   FindFriends: undefined;
   Leaderboard: undefined;

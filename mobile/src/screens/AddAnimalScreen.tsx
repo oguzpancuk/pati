@@ -54,7 +54,7 @@ function formatDistance(meters: number) {
 
 type Step = 'form' | 'matching' | 'results';
 
-export default function AddAnimalScreen({ navigation }: any) {
+export default function AddAnimalScreen({ navigation, route }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
@@ -163,15 +163,31 @@ export default function AddAnimalScreen({ navigation }: any) {
     }
   }
 
-  async function handleExistingAnimal(animal: AnimalMatch) {
+  // Adaya dokununca profil "inceleme" modunda açılıyor: kullanıcı fotoğraflara,
+  // sağlık kayıtlarına bakıp karar versin. Karar profildeki alt çubuktan
+  // geliyor — "bu o" bizi confirmedAnimalId parametresiyle buraya geri düşürür.
+  function handleReviewCandidate(animal: AnimalMatch) {
+    navigation.navigate('AnimalProfile', { animalId: animal.id, matchReview: true });
+  }
+
+  const confirmedAnimalId: number | undefined = route.params?.confirmedAnimalId;
+  useEffect(() => {
+    if (confirmedAnimalId) {
+      navigation.setParams({ confirmedAnimalId: undefined });
+      handleExistingAnimal(confirmedAnimalId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmedAnimalId]);
+
+  async function handleExistingAnimal(animalId: number) {
     if (!location) {
-      navigation.replace('AnimalProfile', { animalId: animal.id });
+      navigation.replace('AnimalProfile', { animalId });
       return;
     }
     setSubmitting(true);
     try {
-      await reportSighting(animal.id, location.lat, location.lng);
-      navigation.replace('AnimalProfile', { animalId: animal.id });
+      await reportSighting(animalId, location.lat, location.lng);
+      navigation.replace('AnimalProfile', { animalId });
     } catch (err: any) {
       Alert.alert(
         'Güncellenemedi',
@@ -201,7 +217,7 @@ export default function AddAnimalScreen({ navigation }: any) {
             matchRadius >= 1000 ? `${matchRadius / 1000} km` : `${matchRadius} m`
           } içindeki ${
             species === 'cat' ? 'kedilerle' : 'köpeklerle'
-          } karşılaştırıldı. Eklemek istediğin hayvan bunlardan biriyse seç — konumu güncellenir ve bakım listene eklenir.`}
+          } karşılaştırıldı. Birine dokunup profiline bak; oysa "bu o" de — konumu güncellenir ve bakım listene eklenir.`}
           style={styles.resultsBanner}
         />
 
@@ -211,7 +227,7 @@ export default function AddAnimalScreen({ navigation }: any) {
             variant="flat"
             padding="md"
             style={styles.candidateRow}
-            onPress={() => handleExistingAnimal(animal)}
+            onPress={() => handleReviewCandidate(animal)}
           >
             <AnimalAvatar species={animal.species} breed={animal.breed} size={52} />
             <View style={styles.candidateText}>

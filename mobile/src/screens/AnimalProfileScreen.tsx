@@ -89,11 +89,15 @@ const COMMENT_PAGE = 20;
 // katlanıyor — 3 kart bile sohbeti ekranın altına itiyordu.
 const RECORD_PREVIEW = 2;
 
-export default function AnimalProfileScreen({ route }: any) {
+export default function AnimalProfileScreen({ route, navigation }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
   const { animalId } = route.params;
+  // Hayvan ekleme akışından "bu hayvan mı?" diye bakılıyorsa yorum kutusu
+  // yerine karar çubuğu çıkar. Karar AddAnimal'a parametreyle dönüyor; konum
+  // güncelleme ve bakım listesine ekleme orada tek yerde yapılıyor.
+  const matchReview: boolean = !!route.params?.matchReview;
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [draft, setDraft] = useState('');
@@ -470,43 +474,65 @@ export default function AnimalProfileScreen({ route }: any) {
         )}
       </Screen>
 
-      <View style={styles.composer}>
-        {openRecords.length > 0 && (
-          <ScrollView
-            horizontal
-            style={styles.tagRow}
-            contentContainerStyle={styles.tagRowContent}
-            showsHorizontalScrollIndicator={false}
-          >
-            <Chip label="Genel" selected={!linkedRecord} onPress={() => setLinkedRecord(null)} />
-            {openRecords.map((record) => (
-              <Chip
-                key={record.id}
-                label={recordLabel(record)}
-                selected={linkedRecord?.id === record.id}
-                onPress={() => setLinkedRecord(record)}
-              />
-            ))}
-          </ScrollView>
-        )}
-        <View style={styles.composerRow}>
-          <TextInput
-            style={styles.composerInput}
-            placeholder="Yorum yaz…"
-            placeholderTextColor={colors.textSubtle}
-            value={draft}
-            onChangeText={setDraft}
-            multiline
-          />
-          <Button
-            title="Gönder"
-            size="sm"
-            onPress={handleSend}
-            disabled={sending || !draft.trim()}
-            loading={sending}
-          />
+      {matchReview ? (
+        <View style={styles.composer}>
+          <Text variant="caption" center style={styles.reviewHint}>
+            Eklemek istediğin hayvan bu mu?
+          </Text>
+          <View style={styles.reviewRow}>
+            <Button
+              title="Geri dön"
+              variant="secondary"
+              onPress={() => navigation.goBack()}
+              style={styles.reviewButton}
+            />
+            <Button
+              title="Bu o — eşleştir"
+              onPress={() => navigation.navigate('AddAnimal', { confirmedAnimalId: animalId })}
+              icon={<Icon name="check" size={18} color={colors.textOnBrand} />}
+              style={styles.reviewButton}
+            />
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.composer}>
+          {openRecords.length > 0 && (
+            <ScrollView
+              horizontal
+              style={styles.tagRow}
+              contentContainerStyle={styles.tagRowContent}
+              showsHorizontalScrollIndicator={false}
+            >
+              <Chip label="Genel" selected={!linkedRecord} onPress={() => setLinkedRecord(null)} />
+              {openRecords.map((record) => (
+                <Chip
+                  key={record.id}
+                  label={recordLabel(record)}
+                  selected={linkedRecord?.id === record.id}
+                  onPress={() => setLinkedRecord(record)}
+                />
+              ))}
+            </ScrollView>
+          )}
+          <View style={styles.composerRow}>
+            <TextInput
+              style={styles.composerInput}
+              placeholder="Yorum yaz…"
+              placeholderTextColor={colors.textSubtle}
+              value={draft}
+              onChangeText={setDraft}
+              multiline
+            />
+            <Button
+              title="Gönder"
+              size="sm"
+              onPress={handleSend}
+              disabled={sending || !draft.trim()}
+              loading={sending}
+            />
+          </View>
+        </View>
+      )}
 
       <Modal visible={recordModalVisible} transparent animationType="fade">
         <KeyboardAvoidingView
@@ -694,6 +720,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     padding: spacing.md,
     backgroundColor: c.surface,
   },
+  reviewHint: { marginBottom: spacing.sm },
+  reviewRow: { flexDirection: 'row', gap: spacing.sm },
+  reviewButton: { flex: 1 },
   tagRow: { marginBottom: spacing.sm },
   tagRowContent: { gap: spacing.sm, paddingRight: spacing.sm },
   chipRow: {
