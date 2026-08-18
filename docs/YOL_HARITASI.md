@@ -49,6 +49,71 @@ Ayrıca üretime çıkmadan kapatılması gereken teknik borç listesi için bkz
 
 ## 1. Yapay zekâ ile hayvan eşleştirme
 
+### 📊 Spike sonuçları (18 Ağustos 2026) — maliyet ve hız ölçüldü
+
+**Ölçüm ortamı:** 4 çekirdek CPU, GPU yok. Gömme modeli için rastgele ağırlıklı
+ama **gerçek mimari** kullanıldı — ileri geçiş süresi mimariye ve girdi boyutuna
+bağlı, ağırlıkların eğitilmiş olmasına değil. Yani bu milisaniyeler gerçek
+DINOv2/CLIP ağırlıklarıyla da aynı çıkar.
+
+**Fotoğrafı vektöre çevirme (CPU, kayıt başına 3 fotoğraf, toplu işlenmiş):**
+
+| Model | 1 fotoğraf | 3 fotoğraf | Kayıt başına |
+| --- | --- | --- | --- |
+| ViT-B/16 (86M) — DINOv2 base sınıfı | 136 ms | 335 ms | **0,33 sn** |
+| ViT-B/32 (88M) — CLIP ViT-B/32 sınıfı | 49 ms | 84 ms | **0,08 sn** |
+| ResNet-50 (25M) | 51 ms | 101 ms | 0,10 sn |
+| MobileNetV3-L (5M) | 16 ms | 28 ms | 0,03 sn |
+
+**Vektör araması (pgvector 0.6, 25.000 hayvan × 3 fotoğraf = 75.000 vektör, 768 boyut):**
+
+| Aday kümesi | Vektör sayısı | Süre |
+| --- | --- | --- |
+| 1 km yarıçap | ~300 | **4 ms** |
+| 3 km yarıçap | ~2.850 | 20 ms |
+| 10 km yarıçap | ~31.400 | 261 ms |
+| Coğrafi daraltma yok (tam tarama) | 75.000 | 309 ms |
+
+**Depolama:** 75.000 vektör + GIST indeksi = **309 MB**.
+
+#### Sonuçlar
+
+1. **Kullanıcının bekleyeceği ek süre ~0,35 saniye** (ViT-B/16 + 1 km arama).
+   Önceki tahminim 1–2 saniyeydi; gerçek ölçüm daha iyi çıktı. **GPU gerekmiyor.**
+2. **İstek başına ücret yok** — model kendi sunucumuzda çalışıyor. Maliyet =
+   sunucuya ~2 GB ek RAM. Binlerce kullanıcıda bile model günde ~200 kez
+   çalışıyor (hayvan kaydı nadir bir eylem), yani sunucu boş duruyor.
+3. **Coğrafi daraltma her şeyi belirliyor:** 1 km'de 4 ms, daraltma olmadan
+   309 ms — 75 kat fark. PostGIS ile önce daraltmak mimarinin en kritik parçası.
+4. **Model seçimi bir denge:** ViT-B/32, ViT-B/16'dan 4 kat hızlı ve vektörü
+   daha küçük (512 vs 768 boyut → %33 daha az depolama). İsabet ölçülünce hangisinin
+   yeteceğine karar verilecek.
+
+#### ⚠️ Henüz ölçülemeyen: isabet
+
+Asıl risk maliyet değil, modelin sokak koşullarında (kötü ışık, uzaktan çekim,
+hareketli hayvan) **aynı kediyi tanıyıp tanımaması**. Bu ölçüm bu ortamda
+yapılamadı: sanal makinenin ağ politikası model ağırlığı ve veri seti
+sunucularını (huggingface.co, download.pytorch.org, GitHub release, GCS)
+engelliyor. Yalnızca PyPI açık — paket kurulabiliyor ama eğitilmiş ağırlık
+indirilemiyor.
+
+**İsabet ölçümü için gereken (biri yeterli):**
+- Aynı sokak hayvanının farklı zaman/açılardan çekilmiş fotoğrafları (10–20 hayvan
+  × 3–4 fotoğraf yeterli bir ilk sinyal verir), **veya**
+- Ağ erişimi açık bir ortamda (yerel makine) ölçümün çalıştırılması — script
+  hazırlanabilir, kimlik doğrulama gerektirmeyen açık veri setleri var
+
+**Ölçülecek metrik:** "aynı hayvanın ikinci fotoğrafı ilk 5 sonuçta çıkıyor mu?"
+(top-5 isabet). Ayrıca yanlış eşleşme oranı — farklı hayvanlar için skor eşiği.
+
+> **Kurulum notu:** `pgvector` ayrı bir PostgreSQL eklentisi. Mevcut
+> `imresamu/postgis` imajında olmayabilir; entegrasyona geçilirken imajın
+> pgvector içerdiği doğrulanmalı veya `postgresql-16-pgvector` paketi kurulmalı.
+
+<details>
+<summary>Tam plan</summary>
+
 ### İstenen akış
 "Hayvan Ekle" butonu doğrudan hayvan ekleme sayfasını açar. Gerekli alanlar
 girilip fotoğraf eklendikten sonra yapay zekâ çalışır ve çevredeki kayıtlı
@@ -108,10 +173,14 @@ yapmamalı.
       kalibrasyon için)
 
 ### Karar verilmesi gerekenler
-- Gömme servisi nerede koşacak? (kendi sunucumuz / yönetilen GPU / CPU yeterli mi)
+- ~~Gömme servisi nerede koşacak, CPU yeterli mi?~~ → **CPU yeterli, GPU
+  gerekmiyor** (spike ölçümü: kayıt başına 0,33 sn)
 - Skor kullanıcıya sayı olarak mı gösterilecek, kademe olarak mı?
 - Eşleşme bulunamadığında akış nasıl devam edecek (sessizce yeni kayıt mı,
   "emin misiniz?" mi)
+- ViT-B/16 mı ViT-B/32 mi? (isabet ölçülünce netleşecek — B/32 dört kat hızlı)
+
+</details>
 
 ---
 
