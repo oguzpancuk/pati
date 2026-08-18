@@ -404,27 +404,25 @@ async function addComment(req, res, next) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
     }
 
-    if (healthRecordId) {
-      const recordCheck = await pool.query(
-        'SELECT id, recovered_at FROM health_records WHERE id = $1 AND animal_id = $2',
-        [healthRecordId, req.params.id]
-      );
-      if (recordCheck.rows[0]?.recovered_at) {
-        return res
-          .status(409)
-          .json({ error: 'İyileşmiş bir kayda yorum eklenemez' });
-      }
-      if (recordCheck.rows.length === 0) {
-        return res.status(400).json({ error: 'Sağlık kaydı bu hayvana ait değil' });
-      }
-    }
-
     // Bir yorum ya sağlık kaydına ya aşıya bağlanır; ikisi birden olamaz
     // (veritabanında da CHECK ile korunuyor).
     if (healthRecordId && vaccinationId) {
       return res
         .status(400)
         .json({ error: 'Yorum aynı anda hem sağlık kaydına hem aşıya bağlanamaz' });
+    }
+
+    if (healthRecordId) {
+      const recordCheck = await pool.query(
+        'SELECT id, recovered_at FROM health_records WHERE id = $1 AND animal_id = $2',
+        [healthRecordId, req.params.id]
+      );
+      if (recordCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Sağlık kaydı bu hayvana ait değil' });
+      }
+      if (recordCheck.rows[0].recovered_at) {
+        return res.status(409).json({ error: 'İyileşmiş bir kayda yorum eklenemez' });
+      }
     }
 
     if (vaccinationId) {

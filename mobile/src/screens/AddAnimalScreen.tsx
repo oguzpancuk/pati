@@ -6,40 +6,25 @@ import type { PhotoAsset } from '../api/care';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Coordinates, getCurrentLocation } from '../location';
-import { Banner, Button, Card, Chip, Input, LoadingState, Screen, Text } from '../components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  Chip,
+  ChoiceField,
+  Input,
+  LoadingState,
+  Screen,
+  Text,
+} from '../components/ui';
 import { Icon } from '../components/brand';
+import { colorsFor, patternsFor, type Species } from '../taxonomy';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
-
-type Species = 'cat' | 'dog';
 
 // Aynı hayvanın ikinci kez kaydedilmesini önlemek için form açılmadan önce
 // yakındaki kayıtlı hayvanlar gösterilir. Yapay zekâ ile fotoğraf eşleştirme
 // yerine kullanıcı seçimine dayanıyor (bkz. PRD 4.3, sonraki faz).
 const DUPLICATE_CHECK_RADIUS_METERS = 500;
-
-const BREED_OPTIONS: Record<Species, string[]> = {
-  cat: [
-    'Tekir',
-    'Sarman',
-    'Siyah',
-    'Beyaz',
-    'Van Kedisi',
-    'Ankara Kedisi',
-    'Halı (Calico)',
-    'Sokak Melezi',
-    'Diğer',
-  ],
-  dog: [
-    'Kangal',
-    'Akbaş',
-    'Çoban Köpeği',
-    'Terrier Tipi',
-    'Av Köpeği Tipi',
-    'Golden/Labrador Tipi',
-    'Sokak Melezi',
-    'Diğer',
-  ],
-};
 
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
@@ -50,7 +35,7 @@ export default function AddAnimalScreen({ navigation }: any) {
   const { celebrate } = useBadgeAwards();
   const [species, setSpecies] = useState<Species>('cat');
   const [name, setName] = useState('');
-  const [color, setColor] = useState('');
+  const [color, setColor] = useState<string | null>(null);
   const [breed, setBreed] = useState<string | null>(null);
   const [markings, setMarkings] = useState('');
   const [photos, setPhotos] = useState<PhotoAsset[]>([]);
@@ -100,7 +85,10 @@ export default function AddAnimalScreen({ navigation }: any) {
 
   function handleSpeciesChange(next: Species) {
     setSpecies(next);
+    // Desen ve renk listeleri türe göre değişiyor; kediye ait bir seçim köpekte
+    // anlamsız kalacağı için sıfırlanıyor.
     setBreed(null);
+    setColor(null);
   }
 
   async function handleAddPhotos() {
@@ -182,7 +170,7 @@ export default function AddAnimalScreen({ navigation }: any) {
                 {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
               </Text>
               <Text variant="caption" numberOfLines={1}>
-                {animal.breed ?? 'Cinsi belirtilmemiş'}
+                {animal.breed ?? 'Türü belirtilmemiş'}
                 {animal.distance_meters !== undefined
                   ? ` · ${Math.round(animal.distance_meters)} m uzakta`
                   : ''}
@@ -224,32 +212,29 @@ export default function AddAnimalScreen({ navigation }: any) {
         />
       </View>
 
-      <Text variant="label" style={styles.label}>
-        CİNS / DESEN
-      </Text>
-      <View style={styles.chipRow}>
-        {BREED_OPTIONS[species].map((option) => (
-          <Chip
-            key={option}
-            label={option}
-            selected={breed === option}
-            onPress={() => setBreed(option)}
-          />
-        ))}
-      </View>
+      {/* "Cins" demiyoruz: sokak kedileri bir ırka ait değil, tekir/sarman gibi
+          adlar post desenini anlatıyor; köpekler de melez (bkz. taxonomy.ts). */}
+      <ChoiceField
+        label="TÜR / DESEN"
+        options={patternsFor(species)}
+        value={breed}
+        onChange={setBreed}
+        otherPlaceholder={species === 'cat' ? 'Örn. Ankara kedisi kırması' : 'Örn. Golden kırması'}
+      />
+
+      <ChoiceField
+        label="RENK"
+        options={colorsFor(species)}
+        value={color}
+        onChange={setColor}
+        otherPlaceholder="Örn. Gri-beyaz alacalı"
+      />
 
       <Input
         label="İSİM (İSTEĞE BAĞLI)"
         value={name}
         onChangeText={setName}
         placeholder="Örn. Pamuk"
-        containerStyle={styles.field}
-      />
-      <Input
-        label="RENK"
-        value={color}
-        onChangeText={setColor}
-        placeholder="Örn. Sarı-beyaz"
         containerStyle={styles.field}
       />
       <Input

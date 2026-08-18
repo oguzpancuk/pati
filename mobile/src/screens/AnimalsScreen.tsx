@@ -107,7 +107,7 @@ export default function AnimalsScreen({ navigation }: any) {
                 {item.name ?? (item.species === 'cat' ? 'Kedi' : 'Köpek')}
               </Text>
               <Text variant="caption" numberOfLines={1}>
-                {item.breed ?? 'Cinsi belirtilmemiş'} · {formatDistance(item.distance_meters)}
+                {item.breed ?? 'Türü belirtilmemiş'} · {formatDistance(item.distance_meters)}
               </Text>
             </View>
             <Icon name="chevronRight" size={20} color={colors.textSubtle} />

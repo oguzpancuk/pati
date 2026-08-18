@@ -15,7 +15,9 @@ export interface Animal {
   cover_photo_url?: string | null;
 }
 
-export type HealthRecordType = 'illness' | 'injury' | 'treatment' | 'vaccination' | 'medication';
+// Sağlık kaydı yalnızca iki tip. Tedavi/ilaç ayrı kayıt değil, kayda bağlı
+// yorum olarak tutuluyor; aşı ise kendi tablosunda (bkz. Vaccination).
+export type HealthRecordType = 'illness' | 'injury';
 
 export type HealthRecordStatus = 'not_started' | 'in_treatment' | 'recovered';
 
@@ -34,6 +36,19 @@ export interface HealthRecord {
   status: HealthRecordStatus;
 }
 
+export interface Vaccination {
+  id: number;
+  vaccine_type: string;
+  note: string | null;
+  vet_verified: boolean;
+  administered_at: string;
+  next_due_at: string | null;
+  recorded_by: number;
+  recorded_by_name?: string;
+  recorded_at: string;
+  comment_count: number;
+}
+
 export interface AnimalPhoto {
   id: number;
   url: string;
@@ -45,11 +60,13 @@ export interface AnimalComment {
   body: string;
   created_at: string;
   health_record_id: number | null;
+  vaccination_id: number | null;
   user_id: number;
   user_name: string;
   avatar_url: string | null;
   health_record_type: HealthRecordType | null;
   health_record_description: string | null;
+  vaccination_type: string | null;
 }
 
 export interface Carer {
@@ -62,6 +79,7 @@ export interface AnimalDetail extends Animal {
   location_updated_at: string;
   photos: AnimalPhoto[];
   healthRecords: HealthRecord[];
+  vaccinations: Vaccination[];
   carers: Carer[];
   isCarer: boolean;
 }
@@ -137,6 +155,24 @@ export async function markHealthRecordRecovered(
   return data;
 }
 
+export interface AddVaccinationInput {
+  vaccineType: string;
+  note?: string;
+  administeredAt?: string;
+  nextDueAt?: string;
+}
+
+export async function addVaccination(
+  animalId: number,
+  input: AddVaccinationInput
+): Promise<Vaccination & WithNewBadges> {
+  const { data } = await apiClient.post<Vaccination & WithNewBadges>(
+    `/animals/${animalId}/vaccinations`,
+    input
+  );
+  return data;
+}
+
 // Kayıtlı bir hayvanı yeniden gördüğünü bildirir: güncel konumunu buraya taşır
 // ve bildireni bakım listesine ekler.
 export async function reportSighting(animalId: number, lat: number, lng: number): Promise<Animal> {
@@ -144,12 +180,21 @@ export async function reportSighting(animalId: number, lat: number, lng: number)
   return data;
 }
 
+/**
+ * Bir yorum ya bir sağlık kaydına ya bir aşı kaydına bağlanabilir, ikisine
+ * birden değil. Sunucu da aynı kısıtı uyguluyor (animal_comments tablosundaki
+ * CHECK), o yüzden burada tek bir "hedef" nesnesi geçiriliyor.
+ */
+export type CommentTarget =
+  | { healthRecordId: number; vaccinationId?: undefined }
+  | { vaccinationId: number; healthRecordId?: undefined };
+
 export async function fetchAnimalComments(
   animalId: number,
-  healthRecordId?: number
+  target?: CommentTarget
 ): Promise<AnimalComment[]> {
   const { data } = await apiClient.get<AnimalComment[]>(`/animals/${animalId}/comments`, {
-    params: healthRecordId ? { healthRecordId } : undefined,
+    params: target,
   });
   return data;
 }
@@ -157,14 +202,11 @@ export async function fetchAnimalComments(
 export async function addAnimalComment(
   animalId: number,
   body: string,
-  healthRecordId?: number
+  target?: CommentTarget
 ): Promise<AnimalComment & WithNewBadges> {
   const { data } = await apiClient.post<AnimalComment & WithNewBadges>(
     `/animals/${animalId}/comments`,
-    {
-      body,
-      healthRecordId,
-    }
+    { body, ...target }
   );
   return data;
 }

@@ -41,9 +41,7 @@ export default function LevelBar({ level, points }: Props) {
       </View>
 
       <Text variant="caption" style={styles.hint}>
-        {level.nextTitle
-          ? `${level.nextTitle} için ${remaining} puan daha`
-          : 'En üst seviyedesin'}
+        {level.nextTitle ? `${level.nextTitle} için ${remaining} puan daha` : 'En üst seviyedesin'}
       </Text>
     </View>
   );

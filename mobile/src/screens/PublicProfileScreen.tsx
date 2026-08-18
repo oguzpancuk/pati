@@ -218,7 +218,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
                 {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
               </Text>
               <Text variant="caption" numberOfLines={1}>
-                {animal.breed ?? 'Cinsi belirtilmemiş'}
+                {animal.breed ?? 'Türü belirtilmemiş'}
               </Text>
             </View>
             <Icon name="chevronRight" size={18} color={colors.textSubtle} />

@@ -234,7 +234,7 @@ function EditAnimalModal({
         </select>
       </label>
       <label className="field">
-        <span>Cins</span>
+        <span>Tür / Desen</span>
         <input value={breed} onChange={(e) => setBreed(e.target.value)} />
       </label>
       <label className="field">
