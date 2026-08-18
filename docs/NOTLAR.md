@@ -380,6 +380,20 @@ zemin). Uygulama boyutu artmıyor, yeni bir yüz eklemek tek satır ve hepsi ayn
 çizim diline uyuyor. Aynı yaklaşım rozet madalyonlarında ve seviye
 amblemlerinde de kullanılıyor.
 
+### Web (PWA) kalıcı üçüncü istemci olarak eklendi
+Mağaza uygulamasının *yanında* yaşayan bir web sürümü (bilinçli tercih; hızlı
+pilot aracı seçeneği de değerlendirildi). Kopya büyütmemek için: web, sözlüğü
+ve avatar tanımlarını `@mobile/taxonomy` / `@mobile/avatars` alias'larıyla
+mobilden doğrudan import ediyor; SVG üreticileri `shared/` altında admin ile
+ortak. Service worker yalnızca uygulama kabuğunu önbelleğe alıyor — API asla
+önbelleklenmiyor, bayat bakım verisi haritada yalan söyler.
+
+Bilinen sınırlar: iOS'ta web push yalnızca ana ekrana eklenmiş PWA'da çalışır
+(bildirimler şimdilik yalnızca mobil uygulamada). Harita altlığı
+tile.openstreetmap.org — OSMF karo sunucusunun kullanım politikası yoğun
+üretim trafiğine uygun değil; yayına çıkarken ücretli/kendi karo sunucusuna
+geçilmeli (yol haritasında).
+
 ---
 
 ## 3. Bilinen sınırlar ve teknik borç

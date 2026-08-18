@@ -20,7 +20,9 @@ Bir karar verip gerekçesini bir yere yazmanız gerekiyorsa yeri `docs/NOTLAR.md
 ```
 backend/   Node.js + Express, PostgreSQL 16 + PostGIS, JWT + bcrypt
 mobile/    React Native 0.74 + TypeScript  ← ana uygulama
+web/       React 18 + Vite PWA (kalıcı üçüncü istemci, Leaflet harita)
 admin/     React 18 + Vite + TypeScript (yönetim paneli)
+shared/    Web tarafı SVG üreticileri (insan + hayvan avatarları; admin ve web ortak)
 ```
 
 ## Zarar vermemek için bilinmesi gerekenler
@@ -40,7 +42,11 @@ admin/     React 18 + Vite + TypeScript (yönetim paneli)
 - **Sözlük iki yerde kopya**: `backend/src/utils/taxonomy.js` ve
   `mobile/src/taxonomy.ts` (desen, renk, hastalık, yaralanma, aşı listeleri).
   Birini değiştiren diğerini de değiştirir; sunucu doğrulamayı istemciye
-  bırakamaz.
+  bırakamaz. **web/ kopya tutmaz** — `@mobile/taxonomy` ve `@mobile/avatars`
+  alias'larıyla mobildeki dosyaları doğrudan import eder.
+- **Avatar çizimleri iki teknolojide**: mobil react-native-svg bileşenleri
+  (`mobile/src/components/avatars/`), web düz SVG string üreticileri
+  (`shared/`). Yüz değişirse ikisi birlikte güncellenir.
 
 ## Doğrulama
 
@@ -48,6 +54,7 @@ admin/     React 18 + Vite + TypeScript (yönetim paneli)
 cd mobile   && npx tsc --noEmit && npx jest && npx react-native bundle \
   --platform ios --dev false --entry-file index.js --bundle-output /tmp/b.js
 cd admin    && npx tsc --noEmit && npm run build
+cd web      && npx tsc --noEmit && npm run build
 cd backend  && node -e "require('./src/app.js')"   # test yok, aşağıya bakın
 ```
 
