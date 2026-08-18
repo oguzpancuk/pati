@@ -81,7 +81,11 @@ export default function Users() {
             {list.items.map((user) => (
               <tr key={user.id}>
                 <td>
-                  {user.avatar_url ? (
+                  {/* avatar_url ya yüklenmiş bir fotoğrafın adresi ya da
+                      "pati-avatar:f3" gibi hazır avatar anahtarı olabiliyor
+                      (bkz. backend/src/utils/avatars.js). İkincisi bir URL
+                      değil; <img> içine konursa kırık görsel çıkar. */}
+                  {user.avatar_url && !user.avatar_url.startsWith('pati-avatar:') ? (
                     <img className="thumb round" src={user.avatar_url} alt="" />
                   ) : (
                     <div className="thumb round" />

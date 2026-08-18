@@ -1,6 +1,8 @@
 import React from 'react';
 import { Image, StyleProp, View, ViewStyle } from 'react-native';
 import Text from './Text';
+import CartoonAvatar from '../avatars/CartoonAvatar';
+import { variantFromValue } from '../../avatars';
 import { makeStyles, radius, useTheme } from '../../theme';
 
 export type AvatarProps = {
@@ -13,7 +15,12 @@ export type AvatarProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-/** Yuvarlak profil görseli; fotoğraf yoksa marka renginde baş harf. */
+/**
+ * Yuvarlak profil görseli. Üç durum var ve üçü de `uri` alanından okunuyor:
+ * yüklenmiş fotoğraf, seçilmiş hazır avatar (`pati-avatar:` önekli) ya da
+ * hiçbiri — o zaman baş harf. Önekin neden `avatar_url` içinde durduğu
+ * src/avatars.ts ve backend/src/utils/avatars.js içinde anlatıldı.
+ */
 export default function Avatar({ uri, name, size = 44, ring, style }: AvatarProps) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -29,6 +36,15 @@ export default function Avatar({ uri, name, size = 44, ring, style }: AvatarProp
     styles.center,
     style,
   ];
+
+  const variant = variantFromValue(uri);
+  if (variant) {
+    return (
+      <View style={box}>
+        <CartoonAvatar variant={variant} size={size} />
+      </View>
+    );
+  }
 
   if (uri) {
     return (

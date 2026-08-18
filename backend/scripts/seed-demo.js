@@ -18,6 +18,7 @@ const bcrypt = require('bcrypt');
 const pool = require('../src/config/db');
 const { UPLOADS_DIR } = require('../src/config/upload');
 const { getBadgesForUsers } = require('../src/utils/badges');
+const { AVATAR_KEYS, AVATAR_PREFIX } = require('../src/utils/avatars');
 const {
   CAT_PATTERNS,
   DOG_PATTERNS,
@@ -218,7 +219,16 @@ async function seed() {
     const name = `${FIRST_NAMES[i % FIRST_NAMES.length]} ${LAST_NAMES[i % LAST_NAMES.length]}`;
     const base = userParams.length;
     userValues.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`);
-    userParams.push(name, `test${i + 1}@stray.test`, passwordHash, i % 10 === 0 ? photoUrls[i % photoUrls.length] : null);
+    // Her 10. kullanıcıya yüklenmiş fotoğraf, kalanlara hazır avatar: iki
+    // durumun da uygulamada nasıl göründüğü demo veride görülebilsin.
+    userParams.push(
+      name,
+      `test${i + 1}@stray.test`,
+      passwordHash,
+      i % 10 === 0
+        ? photoUrls[i % photoUrls.length]
+        : `${AVATAR_PREFIX}${AVATAR_KEYS[i % AVATAR_KEYS.length]}`
+    );
   }
   const users = await pool.query(
     `INSERT INTO users (name, email, password_hash, avatar_url) VALUES ${userValues.join(',')} RETURNING id`,

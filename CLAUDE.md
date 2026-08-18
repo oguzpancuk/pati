@@ -33,6 +33,10 @@ admin/     React 18 + Vite + TypeScript (yönetim paneli)
 - **Tek migrasyon dosyası** (`backend/migrations/001_init.sql`). Artımlı
   migrasyon yok; şema değişince veritabanı sıfırlanıyor. `CREATE TABLE IF NOT
   EXISTS` mevcut tabloda sessizce hiçbir şey yapmaz — kolon eklerken dikkat.
+- **`users.avatar_url` iki şey tutuyor**: yüklenmiş fotoğrafın adresi ya da
+  `pati-avatar:f3` gibi hazır avatar anahtarı (bkz. `backend/src/utils/avatars.js`).
+  Doğrudan `<img src>` / `<Image uri>` içine koymayın; mobilde `ui/Avatar` bunu
+  zaten ayırt ediyor.
 - **Sözlük iki yerde kopya**: `backend/src/utils/taxonomy.js` ve
   `mobile/src/taxonomy.ts` (desen, renk, hastalık, yaralanma, aşı listeleri).
   Birini değiştiren diğerini de değiştirir; sunucu doğrulamayı istemciye

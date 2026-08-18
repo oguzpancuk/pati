@@ -286,6 +286,28 @@ yalnızca yuvarlak Android varyantı ile açılış logosu saydam üretiliyor.
 alanı kendisi ekliyor; sabit yükseklik verildiğinde çentikli/ana-çubuklu
 telefonlarda etiketler kırpılıyor.
 
+### Hazır avatarlar `avatar_url` kolonunda, ayrı kolonda değil
+Kullanıcının profil görseli iki şeyden **biri**: yüklediği fotoğraf ya da
+seçtiği hazır avatar. İkisi aynı soruya cevap veriyor ve aynı anda ikisi birden
+geçerli olamıyor — yani iki bağımsız alan değil, etiketli bir birleşim. Bu
+yüzden hazır avatar da aynı kolona `pati-avatar:f3` biçiminde yazılıyor.
+
+Kazanç: kullanıcının görselini döndüren onlarca sorgunun (yorumlar, arkadaş
+listesi, sıralama, bakım verenler, arama sonuçları) hiçbiri değişmedi. Bedel:
+`avatar_url` artık her zaman bir URL değil. Tek kural, değeri doğrudan
+`<img src>` içine koymamak — mobilde `ui/Avatar` ayrımı kendisi yapıyor, admin
+panelinde ise açık bir kontrol var.
+
+Alternatif olan `avatar_key` kolonu daha "temiz" görünüyordu ama 8'den fazla
+sorguya ve üç istemci tipine dokunmayı gerektiriyordu; iki alanın aynı anda
+dolu olması ihtimalini de şemada engelleyemiyordu.
+
+### 20 avatar, 20 görsel dosyası değil
+Yüzler birkaç parametreden çiziliyor (ten, saç rengi, saç modeli, gözlük/sakal,
+zemin). Uygulama boyutu artmıyor, yeni bir yüz eklemek tek satır ve hepsi aynı
+çizim diline uyuyor. Aynı yaklaşım rozet madalyonlarında ve seviye
+amblemlerinde de kullanılıyor.
+
 ---
 
 ## 3. Bilinen sınırlar ve teknik borç

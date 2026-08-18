@@ -14,12 +14,14 @@ import {
   Me,
   ProfileAnimal,
   removeFriendship,
+  setAvatarKey,
   setFeaturedBadges,
   uploadAvatar,
 } from '../api/users';
 import { badgeProgressText, badgeTitle } from '../badges';
 import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
+import { AvatarPickerModal } from '../components/avatars';
 import { BadgeSymbol } from '../components/badges';
 import LevelBar from '../components/LevelBar';
 import RecentComments from '../components/RecentComments';
@@ -55,6 +57,7 @@ export default function UserProfileScreen({ navigation }: any) {
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [catalogVisible, setCatalogVisible] = useState(false);
+  const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -80,7 +83,8 @@ export default function UserProfileScreen({ navigation }: any) {
     }, [load, checkPending])
   );
 
-  async function handleChangeAvatar() {
+  async function handlePickPhoto() {
+    setAvatarPickerVisible(false);
     const result = await launchImageLibrary({ mediaType: 'photo' });
     const asset = result.assets?.[0];
     if (result.didCancel || !asset?.uri) return;
@@ -97,6 +101,19 @@ export default function UserProfileScreen({ navigation }: any) {
       setMe((prev) => (prev ? { ...prev, ...updated } : updated));
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handlePickAvatar(key: string) {
+    setUploading(true);
+    try {
+      const updated = await setAvatarKey(key);
+      setMe((prev) => (prev ? { ...prev, ...updated } : updated));
+      setAvatarPickerVisible(false);
+    } catch (err: any) {
+      Alert.alert('Kaydedilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
       setUploading(false);
     }
@@ -159,7 +176,7 @@ export default function UserProfileScreen({ navigation }: any) {
       {/* Başlık kartı: avatar, isim, seviye çubuğu bir arada */}
       <Card style={styles.headerCard}>
         <View style={styles.headerRow}>
-          <Pressable onPress={handleChangeAvatar} disabled={uploading}>
+          <Pressable onPress={() => setAvatarPickerVisible(true)} disabled={uploading}>
             <Avatar uri={me.avatar_url} name={me.name} size={72} />
             <View style={styles.avatarBadge}>
               <Icon name="camera" size={13} color={colors.textOnBrand} />
@@ -173,7 +190,7 @@ export default function UserProfileScreen({ navigation }: any) {
               {me.email}
             </Text>
             <Text variant="micro" color="brand" style={styles.avatarHint}>
-              {uploading ? 'YÜKLENİYOR…' : 'FOTOĞRAFA DOKUN, DEĞİŞTİR'}
+              {uploading ? 'KAYDEDİLİYOR…' : 'DOKUN, AVATARINI SEÇ'}
             </Text>
           </View>
         </View>
@@ -237,6 +254,15 @@ export default function UserProfileScreen({ navigation }: any) {
           ))}
         </View>
       )}
+
+      <AvatarPickerModal
+        visible={avatarPickerVisible}
+        currentValue={me.avatar_url}
+        onClose={() => setAvatarPickerVisible(false)}
+        onSelect={handlePickAvatar}
+        onUploadPhoto={handlePickPhoto}
+        saving={uploading}
+      />
 
       <BadgeCatalogModal
         visible={catalogVisible}

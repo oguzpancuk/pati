@@ -191,6 +191,20 @@ export async function uploadAvatar(photo: PhotoAsset): Promise<Me> {
   return data;
 }
 
+/**
+ * Hazır avatarlardan birini seçer. Fotoğrafla aynı alana yazıldığı için önceki
+ * fotoğrafın yerini alır — aynı anda yalnızca biri geçerli.
+ */
+export async function setAvatarKey(avatarKey: string): Promise<Me> {
+  const { data } = await apiClient.put<Me>('/users/me/avatar-key', { avatarKey });
+  return data;
+}
+
+export async function clearAvatar(): Promise<Me> {
+  const { data } = await apiClient.delete<Me>('/users/me/avatar');
+  return data;
+}
+
 export async function setFeaturedBadges(keys: string[]): Promise<Badge[]> {
   const { data } = await apiClient.put<{ featuredBadges: Badge[] }>('/users/me/featured-badges', {
     keys,

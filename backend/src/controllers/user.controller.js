@@ -7,6 +7,7 @@ const {
   refreshRankSnapshot,
 } = require('../utils/badgeAwards');
 const { getUserRank } = require('./leaderboard.controller');
+const { avatarValueFor } = require('../utils/avatars');
 
 const MAX_FEATURED_BADGES = 3;
 
@@ -101,40 +102,74 @@ async function setFeaturedBadges(req, res, next) {
   }
 }
 
+/**
+ * Profil görselini değiştirir ve getMe ile **aynı şekilde** yanıt döner.
+ * İstemci bu yanıtı doğrudan mevcut profilin yerine koyuyor; eksik alan
+ * dönersek profil ekranı yarım veriyle render edilmeye çalışıp çöküyor.
+ */
+async function setAvatarAndRespond(userId, avatarValue, res) {
+  const result = await pool.query(
+    `UPDATE users SET avatar_url = $1 WHERE id = $2
+     RETURNING id, name, email, role, avatar_url, featured_badges, created_at`,
+    [avatarValue, userId]
+  );
+
+  const [stats, badgeData, rank] = await Promise.all([
+    getStats(userId),
+    getUserBadges(userId),
+    getUserRank(userId),
+  ]);
+  const user = result.rows[0];
+  res.json({
+    ...user,
+    stats,
+    badges: badgeData.badges,
+    points: badgeData.points,
+    level: badgeData.level,
+    featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
+    rank,
+  });
+}
+
 async function uploadAvatar(req, res, next) {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Fotoğraf zorunludur' });
     }
     const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    const result = await pool.query(
-      `UPDATE users SET avatar_url = $1 WHERE id = $2
-       RETURNING id, name, email, role, avatar_url, featured_badges, created_at`,
-      [avatarUrl, req.user.userId]
-    );
-
-    // İstemci bu yanıtı doğrudan mevcut profilin yerine koyuyor; getMe ile aynı
-    // şekli döndürmezsek profil ekranı eksik alanlarla render edilmeye çalışıp
-    // çöküyor.
-    const [stats, badgeData, rank] = await Promise.all([
-      getStats(req.user.userId),
-      getUserBadges(req.user.userId),
-      getUserRank(req.user.userId),
-    ]);
-    const user = result.rows[0];
-    res.json({
-      ...user,
-      stats,
-      badges: badgeData.badges,
-      points: badgeData.points,
-      level: badgeData.level,
-      featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
-      rank,
-    });
+    // Fotoğraf yüklemek seçili hazır avatarın yerine geçiyor: ikisi aynı kolonda
+    // duruyor, çünkü aynı anda yalnızca biri geçerli olabilir.
+    await setAvatarAndRespond(req.user.userId, avatarUrl, res);
   } catch (err) {
     if (req.file) {
       fs.unlink(req.file.path, () => {});
     }
+    next(err);
+  }
+}
+
+/**
+ * Hazır avatarlardan birini seçer. Fotoğrafı olmayan herkese rastgele bir yüz
+ * atamak yerine seçtiriyoruz: kullanıcı kendini temsil eden bir şey seçebilsin,
+ * sonradan fotoğraf yüklemek isterse de yolu açık kalsın.
+ */
+async function setAvatarKey(req, res, next) {
+  try {
+    const avatarValue = avatarValueFor(req.body?.avatarKey);
+    if (!avatarValue) {
+      return res.status(400).json({ error: 'Geçersiz avatar seçimi' });
+    }
+    await setAvatarAndRespond(req.user.userId, avatarValue, res);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Görseli tamamen kaldırır; arayüz baş harfe döner. */
+async function clearAvatar(req, res, next) {
+  try {
+    await setAvatarAndRespond(req.user.userId, null, res);
+  } catch (err) {
     next(err);
   }
 }
@@ -332,6 +367,8 @@ async function getPublicProfile(req, res, next) {
 module.exports = {
   getMe,
   uploadAvatar,
+  setAvatarKey,
+  clearAvatar,
   setFeaturedBadges,
   getMyAnimals,
   getUserComments,
