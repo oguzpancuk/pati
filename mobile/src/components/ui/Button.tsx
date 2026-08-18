@@ -1,14 +1,7 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleProp,
-  StyleSheet,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleProp, View, ViewStyle } from 'react-native';
 import Text from './Text';
-import { palette, radius, spacing, minTouch } from '../../theme';
+import { makeStyles, minTouch, radius, spacing, useTheme, type Palette } from '../../theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 type Size = 'sm' | 'md' | 'lg';
@@ -26,18 +19,45 @@ export type ButtonProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const VARIANTS: Record<Variant, { bg: string; pressedBg: string; fg: string; border?: string }> = {
-  primary: { bg: palette.brand, pressedBg: palette.brandDark, fg: palette.textOnBrand },
-  secondary: {
-    bg: palette.surface,
-    pressedBg: palette.brandTint,
-    fg: palette.brand,
-    border: palette.brand,
-  },
-  ghost: { bg: 'transparent', pressedBg: palette.brandTint, fg: palette.brand },
-  danger: { bg: palette.danger, pressedBg: palette.dangerDark, fg: palette.textOnBrand },
-  success: { bg: palette.success, pressedBg: palette.successDark, fg: palette.textOnBrand },
-};
+function variantColors(c: Palette, variant: Variant) {
+  switch (variant) {
+    case 'secondary':
+      return {
+        bg: c.surface,
+        pressedBg: c.brandTint,
+        fg: c.brand,
+        border: c.brand,
+      };
+    case 'ghost':
+      return {
+        bg: 'transparent',
+        pressedBg: c.brandTint,
+        fg: c.brand,
+        border: undefined,
+      };
+    case 'danger':
+      return {
+        bg: c.danger,
+        pressedBg: c.dangerDark,
+        fg: c.textOnBrand,
+        border: undefined,
+      };
+    case 'success':
+      return {
+        bg: c.success,
+        pressedBg: c.successDark,
+        fg: c.textOnBrand,
+        border: undefined,
+      };
+    default:
+      return {
+        bg: c.brand,
+        pressedBg: c.brandDark,
+        fg: c.textOnBrand,
+        border: undefined,
+      };
+  }
+}
 
 const SIZES: Record<Size, { paddingV: number; paddingH: number; fontSize: number }> = {
   sm: { paddingV: spacing.sm, paddingH: spacing.md, fontSize: 13 },
@@ -56,7 +76,9 @@ export default function Button({
   fullWidth = false,
   style,
 }: ButtonProps) {
-  const v = VARIANTS[variant];
+  const { colors } = useTheme();
+  const styles = useStyles();
+  const v = variantColors(colors, variant);
   const s = SIZES[size];
   const isOff = disabled || loading;
 
@@ -69,24 +91,27 @@ export default function Button({
       style={({ pressed }) => [
         styles.base,
         {
-          backgroundColor: isOff ? palette.disabled : pressed ? v.pressedBg : v.bg,
+          backgroundColor: isOff ? colors.disabled : pressed ? v.pressedBg : v.bg,
           paddingVertical: s.paddingV,
           paddingHorizontal: s.paddingH,
           borderWidth: v.border ? 1.5 : 0,
-          borderColor: isOff ? palette.disabled : v.border,
+          borderColor: isOff ? colors.disabled : v.border,
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
         },
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={isOff ? palette.disabledText : v.fg} />
+        <ActivityIndicator size="small" color={isOff ? colors.disabledText : v.fg} />
       ) : (
         <View style={styles.row}>
           {icon ? <View style={styles.icon}>{icon}</View> : null}
           <Text
             variant="button"
-            style={{ color: isOff ? palette.disabledText : v.fg, fontSize: s.fontSize }}
+            style={{
+              color: isOff ? colors.disabledText : v.fg,
+              fontSize: s.fontSize,
+            }}
           >
             {title}
           </Text>
@@ -96,7 +121,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   base: {
     borderRadius: radius.pill,
     minHeight: minTouch,
@@ -105,4 +130,4 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center' },
   icon: { marginRight: spacing.sm },
-});
+}));

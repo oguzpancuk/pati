@@ -6,9 +6,9 @@ Türkiye'deki sokak hayvanlarının refahını iyileştirmek için tasarlanmış
 platformu. Hayvan severler, veterinerler ve aktivistlerin sokak köpekleri ve kedilerinin
 beslenme, sağlık ve refah durumunu koordine etmelerini sağlar.
 
-> Uygulamanın adı **pati**. Depo adı, npm paket adları ve Android paket adı
-> (`com.straymobile`) hâlâ `stray`; paket adı mağazaya yüklendikten sonra
-> değiştirilemediği için o karar yayına çıkma sprint'ine bırakıldı.
+> Uygulamanın adı **pati**, paket adı `com.patiapp`. Yalnızca GitHub deposunun
+> adı hâlâ `Stray` — depo adını değiştirmek mevcut `git remote` adreslerini
+> bozduğu için o adım size bırakıldı (GitHub eski adresi yönlendiriyor).
 
 ## Dokümantasyon
 
@@ -106,17 +106,20 @@ Ayrıntılı planlar, önerilen yaklaşımlar ve karar bekleyen konular için bk
   sağlık kaydı eklerken veteriner kliniği reklamı. Markalar admin panelinden
   girilir, kullanıcı pop-up'ı her açtığında sıradaki markayı görür. Gösterim ve
   tıklama ayrı ayrı ölçülüyor.
-- [ ] **4. UI** — Uygulamanın genel görsel giydirmesi. *(Önce küçük bir tasarım
-  sistemi/token seti, tam giydirme en sona)*
+- [x] **4. UI** — ✅ Tamamlandı: "pati" marka kimliği uygulandı. Tema katmanı
+  (renk/tipografi/boşluk token'ları, açık + karanlık palet), 11 çekirdek
+  bileşen, SVG logo ve 20 ikonluk set, 11 ekranın tamamı bu sisteme taşındı.
+  Nunito gömüldü, uygulama ikonu ve açılış ekranı üretildi, karanlık mod
+  (Sistem/Açık/Koyu) eklendi. Bkz. [docs/TASARIM.md](docs/TASARIM.md).
 - [x] **5. Admin sayfası (web)** — ✅ Temel panel tamamlandı: gösterge paneli,
   kullanıcı/hayvan/bakım/yorum yönetimi, mükerrer birleştirme, moderasyon ve
   denetim kaydı. Reklamveren ve bağış kurumu ekranları 2. ve 3. maddelerle
   birlikte eklenecek.
 
-**Önerilen sıra:** ~~Admin paneli (5)~~ → ~~Reklam (3)~~ → **YZ eşleştirme (1)**
-→ tasarım sistemi → tam UI giydirmesi (4). Bağış (2) ertelendi: bloke edicileri
-kod değil dış taraflar. YZ eşleştirmenin hiç dış bağımlılığı yok ve en büyük
-teknik belirsizliği kapatıyor, bu yüzden sıraya öne alındı.
+**Durum:** ~~Admin paneli (5)~~ → ~~Reklam (3)~~ → ~~UI (4)~~ → **🚀 Yayına
+çıkma sprint'i**. Kalan iki özellik maddesi de dış bir bilgiye takılı: bağış (2)
+ödeme sağlayıcı/hukuk/mağaza kurallarına, YZ eşleştirme (1) gerçek fotoğraflarla
+yapılacak isabet ölçümüne. Kod tarafında bloke eden bir şey kalmadı.
 
 > ### 🚀 Yayına Çıkma Sprint'i — ertelendi, unutulmayacak
 >

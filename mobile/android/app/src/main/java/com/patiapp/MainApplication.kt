@@ -1,4 +1,4 @@
-package com.straymobile
+package com.patiapp
 
 import android.app.Application
 import com.facebook.react.PackageList

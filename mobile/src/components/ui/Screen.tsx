@@ -1,14 +1,7 @@
 import React from 'react';
-import {
-  RefreshControl,
-  ScrollView,
-  StyleProp,
-  StyleSheet,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { RefreshControl, ScrollView, StyleProp, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { palette, spacing } from '../../theme';
+import { makeStyles, spacing, useTheme } from '../../theme';
 
 export type ScreenProps = {
   children: React.ReactNode;
@@ -23,7 +16,7 @@ export type ScreenProps = {
   contentStyle?: StyleProp<ViewStyle>;
 };
 
-/** Krem arka plan + güvenli alan + isteğe bağlı kaydırma/yenileme. */
+/** Tema zemini + güvenli alan + isteğe bağlı kaydırma/yenileme. */
 export default function Screen({
   children,
   scroll = false,
@@ -34,6 +27,8 @@ export default function Screen({
   style,
   contentStyle,
 }: ScreenProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const inner = padded ? [styles.padded, contentStyle] : contentStyle;
 
   return (
@@ -47,8 +42,8 @@ export default function Screen({
               <RefreshControl
                 refreshing={!!refreshing}
                 onRefresh={onRefresh}
-                tintColor={palette.brand}
-                colors={[palette.brand]}
+                tintColor={colors.brand}
+                colors={[colors.brand]}
               />
             ) : undefined
           }
@@ -62,9 +57,9 @@ export default function Screen({
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: palette.background },
+const useStyles = makeStyles(({ colors: c }) => ({
+  safe: { flex: 1, backgroundColor: c.background },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: spacing.xxl },
   padded: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
-});
+}));

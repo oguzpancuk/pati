@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
-import {
-  StyleProp,
-  StyleSheet,
-  TextInput,
-  TextInputProps,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { StyleProp, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
 import Text from './Text';
-import { fonts, palette, radius, spacing } from '../../theme';
+import { fonts, makeStyles, radius, spacing, useTheme } from '../../theme';
 
 export type InputProps = TextInputProps & {
   label?: string;
@@ -30,6 +23,8 @@ export default function Input({
   ...rest
 }: InputProps) {
   const [focused, setFocused] = useState(false);
+  const styles = useStyles();
+  const { colors } = useTheme();
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -41,7 +36,7 @@ export default function Input({
       <TextInput
         {...rest}
         multiline={multiline}
-        placeholderTextColor={palette.textSubtle}
+        placeholderTextColor={colors.textSubtle}
         onFocus={(e) => {
           setFocused(true);
           onFocus?.(e);
@@ -71,22 +66,22 @@ export default function Input({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   container: { marginBottom: spacing.lg },
   label: { marginBottom: spacing.xs },
   input: {
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     borderWidth: 1.5,
-    borderColor: palette.border,
+    borderColor: c.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     fontFamily: fonts.regular,
     fontSize: 15,
-    color: palette.text,
+    color: c.text,
   },
   multiline: { minHeight: 96, textAlignVertical: 'top' },
-  focused: { borderColor: palette.brand, backgroundColor: palette.surface },
-  errored: { borderColor: palette.danger },
+  focused: { borderColor: c.brand },
+  errored: { borderColor: c.danger },
   helper: { marginTop: spacing.xs },
-});
+}));

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { palette, radius, shadow, spacing } from '../../theme';
+import { Pressable, StyleProp, View, ViewStyle } from 'react-native';
+import { makeStyles, radius, spacing } from '../../theme';
 
 export type CardProps = {
   children: React.ReactNode;
@@ -11,7 +11,7 @@ export type CardProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-/** Krem zemin üzerinde beyaz kart. Uygulamadaki temel gruplama kabı. */
+/** Zemin üzerinde yükseltilmiş yüzey. Uygulamadaki temel gruplama kabı. */
 export default function Card({
   children,
   onPress,
@@ -19,9 +19,10 @@ export default function Card({
   padding = 'lg',
   style,
 }: CardProps) {
+  const styles = useStyles();
   const boxStyle: StyleProp<ViewStyle> = [
     styles.base,
-    variant === 'raised' && shadow.card,
+    variant === 'raised' && styles.raised,
     variant === 'flat' && styles.flat,
     variant === 'tinted' && styles.tinted,
     padding !== 'none' && { padding: spacing[padding] },
@@ -42,19 +43,20 @@ export default function Card({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c, shadow }) => ({
   base: {
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.lg,
   },
+  raised: shadow.card,
   flat: {
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: c.border,
   },
   tinted: {
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: c.surfaceAlt,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: c.border,
   },
   pressed: { opacity: 0.85, transform: [{ scale: 0.995 }] },
-});
+}));

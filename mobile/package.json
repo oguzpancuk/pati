@@ -1,5 +1,5 @@
 {
-  "name": "stray-mobile",
+  "name": "pati-mobile",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,9 @@
     "ios": "react-native run-ios",
     "start": "react-native start",
     "lint": "eslint .",
-    "test": "jest"
+    "test": "jest",
+    "icons": "node scripts/generate-icons.mjs",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" App.tsx index.js"
   },
   "dependencies": {
     "@notifee/react-native": "^9.1.8",

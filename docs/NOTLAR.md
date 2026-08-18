@@ -246,6 +246,30 @@ alamıyor ve boyutu tipografiye bağlı. İstisna bilinçli: rozet kademeleri
 (🥇🥈🥉💎) ve seviye amblemleri emoji kaldı — onlar zaten "madalya" olarak
 okunuyor ve sunucudan geliyor.
 
+### `StyleSheet.create` yerine `makeStyles`
+Karanlık mod eklenince stil sayfalarının temaya bağlanması gerekti.
+`StyleSheet.create` modül yüklenirken bir kez çalıştığı için renkler ilk temaya
+donup kalıyordu. `theme/makeStyles.ts` bunun yerine bir fabrika döndürüyor:
+stil sayfası **tema başına bir kez** üretilip saklanıyor, bileşen
+`const styles = useStyles()` ile alıyor. Tema iki tane olduğu için önbellek
+sınırsız büyümüyor.
+
+Aynı sebeple `navigationTheme` / `screenOptions` / `tabBarOptions` da sabit
+nesne değil, temayı parametre alan fonksiyon.
+
+### Tema seçimi üç durumlu ve cihazda saklanıyor
+`system` (varsayılan) / `light` / `dark`. `system` telefonun ayarını takip
+ediyor (`useColorScheme`). Seçim `AsyncStorage`'da (`pati.themeMode`) tutuluyor;
+okunamazsa sessizce sistem temasına düşüyor — tema tercihi kritik veri değil.
+
+### Uygulama ikonu koddan üretiliyor
+`mobile/scripts/generate-icons.mjs`, `Logo.tsx` ile birebir aynı SVG
+yollarından bütün ikon boyutlarını üretiyor (`npm run icons`). Elle PNG dışa
+aktarmak yerine script olmasının sebebi: logo değişirse tek komutla hepsi
+yenilenebiliyor ve uygulama içindeki logo ile ana ekran ikonu ayrışmıyor.
+App Store 1024 px ikonunda alfa kanalı kabul etmediği için kare ikonlar opak,
+yalnızca yuvarlak Android varyantı ile açılış logosu saydam üretiliyor.
+
 ### Sekme çubuğuna sabit yükseklik verilmedi
 `tabBarStyle` içinde `height` yok. `@react-navigation/bottom-tabs` alt güvenli
 alanı kendisi ekliyor; sabit yükseklik verildiğinde çentikli/ana-çubuklu
@@ -316,15 +340,15 @@ telefonlarda etiketler kırpılıyor.
 
 12. **CORS herkese açık** (`app.use(cors())`). Üretimde origin kısıtlanmalı.
 
-13. **Uygulama ikonu ve açılış görseli hâlâ React Native şablonu.** Marka
-    logosu bileşen olarak var (`components/brand/Logo.tsx`) ve uygulama içinde
-    kullanılıyor, ama `ios/.../Images.xcassets` ile
-    `android/.../mipmap-*` içindeki PNG'ler üretilmedi. Ana ekranda görünen ad
-    `pati` yapıldı; ikon değil.
+13. **Turuncu üstünde beyaz yazı WCAG AA'yı geçmiyor.** Marka turuncusu
+    `#F47A4A` üzerinde beyaz yazının kontrast oranı **2,7:1**; normal boy yazı
+    için gereken 4,5:1. Birincil butonların tamamı bu kombinasyonu kullanıyor.
+    Marka kimliği böyle verildiği için değiştirilmedi — ama yayına çıkmadan
+    karar verilmeli: ya buton dolgusu koyulaştırılır (~`#C2551F`, 4,6:1) ya da
+    turuncu butonda koyu yazıya geçilir (`#2B2B2B`, 5,3:1).
 
-14. **Karanlık mod yok.** Renkler tek bir açık palet. Eklenecekse `palette` bir
-    tema nesnesine ve `useTheme()` kancasına dönüşmeli; bileşenler zaten token
-    okuduğu için ekran kodu değişmez.
+14. **Erişilebilirlik denetimi tamamlanmadı.** Dokunma alanları 44 pt, butonlarda
+    `accessibilityRole` var; ekran okuyucu etiketleri uçtan uca test edilmedi.
 
 15. **Admin paneli mobil paletle hizalı değil.** Mobil "pati" kimliğine taşındı,
     `admin/src/styles.css` hâlâ kendi renk değişkenlerinde (`--moss`, `--clay`).
@@ -335,6 +359,9 @@ telefonlarda etiketler kırpılıyor.
 
 Daha önce vakit kaybettiren, tekrar karşılaşılabilecek durumlar:
 
+- **Font ve ikon değişiklikleri native build ister.** Yazı tipi ve uygulama
+  ikonu native tarafta yükleniyor; sadece Metro'yu yeniden başlatmak yetmez,
+  `npm run ios` / `npm run android` ile yeniden derlemek gerekir.
 - **`npm install` sonrası `pod install` şart.** Native bağımlılık (konum,
   kamera, bildirim) eklendiği için atlanırsa "The package '...' doesn't seem to
   be linked" hatası alınır.

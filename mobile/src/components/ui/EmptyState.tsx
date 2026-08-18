@@ -1,8 +1,8 @@
 import React from 'react';
-import { ActivityIndicator, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleProp, View, ViewStyle } from 'react-native';
 import Text from './Text';
 import Button from './Button';
-import { palette, radius, spacing } from '../../theme';
+import { makeStyles, radius, spacing, useTheme } from '../../theme';
 
 export type EmptyStateProps = {
   /** Büyük emoji ya da ikon. */
@@ -25,6 +25,7 @@ export default function EmptyState({
   onAction,
   style,
 }: EmptyStateProps) {
+  const styles = useStyles();
   return (
     <View style={[styles.wrap, style]}>
       {icon ? (
@@ -51,9 +52,11 @@ export default function EmptyState({
 
 /** Aynı boşlukta duran yükleniyor hâli — liste zıplamasın diye aynı hizada. */
 export function LoadingState({ label = 'Yükleniyor…' }: { label?: string }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={styles.wrap}>
-      <ActivityIndicator size="large" color={palette.brand} />
+      <ActivityIndicator size="large" color={colors.brand} />
       <Text variant="caption" center style={styles.desc}>
         {label}
       </Text>
@@ -61,7 +64,7 @@ export function LoadingState({ label = 'Yükleniyor…' }: { label?: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -72,7 +75,7 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: radius.pill,
-    backgroundColor: palette.brandTint,
+    backgroundColor: c.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
@@ -80,4 +83,4 @@ const styles = StyleSheet.create({
   emoji: { fontSize: 36, lineHeight: 44 },
   desc: { marginTop: spacing.sm, maxWidth: 300 },
   action: { marginTop: spacing.xl, alignSelf: 'center' },
-});
+}));

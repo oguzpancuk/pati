@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +26,7 @@ import {
   Avatar,
   Button,
   Card,
+  Chip,
   EmptyState,
   LoadingState,
   Screen,
@@ -33,9 +34,18 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import { palette, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing, useTheme, useThemeMode, type ThemeMode } from '../theme';
+
+const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
+  { key: 'system', label: 'Sistem' },
+  { key: 'light', label: 'Açık' },
+  { key: 'dark', label: 'Koyu' },
+];
 
 export default function UserProfileScreen({ navigation }: any) {
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const { mode, setMode } = useThemeMode();
   const { logout } = useAuth();
   const { checkPending } = useBadgeAwards();
   const [me, setMe] = useState<Me | null>(null);
@@ -134,9 +144,7 @@ export default function UserProfileScreen({ navigation }: any) {
         ) : (
           <LoadingState />
         )}
-        {loadError ? (
-          <Button title="Çıkış yap" variant="ghost" onPress={logout} fullWidth />
-        ) : null}
+        {loadError ? <Button title="Çıkış yap" variant="ghost" onPress={logout} fullWidth /> : null}
       </Screen>
     );
   }
@@ -153,7 +161,7 @@ export default function UserProfileScreen({ navigation }: any) {
           <Pressable onPress={handleChangeAvatar} disabled={uploading}>
             <Avatar uri={me.avatar_url} name={me.name} size={72} />
             <View style={styles.avatarBadge}>
-              <Icon name="camera" size={13} color={palette.textOnBrand} />
+              <Icon name="camera" size={13} color={colors.textOnBrand} />
             </View>
           </Pressable>
           <View style={styles.headerText}>
@@ -178,7 +186,7 @@ export default function UserProfileScreen({ navigation }: any) {
         onPress={() => navigation.navigate('Leaderboard')}
       >
         <View style={styles.rankIcon}>
-          <Icon name="trophy" size={22} color={palette.brand} />
+          <Icon name="trophy" size={22} color={colors.brand} />
         </View>
         <View style={styles.rankText}>
           <Text variant="label">SIRALAMAN</Text>
@@ -190,7 +198,7 @@ export default function UserProfileScreen({ navigation }: any) {
           <Text variant="bodyStrong" color="brand" numberOfLines={1}>
             {me.points?.total ?? 0} puan
           </Text>
-          <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+          <Icon name="chevronRight" size={18} color={colors.textSubtle} />
         </View>
       </Card>
 
@@ -259,7 +267,7 @@ export default function UserProfileScreen({ navigation }: any) {
                 {animal.breed ?? 'Cinsi belirtilmemiş'}
               </Text>
             </View>
-            <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+            <Icon name="chevronRight" size={18} color={colors.textSubtle} />
           </Card>
         ))
       )}
@@ -323,26 +331,42 @@ export default function UserProfileScreen({ navigation }: any) {
             <Text variant="bodyStrong" style={styles.friendName} numberOfLines={1}>
               {item.name}
             </Text>
-            <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+            <Icon name="chevronRight" size={18} color={colors.textSubtle} />
           </Card>
         ))
       )}
+
+      <SectionHeader title="Görünüm" style={styles.sectionTop} />
+      <View style={styles.themeRow}>
+        {THEME_OPTIONS.map((option) => (
+          <Chip
+            key={option.key}
+            label={option.label}
+            selected={mode === option.key}
+            onPress={() => setMode(option.key)}
+          />
+        ))}
+      </View>
 
       <Button
         title="Çıkış yap"
         variant="ghost"
         onPress={logout}
         fullWidth
-        icon={<Icon name="logout" size={18} color={palette.brand} />}
+        icon={<Icon name="logout" size={18} color={colors.brand} />}
         style={styles.logout}
       />
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   headerCard: { marginBottom: spacing.md },
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
   headerText: { flex: 1, marginLeft: spacing.lg },
   avatarHint: { marginTop: spacing.xs },
   avatarBadge: {
@@ -352,18 +376,22 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: radius.pill,
-    backgroundColor: palette.brand,
+    backgroundColor: c.brand,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: palette.surface,
+    borderColor: c.surface,
   },
-  rankCard: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
+  rankCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
   rankIcon: {
     width: 44,
     height: 44,
     borderRadius: radius.pill,
-    backgroundColor: palette.brandTint,
+    backgroundColor: c.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -376,11 +404,24 @@ const styles = StyleSheet.create({
   badgeCard: { flex: 1, alignItems: 'center' },
   badgeEmoji: { fontSize: 28, lineHeight: 34, marginBottom: spacing.xs },
   badgeStreak: { marginTop: 2 },
-  animalRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  animalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   animalText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
   subLabel: { marginBottom: spacing.sm },
-  friendActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-  friendRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  friendActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  friendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   friendName: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
+  themeRow: { flexDirection: 'row', gap: spacing.sm },
   logout: { marginTop: spacing.xxl },
-});
+}));

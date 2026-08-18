@@ -1,7 +1,7 @@
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, View } from 'react-native';
 import Icon from './brand/Icon';
-import { palette } from '../theme';
+import { makeStyles, useTheme } from '../theme';
 
 interface Props {
   species: 'cat' | 'dog';
@@ -14,6 +14,8 @@ interface Props {
 // görünmesin). Emoji yerine ikon: her cihazda aynı çiziliyor ve marka rengini
 // alabiliyor.
 export default function AnimalAvatar({ species, photoUrl, size = 36 }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const frame = {
     width: size,
     height: size,
@@ -26,19 +28,23 @@ export default function AnimalAvatar({ species, photoUrl, size = 36 }: Props) {
 
   return (
     <View style={[styles.avatar, styles.placeholder, frame]}>
-      <Icon name="paw" size={size * 0.58} color={species === 'cat' ? palette.brand : palette.brandDark} />
+      <Icon
+        name="paw"
+        size={size * 0.58}
+        color={species === 'cat' ? colors.brand : colors.brandDark}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   avatar: {
     borderWidth: 2,
-    borderColor: palette.surface,
-    backgroundColor: palette.brandTint,
+    borderColor: c.surface,
+    backgroundColor: c.brandTint,
   },
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-});
+}));

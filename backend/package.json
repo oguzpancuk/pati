@@ -1,5 +1,5 @@
 {
-  "name": "stray-backend",
+  "name": "pati-backend",
   "version": "0.1.0",
   "description": "Sokak Hayvanları Takip Uygulaması - API",
   "main": "src/server.js",

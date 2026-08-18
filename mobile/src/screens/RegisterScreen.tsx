@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
 import { Button, Card, Input, Screen, Text } from '../components/ui';
 import { Wordmark } from '../components/brand';
-import { hitSlop, spacing } from '../theme';
+import { hitSlop, makeStyles, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 export default function RegisterScreen({ navigation }: Props) {
+  const styles = useStyles();
   const { register } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -89,7 +90,7 @@ export default function RegisterScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   flex: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl },
   brand: { marginBottom: spacing.xl },
@@ -98,4 +99,4 @@ const styles = StyleSheet.create({
   card: { paddingTop: spacing.xl },
   lastField: { marginBottom: spacing.xl },
   link: { marginTop: spacing.xl },
-});
+}));

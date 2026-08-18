@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleProp, View, ViewStyle } from 'react-native';
 import Text from './Text';
-import { palette, radius, spacing } from '../../theme';
+import { makeStyles, radius, spacing, useTheme, type Palette } from '../../theme';
 
 type Tone = 'info' | 'success' | 'danger' | 'warning' | 'brand';
 
@@ -15,13 +15,20 @@ export type BannerProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const TONES: Record<Tone, { bg: string; bar: string; fg: string }> = {
-  info: { bg: palette.infoSoft, bar: palette.info, fg: palette.onInfo },
-  success: { bg: palette.successSoft, bar: palette.success, fg: palette.onSuccess },
-  danger: { bg: palette.dangerSoft, bar: palette.danger, fg: palette.onDanger },
-  warning: { bg: palette.warningSoft, bar: palette.warning, fg: palette.onWarning },
-  brand: { bg: palette.brandSoft, bar: palette.brand, fg: palette.brandDark },
-};
+function toneColors(c: Palette, tone: Tone) {
+  switch (tone) {
+    case 'success':
+      return { bg: c.successSoft, bar: c.success, fg: c.onSuccess };
+    case 'danger':
+      return { bg: c.dangerSoft, bar: c.danger, fg: c.onDanger };
+    case 'warning':
+      return { bg: c.warningSoft, bar: c.warning, fg: c.onWarning };
+    case 'brand':
+      return { bg: c.brandSoft, bar: c.brand, fg: c.brandDark };
+    default:
+      return { bg: c.infoSoft, bar: c.info, fg: c.onInfo };
+  }
+}
 
 /** Ekran içi durum kutusu: hata mesajı, "bu bölgede mama yok" uyarısı vb. */
 export default function Banner({
@@ -32,7 +39,9 @@ export default function Banner({
   trailing,
   style,
 }: BannerProps) {
-  const t = TONES[tone];
+  const styles = useStyles();
+  const { colors } = useTheme();
+  const t = toneColors(colors, tone);
   return (
     <View style={[styles.wrap, { backgroundColor: t.bg }, style]}>
       <View style={[styles.bar, { backgroundColor: t.bar }]} />
@@ -52,7 +61,7 @@ export default function Banner({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -68,4 +77,4 @@ const styles = StyleSheet.create({
   textCol: { flex: 1 },
   desc: { marginTop: 2, opacity: 0.9 },
   trailing: { marginLeft: spacing.md },
-});
+}));

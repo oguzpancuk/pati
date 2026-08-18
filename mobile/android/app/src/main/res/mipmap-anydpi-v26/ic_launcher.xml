@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Uyarlanabilir ikon (Android 8+): zemin marka turuncusu, ön plan beyaz pati.
+  Launcher ön planı kendi maskesiyle kırpıyor, o yüzden logo 108dp tuvalin
+  ortasındaki 66dp güvenli alana sığacak şekilde küçük çiziliyor.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

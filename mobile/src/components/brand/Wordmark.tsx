@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleProp, View, ViewStyle } from 'react-native';
 import Logo from './Logo';
 import Text from '../ui/Text';
-import { brand, fonts, palette, spacing } from '../../theme';
+import { brand, fonts, makeStyles, spacing, useTheme } from '../../theme';
 
 export type WordmarkProps = {
   size?: 'sm' | 'md' | 'lg';
@@ -19,18 +19,16 @@ const SIZES = {
 } as const;
 
 /** Logo + "pati" yazısı. Giriş/kayıt ekranlarının tepesinde kullanılıyor. */
-export default function Wordmark({
-  size = 'md',
-  tagline = false,
-  color = palette.brand,
-  style,
-}: WordmarkProps) {
+export default function Wordmark({ size = 'md', tagline = false, color, style }: WordmarkProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const s = SIZES[size];
+  const tint = color ?? colors.brand;
   return (
     <View style={[styles.wrap, style]}>
       <View style={styles.row}>
-        <Logo size={s.logo} color={color} />
-        <Text style={[styles.name, { fontSize: s.name, color }]}>{brand.name}</Text>
+        <Logo size={s.logo} color={tint} />
+        <Text style={[styles.name, { fontSize: s.name, color: tint }]}>{brand.name}</Text>
       </View>
       {tagline ? (
         <Text variant="caption" style={styles.tagline}>
@@ -41,7 +39,7 @@ export default function Wordmark({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   wrap: { alignItems: 'center' },
   row: { flexDirection: 'row', alignItems: 'center' },
   name: {
@@ -52,4 +50,4 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   tagline: { marginTop: spacing.xs },
-});
+}));

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Image, StyleProp, View, ViewStyle } from 'react-native';
 import Text from './Text';
-import { palette, radius } from '../../theme';
+import { makeStyles, radius, useTheme } from '../../theme';
 
 export type AvatarProps = {
   uri?: string | null;
@@ -15,12 +15,14 @@ export type AvatarProps = {
 
 /** Yuvarlak profil görseli; fotoğraf yoksa marka renginde baş harf. */
 export default function Avatar({ uri, name, size = 44, ring, style }: AvatarProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const box: StyleProp<ViewStyle> = [
     {
       width: size,
       height: size,
       borderRadius: radius.pill,
-      backgroundColor: palette.brandSoft,
+      backgroundColor: colors.brandSoft,
       borderWidth: ring ? 2 : 0,
       borderColor: ring,
     },
@@ -39,14 +41,18 @@ export default function Avatar({ uri, name, size = 44, ring, style }: AvatarProp
   const initial = (name || '?').trim().charAt(0).toLocaleUpperCase('tr-TR');
   return (
     <View style={box}>
-      <Text style={{ fontSize: size * 0.4, color: palette.brandDark }} variant="bodyStrong">
+      <Text style={{ fontSize: size * 0.4, color: colors.brandDark }} variant="bodyStrong">
         {initial}
       </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  center: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+const useStyles = makeStyles(() => ({
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   image: { width: '100%', height: '100%' },
-});
+}));

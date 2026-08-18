@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { mapColors, palette, radius } from '../theme';
+import { View } from 'react-native';
+import { makeStyles, mapColors, radius } from '../theme';
 
 // Haritalarda alışılmış "konum noktası" göstergesi: dış halka konumun yaklaşık
 // olduğunu ima eder, beyaz çerçeveli iç nokta ise haritanın üzerinde her zaman
@@ -8,6 +8,7 @@ import { mapColors, palette, radius } from '../theme';
 // ve boyutu zoom'a göre değişen bir leke gibi görünüyordu.
 // Renk marka turuncusu: haritadaki yeşil/kırmızı bakım katmanlarıyla karışmıyor.
 export default function UserLocationMarker() {
+  const styles = useStyles();
   return (
     <View style={styles.halo}>
       <View style={styles.dot} />
@@ -15,7 +16,7 @@ export default function UserLocationMarker() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   halo: {
     width: 28,
     height: 28,
@@ -28,13 +29,15 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: radius.pill,
-    backgroundColor: palette.brand,
+    // Nokta haritanın üstünde duruyor; harita zemini temayı takip etmediği
+    // için çerçeve her iki temada da açık kalıyor.
+    backgroundColor: mapColors.userRadiusStroke,
     borderWidth: 2.5,
-    borderColor: palette.surface,
-    shadowColor: palette.shadow,
+    borderColor: '#FFFFFF',
+    shadowColor: c.shadow,
     shadowOpacity: 0.3,
     shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
     elevation: 3,
   },
-});
+}));

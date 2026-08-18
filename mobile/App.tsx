@@ -3,18 +3,33 @@ import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation';
-import { palette } from './src/theme';
+import { ThemeProvider, useTheme } from './src/theme';
+
+/**
+ * Durum çubuğu ayrı bir bileşen: rengi temaya bağlı, dolayısıyla
+ * `ThemeProvider`ın içinde olmak zorunda.
+ */
+function ThemedStatusBar() {
+  const { name, colors } = useTheme();
+  return (
+    <StatusBar
+      barStyle={name === 'dark' ? 'light-content' : 'dark-content'}
+      backgroundColor={colors.background}
+    />
+  );
+}
 
 export default function App() {
   return (
     // SafeAreaProvider, ui/Screen bileşeninin çentik ölçülerini alabilmesi için
     // en dışta duruyor.
     <SafeAreaProvider>
-      {/* Krem arka plan açık olduğu için durum çubuğu yazıları koyu. */}
-      <StatusBar barStyle="dark-content" backgroundColor={palette.background} />
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
+      <ThemeProvider>
+        <ThemedStatusBar />
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

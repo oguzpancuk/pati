@@ -197,7 +197,9 @@ export async function setFeaturedBadges(keys: string[]): Promise<Badge[]> {
 }
 
 export async function searchUsers(q: string): Promise<UserSummary[]> {
-  const { data } = await apiClient.get<UserSummary[]>('/users/search', { params: { q } });
+  const { data } = await apiClient.get<UserSummary[]>('/users/search', {
+    params: { q },
+  });
   return data;
 }
 
@@ -234,7 +236,9 @@ export async function markBadgeAwardsSeen(ids: number[]): Promise<void> {
 }
 
 export async function fetchLeaderboard(limit = 50): Promise<LeaderboardResponse> {
-  const { data } = await apiClient.get<LeaderboardResponse>('/leaderboard', { params: { limit } });
+  const { data } = await apiClient.get<LeaderboardResponse>('/leaderboard', {
+    params: { limit },
+  });
   return data;
 }
 

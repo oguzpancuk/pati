@@ -1,10 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, FlatList, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchLeaderboard, LeaderboardEntry, LeaderboardResponse } from '../api/users';
 import { TIER_EMOJI } from '../badges';
 import { Avatar, Card, EmptyState, Screen, Text } from '../components/ui';
-import { palette, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing } from '../theme';
 
 function medalFor(rank: number) {
   if (rank === 1) return '🥇';
@@ -14,6 +14,7 @@ function medalFor(rank: number) {
 }
 
 export default function LeaderboardScreen({ navigation }: any) {
+  const styles = useStyles();
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,7 +45,10 @@ export default function LeaderboardScreen({ navigation }: any) {
         onPress={() => navigation.navigate('PublicProfile', { userId: entry.id })}
       >
         <View style={styles.rankBox}>
-          <Text variant={medal ? 'heading' : 'bodyStrong'} color={highlight ? 'brand' : 'textMuted'}>
+          <Text
+            variant={medal ? 'heading' : 'bodyStrong'}
+            color={highlight ? 'brand' : 'textMuted'}
+          >
             {medal ?? entry.rank}
           </Text>
         </View>
@@ -119,22 +123,26 @@ export default function LeaderboardScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
+const useStyles = makeStyles(({ colors: c }) => ({
+  list: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
   myCard: { marginBottom: spacing.lg },
   myRank: { marginTop: 2, marginBottom: spacing.xs },
   levelPill: {
     alignSelf: 'flex-start',
     marginTop: spacing.md,
-    backgroundColor: palette.brandSoft,
+    backgroundColor: c.brandSoft,
     borderRadius: radius.pill,
     paddingVertical: spacing.xs + 2,
     paddingHorizontal: spacing.md,
   },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
-  rowHighlight: { borderColor: palette.brand, backgroundColor: palette.brandTint },
+  rowHighlight: { borderColor: c.brand, backgroundColor: c.brandTint },
   rankBox: { width: 34, alignItems: 'center' },
   avatar: { marginHorizontal: spacing.md },
   info: { flex: 1, marginRight: spacing.sm },
   pointsBox: { alignItems: 'flex-end' },
-});
+}));

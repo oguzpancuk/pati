@@ -17,7 +17,9 @@ export interface Ad {
  * istemci bu durumda bandı hiç çizmez.
  */
 export async function fetchAd(slot: AdSlot): Promise<Ad | null> {
-  const { data } = await apiClient.get<{ ad: Ad | null }>('/ads', { params: { slot } });
+  const { data } = await apiClient.get<{ ad: Ad | null }>('/ads', {
+    params: { slot },
+  });
   return data.ad;
 }
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   acceptFriendRequest,
@@ -24,7 +24,7 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import { palette, spacing } from '../theme';
+import { makeStyles, spacing, useTheme } from '../theme';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -35,6 +35,8 @@ function formatDate(iso: string) {
 }
 
 export default function PublicProfileScreen({ route, navigation }: any) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { userId } = route.params;
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [busy, setBusy] = useState(false);
@@ -125,7 +127,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
           onPress={() => runAction(() => sendFriendRequest(userId), 'Gönderilemedi')}
           loading={busy}
           fullWidth
-          icon={<Icon name="users" size={18} color={palette.textOnBrand} />}
+          icon={<Icon name="users" size={18} color={colors.textOnBrand} />}
           style={styles.action}
         />
       )}
@@ -151,7 +153,9 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         <Button
           title="Arkadaşlıktan çık"
           variant="secondary"
-          onPress={() => runAction(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')}
+          onPress={() =>
+            runAction(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
+          }
           loading={busy}
           fullWidth
           style={styles.action}
@@ -214,7 +218,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
                 {animal.breed ?? 'Cinsi belirtilmemiş'}
               </Text>
             </View>
-            <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+            <Icon name="chevronRight" size={18} color={colors.textSubtle} />
           </Card>
         ))
       )}
@@ -225,7 +229,12 @@ export default function PublicProfileScreen({ route, navigation }: any) {
           total={profile.commentCount ?? 0}
           title="Son yorumları"
           emptyText="Henüz yorum yapmamış."
-          onSeeAll={() => navigation.push('UserComments', { userId: profile.id, name: profile.name })}
+          onSeeAll={() =>
+            navigation.push('UserComments', {
+              userId: profile.id,
+              name: profile.name,
+            })
+          }
           onOpenAnimal={(animalId) => navigation.push('AnimalProfile', { animalId })}
         />
       </View>
@@ -239,7 +248,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   headerCard: { marginBottom: spacing.lg },
   headerTop: { alignItems: 'center', marginBottom: spacing.lg },
   name: { marginTop: spacing.md },
@@ -253,6 +262,10 @@ const styles = StyleSheet.create({
   badgeEmoji: { fontSize: 28, lineHeight: 34, marginBottom: spacing.xs },
   badgeStreak: { marginTop: 2 },
   sectionTop: { marginTop: spacing.xl },
-  animalRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  animalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   animalText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
-});
+}));

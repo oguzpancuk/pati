@@ -93,9 +93,7 @@ export interface CreateAnimalInput {
   lng: number;
 }
 
-export async function createAnimal(
-  input: CreateAnimalInput
-): Promise<Animal & WithNewBadges> {
+export async function createAnimal(input: CreateAnimalInput): Promise<Animal & WithNewBadges> {
   const { data } = await apiClient.post<Animal & WithNewBadges>('/animals', input);
   return data;
 }
@@ -119,10 +117,13 @@ export async function addHealthRecord(
   recordType: HealthRecordType,
   description: string
 ): Promise<HealthRecord & WithNewBadges> {
-  const { data } = await apiClient.post<HealthRecord & WithNewBadges>(`/animals/${animalId}/health-records`, {
-    recordType,
-    description,
-  });
+  const { data } = await apiClient.post<HealthRecord & WithNewBadges>(
+    `/animals/${animalId}/health-records`,
+    {
+      recordType,
+      description,
+    }
+  );
   return data;
 }
 
@@ -138,11 +139,7 @@ export async function markHealthRecordRecovered(
 
 // Kayıtlı bir hayvanı yeniden gördüğünü bildirir: güncel konumunu buraya taşır
 // ve bildireni bakım listesine ekler.
-export async function reportSighting(
-  animalId: number,
-  lat: number,
-  lng: number
-): Promise<Animal> {
+export async function reportSighting(animalId: number, lat: number, lng: number): Promise<Animal> {
   const { data } = await apiClient.post<Animal>(`/animals/${animalId}/sightings`, { lat, lng });
   return data;
 }
@@ -162,9 +159,12 @@ export async function addAnimalComment(
   body: string,
   healthRecordId?: number
 ): Promise<AnimalComment & WithNewBadges> {
-  const { data } = await apiClient.post<AnimalComment & WithNewBadges>(`/animals/${animalId}/comments`, {
-    body,
-    healthRecordId,
-  });
+  const { data } = await apiClient.post<AnimalComment & WithNewBadges>(
+    `/animals/${animalId}/comments`,
+    {
+      body,
+      healthRecordId,
+    }
+  );
   return data;
 }

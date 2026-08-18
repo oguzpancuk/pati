@@ -388,24 +388,37 @@ doküman: [TASARIM.md](TASARIM.md).
 **Ölçüm:** öncesinde 18 StyleSheet dosyasında 171 sabit hex, 28 farklı renk
 vardı (`#2e7d32` 33 kez, `#fff` 24, `#888` 23, `#eee` 19).
 
+**Karanlık mod (ikinci turda eklendi):** `ThemeProvider` + `useTheme()` +
+`makeStyles`. Seçim üç durumlu (Sistem / Açık / Koyu), Profilim ekranından
+değiştiriliyor ve cihazda saklanıyor. Koyu palet nötr gri değil sıcak kahve —
+marka kremi sıcak olduğu için gri bir koyu tema aynı uygulama gibi durmuyor.
+
+**Uygulama ikonu ve açılış ekranı (ikinci turda eklendi):**
+`mobile/scripts/generate-icons.mjs` ikonları `Logo.tsx` ile aynı SVG
+yollarından üretiyor (`npm run icons`) — iOS AppIcon seti, Android klasik +
+yuvarlak + uyarlanabilir ikon. iOS açılış ekranı markaya çevrildi, Android'de
+soğuk açılış zemini kreme alındı.
+
+**Paket adı değiştirildi:** `com.straymobile` → **`com.patiapp`** (Android
+`applicationId` + namespace + Kotlin paketi, iOS bundle identifier, npm paket
+adları). Depo adı `Stray` kaldı.
+
 ### Kalanlar
-- [ ] **Uygulama ikonu ve açılış görseli** — `Logo` bileşeni var ama
-      `Images.xcassets` / `mipmap-*` PNG'leri hâlâ şablon. Tasarım dosyasından
-      dışa aktarım gerekiyor.
-- [ ] **Karanlık mod** — bugün tek açık palet. Eklenecekse `palette` bir tema
-      nesnesine + `useTheme()` kancasına dönüşür; bileşenler token okuduğu için
-      ekranlar değişmez.
-- [ ] **Erişilebilirlik denetimi** — dokunma alanları 44 pt'ye çekildi ve
-      butonlara `accessibilityRole` verildi, ama kontrast oranları ve ekran
-      okuyucu etiketleri uçtan uca test edilmedi.
+- [ ] **Erişilebilirlik: turuncu üstünde beyaz yazı.** `#F47A4A` üzerinde beyaz
+      kontrast oranı ölçüldü: **2,7:1** (AA için 4,5:1 gerekiyor). Marka kimliği
+      böyle verildiği için değiştirilmedi; yayına çıkmadan karar verilmeli.
+- [ ] **Ekran okuyucu etiketleri** uçtan uca test edilmedi.
 - [ ] **Admin paneli** hâlâ kendi renklerinde; mobil palete hizalanmalı.
+- [ ] **Depo adı** `Stray` → `pati`. Sadece kozmetik, ama `git remote`
+      adreslerini bozuyor; GitHub eskisini yönlendiriyor.
 
 ### Karar verilmesi gerekenler
 - ~~Hazır bir tasarım var mı?~~ → "pati" marka kimliği verildi, uygulandı
-- **Depo ve paket adı `Stray` kalsın mı?** Ana ekran adı `pati` oldu, ama
-  `com.straymobile` paket adı mağazaya yüklendikten sonra **değiştirilemiyor**.
-  Yayına çıkma sprint'inden önce karar verilmeli. **(açık)**
-- Karanlık mod bu sürümde olacak mı? **(açık)**
+- ~~Depo ve paket adı `Stray` kalsın mı?~~ → paket adı `com.patiapp` yapıldı
+- ~~Karanlık mod bu sürümde olacak mı?~~ → eklendi
+- **Turuncu butonlarda kontrast düzeltilsin mi?** Dolgu koyulaştırılabilir
+  (~`#C2551F`, 4,6:1) ya da yazı koyulaştırılabilir (`#2B2B2B`, 5,3:1).
+  İkisi de markadan bir tık sapıyor. **(açık)**
 
 ---
 

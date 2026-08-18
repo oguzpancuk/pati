@@ -106,7 +106,10 @@ export async function getCurrentLocation(): Promise<Coordinates> {
   return new Promise((resolve, reject) => {
     Geolocation.getCurrentPosition(
       (position) => {
-        resolve({ lat: position.coords.latitude, lng: position.coords.longitude });
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
       },
       (error) => reject(new Error(error.message)),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }

@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, FlatList, Image, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Image, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
 import { getCurrentLocation } from '../location';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
 import { Icon } from '../components/brand';
-import { palette, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing, useTheme } from '../theme';
 
 const NEARBY_RADIUS_METERS = 5000;
 
@@ -24,6 +24,8 @@ function formatDistance(meters?: number) {
 }
 
 export default function AnimalsScreen({ navigation }: any) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [filter, setFilter] = useState<SpeciesFilter>('all');
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ export default function AnimalsScreen({ navigation }: any) {
           <Button
             title="Ekle"
             size="sm"
-            icon={<Icon name="plus" size={16} color={palette.textOnBrand} />}
+            icon={<Icon name="plus" size={16} color={colors.textOnBrand} />}
             onPress={() => navigation.navigate('AddAnimal')}
           />
         </View>
@@ -97,7 +99,7 @@ export default function AnimalsScreen({ navigation }: any) {
               <Image source={{ uri: item.cover_photo_url }} style={styles.thumbnail} />
             ) : (
               <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-                <Icon name="paw" size={26} color={palette.brand} />
+                <Icon name="paw" size={26} color={colors.brand} />
               </View>
             )}
             <View style={styles.rowText}>
@@ -108,7 +110,7 @@ export default function AnimalsScreen({ navigation }: any) {
                 {item.breed ?? 'Cinsi belirtilmemiş'} · {formatDistance(item.distance_meters)}
               </Text>
             </View>
-            <Icon name="chevronRight" size={20} color={palette.textSubtle} />
+            <Icon name="chevronRight" size={20} color={colors.textSubtle} />
           </Card>
         )}
         ListEmptyComponent={
@@ -127,13 +129,17 @@ export default function AnimalsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   titleCol: { flex: 1, marginRight: spacing.md },
   filterRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
@@ -143,12 +149,12 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: radius.md,
     marginRight: spacing.md,
-    backgroundColor: palette.skeleton,
+    backgroundColor: c.skeleton,
   },
   thumbnailPlaceholder: {
-    backgroundColor: palette.brandTint,
+    backgroundColor: c.brandTint,
     justifyContent: 'center',
     alignItems: 'center',
   },
   rowText: { flex: 1, marginRight: spacing.sm },
-});
+}));

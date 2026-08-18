@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import type { UserLevel } from '../api/users';
 import Text from './ui/Text';
-import { palette, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing } from '../theme';
 
 interface Props {
   level: UserLevel | null | undefined;
@@ -14,6 +14,7 @@ interface Props {
  * Seviye bilgisi sunucudan geliyor; eşikler burada tekrarlanmıyor.
  */
 export default function LevelBar({ level, points }: Props) {
+  const styles = useStyles();
   if (!level) return null;
 
   const remaining =
@@ -47,11 +48,11 @@ export default function LevelBar({ level, points }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   container: {
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: c.surfaceAlt,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: c.border,
     borderRadius: radius.lg,
     padding: spacing.lg,
   },
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: radius.pill,
-    backgroundColor: palette.brandTint,
+    backgroundColor: c.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -70,10 +71,10 @@ const styles = StyleSheet.create({
   track: {
     height: 8,
     borderRadius: radius.pill,
-    backgroundColor: palette.disabled,
+    backgroundColor: c.disabled,
     marginTop: spacing.lg,
     overflow: 'hidden',
   },
-  fill: { height: 8, borderRadius: radius.pill, backgroundColor: palette.brand },
+  fill: { height: 8, borderRadius: radius.pill, backgroundColor: c.brand },
   hint: { marginTop: spacing.sm },
-});
+}));

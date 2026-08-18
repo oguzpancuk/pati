@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Pressable, StyleProp, View, ViewStyle } from 'react-native';
 import Text from './Text';
-import { hitSlop, spacing } from '../../theme';
+import { hitSlop, makeStyles, spacing } from '../../theme';
 
 export type SectionHeaderProps = {
   title: string;
@@ -13,6 +13,7 @@ export type SectionHeaderProps = {
 
 /** Bölüm başlığı + sağda isteğe bağlı bağlantı. */
 export default function SectionHeader({ title, actionLabel, onAction, style }: SectionHeaderProps) {
+  const styles = useStyles();
   return (
     <View style={[styles.row, style]}>
       <Text variant="heading" style={styles.title}>
@@ -29,7 +30,7 @@ export default function SectionHeader({ title, actionLabel, onAction, style }: S
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -37,4 +38,4 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: { flexShrink: 1, marginRight: spacing.md },
-});
+}));

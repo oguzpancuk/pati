@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { FlatList, StyleSheet } from 'react-native';
+import { FlatList } from 'react-native';
 import { searchUsers, UserSummary } from '../api/users';
 import { Avatar, Card, EmptyState, Input, Screen, Text } from '../components/ui';
 import { Icon } from '../components/brand';
-import { palette, spacing } from '../theme';
+import { makeStyles, spacing, useTheme } from '../theme';
 
 export default function FindFriendsScreen({ navigation }: any) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +53,7 @@ export default function FindFriendsScreen({ navigation }: any) {
             <Text variant="bodyStrong" style={styles.name} numberOfLines={1}>
               {item.name}
             </Text>
-            <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+            <Icon name="chevronRight" size={18} color={colors.textSubtle} />
           </Card>
         )}
         ListEmptyComponent={
@@ -74,9 +76,13 @@ export default function FindFriendsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  search: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, marginBottom: spacing.sm },
+const useStyles = makeStyles(() => ({
+  search: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   name: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
-});
+}));

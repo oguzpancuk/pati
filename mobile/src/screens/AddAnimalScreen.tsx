@@ -1,23 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, View } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { addAnimalPhoto, Animal, createAnimal, fetchAnimals, reportSighting } from '../api/animals';
 import type { PhotoAsset } from '../api/care';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Coordinates, getCurrentLocation } from '../location';
-import {
-  Banner,
-  Button,
-  Card,
-  Chip,
-  Input,
-  LoadingState,
-  Screen,
-  Text,
-} from '../components/ui';
+import { Banner, Button, Card, Chip, Input, LoadingState, Screen, Text } from '../components/ui';
 import { Icon } from '../components/brand';
-import { palette, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing, useTheme } from '../theme';
 
 type Species = 'cat' | 'dog';
 
@@ -54,6 +45,8 @@ const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
 
 export default function AddAnimalScreen({ navigation }: any) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
   const [species, setSpecies] = useState<Species>('cat');
   const [name, setName] = useState('');
@@ -195,7 +188,7 @@ export default function AddAnimalScreen({ navigation }: any) {
                   : ''}
               </Text>
             </View>
-            <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+            <Icon name="chevronRight" size={18} color={colors.textSubtle} />
           </Card>
         ))}
 
@@ -280,13 +273,13 @@ export default function AddAnimalScreen({ navigation }: any) {
               onPress={() => removePhoto(index)}
               accessibilityLabel="Fotoğrafı kaldır"
             >
-              <Icon name="close" size={12} color={palette.textOnBrand} strokeWidth={2.6} />
+              <Icon name="close" size={12} color={colors.textOnBrand} strokeWidth={2.6} />
             </Pressable>
           </View>
         ))}
         {photos.length < MAX_PHOTOS && (
           <Pressable style={styles.addPhoto} onPress={handleAddPhotos}>
-            <Icon name="camera" size={22} color={palette.brand} />
+            <Icon name="camera" size={22} color={colors.brand} />
             <Text variant="micro" color="brand" style={styles.addPhotoText}>
               EKLE
             </Text>
@@ -309,18 +302,37 @@ export default function AddAnimalScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   duplicateBanner: { marginBottom: spacing.lg },
-  nearbyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
+  nearbyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   nearbyText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
   newAnimalButton: { marginTop: spacing.xl },
   label: { marginBottom: spacing.sm },
   field: { marginBottom: spacing.lg },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
   speciesChip: { flex: 1, justifyContent: 'center' },
-  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginBottom: spacing.lg },
+  photoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
   thumbnailWrapper: { position: 'relative' },
-  thumbnail: { width: 76, height: 76, borderRadius: radius.md, backgroundColor: palette.skeleton },
+  thumbnail: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+    backgroundColor: c.skeleton,
+  },
   removeButton: {
     position: 'absolute',
     top: -6,
@@ -328,11 +340,11 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: radius.pill,
-    backgroundColor: palette.danger,
+    backgroundColor: c.danger,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: palette.background,
+    borderColor: c.background,
   },
   addPhoto: {
     width: 76,
@@ -340,11 +352,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: palette.brand,
-    backgroundColor: palette.brandTint,
+    borderColor: c.brand,
+    backgroundColor: c.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addPhotoText: { marginTop: 2 },
   locationNote: { marginBottom: spacing.lg },
-});
+}));

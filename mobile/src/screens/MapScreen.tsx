@@ -26,11 +26,16 @@ import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Banner, Button, Text } from '../components/ui';
 import { Icon } from '../components/brand';
-import { caredFill, mapColors, palette, radius, shadow, spacing } from '../theme';
+import { caredFill, makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 
 // Türkiye'nin yaklaşık coğrafi sınır kutusu (kesin idari sınır değil).
 // Harita bu alana odaklanır ve kullanıcı bu kutunun dışına fazla kayamaz.
-const TURKEY_BOUNDS = { minLat: 35.8, maxLat: 42.1, minLng: 25.6, maxLng: 44.8 };
+const TURKEY_BOUNDS = {
+  minLat: 35.8,
+  maxLat: 42.1,
+  minLng: 25.6,
+  maxLng: 44.8,
+};
 const TURKEY_REGION: MapRegion = {
   latitude: (TURKEY_BOUNDS.minLat + TURKEY_BOUNDS.maxLat) / 2,
   longitude: (TURKEY_BOUNDS.minLng + TURKEY_BOUNDS.maxLng) / 2,
@@ -80,6 +85,8 @@ function weightToGreenAlpha(weight: number) {
 type PendingPin = LatLng | null;
 
 export default function MapScreen({ navigation }: any) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
   const mapRef = useRef<MapView>(null);
   const currentRegionRef = useRef<MapRegion>(TURKEY_REGION);
@@ -194,7 +201,10 @@ export default function MapScreen({ navigation }: any) {
     const pin = pendingPin;
 
     try {
-      let photoResult = await launchCamera({ mediaType: 'photo', saveToPhotos: false });
+      let photoResult = await launchCamera({
+        mediaType: 'photo',
+        saveToPhotos: false,
+      });
 
       // Simülatörlerde gerçek kamera donanımı yok. Geliştirme sırasında akışın
       // geri kalanını test edebilmek için galeriden seçmeye izin veriyoruz;
@@ -218,11 +228,16 @@ export default function MapScreen({ navigation }: any) {
       setSubmitting(true);
 
       const device = await getCurrentLocation();
-      const distance = distanceMeters(device, { lat: pin.latitude, lng: pin.longitude });
+      const distance = distanceMeters(device, {
+        lat: pin.latitude,
+        lng: pin.longitude,
+      });
       if (distance > MAX_DISTANCE_TO_PIN_METERS) {
         Alert.alert(
           'Çok uzaktasınız',
-          `İşaretlediğiniz konuma ${Math.round(distance)}m uzaktasınız. En az ${MAX_DISTANCE_TO_PIN_METERS}m yaklaşıp tekrar deneyin.`
+          `İşaretlediğiniz konuma ${Math.round(
+            distance
+          )}m uzaktasınız. En az ${MAX_DISTANCE_TO_PIN_METERS}m yaklaşıp tekrar deneyin.`
         );
         return;
       }
@@ -289,7 +304,12 @@ export default function MapScreen({ navigation }: any) {
             tracksViewChanges={false}
             // Konum göstergesi haritanın dokunuşunu yutuyor; en doğal davranış
             // kendi konumuna dokununca oraya işaret koymak.
-            onPress={() => setPendingPin({ latitude: myLocation.lat, longitude: myLocation.lng })}
+            onPress={() =>
+              setPendingPin({
+                latitude: myLocation.lat,
+                longitude: myLocation.lng,
+              })
+            }
           >
             <UserLocationMarker />
           </Marker>
@@ -311,7 +331,7 @@ export default function MapScreen({ navigation }: any) {
             </Marker>
           ))}
 
-        {pendingPin && <Marker coordinate={pendingPin} pinColor={palette.brand} />}
+        {pendingPin && <Marker coordinate={pendingPin} pinColor={colors.brand} />}
       </MapView>
 
       {/* Üst katman: harita tam ekran, kontroller üstünde yüzüyor. */}
@@ -330,13 +350,13 @@ export default function MapScreen({ navigation }: any) {
                 <Icon
                   name={option === 'food' ? 'food' : 'water'}
                   size={18}
-                  color={selected ? palette.textOnBrand : palette.textMuted}
+                  color={selected ? colors.textOnBrand : colors.textMuted}
                 />
                 <Text
                   variant="bodyStrong"
                   style={[
                     styles.segmentLabel,
-                    { color: selected ? palette.textOnBrand : palette.textMuted },
+                    { color: selected ? colors.textOnBrand : colors.textMuted },
                   ]}
                 >
                   {option === 'food' ? 'Mama' : 'Su'}
@@ -358,10 +378,18 @@ export default function MapScreen({ navigation }: any) {
       </SafeAreaView>
 
       <View style={styles.zoomControls}>
-        <Pressable style={styles.zoomButton} onPress={() => zoomBy(0.5)} accessibilityLabel="Yakınlaştır">
+        <Pressable
+          style={styles.zoomButton}
+          onPress={() => zoomBy(0.5)}
+          accessibilityLabel="Yakınlaştır"
+        >
           <Text style={styles.zoomButtonText}>+</Text>
         </Pressable>
-        <Pressable style={styles.zoomButton} onPress={() => zoomBy(2)} accessibilityLabel="Uzaklaştır">
+        <Pressable
+          style={styles.zoomButton}
+          onPress={() => zoomBy(2)}
+          accessibilityLabel="Uzaklaştır"
+        >
           <Text style={styles.zoomButtonText}>−</Text>
         </Pressable>
       </View>
@@ -385,7 +413,7 @@ export default function MapScreen({ navigation }: any) {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalIcon}>
-              <Icon name={viewType === 'food' ? 'food' : 'water'} size={28} color={palette.brand} />
+              <Icon name={viewType === 'food' ? 'food' : 'water'} size={28} color={colors.brand} />
             </View>
             <Text variant="heading" center>
               Bu noktaya {typeLabel} bıraktın mı?
@@ -398,7 +426,7 @@ export default function MapScreen({ navigation }: any) {
               title={viewType === 'food' ? 'Mama bıraktım' : 'Su bıraktım'}
               onPress={() => handleChooseAction(viewType)}
               loading={submitting}
-              icon={<Icon name="camera" size={18} color={palette.textOnBrand} />}
+              icon={<Icon name="camera" size={18} color={colors.textOnBrand} />}
               fullWidth
               size="lg"
             />
@@ -422,7 +450,7 @@ export default function MapScreen({ navigation }: any) {
       {(loading || submitting) && (
         <View style={styles.loadingOverlay} pointerEvents="none">
           <View style={styles.loadingPill}>
-            <ActivityIndicator size="small" color={palette.brand} />
+            <ActivityIndicator size="small" color={colors.brand} />
           </View>
         </View>
       )}
@@ -430,8 +458,8 @@ export default function MapScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.background },
+const useStyles = makeStyles(({ colors: c, shadow }) => ({
+  container: { flex: 1, backgroundColor: c.background },
   topLayer: { position: 'absolute', top: 0, left: 0, right: 0 },
   segment: {
     flexDirection: 'row',
@@ -439,7 +467,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     padding: 4,
     borderRadius: radius.pill,
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     ...shadow.raised,
   },
   segmentItem: {
@@ -450,27 +478,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     borderRadius: radius.pill,
   },
-  segmentItemSelected: { backgroundColor: palette.brand },
+  segmentItemSelected: { backgroundColor: c.brand },
   segmentLabel: { marginLeft: spacing.sm },
-  banner: { marginHorizontal: spacing.lg, marginTop: spacing.md, ...shadow.card },
+  banner: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    ...shadow.card,
+  },
   zoomControls: { position: 'absolute', right: spacing.md, bottom: 110 },
   zoomButton: {
     width: 42,
     height: 42,
     borderRadius: radius.pill,
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.sm,
     ...shadow.card,
   },
-  zoomButtonText: { fontSize: 22, lineHeight: 26, color: palette.textMuted },
+  zoomButtonText: { fontSize: 22, lineHeight: 26, color: c.textMuted },
   hint: {
     position: 'absolute',
     left: spacing.lg,
     right: spacing.lg,
     bottom: spacing.xl,
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.pill,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -479,7 +511,7 @@ const styles = StyleSheet.create({
   hintSub: { marginTop: 2 },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: palette.overlay,
+    backgroundColor: c.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
@@ -487,7 +519,7 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     padding: spacing.xl,
     alignItems: 'center',
@@ -497,7 +529,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: radius.pill,
-    backgroundColor: palette.brandTint,
+    backgroundColor: c.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
@@ -512,7 +544,7 @@ const styles = StyleSheet.create({
   loadingPill: {
     padding: spacing.lg,
     borderRadius: radius.pill,
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     ...shadow.raised,
   },
-});
+}));

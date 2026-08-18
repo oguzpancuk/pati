@@ -38,7 +38,7 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import { fonts, palette, radius, shadow, spacing } from '../theme';
+import { fonts, makeStyles, radius, spacing, useTheme } from '../theme';
 
 const RECORD_TYPE_LABELS: Record<HealthRecordType, string> = {
   illness: 'Hastalık',
@@ -50,12 +50,14 @@ const RECORD_TYPE_LABELS: Record<HealthRecordType, string> = {
 
 // Durum renkleri tema tonlarından: kırmızı = müdahale bekliyor, turuncu =
 // sürüyor, yeşil = kapandı.
-const STATUS_META: Record<HealthRecordStatus, { label: string; tone: 'danger' | 'warning' | 'success' }> =
-  {
-    not_started: { label: 'Tedaviye başlanmadı', tone: 'danger' },
-    in_treatment: { label: 'Tedavi sürüyor', tone: 'warning' },
-    recovered: { label: 'İyileşti', tone: 'success' },
-  };
+const STATUS_META: Record<
+  HealthRecordStatus,
+  { label: string; tone: 'danger' | 'warning' | 'success' }
+> = {
+  not_started: { label: 'Tedaviye başlanmadı', tone: 'danger' },
+  in_treatment: { label: 'Tedavi sürüyor', tone: 'warning' },
+  recovered: { label: 'İyileşti', tone: 'success' },
+};
 
 const RECORD_TYPE_OPTIONS: HealthRecordType[] = [
   'illness',
@@ -76,6 +78,8 @@ function formatDate(iso: string) {
 }
 
 export default function AnimalProfileScreen({ route }: any) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
   const { animalId } = route.params;
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
@@ -310,7 +314,7 @@ export default function AnimalProfileScreen({ route }: any) {
                     size="sm"
                     variant="success"
                     onPress={() => handleMarkRecovered(record)}
-                    icon={<Icon name="check" size={15} color={palette.textOnBrand} />}
+                    icon={<Icon name="check" size={15} color={colors.textOnBrand} />}
                     style={styles.recoverButton}
                   />
                 )}
@@ -373,7 +377,7 @@ export default function AnimalProfileScreen({ route }: any) {
           <TextInput
             style={styles.composerInput}
             placeholder="Yorum yaz…"
-            placeholderTextColor={palette.textSubtle}
+            placeholderTextColor={colors.textSubtle}
             value={draft}
             onChangeText={setDraft}
             multiline
@@ -411,7 +415,7 @@ export default function AnimalProfileScreen({ route }: any) {
               <TextInput
                 style={styles.modalInput}
                 placeholder="Örn. Göz enfeksiyonu"
-                placeholderTextColor={palette.textSubtle}
+                placeholderTextColor={colors.textSubtle}
                 value={recordDescription}
                 onChangeText={setRecordDescription}
                 multiline
@@ -464,7 +468,12 @@ export default function AnimalProfileScreen({ route }: any) {
                 ))
               )}
             </ScrollView>
-            <Button title="Kapat" onPress={() => setLogRecord(null)} fullWidth style={styles.modalPrimary} />
+            <Button
+              title="Kapat"
+              onPress={() => setLogRecord(null)}
+              fullWidth
+              style={styles.modalPrimary}
+            />
           </View>
         </View>
       </Modal>
@@ -472,8 +481,8 @@ export default function AnimalProfileScreen({ route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: palette.background },
+const useStyles = makeStyles(({ colors: c, shadow }) => ({
+  flex: { flex: 1, backgroundColor: c.background },
   headerCard: { marginBottom: spacing.sm },
   markings: { marginTop: spacing.xs },
   photoList: { marginTop: spacing.lg },
@@ -482,7 +491,7 @@ const styles = StyleSheet.create({
     height: 124,
     borderRadius: radius.md,
     marginRight: spacing.sm,
-    backgroundColor: palette.skeleton,
+    backgroundColor: c.skeleton,
   },
   sectionTop: { marginTop: spacing.xl },
   seenAt: { marginTop: -spacing.sm, marginBottom: spacing.sm },
@@ -506,34 +515,47 @@ const styles = StyleSheet.create({
   recoverButton: { marginTop: spacing.md },
   commentRow: { flexDirection: 'row', marginBottom: spacing.lg },
   commentBody: { flex: 1, marginLeft: spacing.md },
-  commentHead: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
+  commentHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+  },
   commentAuthor: { flexShrink: 1 },
   commentTag: { marginTop: 2, marginBottom: 2 },
   composer: {
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: c.border,
     padding: spacing.md,
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
   },
   tagRow: { marginBottom: spacing.sm },
   tagRowContent: { gap: spacing.sm, paddingRight: spacing.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
-  composerRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  composerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+  },
   composerInput: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: palette.border,
+    borderColor: c.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     maxHeight: 100,
     fontFamily: fonts.regular,
     fontSize: 15,
-    color: palette.text,
+    color: c.text,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: palette.overlay,
+    backgroundColor: c.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
@@ -542,7 +564,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     maxHeight: '82%',
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     padding: spacing.xl,
     ...shadow.modal,
@@ -551,7 +573,7 @@ const styles = StyleSheet.create({
   modalScroll: { flexGrow: 0 },
   modalInput: {
     borderWidth: 1.5,
-    borderColor: palette.border,
+    borderColor: c.border,
     borderRadius: radius.md,
     padding: spacing.md,
     minHeight: 84,
@@ -559,12 +581,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     fontFamily: fonts.regular,
     fontSize: 15,
-    color: palette.text,
+    color: c.text,
   },
   modalPrimary: { marginTop: spacing.lg },
   logRow: {
     paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.border,
+    borderBottomColor: c.border,
   },
-});
+}));

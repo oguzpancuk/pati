@@ -4,7 +4,7 @@ import type { BadgeAward } from '../api/users';
 import { TIER_EMOJI, TIER_LABELS } from '../badges';
 import Button from './ui/Button';
 import Text from './ui/Text';
-import { palette, radius, shadow, spacing } from '../theme';
+import { makeStyles, radius, spacing } from '../theme';
 
 interface Props {
   award: BadgeAward | null;
@@ -24,6 +24,7 @@ function rankLine(award: BadgeAward): string {
 }
 
 export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) {
+  const styles = useStyles();
   if (!award) return null;
 
   const leveledUp =
@@ -52,7 +53,7 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
 
           {leveledUp && (
             <View style={styles.levelUp}>
-              <Text variant="captionStrong" style={styles.levelUpText}>
+              <Text variant="captionStrong" color="onWarning">
                 Seviye atladın: {award.levelBefore} → {award.levelAfter}
               </Text>
             </View>
@@ -94,10 +95,10 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c, shadow }) => ({
   backdrop: {
     flex: 1,
-    backgroundColor: palette.overlay,
+    backgroundColor: c.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
@@ -105,7 +106,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     padding: spacing.xl,
     alignItems: 'center',
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: radius.pill,
-    backgroundColor: palette.brandTint,
+    backgroundColor: c.brandTint,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.lg,
@@ -123,13 +124,12 @@ const styles = StyleSheet.create({
   medallionEmoji: { fontSize: 52, lineHeight: 62 },
   title: { marginTop: spacing.lg, marginBottom: spacing.xs },
   levelUp: {
-    backgroundColor: palette.warningSoft,
+    backgroundColor: c.warningSoft,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     marginTop: spacing.md,
   },
-  levelUpText: { color: palette.onWarning },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   statBox: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.sm },
-  divider: { width: StyleSheet.hairlineWidth, backgroundColor: palette.border },
+  divider: { width: StyleSheet.hairlineWidth, backgroundColor: c.border },
   statValue: { marginTop: spacing.xs },
   button: { marginTop: spacing.xl },
-});
+}));

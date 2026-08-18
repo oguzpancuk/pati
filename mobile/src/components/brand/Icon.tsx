@@ -1,6 +1,6 @@
 import React from 'react';
 import Svg, { Circle, G, Path } from 'react-native-svg';
-import { palette } from '../../theme';
+import { useTheme } from '../../theme';
 
 /**
  * Marka kimliğindeki ikonlar gibi ince çizgili (outline), yuvarlak uçlu bir
@@ -36,14 +36,11 @@ export type IconProps = {
   strokeWidth?: number;
 };
 
-export default function Icon({
-  name,
-  size = 24,
-  color = palette.text,
-  strokeWidth = 1.8,
-}: IconProps) {
+export default function Icon({ name, size = 24, color, strokeWidth = 1.8 }: IconProps) {
+  const { colors } = useTheme();
+  const tint = color ?? colors.text;
   const stroke = {
-    stroke: color,
+    stroke: tint,
     strokeWidth,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
@@ -52,7 +49,7 @@ export default function Icon({
 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <G {...stroke}>{PATHS[name](color, strokeWidth)}</G>
+      <G {...stroke}>{PATHS[name](tint, strokeWidth)}</G>
     </Svg>
   );
 }

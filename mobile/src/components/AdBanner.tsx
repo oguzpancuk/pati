@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Linking, Pressable, View } from 'react-native';
 import { Ad, AdSlot, fetchAd, recordAdClick, recordAdImpression } from '../api/ads';
 import Text from './ui/Text';
 import Icon from './brand/Icon';
-import { palette, radius, spacing } from '../theme';
+import { makeStyles, radius, spacing, useTheme } from '../theme';
 
 interface Props {
   slot: AdSlot;
@@ -20,6 +20,8 @@ interface Props {
  */
 export default function AdBanner({ slot, visible = true }: Props) {
   const [ad, setAd] = useState<Ad | null>(null);
+  const styles = useStyles();
+  const { colors } = useTheme();
   // Aynı reklam için gösterimi iki kez bildirmemek adına (React yeniden render
   // ettiğinde ya da pop-up tekrar açıldığında).
   const reportedRef = useRef<number | null>(null);
@@ -95,18 +97,18 @@ export default function AdBanner({ slot, visible = true }: Props) {
             </Text>
           )}
         </View>
-        <Icon name="chevronRight" size={18} color={palette.textSubtle} />
+        <Icon name="chevronRight" size={18} color={colors.textSubtle} />
       </View>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c }) => ({
   container: {
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: c.border,
     borderRadius: radius.md,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: c.surfaceAlt,
     padding: spacing.md,
     marginTop: spacing.lg,
     alignSelf: 'stretch',
@@ -118,8 +120,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: radius.sm,
-    backgroundColor: palette.skeleton,
+    backgroundColor: c.skeleton,
   },
   imagePlaceholder: { justifyContent: 'center', alignItems: 'center' },
   text: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
-});
+}));

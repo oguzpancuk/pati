@@ -1,6 +1,4 @@
 <resources>
-    <!-- Ana ekranda görünen ad. Paket adı (com.straymobile) bilerek
-         değiştirilmedi: mağazaya yüklendikten sonra değiştirilemiyor, o karar
-         yayına çıkma sprint'ine bırakıldı. -->
+    <!-- Ana ekranda görünen ad. Paket adı için android/app/build.gradle. -->
     <string name="app_name">pati</string>
 </resources>

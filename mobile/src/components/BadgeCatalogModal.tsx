@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
 import type { Badge } from '../api/users';
 import {
   badgeGroup,
@@ -17,7 +17,7 @@ import {
 import Button from './ui/Button';
 import Text from './ui/Text';
 import Icon from './brand/Icon';
-import { palette, radius, shadow, spacing } from '../theme';
+import { makeStyles, radius, spacing, useTheme } from '../theme';
 
 interface Props {
   visible: boolean;
@@ -42,6 +42,8 @@ export default function BadgeCatalogModal({
   maxFeatured = 3,
   onSaveFeatured,
 }: Props) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const [selection, setSelection] = useState<string[]>(featuredKeys);
   const [saving, setSaving] = useState(false);
 
@@ -53,7 +55,11 @@ export default function BadgeCatalogModal({
   }, [initialSelection, visible]);
 
   const grouped = useMemo(() => {
-    const map: Record<BadgeGroup, Badge[]> = { streak: [], breed: [], count: [] };
+    const map: Record<BadgeGroup, Badge[]> = {
+      streak: [],
+      breed: [],
+      count: [],
+    };
     for (const badge of badges) map[badgeGroup(badge)].push(badge);
     for (const key of GROUP_ORDER) map[key] = sortBadges(map[key]);
     return map;
@@ -123,13 +129,15 @@ export default function BadgeCatalogModal({
                         onPress={() => toggle(badge)}
                         disabled={!selectable || disabled}
                       >
-                        <Text style={styles.emoji}>{badge.tier ? TIER_EMOJI[badge.tier] : '🔒'}</Text>
+                        <Text style={styles.emoji}>
+                          {badge.tier ? TIER_EMOJI[badge.tier] : '🔒'}
+                        </Text>
                         <View style={styles.rowText}>
                           <Text variant="bodyStrong">{badgeTitle(badge)}</Text>
                           <Text variant="caption">{badgeProgressText(badge)}</Text>
                         </View>
                         {selected ? (
-                          <Icon name="check" size={18} color={palette.brand} strokeWidth={2.4} />
+                          <Icon name="check" size={18} color={colors.brand} strokeWidth={2.4} />
                         ) : (
                           <Text variant="micro">{badge.points}P</Text>
                         )}
@@ -162,10 +170,10 @@ export default function BadgeCatalogModal({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(({ colors: c, shadow }) => ({
   backdrop: {
     flex: 1,
-    backgroundColor: palette.overlay,
+    backgroundColor: c.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.xl,
@@ -174,7 +182,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 440,
     maxHeight: '86%',
-    backgroundColor: palette.surface,
+    backgroundColor: c.surface,
     borderRadius: radius.xl,
     padding: spacing.xl,
     ...shadow.modal,
@@ -191,10 +199,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: spacing.sm,
   },
-  rowEarned: { backgroundColor: palette.surface, borderColor: palette.border },
-  rowLocked: { backgroundColor: palette.surfaceAlt, borderColor: palette.border, opacity: 0.65 },
-  rowSelected: { backgroundColor: palette.brandTint, borderColor: palette.brand },
+  rowEarned: { backgroundColor: c.surface, borderColor: c.border },
+  rowLocked: {
+    backgroundColor: c.surfaceAlt,
+    borderColor: c.border,
+    opacity: 0.65,
+  },
+  rowSelected: { backgroundColor: c.brandTint, borderColor: c.brand },
   emoji: { fontSize: 24, lineHeight: 30, marginRight: spacing.md },
   rowText: { flex: 1, marginRight: spacing.sm },
   secondary: { marginTop: spacing.xs },
-});
+}));

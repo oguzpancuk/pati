@@ -1,11 +1,11 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import type { UserComment } from '../api/users';
 import AnimalAvatar from './AnimalAvatar';
 import Card from './ui/Card';
 import SectionHeader from './ui/SectionHeader';
 import Text from './ui/Text';
-import { spacing } from '../theme';
+import { makeStyles, spacing } from '../theme';
 
 interface Props {
   comments: UserComment[];
@@ -17,7 +17,10 @@ interface Props {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+  return new Date(iso).toLocaleDateString('tr-TR', {
+    day: 'numeric',
+    month: 'short',
+  });
 }
 
 /** Profilde gösterilen son yorumlar özeti; "Tümünü gör" tam listeye götürür. */
@@ -29,6 +32,7 @@ export default function RecentComments({
   onSeeAll,
   onOpenAnimal,
 }: Props) {
+  const styles = useStyles();
   return (
     <View>
       <SectionHeader
@@ -38,7 +42,7 @@ export default function RecentComments({
       />
 
       {comments.length === 0 ? (
-        <Card variant="flat" style={styles.row}>
+        <Card variant="flat" style={styles.empty}>
           <Text variant="caption">{emptyText}</Text>
         </Card>
       ) : (
@@ -75,11 +79,16 @@ export default function RecentComments({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles(() => ({
+  empty: { marginBottom: spacing.sm },
   row: { flexDirection: 'row', marginBottom: spacing.sm },
   body: { flex: 1, marginLeft: spacing.md },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
   animalName: { flexShrink: 1 },
   date: { marginLeft: spacing.sm },
   text: { marginTop: 2 },
-});
+}));
