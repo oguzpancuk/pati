@@ -1,6 +1,19 @@
 const fs = require('fs');
 const pool = require('../config/db');
 const { getUserBadges } = require('../utils/badges');
+const { getUserRank } = require('./leaderboard.controller');
+
+const MAX_FEATURED_BADGES = 3;
+
+// Öne çıkan rozet seçimi kullanıcının seçtiği anahtarları saklıyor; rozetin
+// kendisi türetilmiş veri olduğu için seçim yapıldıktan sonra kademe değişirse
+// (örn. gümüşten altına çıkınca) gösterim otomatik güncel kalıyor.
+function resolveFeatured(featuredKeys, badges) {
+  const byKey = new Map(badges.map((b) => [b.key, b]));
+  return (featuredKeys || [])
+    .map((key) => byKey.get(key))
+    .filter((badge) => badge && badge.tier);
+}
 
 async function getStats(userId) {
   const result = await pool.query(
@@ -17,15 +30,58 @@ async function getStats(userId) {
 async function getMe(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, role, avatar_url, created_at FROM users WHERE id = $1',
+      'SELECT id, name, email, role, avatar_url, featured_badges, created_at FROM users WHERE id = $1',
       [req.user.userId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    const [stats, badges] = await Promise.all([getStats(req.user.userId), getUserBadges(req.user.userId)]);
-    res.json({ ...result.rows[0], stats, badges });
+    const [stats, badgeData, rank] = await Promise.all([
+      getStats(req.user.userId),
+      getUserBadges(req.user.userId),
+      getUserRank(req.user.userId),
+    ]);
+
+    const user = result.rows[0];
+    res.json({
+      ...user,
+      stats,
+      badges: badgeData.badges,
+      points: badgeData.points,
+      featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
+      rank,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function setFeaturedBadges(req, res, next) {
+  try {
+    const { keys } = req.body;
+    if (!Array.isArray(keys)) {
+      return res.status(400).json({ error: 'keys bir dizi olmalıdır' });
+    }
+    if (keys.length > MAX_FEATURED_BADGES) {
+      return res
+        .status(400)
+        .json({ error: `En fazla ${MAX_FEATURED_BADGES} rozet seçebilirsiniz` });
+    }
+
+    const badgeData = await getUserBadges(req.user.userId);
+    const earnedKeys = new Set(badgeData.badges.filter((b) => b.tier).map((b) => b.key));
+    const invalid = keys.filter((key) => !earnedKeys.has(key));
+    if (invalid.length > 0) {
+      return res.status(400).json({ error: 'Kazanılmamış rozet seçilemez', invalid });
+    }
+
+    await pool.query('UPDATE users SET featured_badges = $1::jsonb WHERE id = $2', [
+      JSON.stringify(keys),
+      req.user.userId,
+    ]);
+
+    res.json({ featuredBadges: resolveFeatured(keys, badgeData.badges) });
   } catch (err) {
     next(err);
   }
@@ -38,18 +94,28 @@ async function uploadAvatar(req, res, next) {
     }
     const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
     const result = await pool.query(
-      'UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING id, name, email, role, avatar_url, created_at',
+      `UPDATE users SET avatar_url = $1 WHERE id = $2
+       RETURNING id, name, email, role, avatar_url, featured_badges, created_at`,
       [avatarUrl, req.user.userId]
     );
 
     // İstemci bu yanıtı doğrudan mevcut profilin yerine koyuyor; getMe ile aynı
-    // şekli (stats + badges dahil) döndürmezsek profil ekranı eksik alanlarla
-    // render edilmeye çalışıp çöküyor.
-    const [stats, badges] = await Promise.all([
+    // şekli döndürmezsek profil ekranı eksik alanlarla render edilmeye çalışıp
+    // çöküyor.
+    const [stats, badgeData, rank] = await Promise.all([
       getStats(req.user.userId),
       getUserBadges(req.user.userId),
+      getUserRank(req.user.userId),
     ]);
-    res.json({ ...result.rows[0], stats, badges });
+    const user = result.rows[0];
+    res.json({
+      ...user,
+      stats,
+      badges: badgeData.badges,
+      points: badgeData.points,
+      featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
+      rank,
+    });
   } catch (err) {
     if (req.file) {
       fs.unlink(req.file.path, () => {});
@@ -98,14 +164,14 @@ async function getPublicProfile(req, res, next) {
   try {
     const targetId = Number(req.params.id);
     const userResult = await pool.query(
-      'SELECT id, name, avatar_url, created_at FROM users WHERE id = $1',
+      'SELECT id, name, avatar_url, featured_badges, created_at FROM users WHERE id = $1',
       [targetId]
     );
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    const [stats, badges, animals, friendCount] = await Promise.all([
+    const [stats, badgeData, animals, friendCount, rank] = await Promise.all([
       getStats(targetId),
       getUserBadges(targetId),
       pool.query(
@@ -127,6 +193,7 @@ async function getPublicProfile(req, res, next) {
          WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
         [targetId]
       ),
+      getUserRank(targetId),
     ]);
 
     let friendshipStatus = 'none';
@@ -153,7 +220,10 @@ async function getPublicProfile(req, res, next) {
     res.json({
       ...userResult.rows[0],
       stats,
-      badges,
+      badges: badgeData.badges,
+      points: badgeData.points,
+      featuredBadges: resolveFeatured(userResult.rows[0].featured_badges, badgeData.badges),
+      rank,
       animals: animals.rows,
       friendCount: friendCount.rows[0].count,
       friendshipStatus,
@@ -164,4 +234,11 @@ async function getPublicProfile(req, res, next) {
   }
 }
 
-module.exports = { getMe, uploadAvatar, getMyAnimals, searchUsers, getPublicProfile };
+module.exports = {
+  getMe,
+  uploadAvatar,
+  setFeaturedBadges,
+  getMyAnimals,
+  searchUsers,
+  getPublicProfile,
+};

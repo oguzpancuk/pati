@@ -28,12 +28,14 @@ stray/
 - Kullanıcı kaydı ve giriş sistemi
 - Türkiye'ye odaklı harita: haritaya dokunup pin bırakarak "Mama Bıraktım" /
   "Su Bıraktım" işaretleme — fotoğraf çekimi zorunlu, kullanıcının anlık konumu
-  işaretlediği pinden 10 metreden uzaksa reddedilir
+  işaretlediği pinden 20 metreden uzaksa reddedilir (şehir içinde tipik GPS
+  hassasiyeti 5–20m olduğu için tolerans buna göre seçildi)
 - Haritanın kırmızıdan yeşile boyanması: hiç bakım yoksa kırmızı, işaretlenen
-  noktalar etrafında (24 saat içinde solan, ne kadar çok kişi işaretlediyse o kadar
-  belirgin) yeşil
-- Konum bazlı bakım eksikliği kontrolü (500m/24 saat, banner ile uyarı), Mama/Su
-  haritaları ayrı ayrı görüntülenebilir
+  noktaların 100m çevresi yeşil. Yeşil, mama için 4 saatte, su için 6 saatte
+  kademeli olarak solar; aynı noktaya ne kadar çok kişi bıraktıysa o kadar belirgin
+- Konum bazlı bakım eksikliği kontrolü (500m), Mama/Su haritaları ayrı ayrı
+  görüntülenebilir. Bulunduğunuz bölgede yeşil alan söndüyse cihaz üzerinde
+  bildirim gönderilir (arka plan konum izni gerekir, 6 saat bildirim aralığı)
 - Hayvan profili oluşturma (manuel, en az 2 fotoğraf zorunlu, kedi/köpek için
   çoktan seçmeli cins/desen listesi), fotoğraflı liste ve tür filtresiyle
   yakındaki hayvanları listeleme
@@ -45,11 +47,15 @@ stray/
   yorum yapabilir (yorum yapan otomatik bakım listesine eklenir)
 - Hayvan sağlık ve ilaç kaydı: bakım verenler hastalık/tedavi kaydı ekleyebilir,
   sohbette bir yorumu ilgili sağlık kaydına bağlayabilir ("şu hastalık için
-  ilacını verdim"), sağlık kaydına dokununca o kayda ait tüm yorumlar listelenir
-- Kullanıcı profili: profil fotoğrafı, rozetler (mama/su/hayvan kaydetme —
-  bronz/gümüş/altın/elmas, ardışık gün serisine göre) ve arkadaşlık sistemi
-  (kullanıcı arama, istek gönderme/kabul etme, başka kullanıcıların profilini
-  görüntüleme)
+  ilacını verdim"), sağlık kaydına dokununca o kayda ait tüm yorumlar listelenir.
+  Her kaydın 3 durumu var: **Tedaviye başlanmadı** (hiç yorum yok) → **Tedavi
+  sürüyor** (en az bir yorum) → **İyileşti** ("İyileşti" butonuyla, bakım verenler
+  işaretler). İyileşmiş kayda yeni yorum eklenemez
+- Kullanıcı profili: profil fotoğrafı, rozetler, öne çıkan 3 rozet seçimi,
+  sıralamadaki yeri ve arkadaşlık sistemi (kullanıcı arama, istek gönderme/kabul
+  etme, başka kullanıcıların profilini görüntüleme)
+- Rozetler ve puanlar: seri, cins ve sayaç bazlı rozetler; toplanan puanlara göre
+  tüm kullanıcıların sıralandığı bir liderlik tablosu (profilden erişilir)
 
 ## Başlarken — Baştan Sona Kurulum
 
@@ -127,8 +133,8 @@ Tüm demo hesapların girişi: `test1@stray.test` … `test100@stray.test`,
 > Script mevcut demo veriyi görürse tekrar çalışmaz; sıfırdan üretmek için
 > veritabanını sıfırlayıp `npm run migrate && npm run seed` yapın.
 
-> Şema zaman zaman değişiyor (en son: `animal_comments` tablosu ve
-> `animals.location_updated_at` eklendi).
+> Şema zaman zaman değişiyor (en son: `health_records.recovered_at`/`recovered_by`
+> ve `users.featured_badges` eklendi).
 > Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
 > `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
 >
@@ -161,9 +167,10 @@ echo 'export PATH="/opt/homebrew/opt/ruby/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-**Pod install** (native bağımlılıklar — konum ve kamera kütüphaneleri — eklendiği
-için mobil tarafta her `npm install` sonrası bunu tekrar çalıştırmanız gerekir;
-atlarsanız "The package '...' doesn't seem to be linked" hatası alırsınız):
+**Pod install** (native bağımlılıklar — konum, kamera ve bildirim kütüphaneleri —
+eklendiği için mobil tarafta her `npm install` sonrası bunu tekrar çalıştırmanız
+gerekir; atlarsanız "The package '...' doesn't seem to be linked" hatası alırsınız.
+Bildirimler için `@notifee/react-native` yeni eklendi, bu adımı mutlaka tekrarlayın):
 ```bash
 cd ios
 bundle install
@@ -197,29 +204,61 @@ IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
 ### 6. Uygulamada gezinme
 
 1. **Kayıt Ol** ekranından yeni hesap oluşturun.
-2. Konum izni isteyecek — **izin verin** (harita ve bakım kontrolü buna dayanıyor).
+2. Konum ve bildirim izni isteyecek — **izin verin** (harita, bakım kontrolü ve
+   uyarılar buna dayanıyor).
 3. **Harita** sekmesinde Türkiye'nin tamamı görünür; henüz bakım yapılmamış yerler
-   kırmızı, işaretlenmiş noktaların çevresi yeşildir. Bulunduğunuz konumun 500m
-   çevresinde son 24 saatte bakım yoksa üstte kırmızı bir uyarı çıkar.
-4. Mama/su bırakmak için **haritaya dokunarak bir pin bırakın**, çıkan **Mama
+   kırmızı, işaretlenmiş noktaların 100m çevresi yeşildir. Bulunduğunuz konumun
+   500m çevresinde bakım yoksa üstte kırmızı bir uyarı çıkar.
+4. Mama/su bırakmak için **haritaya dokunarak bir pin bırakın** (kendi konum
+   işaretinize dokunursanız pin doğrudan bulunduğunuz yere düşer), çıkan **Mama
    Bıraktım** / **Su Bıraktım** butonlarından birini seçin. Kamera açılır —
    fotoğraf çekmeden işaretleme tamamlanmaz. Fotoğraftan sonra anlık konumunuz
-   pinden 10 metreden uzaksa işlem reddedilir ve ne kadar uzakta olduğunuz
+   pinden 20 metreden uzaksa işlem reddedilir ve ne kadar uzakta olduğunuz
    söylenir; yaklaşıp tekrar deneyin.
-5. **Hayvanlar** sekmesinde yakınınızdaki kayıtlı hayvanları (mesafeye göre sıralı)
+5. Haritayı sokak ölçeğine kadar yakınlaştırdığınızda kayıtlı hayvanlar profil
+   fotoğraflarıyla yuvarlak olarak görünür; dokununca profillerine gidersiniz.
+6. **Hayvanlar** sekmesinde yakınınızdaki kayıtlı hayvanları (mesafeye göre sıralı)
    görür, **Yeni Hayvan Ekle** ile konumunuz otomatik alınarak yeni bir profil
    oluşturabilirsiniz.
-6. **Profilim** sekmesinden çıkış yapabilirsiniz.
+7. **Profilim** sekmesinden rozet kataloğunu açabilir, öne çıkan 3 rozetinizi
+   seçebilir, **Sıralama** ekranına gidebilir ve çıkış yapabilirsiniz.
 
-**Rozetler:** Mama, su ve hayvan kaydetme için ayrı ayrı hesaplanır; bir kategoride
-en uzun ardışık gün serisine göre kademe belirlenir ve bir kere kazanılan rozet
-kalıcıdır (aktif seri bozulsa bile düşürülmez): 1 gün → Bronz, 7 gün üst üste →
-Gümüş, 30 gün üst üste → Altın, 365 gün üst üste → Elmas.
+### Rozetler, puanlar ve sıralama
+
+Tüm rozetler bronz / gümüş / altın / elmas kademelerinde. Bir kere kazanılan rozet
+kalıcıdır (seri bozulsa bile düşürülmez). Üç grup var:
+
+| Grup | Nasıl kazanılır | Eşikler (bronz → elmas) |
+| --- | --- | --- |
+| **Seri** | Mama, su ve hayvan kaydetme için ayrı ayrı, en uzun ardışık gün serisi | 1 / 7 / 30 / 365 gün |
+| **Cins** | Her kedi/köpek cinsi için ayrı rozet (ör. "Altın Tekir Avcısı") | 1 / 5 / 20 / 100 kayıt |
+| **Sayaç** | Yorumcu (hayvan profillerine yorum) ve Şifacı (sağlık kaydı ekleme/iyileştirme) | Yorumcu 1/10/50/200, Şifacı 1/5/20/100 |
+
+**Puanlar:** her rozet kademesi puan verir (bronz 10, gümüş 25, altın 60, elmas 150).
+Yorumlar ayrıca puan getirir, ama ağırlıklı: aynı hayvana yığılan yorumları
+ödüllendirmemek için hayvan başına en fazla 5 yorum sayılır (yorum başına 1 puan) ve
+yorum yapılan **farklı** hayvan başına 3 puan verilir — yani genişlik, tekrar
+yorumdan daha değerli.
+
+**Öne çıkan rozetler:** Profilinizden en fazla 3 rozet seçip profilinizin üstünde
+sergileyebilirsiniz. Seçim rozetin anahtarını saklar, kademesini değil; rozetiniz
+altına yükselince öne çıkan rozet de kendiliğinden güncellenir.
+
+**Liderlik tablosu:** Profilinizdeki "Sıralama" bağlantısından erişilir; toplam
+puana göre tüm kullanıcıları sıralar, eşit puanlılar aynı sırayı paylaşır (1, 2, 2, 4).
+Kendi sıranız listenin üstünde ayrıca gösterilir ve listede vurgulanır.
+
+**Bildirimler:** Uygulama açıkken 30 dakikada bir (ve öne her geldiğinde)
+bulunduğunuz konumun 500m çevresinde mama/su kalıp kalmadığını kontrol eder;
+kalmadıysa cihaz üzerinde bildirim gösterir. Aynı uyarı 6 saatte birden sık
+gönderilmez. Arka planda da çalışabilmesi için "her zaman konum" izni istenir;
+vermezseniz uygulama çalışmaya devam eder, yalnızca uygulama kapalıyken uyarı
+gelmez.
 
 **Uzaktan test için konum override'ı:** `oguzpancuk@gmail.com` ve
 `sumeyyeayan@gmail.com` hesaplarıyla giriş yapıldığında (yalnızca geliştirme
 derlemelerinde, `__DEV__`), gerçek GPS yerine her zaman Kadıköy'de sabit bir konum
-kullanılır — bu sayede Türkiye dışından da 10m mesafe kontrolü gerektiren akışlar
+kullanılır — bu sayede Türkiye dışından da 20m mesafe kontrolü gerektiren akışlar
 test edilebilir. İki hesabın konumu birbirine yakın ama aynı değil (~250m), böylece
 iki kullanıcıyla mükerrer hayvan tespiti de denenebilir. Bkz. `mobile/src/location.ts`.
 

@@ -12,6 +12,8 @@ import AnimalProfileScreen from '../screens/AnimalProfileScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
 import FindFriendsScreen from '../screens/FindFriendsScreen';
+import LeaderboardScreen from '../screens/LeaderboardScreen';
+import { useCareAlerts } from '../useCareAlerts';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -24,6 +26,7 @@ export type MainStackParamList = {
   AnimalProfile: { animalId: number };
   PublicProfile: { userId: number };
   FindFriends: undefined;
+  Leaderboard: undefined;
 };
 
 export type MainTabParamList = {
@@ -79,12 +82,19 @@ function MainNavigator() {
         component={FindFriendsScreen}
         options={{ title: 'Arkadaş Bul' }}
       />
+      <MainStack.Screen
+        name="Leaderboard"
+        component={LeaderboardScreen}
+        options={{ title: 'Sıralama' }}
+      />
     </MainStack.Navigator>
   );
 }
 
 export default function RootNavigator() {
   const { user, isLoading } = useAuth();
+  // Bakım uyarıları yalnızca giriş yapılmışken çalışır; çıkışta zamanlayıcı durur.
+  useCareAlerts(!!user);
 
   if (isLoading) {
     return null;

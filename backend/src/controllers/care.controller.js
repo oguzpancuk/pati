@@ -2,11 +2,21 @@ const fs = require('fs');
 const pool = require('../config/db');
 const { distanceMeters } = require('../utils/distance');
 
-const NEEDS_ATTENTION_HOURS = 24;
-const HEATMAP_WINDOW_HOURS = 24;
+// Mama ve su farklı hızda tükeniyor: mama daha çabuk bitiyor/bozuluyor, su daha
+// uzun süre işe yarıyor. Haritadaki yeşil alanın solma süresi ile "bu bölgede
+// bakım eksik" uyarısının süresi aynı tutuluyor; aksi halde harita yeşilken
+// uyarı çıkması gibi tutarsızlıklar oluşuyor.
+const WINDOW_HOURS = { food: 4, water: 6 };
+const DEFAULT_WINDOW_HOURS = Math.max(WINDOW_HOURS.food, WINDOW_HOURS.water);
 const DEFAULT_RADIUS_METERS = 3000;
 const DEFAULT_STATUS_RADIUS_METERS = 500;
-const MAX_DISTANCE_TO_PIN_METERS = 10;
+// GPS hassasiyeti şehir içinde 5-20m arasında değişebiliyor; 10m sınırı dürüst
+// kullanıcıları da engelliyordu. 20m hâlâ fiilen oraya gitmeyi gerektiriyor.
+const MAX_DISTANCE_TO_PIN_METERS = 20;
+
+function windowHoursFor(actionType) {
+  return WINDOW_HOURS[actionType] ?? DEFAULT_WINDOW_HOURS;
+}
 
 async function addCareAction(req, res, next) {
   try {
@@ -66,25 +76,31 @@ function actionTypeFilter(actionType, paramIndex) {
   return { sql: `AND action_type = $${paramIndex}`, param: actionType };
 }
 
+// Pencere satır bazında kendi aksiyon türünden geliyor; böylece mama ve su
+// birlikte listelendiğinde de her biri kendi süresine göre soluyor.
+const WINDOW_HOURS_SQL = `(CASE action_type
+    WHEN 'food' THEN ${WINDOW_HOURS.food}
+    WHEN 'water' THEN ${WINDOW_HOURS.water}
+    ELSE ${DEFAULT_WINDOW_HOURS} END)`;
+const WEIGHT_SQL = `GREATEST(0, 1 - EXTRACT(EPOCH FROM (now() - created_at)) / 3600.0 / ${WINDOW_HOURS_SQL})`;
+const WITHIN_WINDOW_SQL = `created_at > now() - (${WINDOW_HOURS_SQL} * interval '1 hour')`;
+
 async function listCareActions(req, res, next) {
   try {
     const { lat, lng, minLat, maxLat, minLng, maxLng, actionType } = req.query;
     const radiusMeters = Number(req.query.radiusMeters) || DEFAULT_RADIUS_METERS;
 
-    // Isı haritası için ağırlık: taze aksiyonlarda 1'e yakın, pencerenin sonunda (24 saat) 0'a yaklaşır.
-    const weightExpr = `GREATEST(0, 1 - EXTRACT(EPOCH FROM (now() - created_at)) / 3600.0 / $1)`;
-
     if (minLat && maxLat && minLng && maxLng) {
-      const params = [HEATMAP_WINDOW_HOURS, minLng, minLat, maxLng, maxLat];
+      const params = [minLng, minLat, maxLng, maxLat];
       const filter = actionTypeFilter(actionType, params.length + 1);
       if (filter.param) params.push(filter.param);
       const result = await pool.query(
         `SELECT id, action_type, photo_url, created_at,
                 ST_AsGeoJSON(location)::json AS location,
-                ${weightExpr} AS weight
+                ${WEIGHT_SQL} AS weight
          FROM care_actions
-         WHERE location && ST_MakeEnvelope($2, $3, $4, $5, 4326)::geography
-           AND created_at > now() - ($1 || ' hours')::interval
+         WHERE location && ST_MakeEnvelope($1, $2, $3, $4, 4326)::geography
+           AND ${WITHIN_WINDOW_SQL}
            ${filter.sql}
          ORDER BY created_at DESC
          LIMIT 2000`,
@@ -97,16 +113,16 @@ async function listCareActions(req, res, next) {
       return res.status(400).json({ error: 'lat/lng ya da minLat/maxLat/minLng/maxLng zorunludur' });
     }
 
-    const params = [HEATMAP_WINDOW_HOURS, lng, lat, radiusMeters];
+    const params = [lng, lat, radiusMeters];
     const filter = actionTypeFilter(actionType, params.length + 1);
     if (filter.param) params.push(filter.param);
     const result = await pool.query(
       `SELECT id, action_type, photo_url, created_at,
               ST_AsGeoJSON(location)::json AS location,
-              ${weightExpr} AS weight
+              ${WEIGHT_SQL} AS weight
        FROM care_actions
-       WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, $4)
-         AND created_at > now() - ($1 || ' hours')::interval
+       WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
+         AND ${WITHIN_WINDOW_SQL}
          ${filter.sql}
        ORDER BY created_at DESC
        LIMIT 1000`,
@@ -128,7 +144,7 @@ async function getCareStatus(req, res, next) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
 
-    const params = [lng, lat, radiusMeters, NEEDS_ATTENTION_HOURS];
+    const params = [lng, lat, radiusMeters];
     const filter = actionTypeFilter(actionType, params.length + 1);
     if (filter.param) params.push(filter.param);
 
@@ -136,7 +152,7 @@ async function getCareStatus(req, res, next) {
       `SELECT count(*)::int AS count, max(created_at) AS last_action_at
        FROM care_actions
        WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
-         AND created_at > now() - ($4 || ' hours')::interval
+         AND ${WITHIN_WINDOW_SQL}
          ${filter.sql}`,
       params
     );
@@ -144,9 +160,10 @@ async function getCareStatus(req, res, next) {
     const { count, last_action_at: lastActionAt } = result.rows[0];
     res.json({
       needsAttention: count === 0,
-      actionCountLast24h: count,
+      actionCount: count,
       lastActionAt,
       radiusMeters,
+      windowHours: actionType ? windowHoursFor(actionType) : WINDOW_HOURS,
     });
   } catch (err) {
     next(err);

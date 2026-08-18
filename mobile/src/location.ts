@@ -36,6 +36,29 @@ async function requestAndroidPermission(): Promise<boolean> {
   return granted === PermissionsAndroid.RESULTS.GRANTED;
 }
 
+// Uygulama arka plandayken de konum kontrolü yapabilmek için "her zaman" iznini
+// ister. Reddedilirse uygulama çalışmaya devam eder; yalnızca arka plan
+// bildirimleri gelmez (ön planda kontrol yine yapılır).
+export async function requestBackgroundLocationPermission(): Promise<boolean> {
+  if (Platform.OS === 'android') {
+    const fine = await requestAndroidPermission();
+    if (!fine) return false;
+    // Android 10+ arka plan konumu ayrı bir izin olarak ister.
+    const permission = (PermissionsAndroid.PERMISSIONS as Record<string, string>)
+      .ACCESS_BACKGROUND_LOCATION;
+    if (!permission) return true;
+    const granted = await PermissionsAndroid.request(permission as never);
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  }
+
+  return new Promise((resolve) => {
+    Geolocation.requestAuthorization(
+      () => resolve(true),
+      () => resolve(false)
+    );
+  });
+}
+
 export async function getCurrentLocation(): Promise<Coordinates> {
   const override = await getLocationOverride();
   if (override) {

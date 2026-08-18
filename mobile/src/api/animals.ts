@@ -16,6 +16,8 @@ export interface Animal {
 
 export type HealthRecordType = 'illness' | 'injury' | 'treatment' | 'vaccination' | 'medication';
 
+export type HealthRecordStatus = 'not_started' | 'in_treatment' | 'recovered';
+
 export interface HealthRecord {
   id: number;
   record_type: HealthRecordType;
@@ -24,7 +26,11 @@ export interface HealthRecord {
   recorded_by: number;
   recorded_by_name?: string;
   recorded_at: string;
+  recovered_at: string | null;
+  recovered_by: number | null;
+  recovered_by_name: string | null;
   comment_count: number;
+  status: HealthRecordStatus;
 }
 
 export interface AnimalPhoto {
@@ -114,6 +120,16 @@ export async function addHealthRecord(
     recordType,
     description,
   });
+  return data;
+}
+
+export async function markHealthRecordRecovered(
+  animalId: number,
+  recordId: number
+): Promise<HealthRecord> {
+  const { data } = await apiClient.post<HealthRecord>(
+    `/animals/${animalId}/health-records/${recordId}/recover`
+  );
   return data;
 }
 

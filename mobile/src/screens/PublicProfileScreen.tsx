@@ -17,12 +17,7 @@ import {
   removeFriendship,
   sendFriendRequest,
 } from '../api/users';
-import {
-  BADGE_LABELS,
-  CATEGORY_LABELS,
-  NEXT_TIER_THRESHOLD,
-  TIER_EMOJI,
-} from '../badges';
+import { badgeProgressText, badgeTitle, sortBadges, TIER_EMOJI } from '../badges';
 import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 
@@ -75,6 +70,11 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     );
   }
 
+  const displayBadges =
+    profile.featuredBadges?.length > 0
+      ? profile.featuredBadges
+      : sortBadges(profile.badges.filter((b) => b.tier)).slice(0, 3);
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -87,6 +87,11 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         )}
         <Text style={styles.title}>{profile.name}</Text>
         <Text style={styles.metaSmall}>{formatDate(profile.created_at)} tarihinde katıldı</Text>
+        {profile.rank && (
+          <Text style={styles.rankLine}>
+            Sıralama: {profile.rank.rank}. / {profile.rank.totalUsers} · {profile.points.total} puan
+          </Text>
+        )}
       </View>
 
       <View style={styles.statsRow}>
@@ -146,28 +151,24 @@ export default function PublicProfileScreen({ route, navigation }: any) {
           <Text style={styles.linkText}>Tüm rozetler</Text>
         </TouchableOpacity>
       </View>
+      {/* Kullanıcı öne çıkanları seçtiyse onları, seçmediyse en güçlü rozetlerini
+          gösteriyoruz; boş bir alan görünmesin. */}
       <View style={styles.badgeRow}>
-        {(['feeder', 'water', 'registrar'] as const).map((category) => {
-          const badge = profile.badges?.[category] ?? { streakDays: 0, tier: null };
-          const nextThreshold = NEXT_TIER_THRESHOLD[badge.tier ?? 'none'];
-          return (
+        {displayBadges.length === 0 ? (
+          <Text style={styles.meta}>Henüz rozet kazanmamış.</Text>
+        ) : (
+          displayBadges.map((badge) => (
             <TouchableOpacity
-              key={category}
+              key={badge.key}
               style={styles.badgeCard}
               onPress={() => setCatalogVisible(true)}
             >
               <Text style={styles.badgeEmoji}>{badge.tier ? TIER_EMOJI[badge.tier] : '⬜'}</Text>
-              <Text style={styles.badgeLabel}>
-                {badge.tier ? BADGE_LABELS[category][badge.tier] : CATEGORY_LABELS[category]}
-              </Text>
-              <Text style={styles.badgeStreak}>
-                {Number.isFinite(nextThreshold)
-                  ? `${badge.streakDays} / ${nextThreshold} gün`
-                  : `${badge.streakDays} gün`}
-              </Text>
+              <Text style={styles.badgeLabel}>{badgeTitle(badge)}</Text>
+              <Text style={styles.badgeStreak}>{badgeProgressText(badge)}</Text>
             </TouchableOpacity>
-          );
-        })}
+          ))
+        )}
       </View>
 
       <Text style={styles.sectionTitle}>Bakım Verdiği Hayvanlar</Text>
@@ -211,6 +212,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', marginTop: 12 },
   meta: { color: '#555', marginTop: 4 },
   metaSmall: { color: '#888', fontSize: 12, marginTop: 2 },
+  rankLine: { color: '#2e7d32', fontWeight: '600', marginTop: 6 },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

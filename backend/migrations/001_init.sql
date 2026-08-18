@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'vet', 'admin')),
     avatar_url TEXT,
+    -- Profilde öne çıkarılacak en fazla 3 rozetin anahtarı (örn. "breed:Tekir").
+    -- Rozetler hesaplanmış veriden türetildiği için burada yalnızca seçim saklanıyor.
+    featured_badges JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -44,7 +47,10 @@ CREATE TABLE IF NOT EXISTS animal_photos (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Sağlık ve ilaçlandırma kayıtları
+-- Sağlık ve ilaçlandırma kayıtları.
+-- Takip durumu ayrı bir kolonda tutulmuyor; "tedaviye başlanmadı / başlandı"
+-- ayrımı kayda bağlı yorum olup olmamasından türetiliyor (bkz. animal_comments).
+-- Yalnızca "iyileşti" kalıcı bir işaret olduğu için burada saklanıyor.
 CREATE TABLE IF NOT EXISTS health_records (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
@@ -52,7 +58,9 @@ CREATE TABLE IF NOT EXISTS health_records (
     description TEXT NOT NULL,
     vet_verified BOOLEAN NOT NULL DEFAULT false,
     recorded_by INTEGER NOT NULL REFERENCES users(id),
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    recovered_at TIMESTAMPTZ,
+    recovered_by INTEGER REFERENCES users(id)
 );
 
 -- Hayvan profilindeki sohbet. Bir yorum isteğe bağlı olarak bir sağlık kaydına

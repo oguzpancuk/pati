@@ -23,9 +23,10 @@ import {
   FriendshipsResponse,
   Me,
   removeFriendship,
+  setFeaturedBadges,
   uploadAvatar,
 } from '../api/users';
-import { BADGE_LABELS, CATEGORY_LABELS, NEXT_TIER_THRESHOLD, TIER_EMOJI } from '../badges';
+import { badgeProgressText, badgeTitle, TIER_EMOJI } from '../badges';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 
 export default function UserProfileScreen({ navigation }: any) {
@@ -77,6 +78,15 @@ export default function UserProfileScreen({ navigation }: any) {
     }
   }
 
+  async function handleSaveFeatured(keys: string[]) {
+    try {
+      await setFeaturedBadges(keys);
+      await load();
+    } catch (err: any) {
+      Alert.alert('Kaydedilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    }
+  }
+
   async function handleAccept(entry: FriendshipEntry) {
     try {
       await acceptFriendRequest(entry.friendship_id);
@@ -113,6 +123,8 @@ export default function UserProfileScreen({ navigation }: any) {
     );
   }
 
+  const featured = me.featuredBadges ?? [];
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -132,40 +144,57 @@ export default function UserProfileScreen({ navigation }: any) {
         </View>
       </View>
 
+      <TouchableOpacity
+        style={styles.rankCard}
+        onPress={() => navigation.navigate('Leaderboard')}
+      >
+        <View>
+          <Text style={styles.rankLabel}>Sıralamadaki yeriniz</Text>
+          <Text style={styles.rankValue}>
+            {me.rank ? `${me.rank.rank}. / ${me.rank.totalUsers}` : '-'}
+          </Text>
+        </View>
+        <View style={styles.rankRight}>
+          <Text style={styles.rankPoints}>{me.points?.total ?? 0} puan</Text>
+          <Text style={styles.linkText}>Sıralamayı gör →</Text>
+        </View>
+      </TouchableOpacity>
+
       <View style={styles.badgesHeader}>
-        <Text style={styles.sectionTitle}>Rozetlerim</Text>
+        <Text style={styles.sectionTitle}>Öne Çıkan Rozetlerim</Text>
         <TouchableOpacity onPress={() => setCatalogVisible(true)}>
-          <Text style={styles.linkText}>Tüm rozetler</Text>
+          <Text style={styles.linkText}>Seç / tümü</Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.badgeRow}>
-        {(['feeder', 'water', 'registrar'] as const).map((category) => {
-          const badge = me.badges?.[category] ?? { streakDays: 0, tier: null };
-          const nextThreshold = NEXT_TIER_THRESHOLD[badge.tier ?? 'none'];
-          return (
+      {featured.length === 0 ? (
+        <TouchableOpacity onPress={() => setCatalogVisible(true)}>
+          <Text style={styles.meta}>
+            Henüz rozet seçmediniz. Profilinizde gösterilecek 3 rozeti seçmek için dokunun.
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.badgeRow}>
+          {featured.map((badge) => (
             <TouchableOpacity
-              key={category}
+              key={badge.key}
               style={styles.badgeCard}
               onPress={() => setCatalogVisible(true)}
             >
               <Text style={styles.badgeEmoji}>{badge.tier ? TIER_EMOJI[badge.tier] : '⬜'}</Text>
-              <Text style={styles.badgeLabel}>
-                {badge.tier ? BADGE_LABELS[category][badge.tier] : CATEGORY_LABELS[category]}
-              </Text>
-              <Text style={styles.badgeStreak}>
-                {Number.isFinite(nextThreshold)
-                  ? `${badge.streakDays} / ${nextThreshold} gün`
-                  : `${badge.streakDays} gün (en üst seviye)`}
-              </Text>
+              <Text style={styles.badgeLabel}>{badgeTitle(badge)}</Text>
+              <Text style={styles.badgeStreak}>{badgeProgressText(badge)}</Text>
             </TouchableOpacity>
-          );
-        })}
-      </View>
+          ))}
+        </View>
+      )}
 
       <BadgeCatalogModal
         visible={catalogVisible}
         onClose={() => setCatalogVisible(false)}
         badges={me.badges}
+        selectable
+        featuredKeys={featured.map((b) => b.key)}
+        onSaveFeatured={handleSaveFeatured}
       />
 
       <Text style={styles.sectionTitle}>Bakım Verdiğim Hayvanlar</Text>
@@ -250,6 +279,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   linkText: { color: '#2e7d32', fontWeight: '600' },
+  rankCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#e8f5e9',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 8,
+  },
+  rankLabel: { color: '#2e7d32', fontSize: 12, fontWeight: '600' },
+  rankValue: { fontSize: 22, fontWeight: '700', marginTop: 2 },
+  rankRight: { alignItems: 'flex-end' },
+  rankPoints: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
   badgeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   badgeCard: {
     flex: 1,

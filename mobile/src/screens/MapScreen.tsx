@@ -28,6 +28,7 @@ import {
 } from '../api/care';
 import { Animal, fetchAnimals } from '../api/animals';
 import AnimalAvatar from '../components/AnimalAvatar';
+import UserLocationMarker from '../components/UserLocationMarker';
 import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 
 // Türkiye'nin yaklaşık coğrafi sınır kutusu (kesin idari sınır değil).
@@ -46,8 +47,10 @@ const TURKEY_POLYGON: LatLng[] = [
   { latitude: TURKEY_BOUNDS.maxLat, longitude: TURKEY_BOUNDS.minLng },
 ];
 
-const MAX_DISTANCE_TO_PIN_METERS = 10;
-const ACTION_CIRCLE_RADIUS_METERS = 60;
+// Sunucudaki sınırla aynı tutulmalı (care.controller.js): GPS hassasiyeti şehir
+// içinde 5-20m arasında değiştiği için 10m dürüst kullanıcıları da engelliyordu.
+const MAX_DISTANCE_TO_PIN_METERS = 20;
+const ACTION_CIRCLE_RADIUS_METERS = 100;
 const ANIMAL_RADIUS_METERS = 10000;
 const USER_ZOOM_DELTA = 0.03;
 const MIN_DELTA = 0.001;
@@ -308,12 +311,18 @@ export default function MapScreen({ navigation }: any) {
         ))}
 
         {myLocation && (
-          <Circle
-            center={{ latitude: myLocation.lat, longitude: myLocation.lng }}
-            radius={10}
-            fillColor="rgba(25, 118, 210, 0.7)"
-            strokeColor="#1976d2"
-          />
+          <Marker
+            coordinate={{ latitude: myLocation.lat, longitude: myLocation.lng }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+            // Konum göstergesi haritanın dokunuşunu yutuyor; en doğal davranış
+            // kendi konumuna dokununca oraya işaret koymak.
+            onPress={() =>
+              setPendingPin({ latitude: myLocation.lat, longitude: myLocation.lng })
+            }
+          >
+            <UserLocationMarker />
+          </Marker>
         )}
 
         {animalsVisible &&

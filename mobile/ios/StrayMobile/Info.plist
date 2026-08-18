@@ -36,6 +36,13 @@
 	<string>Yakınınızdaki bakım noktalarını ve hayvanları gösterebilmek, ve mama/su bıraktığınız konumu kaydedebilmek için konumunuza ihtiyacımız var.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Mama/su bıraktığınızı doğrulamak için bir fotoğraf çekmeniz gerekiyor.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Bulunduğunuz bölgede mama/su kalmadığında sizi uyarabilmemiz için uygulama arka plandayken de konumunuza ihtiyacımız var.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

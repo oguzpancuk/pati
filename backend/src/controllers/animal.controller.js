@@ -1,6 +1,27 @@
 const fs = require('fs');
 const pool = require('../config/db');
 
+// Takip durumu ayrı bir kolon değil, mevcut veriden türetiliyor:
+//   iyileşti      -> recovered_at dolu
+//   tedavi başladı -> kayda bağlı en az bir yorum var
+//   başlanmadı     -> hiç yorum yok
+// Böylece durum ile yorumlar arasında tutarsızlık oluşamıyor.
+const HEALTH_RECORD_SELECT_SQL = `
+  SELECT h.id, h.record_type, h.description, h.vet_verified, h.recorded_by, h.recorded_at,
+         h.recovered_at, h.recovered_by,
+         u.name AS recorded_by_name,
+         ru.name AS recovered_by_name,
+         (SELECT count(*) FROM animal_comments c WHERE c.health_record_id = h.id)::int AS comment_count,
+         CASE
+           WHEN h.recovered_at IS NOT NULL THEN 'recovered'
+           WHEN EXISTS (SELECT 1 FROM animal_comments c WHERE c.health_record_id = h.id) THEN 'in_treatment'
+           ELSE 'not_started'
+         END AS status
+  FROM health_records h
+  JOIN users u ON u.id = h.recorded_by
+  LEFT JOIN users ru ON ru.id = h.recovered_by
+`;
+
 const COVER_PHOTO_JOIN = `
   LEFT JOIN LATERAL (
     SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
@@ -67,11 +88,7 @@ async function getAnimal(req, res, next) {
     const [photos, healthRecords, carers] = await Promise.all([
       pool.query('SELECT id, url, uploaded_by, created_at FROM animal_photos WHERE animal_id = $1 ORDER BY created_at DESC', [req.params.id]),
       pool.query(
-        `SELECT h.id, h.record_type, h.description, h.vet_verified, h.recorded_by, h.recorded_at,
-                u.name AS recorded_by_name,
-                (SELECT count(*) FROM animal_comments c WHERE c.health_record_id = h.id)::int AS comment_count
-         FROM health_records h
-         JOIN users u ON u.id = h.recorded_by
+        `${HEALTH_RECORD_SELECT_SQL}
          WHERE h.animal_id = $1
          ORDER BY h.recorded_at DESC`,
         [req.params.id]
@@ -208,13 +225,49 @@ async function addHealthRecord(req, res, next) {
     }
 
     const isVet = req.user.role === 'vet' || req.user.role === 'admin';
-    const result = await pool.query(
+    const inserted = await pool.query(
       `INSERT INTO health_records (animal_id, record_type, description, vet_verified, recorded_by)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, record_type, description, vet_verified, recorded_by, recorded_at`,
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [req.params.id, recordType, description, Boolean(vetVerified) && isVet, req.user.userId]
     );
-    res.status(201).json({ ...result.rows[0], comment_count: 0 });
+    const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
+      inserted.rows[0].id,
+    ]);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Bir sağlık kaydını "iyileşti" olarak işaretler. İyileşen kayıtlar kapanır:
+// artık yorum eklenemez (bkz. addComment), böylece geçmiş takip kaydı sabit kalır.
+async function markRecovered(req, res, next) {
+  try {
+    if (!(await isCarer(req.user.userId, req.params.id))) {
+      return res.status(403).json({
+        error: 'Durumu değiştirebilmek için bu hayvana bakım veriyor olmalısınız',
+      });
+    }
+
+    const existing = await pool.query(
+      'SELECT id, recovered_at FROM health_records WHERE id = $1 AND animal_id = $2',
+      [req.params.recordId, req.params.id]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Sağlık kaydı bulunamadı' });
+    }
+    if (existing.rows[0].recovered_at) {
+      return res.status(409).json({ error: 'Bu kayıt zaten iyileşti olarak işaretlenmiş' });
+    }
+
+    await pool.query(
+      'UPDATE health_records SET recovered_at = now(), recovered_by = $1 WHERE id = $2',
+      [req.user.userId, req.params.recordId]
+    );
+    const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
+      req.params.recordId,
+    ]);
+    res.json(result.rows[0]);
   } catch (err) {
     next(err);
   }
@@ -266,9 +319,14 @@ async function addComment(req, res, next) {
 
     if (healthRecordId) {
       const recordCheck = await pool.query(
-        'SELECT id FROM health_records WHERE id = $1 AND animal_id = $2',
+        'SELECT id, recovered_at FROM health_records WHERE id = $1 AND animal_id = $2',
         [healthRecordId, req.params.id]
       );
+      if (recordCheck.rows[0]?.recovered_at) {
+        return res
+          .status(409)
+          .json({ error: 'İyileşmiş bir kayda yorum eklenemez' });
+      }
       if (recordCheck.rows.length === 0) {
         return res.status(400).json({ error: 'Sağlık kaydı bu hayvana ait değil' });
       }
@@ -320,6 +378,7 @@ module.exports = {
   reportSighting,
   addPhoto,
   addHealthRecord,
+  markRecovered,
   listComments,
   addComment,
   followAnimal,

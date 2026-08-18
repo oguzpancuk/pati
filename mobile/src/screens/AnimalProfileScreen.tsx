@@ -23,7 +23,9 @@ import {
   fetchAnimal,
   fetchAnimalComments,
   HealthRecord,
+  HealthRecordStatus,
   HealthRecordType,
+  markHealthRecordRecovered,
 } from '../api/animals';
 import AnimalAvatar from '../components/AnimalAvatar';
 
@@ -33,6 +35,12 @@ const RECORD_TYPE_LABELS: Record<HealthRecordType, string> = {
   treatment: 'Tedavi',
   vaccination: 'Aşı',
   medication: 'İlaç',
+};
+
+const STATUS_META: Record<HealthRecordStatus, { label: string; color: string; bg: string }> = {
+  not_started: { label: 'Tedaviye başlanmadı', color: '#c62828', bg: '#ffebee' },
+  in_treatment: { label: 'Tedavi sürüyor', color: '#ef6c00', bg: '#fff3e0' },
+  recovered: { label: 'İyileşti', color: '#2e7d32', bg: '#e8f5e9' },
 };
 
 const RECORD_TYPE_OPTIONS: HealthRecordType[] = [
@@ -138,6 +146,33 @@ export default function AnimalProfileScreen({ route }: any) {
     }
   }
 
+  function handleMarkRecovered(record: HealthRecord) {
+    Alert.alert(
+      'İyileşti olarak işaretle',
+      `"${record.description}" kaydı kapanacak ve bu kayda artık yorum eklenemeyecek. Emin misiniz?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'İyileşti',
+          onPress: async () => {
+            try {
+              await markHealthRecordRecovered(animalId, record.id);
+              // Yoruma bağlanmak için seçiliyse seçimi kaldır: kapanmış kayda
+              // yorum gönderilemez.
+              setLinkedRecord((prev) => (prev?.id === record.id ? null : prev));
+              await load();
+            } catch (err: any) {
+              Alert.alert(
+                'İşaretlenemedi',
+                err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
   if (!animal) {
     return (
       <View style={styles.center}>
@@ -149,6 +184,7 @@ export default function AnimalProfileScreen({ route }: any) {
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const latitude = animal.location.coordinates[1];
   const longitude = animal.location.coordinates[0];
+  const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
 
   return (
     <KeyboardAvoidingView
@@ -209,23 +245,41 @@ export default function AnimalProfileScreen({ route }: any) {
         {animal.healthRecords.length === 0 ? (
           <Text style={styles.meta}>Henüz kayıt yok.</Text>
         ) : (
-          animal.healthRecords.map((record) => (
-            <TouchableOpacity
-              key={record.id}
-              style={styles.recordCard}
-              onPress={() => handleOpenLog(record)}
-            >
-              <Text style={styles.recordType}>
-                {RECORD_TYPE_LABELS[record.record_type]}
-                {record.vet_verified ? ' · Veteriner Onaylı' : ''}
-              </Text>
-              <Text>{record.description}</Text>
-              <Text style={styles.metaSmall}>
-                {record.recorded_by_name ?? ''} · {record.comment_count} yorum · dokunarak kayıtları
-                görün
-              </Text>
-            </TouchableOpacity>
-          ))
+          animal.healthRecords.map((record) => {
+            const status = STATUS_META[record.status];
+            return (
+              <TouchableOpacity
+                key={record.id}
+                style={styles.recordCard}
+                onPress={() => handleOpenLog(record)}
+              >
+                <View style={styles.recordHeader}>
+                  <Text style={styles.recordType}>
+                    {RECORD_TYPE_LABELS[record.record_type]}
+                    {record.vet_verified ? ' · Veteriner Onaylı' : ''}
+                  </Text>
+                  <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
+                    <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+                  </View>
+                </View>
+                <Text>{record.description}</Text>
+                <Text style={styles.metaSmall}>
+                  {record.recorded_by_name ?? ''} · {record.comment_count} yorum · dokunarak
+                  kayıtları görün
+                </Text>
+                {record.status === 'recovered' && record.recovered_by_name && (
+                  <Text style={styles.metaSmall}>
+                    {record.recovered_by_name} iyileşti olarak işaretledi
+                  </Text>
+                )}
+                {animal.isCarer && record.status !== 'recovered' && (
+                  <View style={styles.recoverButton}>
+                    <Button title="İyileşti" onPress={() => handleMarkRecovered(record)} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })
         )}
 
         <Text style={styles.sectionTitle}>Sohbet</Text>
@@ -263,7 +317,9 @@ export default function AnimalProfileScreen({ route }: any) {
       </ScrollView>
 
       <View style={styles.composer}>
-        {animal.healthRecords.length > 0 && (
+        {/* İyileşmiş kayıtlar kapalıdır; sunucu da yorum kabul etmediği için
+            seçilebilir listede hiç göstermiyoruz. */}
+        {openRecords.length > 0 && (
           <ScrollView horizontal style={styles.tagRow} showsHorizontalScrollIndicator={false}>
             <TouchableOpacity
               style={[styles.tagChip, !linkedRecord && styles.tagChipSelected]}
@@ -271,7 +327,7 @@ export default function AnimalProfileScreen({ route }: any) {
             >
               <Text style={[styles.tagText, !linkedRecord && styles.tagTextSelected]}>Genel</Text>
             </TouchableOpacity>
-            {animal.healthRecords.map((record) => (
+            {openRecords.map((record) => (
               <TouchableOpacity
                 key={record.id}
                 style={[styles.tagChip, linkedRecord?.id === record.id && styles.tagChipSelected]}
@@ -408,7 +464,20 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
   },
-  recordType: { fontWeight: '600', marginBottom: 4 },
+  recordType: { fontWeight: '600', marginBottom: 4, flexShrink: 1 },
+  recordHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  statusPill: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  statusText: { fontSize: 11, fontWeight: '700' },
+  recoverButton: { marginTop: 8 },
   commentRow: { flexDirection: 'row', marginBottom: 12 },
   commentAvatar: { width: 32, height: 32, borderRadius: 16, marginRight: 10 },
   commentAvatarPlaceholder: {
