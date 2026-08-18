@@ -63,7 +63,7 @@ const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 // aykırı bir gerginlik veriyordu. Bakılmamış yer artık sade harita; "buralarda mama
 // yok" mesajını üstteki banner veriyor. Yeşil buna karşılık biraz daha tok.
 // Opaklık yine de düşük: altındaki sokak/işletme isimleri okunabilir kalmalı.
-const MAX_GREEN_ALPHA = 0.38;
+const MAX_GREEN_ALPHA = 0.5;
 
 function weightToGreenAlpha(weight: number) {
   return Math.min(Math.max(weight, 0), 1) * MAX_GREEN_ALPHA;

@@ -246,7 +246,7 @@ dairelerle "temizleniyordu" (her yer alarm, iyi yerler istisna). Kaldırıldı:
 Apple Maps'in bej zemininde harita bulanıklaşıyor ve uygulamanın sakin tonuna
 aykırı bir gerginlik veriyordu. Amber ve terracotta denendi, zeminde
 kaybolduğu için değmedi. Şimdi: bakılmamış yer sade harita, bakılan yer tok
-yeşil daire (`MapScreen.tsx` → `MAX_GREEN_ALPHA` 0.30 → 0.38), "buralarda
+yeşil daire (`MapScreen.tsx` → `MAX_GREEN_ALPHA` 0.30 → 0.50), "buralarda
 mama yok" mesajını banner ve bildirim veriyor. Kural aynı kaldı: yeşil
 dairenin dışındaysanız uyarılırsınız.
 
