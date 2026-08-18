@@ -12,10 +12,13 @@ export type WordmarkProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+// `line` bilerek yazılıyor: `fontSize` verilip `lineHeight` verilmeseydi yazı
+// varyantın satır yüksekliğine sıkışıp kırpılırdı. Oran 1,2 — Nunito
+// ExtraBold'un çıkıntılı harfleri (p, t, i noktası) rahat sığsın diye.
 const SIZES = {
-  sm: { logo: 28, name: 22 },
-  md: { logo: 44, name: 32 },
-  lg: { logo: 72, name: 46 },
+  sm: { logo: 28, name: 22, line: 27 },
+  md: { logo: 44, name: 32, line: 39 },
+  lg: { logo: 72, name: 46, line: 56 },
 } as const;
 
 /** Logo + "pati" yazısı. Giriş/kayıt ekranlarının tepesinde kullanılıyor. */
@@ -28,7 +31,9 @@ export default function Wordmark({ size = 'md', tagline = false, color, style }:
     <View style={[styles.wrap, style]}>
       <View style={styles.row}>
         <Logo size={s.logo} color={tint} />
-        <Text style={[styles.name, { fontSize: s.name, color: tint }]}>{brand.name}</Text>
+        <Text style={[styles.name, { fontSize: s.name, lineHeight: s.line, color: tint }]}>
+          {brand.name}
+        </Text>
       </View>
       {tagline ? (
         <Text variant="caption" style={styles.tagline}>
@@ -45,8 +50,6 @@ const useStyles = makeStyles(() => ({
   name: {
     fontFamily: fonts.extrabold,
     marginLeft: spacing.md,
-    // Nunito'nun satır kutusu geniş; logoya göre optik olarak yukarı kaçıyor.
-    marginTop: 2,
     letterSpacing: -0.5,
   },
   tagline: { marginTop: spacing.xs },

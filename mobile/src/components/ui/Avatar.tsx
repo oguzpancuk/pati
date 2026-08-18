@@ -41,7 +41,12 @@ export default function Avatar({ uri, name, size = 44, ring, style }: AvatarProp
   const initial = (name || '?').trim().charAt(0).toLocaleUpperCase('tr-TR');
   return (
     <View style={box}>
-      <Text style={{ fontSize: size * 0.4, color: colors.brandDark }} variant="bodyStrong">
+      <Text
+        variant="bodyStrong"
+        // lineHeight boyutla birlikte veriliyor; yalnız fontSize ezilse
+        // varyantın 22 punto satırı büyük harfi kırpardı.
+        style={{ fontSize: size * 0.4, lineHeight: size * 0.5, color: colors.brandDark }}
+      >
         {initial}
       </Text>
     </View>

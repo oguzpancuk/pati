@@ -59,10 +59,16 @@ function variantColors(c: Palette, variant: Variant) {
   }
 }
 
-const SIZES: Record<Size, { paddingV: number; paddingH: number; fontSize: number }> = {
-  sm: { paddingV: spacing.sm, paddingH: spacing.md, fontSize: 13 },
-  md: { paddingV: spacing.md, paddingH: spacing.lg, fontSize: 15 },
-  lg: { paddingV: spacing.lg, paddingH: spacing.xl, fontSize: 16 },
+// lineHeight de veriliyor: yalnız fontSize ezilirse `Text` varyantın satır
+// yüksekliğini düşürüyor ve buton yüksekliği fontun varsayılanına kalıyor.
+// Burada sabit tutmak butonları öngörülebilir kılıyor.
+const SIZES: Record<
+  Size,
+  { paddingV: number; paddingH: number; fontSize: number; lineHeight: number }
+> = {
+  sm: { paddingV: spacing.sm, paddingH: spacing.md, fontSize: 13, lineHeight: 18 },
+  md: { paddingV: spacing.md, paddingH: spacing.lg, fontSize: 15, lineHeight: 20 },
+  lg: { paddingV: spacing.lg, paddingH: spacing.xl, fontSize: 16, lineHeight: 22 },
 };
 
 export default function Button({
@@ -111,6 +117,7 @@ export default function Button({
             style={{
               color: isOff ? colors.disabledText : v.fg,
               fontSize: s.fontSize,
+              lineHeight: s.lineHeight,
             }}
           >
             {title}

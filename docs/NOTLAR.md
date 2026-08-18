@@ -246,6 +246,17 @@ alamıyor ve boyutu tipografiye bağlı. İstisna bilinçli: rozet kademeleri
 (🥇🥈🥉💎) ve seviye amblemleri emoji kaldı — onlar zaten "madalya" olarak
 okunuyor ve sunucudan geliyor.
 
+### `fontSize` ezilirken `lineHeight` de verilmeli
+Tipografi varyantları `fontSize` ve `lineHeight`'ı çift olarak taşıyor. Bir
+çağıran yalnızca `fontSize`'ı ezerse ikisi kopuyor ve **iOS yazıyı satır
+kutusuna sığdıramayıp kırpıyor** — giriş ekranındaki 46 punto "pati" yazısı
+varyanttan gelen 22 punto satıra sıkışıp yarıdan kesilmişti.
+
+İki katmanlı çözüldü: `ui/Text` çağıranın `fontSize` verip `lineHeight`
+vermediğini görürse varyantın satır yüksekliğini düşürüyor (kırpma bir daha
+sessizce oluşamıyor); `Wordmark`, `Avatar` ve `Button` ise ikisini birlikte
+yazıyor, çünkü oralarda ölçünün öngörülebilir olması gerekiyor.
+
 ### `StyleSheet.create` yerine `makeStyles`
 Karanlık mod eklenince stil sayfalarının temaya bağlanması gerekti.
 `StyleSheet.create` modül yüklenirken bir kez çalıştığı için renkler ilk temaya
