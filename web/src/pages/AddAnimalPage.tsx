@@ -11,6 +11,7 @@ import {
   SimilarityReason,
 } from '../api';
 import { AnimalAvatar } from '../avatars';
+import { useBadgeAwards } from '../badgeAwards';
 import {
   Coordinates,
   FALLBACK_CENTER,
@@ -128,6 +129,7 @@ type Step = 'form' | 'matching' | 'results';
 
 export default function AddAnimalPage() {
   const navigate = useNavigate();
+  const { celebrate } = useBadgeAwards();
   const routerLocation = useLocation();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -241,6 +243,7 @@ export default function AddAnimalPage() {
       await Promise.all(photos.map((p) => addAnimalPhoto(animal.id, p)));
       sessionStorage.removeItem(DRAFT_KEY);
       navigate(`/hayvanlar/${animal.id}`, { replace: true });
+      celebrate(animal);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Eklenemedi');
       setStep(candidates.length > 0 ? 'results' : 'form');

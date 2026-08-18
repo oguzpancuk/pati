@@ -1,22 +1,10 @@
 import { apiClient } from './client';
 import type { PhotoAsset } from './care';
-import type { BadgeSymbolName } from '../components/badges';
+import type { Badge, BadgeTier } from '../badges';
 
-export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'diamond';
-
-// Rozetler sunucuda türetiliyor; istemci sabit bir liste tutmuyor ki yeni bir
-// rozet türü eklendiğinde mobil tarafta değişiklik gerekmesin.
-export interface Badge {
-  key: string;
-  label: string;
-  unit: string;
-  value: number;
-  tier: BadgeTier | null;
-  points: number;
-  nextThreshold: number | null;
-  /** Hangi madalyon sembolünün çizileceği (bkz. components/badges/BadgeSymbol). */
-  symbol: BadgeSymbolName;
-}
+// Rozet tipleri saf `badges.ts` içinde (web de oradan okuyor); buradan yeniden
+// dışa aktarılıyor ki mevcut import yolları bozulmasın.
+export type { Badge, BadgeTier } from '../badges';
 
 export interface UserPoints {
   badges: number;

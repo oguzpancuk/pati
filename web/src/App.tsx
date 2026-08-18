@@ -6,6 +6,11 @@ import AddAnimalPage from './pages/AddAnimalPage';
 import LoginPage from './pages/LoginPage';
 import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
+import UserProfilePage from './pages/UserProfilePage';
+import FindFriendsPage from './pages/FindFriendsPage';
+import LeaderboardPage from './pages/LeaderboardPage';
+import UserCommentsPage from './pages/UserCommentsPage';
+import { BadgeAwardProvider } from './badgeAwards';
 
 function TabIcon({ d }: { d: string }) {
   return (
@@ -71,6 +76,9 @@ export default function App() {
   }
 
   return (
+    // Rozet kutlaması navigasyonun üstünde: hangi sayfada kazanılırsa
+    // kazanılsın aynı yerden gösterilir.
+    <BadgeAwardProvider>
     <Routes>
       <Route path="/" element={<Shell />}>
         <Route index element={<MapPage />} />
@@ -78,8 +86,14 @@ export default function App() {
         <Route path="hayvanlar/yeni" element={<AddAnimalPage />} />
         <Route path="hayvanlar/:id" element={<AnimalPage />} />
         <Route path="profil" element={<ProfilePage />} />
+        <Route path="kullanici/:id" element={<UserProfilePage />} />
+        <Route path="kullanici/:id/yorumlar" element={<UserCommentsPage />} />
+        <Route path="yorumlarim" element={<UserCommentsPage />} />
+        <Route path="arkadas-bul" element={<FindFriendsPage />} />
+        <Route path="siralama" element={<LeaderboardPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </BadgeAwardProvider>
   );
 }

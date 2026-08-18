@@ -3,6 +3,10 @@
  * mobile/src/api/*.ts ile aynı sözleşmeyi kullanıyor; web yalnızca ihtiyacı
  * olan alt kümeyi taşıyor.
  */
+import type { Badge, BadgeTier } from '@mobile/badges';
+
+export type { Badge, BadgeTier };
+
 const TOKEN_KEY = 'pati-token';
 
 export function getToken(): string | null {
@@ -48,6 +52,7 @@ export const api = {
   put: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(data ?? {}) }),
   postForm: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
+  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 
 // ---------------------------------------------------------------- tipler
@@ -63,15 +68,162 @@ export interface User {
 export interface UserLevel {
   level: number;
   title: string;
+  minPoints: number;
+  nextLevelPoints: number | null;
   nextTitle: string | null;
   progress: number;
 }
 
+export interface UserPoints {
+  badges: number;
+  comments: number;
+  total: number;
+}
+
+export interface UserRank {
+  rank: number;
+  points: number;
+  totalUsers: number;
+}
+
+export interface UserStats {
+  foodCount: number;
+  waterCount: number;
+  animalCount: number;
+}
+
+// Kullanıcının bir hayvana yaptığı yorum; hangi hayvana olduğu da geliyor ki
+// listeden doğrudan profile gidilebilsin.
+export interface UserComment {
+  id: number;
+  body: string;
+  created_at: string;
+  health_record_id: number | null;
+  animal_id: number;
+  animal_species: 'cat' | 'dog';
+  animal_name: string | null;
+  animal_breed: string | null;
+  animal_photo_url: string | null;
+}
+
+// Rozet kazanıldığı anın kaydı; kutlama popup'ı bunu gösteriyor.
+export interface BadgeAward {
+  id: number;
+  badgeKey: string;
+  tier: BadgeTier;
+  label: string;
+  pointsAwarded: number;
+  pointsBefore: number | null;
+  pointsAfter: number | null;
+  rankBefore: number | null;
+  rankAfter: number | null;
+  levelBefore: number | null;
+  levelAfter: number | null;
+  createdAt: string;
+}
+
+/** Puan kazandıran uç noktaların yanıtına eklenen alan. */
+export interface WithNewBadges {
+  newBadges?: BadgeAward[];
+}
+
 export interface Me extends User {
-  points: { total: number };
+  created_at: string;
+  stats: UserStats;
+  badges: Badge[];
+  points: UserPoints;
   level: UserLevel;
-  rank: { rank: number; totalUsers: number } | null;
-  stats: { foodCount: number; waterCount: number; animalCount: number };
+  featuredBadges: Badge[];
+  rank: UserRank | null;
+  recentComments: UserComment[];
+  commentCount: number;
+}
+
+export type FriendshipStatus = 'none' | 'self' | 'friends' | 'pending_sent' | 'pending_received';
+
+export interface ProfileAnimal {
+  id: number;
+  species: 'cat' | 'dog';
+  name: string | null;
+  breed: string | null;
+  created_at: string;
+  cover_photo_url: string | null;
+}
+
+export interface PublicProfile {
+  id: number;
+  name: string;
+  avatar_url: string | null;
+  created_at: string;
+  stats: UserStats;
+  badges: Badge[];
+  points: UserPoints;
+  level: UserLevel;
+  featuredBadges: Badge[];
+  rank: UserRank | null;
+  animals: ProfileAnimal[];
+  animalCount: number;
+  friendCount: number;
+  recentComments: UserComment[];
+  commentCount: number;
+  friendshipStatus: FriendshipStatus;
+  friendshipId: number | null;
+}
+
+export interface UserSummary {
+  id: number;
+  name: string;
+  avatar_url: string | null;
+}
+
+export interface FriendshipEntry extends UserSummary {
+  friendship_id: number;
+  created_at?: string;
+}
+
+export interface FriendshipsResponse {
+  friends: FriendshipEntry[];
+  incomingRequests: FriendshipEntry[];
+  outgoingRequests: FriendshipEntry[];
+}
+
+export interface LeaderboardEntry extends UserSummary {
+  points: number;
+  badgePoints: number;
+  commentPoints: number;
+  level: UserLevel;
+  badgeCount: number;
+  topTier: BadgeTier | null;
+  rank: number;
+}
+
+export interface LeaderboardResponse {
+  entries: LeaderboardEntry[];
+  totalUsers: number;
+  me: LeaderboardEntry | null;
+}
+
+export interface UserCommentsResponse {
+  user: UserSummary;
+  comments: UserComment[];
+  total: number;
+}
+
+export interface AnimalPage {
+  animals: ProfileAnimal[];
+  total: number;
+}
+
+export type AdSlot = 'food_popup' | 'water_popup' | 'vet_health_record';
+
+export interface Ad {
+  id: number;
+  name: string;
+  slot: AdSlot;
+  headline: string | null;
+  body: string | null;
+  image_url: string | null;
+  target_url: string;
 }
 
 export interface CareAction {
@@ -192,14 +344,16 @@ export function addCareAction(lat: number, lng: number, actionType: 'food' | 'wa
   form.append('lng', String(lng));
   form.append('actionType', actionType);
   form.append('photo', photo);
-  return api.postForm<CareAction>('/care-actions', form);
+  return api.postForm<CareAction & WithNewBadges>('/care-actions', form);
 }
 
 export const fetchAnimals = (
   lat?: number,
   lng?: number,
   radiusMeters = 10000,
-  species?: string
+  species?: string,
+  limit?: number,
+  offset?: number
 ) => {
   const q = new URLSearchParams();
   if (lat !== undefined && lng !== undefined) {
@@ -208,6 +362,8 @@ export const fetchAnimals = (
     q.set('radiusMeters', String(radiusMeters));
   }
   if (species) q.set('species', species);
+  if (limit) q.set('limit', String(limit));
+  if (offset) q.set('offset', String(offset));
   return api.get<Animal[]>(`/animals?${q}`);
 };
 
@@ -221,7 +377,7 @@ export const createAnimal = (input: {
   markings?: string;
   lat: number;
   lng: number;
-}) => api.post<Animal>('/animals', input);
+}) => api.post<Animal & WithNewBadges>('/animals', input);
 
 export function addAnimalPhoto(animalId: number, file: File) {
   const form = new FormData();
@@ -244,16 +400,16 @@ export const fetchComments = (
 };
 
 export const addComment = (animalId: number, body: string, healthRecordId?: number) =>
-  api.post<AnimalComment>(`/animals/${animalId}/comments`, { body, healthRecordId });
+  api.post<AnimalComment & WithNewBadges>(`/animals/${animalId}/comments`, { body, healthRecordId });
 
 export const addHealthRecord = (
   animalId: number,
   recordType: 'illness' | 'injury',
   description: string
-) => api.post<HealthRecord>(`/animals/${animalId}/health-records`, { recordType, description });
+) => api.post<HealthRecord & WithNewBadges>(`/animals/${animalId}/health-records`, { recordType, description });
 
 export const addVaccination = (animalId: number, vaccineType: string, note?: string) =>
-  api.post<Vaccination>(`/animals/${animalId}/vaccinations`, { vaccineType, note });
+  api.post<Vaccination & WithNewBadges>(`/animals/${animalId}/vaccinations`, { vaccineType, note });
 
 /**
  * Yeni kayıt açmadan önce "bu hayvan zaten kayıtlı mı?" adayları. Sunucu 1 km
@@ -281,3 +437,61 @@ export const matchAnimals = (input: {
 // bakım listesine ekler.
 export const reportSighting = (animalId: number, lat: number, lng: number) =>
   api.post<Animal>(`/animals/${animalId}/sightings`, { lat, lng });
+
+// ---------------------------------------------------------------- kullanıcı / sosyal
+
+export const setFeaturedBadges = async (keys: string[]) => {
+  const data = await api.put<{ featuredBadges: Badge[] }>('/users/me/featured-badges', { keys });
+  return data.featuredBadges;
+};
+
+export const searchUsers = (q: string) =>
+  api.get<UserSummary[]>(`/users/search?${new URLSearchParams({ q })}`);
+
+export const fetchUserProfile = (id: number) => api.get<PublicProfile>(`/users/${id}`);
+
+// Profildeki "bakım verdiği hayvanlar" sayfalı: ilk 3 profille geliyor, gerisi
+// buradan "daha fazla göster" ile.
+export const fetchUserAnimals = (userId: number | 'me', limit: number, offset: number) =>
+  api.get<AnimalPage>(
+    `/users/${userId}/animals?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
+  );
+
+export const fetchUserComments = (userId: number | 'me', limit = 30, offset = 0) =>
+  api.get<UserCommentsResponse>(
+    `/users/${userId}/comments?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
+  );
+
+export const fetchUnseenBadgeAwards = () => api.get<BadgeAward[]>('/users/me/badge-awards');
+
+export const markBadgeAwardsSeen = (ids: number[]) =>
+  ids.length === 0 ? Promise.resolve() : api.post<void>('/users/me/badge-awards/seen', { ids });
+
+export const fetchLeaderboard = (limit = 100) =>
+  api.get<LeaderboardResponse>(`/leaderboard?${new URLSearchParams({ limit: String(limit) })}`);
+
+export const fetchMyFriendships = () => api.get<FriendshipsResponse>('/friendships/me');
+export const sendFriendRequest = (addresseeId: number) =>
+  api.post<void>('/friendships', { addresseeId });
+export const acceptFriendRequest = (friendshipId: number) =>
+  api.post<void>(`/friendships/${friendshipId}/accept`);
+export const removeFriendship = (friendshipId: number) =>
+  api.del<void>(`/friendships/${friendshipId}`);
+
+// ---------------------------------------------------------------- reklam
+
+/** Yerleşim için sıradaki reklam; yayında yoksa null — bant hiç çizilmez. */
+export const fetchAd = async (slot: AdSlot) => {
+  const data = await api.get<{ ad: Ad | null }>(`/ads?${new URLSearchParams({ slot })}`);
+  return data.ad;
+};
+// Gösterim ve tıklama ayrı: getirilip gösterilmeyen reklam faturaya yazılmasın.
+export const recordAdImpression = (adId: number) => api.post<void>(`/ads/${adId}/impression`);
+export const recordAdClick = (adId: number) => api.post<void>(`/ads/${adId}/click`);
+
+// ---------------------------------------------------------------- sağlık kaydı
+
+export const markHealthRecordRecovered = (animalId: number, recordId: number) =>
+  api.post<HealthRecord & WithNewBadges>(
+    `/animals/${animalId}/health-records/${recordId}/recover`
+  );

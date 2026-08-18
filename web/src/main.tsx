@@ -5,6 +5,9 @@ import App from './App';
 import { AuthProvider } from './auth';
 import 'leaflet/dist/leaflet.css';
 import './theme.css';
+import { bootTheme } from './theme';
+
+bootTheme();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

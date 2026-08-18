@@ -1,7 +1,11 @@
 import React from 'react';
 import Svg, { Circle, G, Path } from 'react-native-svg';
-import type { BadgeTier } from '../../api/users';
+import type { BadgeSymbolName, BadgeTier } from '../../badges';
 import { tierColors } from '../../theme';
+
+// Sembol adı saf `badges.ts` içinde tanımlı (web ile ortak); buradan yeniden
+// dışa aktarılıyor.
+export type { BadgeSymbolName } from '../../badges';
 
 /**
  * Rozet madalyonu: dış halka + iç disk + ortada rozete özgü sembol.
@@ -17,15 +21,6 @@ import { tierColors } from '../../theme';
  * Sembol adı sunucudan geliyor (`badge.symbol`, bkz. backend/src/utils/badges.js);
  * yeni bir rozet türü eklenince iki tarafın da güncellenmesi gerekiyor.
  */
-export type BadgeSymbolName =
-  | 'food'
-  | 'water'
-  | 'register'
-  | 'comment'
-  | 'health'
-  | 'vaccine'
-  | 'paw';
-
 type Props = {
   symbol: BadgeSymbolName;
   /** null: henüz kazanılmamış rozet — gri madalyon çizilir. */

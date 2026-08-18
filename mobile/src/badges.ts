@@ -1,5 +1,33 @@
-import type { Badge, BadgeTier } from './api/users';
-import type { BadgeSymbolName } from './components/badges';
+/**
+ * Rozet sözlüğü ve yardımcıları. Bu dosya bilerek **saf TypeScript**: react-native
+ * ya da axios'a uzanan hiçbir import yok, çünkü web istemcisi (`web/`) bunu
+ * `@mobile/badges` alias'ıyla doğrudan kullanıyor. Tipler bu yüzden burada
+ * tanımlı; `api/users.ts` ve `components/badges` buradan alıyor.
+ */
+export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'diamond';
+
+/** Madalyonun ortasındaki sembol; sunucudan `badge.symbol` olarak geliyor. */
+export type BadgeSymbolName =
+  | 'food'
+  | 'water'
+  | 'register'
+  | 'comment'
+  | 'health'
+  | 'vaccine'
+  | 'paw';
+
+// Rozetler sunucuda türetiliyor; istemci sabit bir liste tutmuyor ki yeni bir
+// rozet türü eklendiğinde mobil tarafta değişiklik gerekmesin.
+export interface Badge {
+  key: string;
+  label: string;
+  unit: string;
+  value: number;
+  tier: BadgeTier | null;
+  points: number;
+  nextThreshold: number | null;
+  symbol: BadgeSymbolName;
+}
 
 export const TIER_LABELS: Record<BadgeTier, string> = {
   bronze: 'Bronz',

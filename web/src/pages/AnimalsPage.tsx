@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { mergeById } from '@mobile/paging';
 import { Animal, fetchAnimals } from '../api';
 import { AnimalAvatar } from '../avatars';
-import { FALLBACK_CENTER, getCurrentLocation } from '../location';
+import { LoadMoreButton } from '../components/LoadMoreButton';
+import { Coordinates, FALLBACK_CENTER, getCurrentLocation } from '../location';
+
+// 1 km (mobille aynı): yürüyerek gidilip bakılabilecek mesafe; 20'şer sayfa.
+const NEARBY_RADIUS_METERS = 1000;
+const PAGE_SIZE = 20;
 
 type Filter = '' | 'cat' | 'dog';
 
@@ -16,15 +22,38 @@ export default function AnimalsPage() {
   const [filter, setFilter] = useState<Filter>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  // Sonraki sayfalar aynı merkezden istenmeli; konum ilk sayfada saklanıyor.
+  const locationRef = useRef<Coordinates>(FALLBACK_CENTER);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const loc = locationRef.current;
+      const data = await fetchAnimals(loc.lat, loc.lng, NEARBY_RADIUS_METERS, filter || undefined, PAGE_SIZE, animals.length);
+      setAnimals((prev) => mergeById(prev, data));
+      setHasMore(data.length === PAGE_SIZE);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yüklenemedi');
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     getCurrentLocation()
       .catch(() => FALLBACK_CENTER)
-      .then((loc) => fetchAnimals(loc.lat, loc.lng, 10000, filter || undefined))
+      .then((loc) => {
+        locationRef.current = loc;
+        return fetchAnimals(loc.lat, loc.lng, NEARBY_RADIUS_METERS, filter || undefined, PAGE_SIZE, 0);
+      })
       .then((data) => {
-        if (alive) setAnimals(data);
+        if (!alive) return;
+        setAnimals(data);
+        setHasMore(data.length === PAGE_SIZE);
       })
       .catch((err) => alive && setError(err.message))
       .finally(() => alive && setLoading(false));
@@ -42,7 +71,7 @@ export default function AnimalsPage() {
         </Link>
       </div>
       <p className="muted" style={{ marginTop: 4 }}>
-        Yakınındaki kayıtlı sokak dostları.
+        1 km içindeki kayıtlı sokak dostları.
       </p>
 
       <div className="chiprow">
@@ -91,6 +120,9 @@ export default function AnimalsPage() {
           <span className="subtle">›</span>
         </Link>
       ))}
+      {hasMore && (
+        <LoadMoreButton remaining={PAGE_SIZE} loading={loadingMore} onClick={loadMore} label="Daha fazla yükle" />
+      )}
     </div>
   );
 }

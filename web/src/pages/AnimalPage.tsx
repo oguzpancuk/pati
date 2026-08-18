@@ -11,8 +11,11 @@ import {
   fetchAnimal,
   fetchComments,
   HealthRecord,
+  markHealthRecordRecovered,
 } from '../api';
 import { AnimalAvatar, UserAvatar } from '../avatars';
+import { useBadgeAwards } from '../badgeAwards';
+import { AdBanner } from '../components/AdBanner';
 
 const RECORD_TYPE_LABELS = { illness: 'Hastalık', injury: 'Yaralanma' } as const;
 const STATUS_META = {
@@ -124,6 +127,10 @@ export default function AnimalPage() {
   const [vaccineType, setVaccineType] = useState<string | null>(null);
   const [vaccineNote, setVaccineNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const { celebrate } = useBadgeAwards();
+  // Bir sağlık kaydına dokununca yalnızca o kayda bağlı yorumlar listelenir.
+  const [logRecord, setLogRecord] = useState<HealthRecord | null>(null);
+  const [logComments, setLogComments] = useState<AnimalComment[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -167,10 +174,11 @@ export default function AnimalPage() {
     if (!draft.trim()) return;
     setSending(true);
     try {
-      await addComment(animalId, draft.trim(), linkedRecord?.id);
+      const created = await addComment(animalId, draft.trim(), linkedRecord?.id);
       setDraft('');
       setLinkedRecord(null);
       await load();
+      celebrate(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gönderilemedi');
     } finally {
@@ -182,10 +190,11 @@ export default function AnimalPage() {
     if (!recordDesc?.trim()) return;
     setSaving(true);
     try {
-      await addHealthRecord(animalId, recordType, recordDesc.trim());
+      const created = await addHealthRecord(animalId, recordType, recordDesc.trim());
       setRecordOpen(false);
       setRecordDesc(null);
       await load();
+      celebrate(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Eklenemedi');
     } finally {
@@ -197,15 +206,40 @@ export default function AnimalPage() {
     if (!vaccineType?.trim()) return;
     setSaving(true);
     try {
-      await addVaccination(animalId, vaccineType.trim(), vaccineNote.trim() || undefined);
+      const created = await addVaccination(animalId, vaccineType.trim(), vaccineNote.trim() || undefined);
       setVaccineOpen(false);
       setVaccineType(null);
       setVaccineNote('');
       await load();
+      celebrate(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Eklenemedi');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function openLog(record: HealthRecord) {
+    try {
+      // Kayıt sohbeti kısa (tek konu); tek sayfada tamamı yeterli.
+      const page = await fetchComments(animalId, { healthRecordId: record.id, limit: 100 });
+      setLogComments(page.comments);
+      setLogRecord(record);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yüklenemedi');
+    }
+  }
+
+  async function markRecovered(record: HealthRecord) {
+    if (!window.confirm(`"${record.description}" kaydı kapanacak ve bu kayda artık yorum eklenemeyecek. Emin misin?`)) return;
+    try {
+      const updated = await markHealthRecordRecovered(animalId, record.id);
+      // Yoruma bağlanmak için seçiliyse seçimi kaldır: kapanmış kayda yorum gönderilemez.
+      setLinkedRecord((prev) => (prev?.id === record.id ? null : prev));
+      await load();
+      celebrate(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'İşaretlenemedi');
     }
   }
 
@@ -299,7 +333,7 @@ export default function AnimalPage() {
         animal.healthRecords.slice(0, visibleRecords).map((r) => {
           const st = STATUS_META[r.status];
           return (
-            <div key={r.id} className="card flat">
+            <div key={r.id} className="card flat" role="button" style={{ cursor: 'pointer' }} onClick={() => openLog(r)}>
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <strong>
                   {RECORD_TYPE_LABELS[r.record_type]}
@@ -309,11 +343,23 @@ export default function AnimalPage() {
               </div>
               <div style={{ marginTop: 4 }}>{r.description}</div>
               <div className="subtle" style={{ marginTop: 4 }}>
-                {r.recorded_by_name ?? ''} · {r.comment_count} yorum
+                {r.recorded_by_name ?? ''} · {r.comment_count} yorum · dokunarak kayıtları gör
                 {r.status === 'recovered' && r.recovered_by_name
                   ? ` · ${r.recovered_by_name} iyileşti olarak işaretledi`
                   : ''}
               </div>
+              {animal.isCarer && r.status !== 'recovered' && (
+                <button
+                  className="btn small"
+                  style={{ marginTop: 8, background: 'var(--success)' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markRecovered(r);
+                  }}
+                >
+                  ✓ İyileşti
+                </button>
+              )}
             </div>
           );
         })
@@ -458,6 +504,8 @@ export default function AnimalPage() {
             >
               Vazgeç
             </button>
+            {/* Sağlık kaydı açılırken veteriner/klinik reklamı. */}
+            <AdBanner slot="vet_health_record" visible={recordOpen} />
           </div>
         </div>
       )}
@@ -485,6 +533,35 @@ export default function AnimalPage() {
               onClick={() => setVaccineOpen(false)}
             >
               Vazgeç
+            </button>
+            <AdBanner slot="vet_health_record" visible={vaccineOpen} />
+          </div>
+        </div>
+      )}
+
+      {logRecord && (
+        <div className="backdrop" onClick={() => setLogRecord(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <h2>{RECORD_TYPE_LABELS[logRecord.record_type]}: {logRecord.description}</h2>
+            <p className="muted">Bu kayda bağlı yorumlar</p>
+            {logComments.length === 0 ? (
+              <div className="card flat muted">Henüz yorum yok.</div>
+            ) : (
+              logComments.map((c) => (
+                <div key={c.id} className="row" style={{ alignItems: 'flex-start', marginBottom: 10 }}>
+                  <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={30} />
+                  <div className="grow">
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <strong style={{ fontSize: 14 }}>{c.user_name}</strong>
+                      <span className="subtle">{formatDate(c.created_at)}</span>
+                    </div>
+                    <div style={{ fontSize: 14 }}>{c.body}</div>
+                  </div>
+                </div>
+              ))
+            )}
+            <button className="btn full" onClick={() => setLogRecord(null)}>
+              Kapat
             </button>
           </div>
         </div>
