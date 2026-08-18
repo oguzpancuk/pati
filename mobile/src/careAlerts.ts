@@ -43,8 +43,10 @@ async function writeCooldown(map: Record<string, number>) {
 }
 
 /**
- * Kullanıcının bulunduğu yerin 500m çevresinde mama/su kalmadıysa (yeşil alan
- * solup bittiyse) cihaz üzerinde bir bildirim gösterir.
+ * Kullanıcının bulunduğu yerin yakın çevresinde mama/su kalmadıysa (yeşil alan
+ * solup bittiyse) cihaz üzerinde bir bildirim gösterir. Yarıçapı sunucu
+ * belirliyor ve haritadaki yeşil dairenin yarıçapıyla aynı: kırmızı zemindeyse
+ * uyarı gelir, yeşil zemindeyse gelmez.
  *
  * Sunucuya "bu kullanıcıya bildirim gönder" demek yerine cihazın kendi konumunu
  * kontrol etmesinin sebebi: konum sürekli sunucuya gönderilmediği için sunucu
@@ -75,7 +77,9 @@ export async function checkCareAndNotify(): Promise<boolean> {
   await ensureChannel();
   await notifee.displayNotification({
     title: 'Bu bölgede bakım gerekiyor',
-    body: `Bulunduğunuz konumun 500m çevresinde ${missing.join(' ve ')} bırakılmamış.`,
+    body: `Bulunduğunuz konumun ${foodStatus.radiusMeters}m çevresinde ${missing.join(
+      ' ve '
+    )} bırakılmamış.`,
     android: { channelId: CHANNEL_ID, pressAction: { id: 'default' } },
   });
 

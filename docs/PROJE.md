@@ -64,8 +64,9 @@ MVP tamamlandı ve uçtan uca test edildi. Aşağıdakilerin hepsi çalışır d
 - İşaretlenen noktanın 100 metre çevresi yeşile boyanıyor; mama 4, su 6 saatte
   kademeli olarak soluyor. Aynı noktaya ne kadar çok kişi bıraktıysa renk o
   kadar belirgin
-- Kullanıcının 500 metre çevresinde bakım yoksa haritanın üstünde uyarı bandı
-  çıkıyor
+- Kullanıcının 100 metre çevresinde (yeşil dairenin yarıçapıyla aynı) bakım
+  yoksa haritanın üstünde uyarı bandı çıkıyor — yani kırmızı zemindeyseniz
+  uyarılırsınız, yeşil zemindeyseniz uyarılmazsınız
 
 ### Hayvan profilleri
 - Manuel kayıt: en az 2 fotoğraf zorunlu, kedi/köpek için çoktan seçmeli
@@ -130,7 +131,7 @@ kapalıyken kazanılanlar profil ekranı açıldığında yakalanıyor.
   gider) ve son yorumlar — "Tümünü gör" ile tam yorum geçmişi
 
 ### Bildirimler
-- Uygulama açıkken 30 dakikada bir (ve öne her geldiğinde) kullanıcının 500
+- Uygulama açıkken 30 dakikada bir (ve öne her geldiğinde) kullanıcının 100
   metre çevresinde mama/su kalıp kalmadığı kontrol ediliyor; kalmadıysa cihaz
   üzerinde bildirim gösteriliyor
 - Aynı uyarı 6 saatte birden sık gönderilmiyor

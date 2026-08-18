@@ -10,7 +10,11 @@ const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const WINDOW_HOURS = { food: 4, water: 6 };
 const DEFAULT_WINDOW_HOURS = Math.max(WINDOW_HOURS.food, WINDOW_HOURS.water);
 const DEFAULT_RADIUS_METERS = 3000;
-const DEFAULT_STATUS_RADIUS_METERS = 500;
+// "Bu bölgede bakım eksik mi?" yarıçapı, haritadaki yeşil dairenin yarıçapıyla
+// aynı (100m). Böylece kural tek cümleye iniyor: kırmızı zemindeyseniz uyarı
+// alırsınız, yeşil zemindeyseniz almazsınız. Daha geniş bir yarıçap, iki sokak
+// ötedeki mamayı "buraya bakılıyor" saydığı için yanıltıcı oluyordu.
+const DEFAULT_STATUS_RADIUS_METERS = 100;
 // GPS hassasiyeti şehir içinde 5-20m arasında değişebiliyor; 10m sınırı dürüst
 // kullanıcıları da engelliyordu. 20m hâlâ fiilen oraya gitmeyi gerektiriyor.
 const MAX_DISTANCE_TO_PIN_METERS = 20;

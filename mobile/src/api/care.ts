@@ -12,9 +12,12 @@ export interface CareAction {
 
 export interface CareStatus {
   needsAttention: boolean;
-  actionCountLast24h: number;
+  actionCount: number;
   lastActionAt: string | null;
+  // Yarıçap ve pencere sunucudan geliyor; arayüz metinleri bu değerleri
+  // yazdırıyor ki iki tarafta ayrı ayrı güncellenmesi gerekmesin.
   radiusMeters: number;
+  windowHours: number;
 }
 
 export interface Bounds {

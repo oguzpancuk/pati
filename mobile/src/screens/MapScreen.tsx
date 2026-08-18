@@ -263,8 +263,8 @@ export default function MapScreen({ navigation }: any) {
       {status?.needsAttention && (
         <View style={styles.banner}>
           <Text style={styles.bannerText}>
-            Bulunduğunuz konumun 500m çevresinde son 24 saatte {viewType === 'food' ? 'mama' : 'su'}{' '}
-            bırakılmamış.
+            Bulunduğunuz konumun {status.radiusMeters}m çevresinde son{' '}
+            {status.windowHours} saatte {viewType === 'food' ? 'mama' : 'su'} bırakılmamış.
           </Text>
         </View>
       )}

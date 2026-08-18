@@ -40,7 +40,8 @@ stray/
 - Haritanın kırmızıdan yeşile boyanması: hiç bakım yoksa kırmızı, işaretlenen
   noktaların 100m çevresi yeşil. Yeşil, mama için 4 saatte, su için 6 saatte
   kademeli olarak solar; aynı noktaya ne kadar çok kişi bıraktıysa o kadar belirgin
-- Konum bazlı bakım eksikliği kontrolü (500m), Mama/Su haritaları ayrı ayrı
+- Konum bazlı bakım eksikliği kontrolü (100m — yeşil dairenin yarıçapıyla aynı,
+  yani kırmızı zemindeyseniz uyarılırsınız). Mama/Su haritaları ayrı ayrı
   görüntülenebilir. Bulunduğunuz bölgede yeşil alan söndüyse cihaz üzerinde
   bildirim gönderilir (arka plan konum izni gerekir, 6 saat bildirim aralığı)
 - Hayvan profili oluşturma (manuel, en az 2 fotoğraf zorunlu, kedi/köpek için
@@ -270,7 +271,8 @@ IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
    uyarılar buna dayanıyor).
 3. **Harita** sekmesinde Türkiye'nin tamamı görünür; henüz bakım yapılmamış yerler
    kırmızı, işaretlenmiş noktaların 100m çevresi yeşildir. Bulunduğunuz konumun
-   500m çevresinde bakım yoksa üstte kırmızı bir uyarı çıkar.
+   100m çevresinde bakım yoksa üstte kırmızı bir uyarı çıkar (yani kırmızı
+   zemindeyseniz uyarılırsınız, yeşil zemindeyseniz uyarılmazsınız).
 4. Mama/su bırakmak için **haritaya dokunarak bir pin bırakın** (kendi konum
    işaretinize dokunursanız pin doğrudan bulunduğunuz yere düşer), çıkan **Mama
    Bıraktım** / **Su Bıraktım** butonlarından birini seçin. Kamera açılır —
@@ -331,7 +333,7 @@ puana göre tüm kullanıcıları sıralar, eşit puanlılar aynı sırayı payl
 Kendi sıranız listenin üstünde ayrıca gösterilir ve listede vurgulanır.
 
 **Bildirimler:** Uygulama açıkken 30 dakikada bir (ve öne her geldiğinde)
-bulunduğunuz konumun 500m çevresinde mama/su kalıp kalmadığını kontrol eder;
+bulunduğunuz konumun 100m çevresinde mama/su kalıp kalmadığını kontrol eder;
 kalmadıysa cihaz üzerinde bildirim gösterir. Aynı uyarı 6 saatte birden sık
 gönderilmez. Arka planda da çalışabilmesi için "her zaman konum" izni istenir;
 vermezseniz uygulama çalışmaya devam eder, yalnızca uygulama kapalıyken uyarı
