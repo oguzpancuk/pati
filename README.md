@@ -450,6 +450,31 @@ Bkz. `mobile/src/location.ts`.
 
 ## Sık Karşılaşılan Sorunlar
 
+- **"Yeni tasarımı görmüyorum, uygulama hiç değişmemiş"**: Neredeyse her zaman
+  **eski uygulamayı** açıyorsunuzdur. Paket adı `com.straymobile` → `com.patiapp`
+  olarak değiştiği için yeni sürüm cihaza **ayrı bir uygulama** olarak kuruluyor;
+  eski olan ana ekranda duruyor ve dokununca eski hâli açılıyor. Sırayla:
+
+  ```bash
+  # 1. Kod gerçekten güncel mi?
+  cd Stray && git pull && git log --oneline -1     # en üstte "Karanlık mod, com.patiapp..." yazmalı
+
+  # 2. Eski uygulamayı cihazdan/emülatörden kaldırın
+  adb uninstall com.straymobile                    # Android
+  #   iOS: simülatörde eski ikona basılı tutup silin (Device > Erase All Content da olur)
+
+  # 3. Metro önbelleğini temizleyip yeniden derleyin
+  cd mobile
+  npm install
+  npx react-native start --reset-cache             # ayrı terminalde açık kalsın
+  npm run android                                  # ya da: npm run ios
+  ```
+
+  Ana ekranda **turuncu pati ikonu** görüyorsanız doğru uygulamadasınız; eski
+  yeşil robot ikonu eski kurulumdur.
+- **Yazılar hâlâ sistem fontunda / ikon eski**: Yazı tipi ve ikon native tarafta
+  yükleniyor. Sadece Metro'yu yeniden başlatmak yetmez, `npm run ios` /
+  `npm run android` ile **yeniden derlemek** gerekir (iOS'ta önce `pod install`).
 - **`git clone`/`push` "Invalid username or token"**: GitHub artık şifre kabul
   etmiyor, yukarıdaki 1. adımdaki gibi bir Personal Access Token kullanın.
 - **`ffi-*.gem requires ruby >= 3.0`**: Sistem Ruby'si eski, yukarıdaki 5a adımındaki
