@@ -27,7 +27,11 @@ export default function Modal({ title, hint, onClose, children, footer }: Props)
     >
       <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
         <h2>{title}</h2>
-        {hint && <p className="muted" style={{ margin: 0 }}>{hint}</p>}
+        {hint && (
+          <p className="muted" style={{ margin: 0 }}>
+            {hint}
+          </p>
+        )}
         {children}
         <div className="modal-actions">{footer}</div>
       </div>

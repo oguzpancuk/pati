@@ -274,7 +274,7 @@ export default function MapScreen({ navigation }: any) {
               tracksViewChanges={false}
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={36} />
+              <AnimalAvatar species={animal.species} breed={animal.breed} size={36} />
             </Marker>
           ))}
       </MapView>

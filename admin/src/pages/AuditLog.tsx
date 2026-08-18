@@ -31,10 +31,10 @@ const SLOT_LABELS: Record<string, string> = {
 };
 
 export default function AuditLog() {
-  const list = useList<AuditEntry>('/admin/audit-log', (d: {
-    entries: AuditEntry[];
-    total: number;
-  }) => ({ items: d.entries, total: d.total }));
+  const list = useList<AuditEntry>(
+    '/admin/audit-log',
+    (d: { entries: AuditEntry[]; total: number }) => ({ items: d.entries, total: d.total })
+  );
 
   return (
     <>

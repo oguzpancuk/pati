@@ -86,6 +86,7 @@ export interface AdminAnimal {
   photo_count: number;
   comment_count: number;
   carer_count: number;
+  vaccination_count: number;
 }
 
 export interface AdminCareAction {
@@ -97,6 +98,22 @@ export interface AdminCareAction {
   user_id: number;
   user_name: string;
   user_suspended_at: string | null;
+}
+
+export interface AdminVaccination {
+  id: number;
+  vaccine_type: string;
+  note: string | null;
+  vet_verified: boolean;
+  administered_at: string;
+  next_due_at: string | null;
+  recorded_at: string;
+  animal_id: number;
+  animal_name: string | null;
+  animal_species: 'cat' | 'dog';
+  animal_breed: string | null;
+  recorded_by_id: number;
+  recorded_by_name: string;
 }
 
 export interface AdminComment {
@@ -133,10 +150,13 @@ export interface DashboardStats {
     comments: number;
     health_records: number;
     recovered_records: number;
+    vaccinations: number;
+    vet_verified_vaccinations: number;
   };
   daily: { day: string; food: number; water: number; animals: number; comments: number }[];
   species: { species: 'cat' | 'dog'; count: number }[];
   healthRecordTypes: { record_type: string; count: number }[];
+  vaccineTypes: { vaccine_type: string; count: number }[];
 }
 
 export type AdSlot = 'food_popup' | 'water_popup' | 'vet_health_record';

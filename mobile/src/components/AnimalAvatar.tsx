@@ -1,50 +1,40 @@
 import React from 'react';
-import { Image, View } from 'react-native';
-import Icon from './brand/Icon';
-import { makeStyles, useTheme } from '../theme';
+import { View } from 'react-native';
+import AnimalPatternAvatar from './avatars/AnimalPatternAvatar';
+import { makeStyles } from '../theme';
 
 interface Props {
   species: 'cat' | 'dog';
-  photoUrl?: string | null;
+  breed?: string | null;
   size?: number;
 }
 
-// Hayvanın profil fotoğrafını yuvarlak olarak gösterir; fotoğraf yoksa aynı
-// yuvarlak çerçeveyi koruyan bir pati ikonu çizilir (haritada boş kutu
-// görünmesin). Emoji yerine ikon: her cihazda aynı çiziliyor ve marka rengini
-// alabiliyor.
-export default function AnimalAvatar({ species, photoUrl, size = 36 }: Props) {
+/**
+ * Hayvanın yuvarlak "yüzü": her yerde (harita, listeler, yorumlar) tür/desene
+ * göre çizilen karikatür avatar. Fotoğraf bilerek kullanılmıyor — sokak
+ * fotoğrafları küçük yuvarlakta çoğu zaman seçilemiyordu ve her hayvanın
+ * görünümü fotoğraf kalitesine göre değişiyordu. Fotoğraflar profildeki
+ * galeride duruyor; avatar ise desenin tutarlı temsili (bkz.
+ * avatars/AnimalPatternAvatar).
+ */
+export default function AnimalAvatar({ species, breed, size = 36 }: Props) {
   const styles = useStyles();
-  const { colors } = useTheme();
-  const frame = {
-    width: size,
-    height: size,
-    borderRadius: size / 2,
-  };
-
-  if (photoUrl) {
-    return <Image source={{ uri: photoUrl }} style={[styles.avatar, frame]} />;
-  }
-
   return (
-    <View style={[styles.avatar, styles.placeholder, frame]}>
-      <Icon
-        name="paw"
-        size={size * 0.58}
-        color={species === 'cat' ? colors.brand : colors.brandDark}
-      />
+    <View style={[styles.frame, { width: size, height: size, borderRadius: size / 2 }]}>
+      <AnimalPatternAvatar species={species} breed={breed} size={size - 4} />
     </View>
   );
 }
 
 const useStyles = makeStyles(({ colors: c }) => ({
-  avatar: {
+  // Beyaz halka haritada zeminden ayrışmak için; avatar kendi zemin rengini
+  // getirdiği için ekstra dolgu yok.
+  frame: {
     borderWidth: 2,
     borderColor: c.surface,
-    backgroundColor: c.brandTint,
-  },
-  placeholder: {
-    justifyContent: 'center',
+    backgroundColor: c.surface,
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
 }));

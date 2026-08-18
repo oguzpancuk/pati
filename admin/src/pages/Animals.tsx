@@ -39,8 +39,8 @@ export default function Animals() {
     <>
       <h1>Hayvanlar</h1>
       <p className="page-hint">
-        Kayıtları düzenleyin, silin veya mükerrer kayıtları birleştirin. Birleştirme, kaynak
-        kaydın fotoğraflarını, yorumlarını, sağlık kayıtlarını ve bakım verenlerini hedefe taşır.
+        Kayıtları düzenleyin, silin veya mükerrer kayıtları birleştirin. Birleştirme, kaynak kaydın
+        fotoğraflarını, yorumlarını, sağlık kayıtlarını ve bakım verenlerini hedefe taşır.
       </p>
 
       <form
@@ -86,9 +86,10 @@ export default function Animals() {
             <tr>
               <th></th>
               <th>Hayvan</th>
-              <th>Tür / cins</th>
+              <th>Tür / Desen</th>
               <th>Foto</th>
               <th>Yorum</th>
+              <th>Aşı</th>
               <th>Bakıcı</th>
               <th>Konum</th>
               <th>Ekleyen</th>
@@ -116,6 +117,7 @@ export default function Animals() {
                 </td>
                 <td className="num">{animal.photo_count}</td>
                 <td className="num">{animal.comment_count}</td>
+                <td className="num">{animal.vaccination_count}</td>
                 <td className="num">{animal.carer_count}</td>
                 <td className="num muted mono">{formatPoint(animal.location)}</td>
                 <td>{animal.created_by_name}</td>
@@ -308,8 +310,8 @@ function MergeModal({
       </label>
       <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 14 }}>
         Kaynak kaydın fotoğrafları, yorumları, sağlık kayıtları ve bakım verenleri
-        <strong> #{animal.id}</strong> numaralı kayda taşınır, ardından kaynak kayıt silinir.
-        Bu işlem geri alınamaz.
+        <strong> #{animal.id}</strong> numaralı kayda taşınır, ardından kaynak kayıt silinir. Bu
+        işlem geri alınamaz.
       </p>
     </Modal>
   );

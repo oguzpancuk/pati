@@ -48,7 +48,7 @@ function filterBuilder() {
 
 async function getStats(req, res, next) {
   try {
-    const [totals, daily, species, health] = await Promise.all([
+    const [totals, daily, species, health, vaccines] = await Promise.all([
       pool.query(
         `SELECT
            (SELECT count(*) FROM users)::int AS users,
@@ -59,7 +59,9 @@ async function getStats(req, res, next) {
            (SELECT count(*) FROM care_actions WHERE created_at > now() - interval '24 hours')::int AS care_actions_24h,
            (SELECT count(*) FROM animal_comments)::int AS comments,
            (SELECT count(*) FROM health_records)::int AS health_records,
-           (SELECT count(*) FROM health_records WHERE recovered_at IS NOT NULL)::int AS recovered_records`
+           (SELECT count(*) FROM health_records WHERE recovered_at IS NOT NULL)::int AS recovered_records,
+           (SELECT count(*) FROM vaccinations)::int AS vaccinations,
+           (SELECT count(*) FROM vaccinations WHERE vet_verified)::int AS vet_verified_vaccinations`
       ),
       // Son 30 günün günlük aktivitesi. generate_series ile boş günler de 0 olarak
       // dönüyor; aksi halde grafikte günler atlanmış gibi görünüyor.
@@ -91,6 +93,10 @@ async function getStats(req, res, next) {
         `SELECT record_type, count(*)::int AS count FROM health_records
          GROUP BY record_type ORDER BY count DESC`
       ),
+      pool.query(
+        `SELECT vaccine_type, count(*)::int AS count FROM vaccinations
+         GROUP BY vaccine_type ORDER BY count DESC`
+      ),
     ]);
 
     res.json({
@@ -98,6 +104,7 @@ async function getStats(req, res, next) {
       daily: daily.rows,
       species: species.rows,
       healthRecordTypes: health.rows,
+      vaccineTypes: vaccines.rows,
     });
   } catch (err) {
     next(err);
@@ -222,7 +229,8 @@ async function listAnimals(req, res, next) {
                 cover.url AS cover_photo_url,
                 (SELECT count(*) FROM animal_photos p WHERE p.animal_id = a.id)::int AS photo_count,
                 (SELECT count(*) FROM animal_comments c WHERE c.animal_id = a.id)::int AS comment_count,
-                (SELECT count(*) FROM user_animal_care uac WHERE uac.animal_id = a.id)::int AS carer_count
+                (SELECT count(*) FROM user_animal_care uac WHERE uac.animal_id = a.id)::int AS carer_count,
+                (SELECT count(*) FROM vaccinations v WHERE v.animal_id = a.id)::int AS vaccination_count
          FROM animals a
          JOIN users u ON u.id = a.created_by
          LEFT JOIN LATERAL (
@@ -404,7 +412,10 @@ async function listCareActions(req, res, next) {
          ${paged.limitClause}`,
         paged.params
       ),
-      pool.query(`SELECT count(*)::int AS count FROM care_actions c ${filter.where}`, filter.params),
+      pool.query(
+        `SELECT count(*)::int AS count FROM care_actions c ${filter.where}`,
+        filter.params
+      ),
     ]);
 
     res.json({ careActions: rows.rows, total: total.rows[0].count });
@@ -438,6 +449,79 @@ async function deleteCareAction(req, res, next) {
 // -------------------------------------------------------------------------
 // Yorumlar
 // -------------------------------------------------------------------------
+
+/**
+ * Aşı kayıtları moderasyonu. Not alanı serbest metin olduğu için kötüye
+ * kullanılabiliyor; admin görüp silebilmeli. Silme audit_log'a yazılır.
+ */
+async function listVaccinations(req, res, next) {
+  try {
+    const { limit, offset } = pagination(req);
+    const q = (req.query.q || '').trim();
+    const vetVerified = req.query.vetVerified;
+
+    const filter = filterBuilder();
+    if (q) {
+      filter.add(
+        (i) => `(v.vaccine_type ILIKE $${i} OR v.note ILIKE $${i} OR a.name ILIKE $${i})`,
+        `%${q}%`
+      );
+    }
+    if (vetVerified === 'true') filter.add((i) => `v.vet_verified = $${i}`, true);
+    const paged = filter.paged(limit, offset);
+
+    const [rows, total] = await Promise.all([
+      pool.query(
+        `SELECT v.id, v.vaccine_type, v.note, v.vet_verified, v.administered_at,
+                v.next_due_at, v.recorded_at,
+                a.id AS animal_id, a.name AS animal_name, a.species AS animal_species,
+                a.breed AS animal_breed,
+                u.id AS recorded_by_id, u.name AS recorded_by_name
+         FROM vaccinations v
+         JOIN animals a ON a.id = v.animal_id
+         JOIN users u ON u.id = v.recorded_by
+         ${filter.where}
+         ORDER BY v.administered_at DESC
+         ${paged.limitClause}`,
+        paged.params
+      ),
+      pool.query(
+        `SELECT count(*)::int AS count
+         FROM vaccinations v
+         JOIN animals a ON a.id = v.animal_id
+         ${filter.where}`,
+        filter.params
+      ),
+    ]);
+
+    res.json({ vaccinations: rows.rows, total: total.rows[0].count });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteVaccination(req, res, next) {
+  try {
+    const targetId = Number(req.params.id);
+    const { reason } = req.body || {};
+    const result = await pool.query(
+      `DELETE FROM vaccinations WHERE id = $1
+       RETURNING id, animal_id, vaccine_type, note, vet_verified, recorded_by, administered_at`,
+      [targetId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Aşı kaydı bulunamadı' });
+    }
+
+    await writeAuditLog(req.user.userId, 'vaccination.delete', 'vaccination', targetId, {
+      ...result.rows[0],
+      reason: reason || null,
+    });
+    res.json({ deleted: true, vaccination: result.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+}
 
 async function listComments(req, res, next) {
   try {
@@ -699,6 +783,8 @@ module.exports = {
   mergeAnimals,
   listCareActions,
   deleteCareAction,
+  listVaccinations,
+  deleteVaccination,
   listComments,
   deleteComment,
   listAdvertisers,

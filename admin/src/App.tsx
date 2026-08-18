@@ -9,6 +9,7 @@ import Comments from './pages/Comments';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Users from './pages/Users';
+import Vaccinations from './pages/Vaccinations';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="users" element={<Users />} />
         <Route path="animals" element={<Animals />} />
         <Route path="care-actions" element={<CareActions />} />
+        <Route path="vaccinations" element={<Vaccinations />} />
         <Route path="comments" element={<Comments />} />
         <Route path="advertisers" element={<Advertisers />} />
         <Route path="audit-log" element={<AuditLog />} />

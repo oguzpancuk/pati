@@ -35,10 +35,9 @@ async function syncBadgeAwards(userId) {
   // controller'ı badges util'ini kullanıyor, biz de ikisini birden kullanıyoruz.
   const { getUserRank } = require('../controllers/leaderboard.controller');
 
-  const snapshot = await pool.query(
-    'SELECT last_rank, last_points FROM users WHERE id = $1',
-    [userId]
-  );
+  const snapshot = await pool.query('SELECT last_rank, last_points FROM users WHERE id = $1', [
+    userId,
+  ]);
   const previous = snapshot.rows[0] || { last_rank: null, last_points: 0 };
 
   const rank = await getUserRank(userId);

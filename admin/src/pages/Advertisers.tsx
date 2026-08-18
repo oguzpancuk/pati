@@ -59,8 +59,8 @@ export default function Advertisers() {
     <>
       <h1>Reklamlar</h1>
       <p className="page-hint">
-        Markalar buradan girilir. Aynı yerleşimdeki markalar sırayla gösterilir — kullanıcı
-        pop-up'ı her açtığında sıradaki markayı görür.
+        Markalar buradan girilir. Aynı yerleşimdeki markalar sırayla gösterilir — kullanıcı pop-up'ı
+        her açtığında sıradaki markayı görür.
       </p>
 
       <div className="toolbar">
@@ -186,8 +186,8 @@ export default function Advertisers() {
           }
         >
           <p style={{ marginBottom: 0 }}>
-            Geçmiş gösterim ve tık sayıları raporlardan düşer. Kampanyayı geçici olarak
-            durdurmak istiyorsanız silmek yerine <strong>Durdur</strong>'u kullanın.
+            Geçmiş gösterim ve tık sayıları raporlardan düşer. Kampanyayı geçici olarak durdurmak
+            istiyorsanız silmek yerine <strong>Durdur</strong>'u kullanın.
           </p>
         </Modal>
       )}
@@ -332,7 +332,11 @@ function AdvertiserModal({
 
       <label className="field">
         <span>Sıra (aynı yerleşimde küçük olan önce gösterilir)</span>
-        <input value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} inputMode="numeric" />
+        <input
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+          inputMode="numeric"
+        />
       </label>
 
       <label className="field">

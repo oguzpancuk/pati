@@ -1,9 +1,10 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, FlatList, Image, View } from 'react-native';
+import { Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
 import { getCurrentLocation } from '../location';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
+import AnimalAvatar from '../components/AnimalAvatar';
 import { Icon } from '../components/brand';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
 
@@ -95,13 +96,9 @@ export default function AnimalsScreen({ navigation }: any) {
             style={styles.row}
             onPress={() => navigation.navigate('AnimalProfile', { animalId: item.id })}
           >
-            {item.cover_photo_url ? (
-              <Image source={{ uri: item.cover_photo_url }} style={styles.thumbnail} />
-            ) : (
-              <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-                <Icon name="paw" size={26} color={colors.brand} />
-              </View>
-            )}
+            {/* Liste görseli de desen avatarı: fotoğraf kalitesinden bağımsız,
+                tür/desen bir bakışta ayırt ediliyor. */}
+            <AnimalAvatar species={item.species} breed={item.breed} size={52} />
             <View style={styles.rowText}>
               <Text variant="subheading" numberOfLines={1}>
                 {item.name ?? (item.species === 'cat' ? 'Kedi' : 'Köpek')}
@@ -144,17 +141,5 @@ const useStyles = makeStyles(({ colors: c }) => ({
   filterRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
-  thumbnail: {
-    width: 54,
-    height: 54,
-    borderRadius: radius.md,
-    marginRight: spacing.md,
-    backgroundColor: c.skeleton,
-  },
-  thumbnailPlaceholder: {
-    backgroundColor: c.brandTint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rowText: { flex: 1, marginRight: spacing.sm },
+  rowText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
 }));

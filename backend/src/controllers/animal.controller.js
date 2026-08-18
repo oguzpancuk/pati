@@ -29,8 +29,7 @@ const HEALTH_RECORD_SELECT_SQL = `
 const VACCINATION_SELECT_SQL = `
   SELECT v.id, v.vaccine_type, v.note, v.vet_verified, v.administered_at, v.next_due_at,
          v.recorded_by, v.recorded_at,
-         u.name AS recorded_by_name,
-         (SELECT count(*) FROM animal_comments c WHERE c.vaccination_id = v.id)::int AS comment_count
+         u.name AS recorded_by_name
   FROM vaccinations v
   JOIN users u ON u.id = v.recorded_by
 `;
@@ -99,7 +98,10 @@ async function getAnimal(req, res, next) {
     }
 
     const [photos, healthRecords, vaccinations, carers] = await Promise.all([
-      pool.query('SELECT id, url, uploaded_by, created_at FROM animal_photos WHERE animal_id = $1 ORDER BY created_at DESC', [req.params.id]),
+      pool.query(
+        'SELECT id, url, uploaded_by, created_at FROM animal_photos WHERE animal_id = $1 ORDER BY created_at DESC',
+        [req.params.id]
+      ),
       pool.query(
         `${HEALTH_RECORD_SELECT_SQL}
          WHERE h.animal_id = $1
@@ -193,7 +195,16 @@ async function createAnimal(req, res, next) {
       `INSERT INTO animals (species, name, color, breed, markings, location, created_by)
        VALUES ($1, $2, $3, $4, $5, ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography, $8)
        RETURNING id, species, name, color, breed, markings, created_at`,
-      [species, name || null, color || null, breed || null, markings || null, lng, lat, req.user.userId]
+      [
+        species,
+        name || null,
+        color || null,
+        breed || null,
+        markings || null,
+        lng,
+        lat,
+        req.user.userId,
+      ]
     );
 
     const animal = result.rows[0];
@@ -356,27 +367,22 @@ async function addVaccination(req, res, next) {
 }
 
 const COMMENT_SELECT_SQL = `
-  SELECT c.id, c.body, c.created_at, c.health_record_id, c.vaccination_id,
+  SELECT c.id, c.body, c.created_at, c.health_record_id,
          u.id AS user_id, u.name AS user_name, u.avatar_url,
-         h.record_type AS health_record_type, h.description AS health_record_description,
-         v.vaccine_type AS vaccination_type
+         h.record_type AS health_record_type, h.description AS health_record_description
   FROM animal_comments c
   JOIN users u ON u.id = c.user_id
   LEFT JOIN health_records h ON h.id = c.health_record_id
-  LEFT JOIN vaccinations v ON v.id = c.vaccination_id
 `;
 
 async function listComments(req, res, next) {
   try {
-    const { healthRecordId, vaccinationId } = req.query;
+    const { healthRecordId } = req.query;
     const params = [req.params.id];
     let filter = '';
     if (healthRecordId) {
       params.push(healthRecordId);
       filter = `AND c.health_record_id = $${params.length}`;
-    } else if (vaccinationId) {
-      params.push(vaccinationId);
-      filter = `AND c.vaccination_id = $${params.length}`;
     }
 
     const result = await pool.query(
@@ -394,7 +400,7 @@ async function listComments(req, res, next) {
 
 async function addComment(req, res, next) {
   try {
-    const { body, healthRecordId, vaccinationId } = req.body;
+    const { body, healthRecordId } = req.body;
     if (!body || !String(body).trim()) {
       return res.status(400).json({ error: 'body zorunludur' });
     }
@@ -402,14 +408,6 @@ async function addComment(req, res, next) {
     const animalCheck = await pool.query('SELECT id FROM animals WHERE id = $1', [req.params.id]);
     if (animalCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
-    }
-
-    // Bir yorum ya sağlık kaydına ya aşıya bağlanır; ikisi birden olamaz
-    // (veritabanında da CHECK ile korunuyor).
-    if (healthRecordId && vaccinationId) {
-      return res
-        .status(400)
-        .json({ error: 'Yorum aynı anda hem sağlık kaydına hem aşıya bağlanamaz' });
     }
 
     if (healthRecordId) {
@@ -425,16 +423,6 @@ async function addComment(req, res, next) {
       }
     }
 
-    if (vaccinationId) {
-      const vaccineCheck = await pool.query(
-        'SELECT id FROM vaccinations WHERE id = $1 AND animal_id = $2',
-        [vaccinationId, req.params.id]
-      );
-      if (vaccineCheck.rows.length === 0) {
-        return res.status(400).json({ error: 'Aşı kaydı bu hayvana ait değil' });
-      }
-    }
-
     // Yorum yapmak, kişiyi bu hayvanın bakım listesine de ekler: sohbete katılan
     // herkes fiilen o hayvanla ilgileniyor demektir.
     await pool.query(
@@ -443,15 +431,9 @@ async function addComment(req, res, next) {
     );
 
     const inserted = await pool.query(
-      `INSERT INTO animal_comments (animal_id, user_id, health_record_id, vaccination_id, body)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [
-        req.params.id,
-        req.user.userId,
-        healthRecordId || null,
-        vaccinationId || null,
-        String(body).trim(),
-      ]
+      `INSERT INTO animal_comments (animal_id, user_id, health_record_id, body)
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [req.params.id, req.user.userId, healthRecordId || null, String(body).trim()]
     );
 
     const result = await pool.query(`${COMMENT_SELECT_SQL} WHERE c.id = $1`, [inserted.rows[0].id]);

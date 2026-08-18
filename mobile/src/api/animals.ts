@@ -46,7 +46,6 @@ export interface Vaccination {
   recorded_by: number;
   recorded_by_name?: string;
   recorded_at: string;
-  comment_count: number;
 }
 
 export interface AnimalPhoto {
@@ -60,13 +59,11 @@ export interface AnimalComment {
   body: string;
   created_at: string;
   health_record_id: number | null;
-  vaccination_id: number | null;
   user_id: number;
   user_name: string;
   avatar_url: string | null;
   health_record_type: HealthRecordType | null;
   health_record_description: string | null;
-  vaccination_type: string | null;
 }
 
 export interface Carer {
@@ -181,20 +178,16 @@ export async function reportSighting(animalId: number, lat: number, lng: number)
 }
 
 /**
- * Bir yorum ya bir sağlık kaydına ya bir aşı kaydına bağlanabilir, ikisine
- * birden değil. Sunucu da aynı kısıtı uyguluyor (animal_comments tablosundaki
- * CHECK), o yüzden burada tek bir "hedef" nesnesi geçiriliyor.
+ * Yorumlar yalnızca hayvana ya da bir sağlık kaydına bağlanabiliyor. Aşı
+ * kayıtlarının sohbeti yok: aşı tek seferlik bir olay, takip edilecek bir
+ * süreci yok.
  */
-export type CommentTarget =
-  | { healthRecordId: number; vaccinationId?: undefined }
-  | { vaccinationId: number; healthRecordId?: undefined };
-
 export async function fetchAnimalComments(
   animalId: number,
-  target?: CommentTarget
+  healthRecordId?: number
 ): Promise<AnimalComment[]> {
   const { data } = await apiClient.get<AnimalComment[]>(`/animals/${animalId}/comments`, {
-    params: target,
+    params: healthRecordId ? { healthRecordId } : undefined,
   });
   return data;
 }
@@ -202,11 +195,11 @@ export async function fetchAnimalComments(
 export async function addAnimalComment(
   animalId: number,
   body: string,
-  target?: CommentTarget
+  healthRecordId?: number
 ): Promise<AnimalComment & WithNewBadges> {
   const { data } = await apiClient.post<AnimalComment & WithNewBadges>(
     `/animals/${animalId}/comments`,
-    { body, ...target }
+    { body, healthRecordId }
   );
   return data;
 }

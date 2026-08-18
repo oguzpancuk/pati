@@ -9,10 +9,10 @@ export default function Comments() {
   const [deleting, setDeleting] = useState<AdminComment | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const list = useList<AdminComment>('/admin/comments', (d: {
-    comments: AdminComment[];
-    total: number;
-  }) => ({ items: d.comments, total: d.total }));
+  const list = useList<AdminComment>(
+    '/admin/comments',
+    (d: { comments: AdminComment[]; total: number }) => ({ items: d.comments, total: d.total })
+  );
 
   return (
     <>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { patiAvatarSvg } from '../patiAvatar';
 import { AdminUser, api } from '../api';
 import Modal from '../components/Modal';
 import Pager from '../components/Pager';
@@ -27,8 +28,7 @@ export default function Users() {
     <>
       <h1>Kullanıcılar</h1>
       <p className="page-hint">
-        Rol değiştirme ve askıya alma. Askıya alınan hesap token'ı elinde olsa bile API'ye
-        erişemez.
+        Rol değiştirme ve askıya alma. Askıya alınan hesap token'ı elinde olsa bile API'ye erişemez.
       </p>
 
       <form
@@ -81,15 +81,7 @@ export default function Users() {
             {list.items.map((user) => (
               <tr key={user.id}>
                 <td>
-                  {/* avatar_url ya yüklenmiş bir fotoğrafın adresi ya da
-                      "pati-avatar:f3" gibi hazır avatar anahtarı olabiliyor
-                      (bkz. backend/src/utils/avatars.js). İkincisi bir URL
-                      değil; <img> içine konursa kırık görsel çıkar. */}
-                  {user.avatar_url && !user.avatar_url.startsWith('pati-avatar:') ? (
-                    <img className="thumb round" src={user.avatar_url} alt="" />
-                  ) : (
-                    <div className="thumb round" />
-                  )}
+                  <UserThumb avatarUrl={user.avatar_url} />
                 </td>
                 <td>
                   <div>{user.name}</div>
@@ -122,12 +114,7 @@ export default function Users() {
         {list.loading && <div className="empty">Yükleniyor…</div>}
       </div>
 
-      <Pager
-        offset={list.offset}
-        limit={list.limit}
-        total={list.total}
-        onChange={list.setOffset}
-      />
+      <Pager offset={list.offset} limit={list.limit} total={list.total} onChange={list.setOffset} />
 
       {editing && (
         <EditUserModal
@@ -231,4 +218,21 @@ function EditUserModal({
       )}
     </Modal>
   );
+}
+
+/**
+ * Kullanıcı görseli: yüklenmiş fotoğraf, hazır avatar (pati-avatar:*) ya da
+ * boş daire. Avatar SVG'si kendi ürettiğimiz statik işaretleme olduğu için
+ * dangerouslySetInnerHTML burada güvenli; kullanıcı girdisi HTML'e karışmıyor
+ * (tanınmayan anahtar null döner, boş daire çizilir).
+ */
+function UserThumb({ avatarUrl }: { avatarUrl: string | null }) {
+  const svg = patiAvatarSvg(avatarUrl, 40);
+  if (svg) {
+    return <div className="thumb round" dangerouslySetInnerHTML={{ __html: svg }} />;
+  }
+  if (avatarUrl && !avatarUrl.startsWith('pati-avatar:')) {
+    return <img className="thumb round" src={avatarUrl} alt="" />;
+  }
+  return <div className="thumb round" />;
 }

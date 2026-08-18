@@ -25,8 +25,8 @@ export default function CareActions() {
     <>
       <h1>Bakım Kayıtları</h1>
       <p className="page-hint">
-        Fotoğraf moderasyonu. Kanıt fotoğrafı gerçekten mama/su göstermiyorsa kaydı silin —
-        silinen kayıt haritadan da kalkar ve kullanıcının serisini etkiler.
+        Fotoğraf moderasyonu. Kanıt fotoğrafı gerçekten mama/su göstermiyorsa kaydı silin — silinen
+        kayıt haritadan da kalkar ve kullanıcının serisini etkiler.
       </p>
 
       <div className="toolbar">

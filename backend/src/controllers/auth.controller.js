@@ -1,8 +1,19 @@
 const bcrypt = require('bcrypt');
 const pool = require('../config/db');
 const { signToken } = require('../utils/jwt');
+const { AVATAR_KEYS, AVATAR_PREFIX } = require('../utils/avatars');
 
 const SALT_ROUNDS = 10;
+
+/**
+ * Yeni hesaba rastgele bir hazır avatar. Boş (baş harfli) profillerle dolu bir
+ * sohbet uygulamayı terk edilmiş gösteriyordu; rastgele atama bir başlangıç
+ * değeri, dayatma değil — kullanıcı profilinden istediğine değiştirebilir ya
+ * da fotoğraf yükleyebilir.
+ */
+function randomAvatarValue() {
+  return `${AVATAR_PREFIX}${AVATAR_KEYS[Math.floor(Math.random() * AVATAR_KEYS.length)]}`;
+}
 
 async function register(req, res, next) {
   try {
@@ -21,8 +32,10 @@ async function register(req, res, next) {
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     const result = await pool.query(
-      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, role, created_at',
-      [name, email, passwordHash]
+      `INSERT INTO users (name, email, password_hash, avatar_url)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, email, role, avatar_url, created_at`,
+      [name, email, passwordHash, randomAvatarValue()]
     );
 
     const user = result.rows[0];
@@ -41,7 +54,7 @@ async function login(req, res, next) {
     }
 
     const result = await pool.query(
-      'SELECT id, name, email, password_hash, role FROM users WHERE email = $1',
+      'SELECT id, name, email, password_hash, role, avatar_url FROM users WHERE email = $1',
       [email]
     );
     const user = result.rows[0];

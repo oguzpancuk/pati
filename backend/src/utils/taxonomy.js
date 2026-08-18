@@ -55,12 +55,19 @@ const ILLNESSES = [
   'Göz enfeksiyonu',
 ];
 
+/**
+ * Yaralanma başlıkları **nedeni değil yarayı** tarif ediyor: "trafik kazası"
+ * gibi bir neden kaydı gören gönüllüye ne yapacağını söylemiyor ve çoğu zaman
+ * tahminden ibaret (kimse kazayı görmedi). Yaranın nerede ve ne tür olduğu ise
+ * hem gözle doğrulanabiliyor hem de "yaklaşılır mı, veteriner şart mı"
+ * sorusunu cevaplıyor.
+ */
 const INJURIES = [
-  'Trafik kazası',
-  'Kavga yarası',
-  'Kırık',
-  'Kesik / delici yara',
-  'Yanık / zehirlenme',
+  'Bacak/pati yarası',
+  'Baş/göz yarası',
+  'Gövde/sırt yarası',
+  'Kuyruk/kulak yarası',
+  'Kırık / topallama',
 ];
 
 /**

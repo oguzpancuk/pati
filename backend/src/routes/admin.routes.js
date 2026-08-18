@@ -11,6 +11,8 @@ const {
   mergeAnimals,
   listCareActions,
   deleteCareAction,
+  listVaccinations,
+  deleteVaccination,
   listComments,
   deleteComment,
   listAdvertisers,
@@ -38,6 +40,9 @@ router.post('/animals/:id/merge', mergeAnimals);
 
 router.get('/care-actions', listCareActions);
 router.delete('/care-actions/:id', deleteCareAction);
+
+router.get('/vaccinations', listVaccinations);
+router.delete('/vaccinations/:id', deleteVaccination);
 
 router.get('/comments', listComments);
 router.delete('/comments/:id', deleteComment);

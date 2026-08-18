@@ -164,7 +164,7 @@ export default function AddAnimalScreen({ navigation }: any) {
             style={styles.nearbyRow}
             onPress={() => handleExistingAnimal(animal)}
           >
-            <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={52} />
+            <AnimalAvatar species={animal.species} breed={animal.breed} size={52} />
             <View style={styles.nearbyText}>
               <Text variant="subheading" numberOfLines={1}>
                 {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}

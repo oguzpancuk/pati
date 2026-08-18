@@ -6,6 +6,7 @@ const LINKS = [
   { to: '/users', label: 'Kullanıcılar' },
   { to: '/animals', label: 'Hayvanlar' },
   { to: '/care-actions', label: 'Bakım Kayıtları' },
+  { to: '/vaccinations', label: 'Aşı Kayıtları' },
   { to: '/comments', label: 'Yorumlar' },
   { to: '/advertisers', label: 'Reklamlar' },
   { to: '/audit-log', label: 'Denetim Kaydı' },

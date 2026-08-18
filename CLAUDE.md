@@ -79,7 +79,9 @@ doğrulamayı gerçekten çalıştırın, "muhtemelen çalışır" demeyin.
 - **Font ve uygulama ikonu değişiklikleri native build ister** — Metro'yu
   yeniden başlatmak yetmez, `npm run ios` / `npm run android` gerekir.
 - Android emülatörü backend'e `10.0.2.2:3000` üzerinden bağlanır.
-- Seed script iki kere çalışmaz; sıfırdan üretmek için veritabanını sıfırlayın.
+- Seed script her çalıştırmada **tüm veriyi siler** (TRUNCATE, admin dahil) ve
+  taze üretir; bugünün mama/su kayıtları son 1 saate düşer ki harita canlı
+  doğsun. Üretim veritabanında asla çalıştırmayın.
 
 ## Çalışma şekli
 

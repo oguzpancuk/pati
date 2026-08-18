@@ -40,20 +40,93 @@ const CENTER = { lat: 40.9905, lng: 29.0277 };
 const SPREAD_DEG = 0.012; // ~1.3 km
 
 const FIRST_NAMES = [
-  'Ayşe', 'Mehmet', 'Fatma', 'Ahmet', 'Emine', 'Mustafa', 'Hatice', 'Ali', 'Zeynep', 'Hüseyin',
-  'Elif', 'Hasan', 'Meryem', 'İbrahim', 'Şerife', 'Murat', 'Zehra', 'Osman', 'Sultan', 'Yusuf',
-  'Merve', 'Kemal', 'Esra', 'Burak', 'Selin', 'Cem', 'Deniz', 'Ece', 'Kaan', 'Nur',
+  'Ayşe',
+  'Mehmet',
+  'Fatma',
+  'Ahmet',
+  'Emine',
+  'Mustafa',
+  'Hatice',
+  'Ali',
+  'Zeynep',
+  'Hüseyin',
+  'Elif',
+  'Hasan',
+  'Meryem',
+  'İbrahim',
+  'Şerife',
+  'Murat',
+  'Zehra',
+  'Osman',
+  'Sultan',
+  'Yusuf',
+  'Merve',
+  'Kemal',
+  'Esra',
+  'Burak',
+  'Selin',
+  'Cem',
+  'Deniz',
+  'Ece',
+  'Kaan',
+  'Nur',
 ];
 const LAST_NAMES = [
-  'Yılmaz', 'Kaya', 'Demir', 'Şahin', 'Çelik', 'Yıldız', 'Yıldırım', 'Öztürk', 'Aydın', 'Özdemir',
-  'Arslan', 'Doğan', 'Kılıç', 'Aslan', 'Çetin', 'Kara', 'Koç', 'Kurt', 'Özkan', 'Şimşek',
+  'Yılmaz',
+  'Kaya',
+  'Demir',
+  'Şahin',
+  'Çelik',
+  'Yıldız',
+  'Yıldırım',
+  'Öztürk',
+  'Aydın',
+  'Özdemir',
+  'Arslan',
+  'Doğan',
+  'Kılıç',
+  'Aslan',
+  'Çetin',
+  'Kara',
+  'Koç',
+  'Kurt',
+  'Özkan',
+  'Şimşek',
 ];
 
-const CAT_NAMES = ['Pamuk', 'Duman', 'Tekir', 'Boncuk', 'Zeytin', 'Mırnav', 'Karamel', 'Şeker', 'Minnoş', 'Pofuduk'];
-const DOG_NAMES = ['Karabaş', 'Çomar', 'Paşa', 'Bobi', 'Kont', 'Fındık', 'Zorro', 'Leo', 'Rex', 'Maya'];
+const CAT_NAMES = [
+  'Pamuk',
+  'Duman',
+  'Tekir',
+  'Boncuk',
+  'Zeytin',
+  'Mırnav',
+  'Karamel',
+  'Şeker',
+  'Minnoş',
+  'Pofuduk',
+];
+const DOG_NAMES = [
+  'Karabaş',
+  'Çomar',
+  'Paşa',
+  'Bobi',
+  'Kont',
+  'Fındık',
+  'Zorro',
+  'Leo',
+  'Rex',
+  'Maya',
+];
 const MARKINGS = [
-  'Sol kulakta çentik', 'Kuyruğu kısa', 'Gözlerinin etrafı koyu', 'Boynunda beyaz leke',
-  'Sağ ön ayağı beyaz', 'Sırtında çizgiler', null, null,
+  'Sol kulakta çentik',
+  'Kuyruğu kısa',
+  'Gözlerinin etrafı koyu',
+  'Boynunda beyaz leke',
+  'Sağ ön ayağı beyaz',
+  'Sırtında çizgiler',
+  null,
+  null,
 ];
 
 const COMMENT_TEMPLATES = [
@@ -78,18 +151,48 @@ const COMMENT_TEMPLATES = [
 const SHOWCASE_CATS = [
   { name: 'Boncuk', breed: CAT_PATTERNS[0], color: CAT_COLORS[0], markings: 'Sol kulakta çentik' },
   { name: 'Zeytin', breed: CAT_PATTERNS[1], color: CAT_COLORS[1], markings: 'Kuyruğu kalın' },
-  { name: 'Duman', breed: CAT_PATTERNS[2], color: CAT_COLORS[2], markings: 'Göğsünde küçük beyaz leke' },
-  { name: 'Şeker', breed: CAT_PATTERNS[3], color: CAT_COLORS[4], markings: 'Burnunun yarısı siyah' },
+  {
+    name: 'Duman',
+    breed: CAT_PATTERNS[2],
+    color: CAT_COLORS[2],
+    markings: 'Göğsünde küçük beyaz leke',
+  },
+  {
+    name: 'Şeker',
+    breed: CAT_PATTERNS[3],
+    color: CAT_COLORS[4],
+    markings: 'Burnunun yarısı siyah',
+  },
   { name: 'Bıyık', breed: CAT_PATTERNS[4], color: CAT_COLORS[4], markings: 'Dört ayağı beyaz' },
-  { name: 'Pamuk', breed: 'Ankara kedisi kırması', color: CAT_COLORS[3], markings: 'Gözleri iki renk' },
+  {
+    name: 'Pamuk',
+    breed: 'Ankara kedisi kırması',
+    color: CAT_COLORS[3],
+    markings: 'Gözleri iki renk',
+  },
 ];
 const SHOWCASE_DOGS = [
-  { name: 'Karabaş', breed: DOG_PATTERNS[0], color: DOG_COLORS[0], markings: 'Boynu kalın, kulakları düşük' },
+  {
+    name: 'Karabaş',
+    breed: DOG_PATTERNS[0],
+    color: DOG_COLORS[0],
+    markings: 'Boynu kalın, kulakları düşük',
+  },
   { name: 'Paşa', breed: DOG_PATTERNS[1], color: DOG_COLORS[2], markings: 'Sırtında sarı leke' },
   { name: 'Çomar', breed: DOG_PATTERNS[2], color: DOG_COLORS[4], markings: 'Kuyruk ucu beyaz' },
-  { name: 'Fındık', breed: DOG_PATTERNS[3], color: DOG_COLORS[1], markings: 'Bacakları kısa, gövdesi uzun' },
+  {
+    name: 'Fındık',
+    breed: DOG_PATTERNS[3],
+    color: DOG_COLORS[1],
+    markings: 'Bacakları kısa, gövdesi uzun',
+  },
   { name: 'Zorro', breed: DOG_PATTERNS[4], color: DOG_COLORS[3], markings: 'Yüzünde koyu maske' },
-  { name: 'Leo', breed: 'Golden kırması', color: DOG_COLORS[0], markings: 'Tüyleri uzun ve dalgalı' },
+  {
+    name: 'Leo',
+    breed: 'Golden kırması',
+    color: DOG_COLORS[0],
+    markings: 'Tüyleri uzun ve dalgalı',
+  },
 ];
 
 // Vitrin hayvanlarının sağlık ve aşı kayıtları. Hastalık/yaralanma sırayla
@@ -171,8 +274,14 @@ function crc32(buf) {
 }
 
 const SEED_PHOTO_COLORS = [
-  [200, 160, 120], [120, 120, 120], [230, 230, 230], [90, 80, 70],
-  [210, 180, 60], [160, 110, 90], [80, 100, 120], [190, 190, 170],
+  [200, 160, 120],
+  [120, 120, 120],
+  [230, 230, 230],
+  [90, 80, 70],
+  [210, 180, 60],
+  [160, 110, 90],
+  [80, 100, 120],
+  [190, 190, 170],
 ];
 
 function writeSeedPhotos() {
@@ -187,26 +296,43 @@ function writeSeedPhotos() {
 // Bugünden geriye doğru `days` gün, her gün için bir zaman damgası üretir.
 // Rozet hesabı DATE(created_at) üzerinden ardışık gün serisi aradığı için
 // gün başına en az bir kayıt yeterli.
+//
+// Bugünün kaydı son 5-60 dakikaya düşer, sabit bir saate değil. Mama 4 / su 6
+// saatte solduğu için "bugün saat 9'da" üretilen kayıtlar öğleden sonra seed
+// atıldığında haritada soluk doğuyordu; taze kayıt olmadan yeşil alanlar hiç
+// canlı görünmüyordu.
 function streakTimestamps(days) {
   const stamps = [];
+  const now = new Date();
   for (let i = 0; i < days; i += 1) {
-    const d = new Date();
+    const d = new Date(now);
     d.setDate(d.getDate() - i);
-    d.setHours(9 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60), 0, 0);
+    if (i === 0) {
+      d.setTime(now.getTime() - (5 + Math.floor(Math.random() * 55)) * 60 * 1000);
+    } else {
+      d.setHours(9 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60), 0, 0);
+    }
     stamps.push(d.toISOString());
   }
   return stamps;
 }
 
 async function seed() {
-  const existing = await pool.query("SELECT count(*)::int AS c FROM users WHERE email LIKE 'test%@stray.test'");
+  // Script her çalıştırıldığında sıfırdan taze veri üretir. Eski akış mevcut
+  // veriyi görünce duruyordu; "haritayı canlı veriyle görmek" için her
+  // seferinde veritabanı sıfırlamak gerekiyordu. TRUNCATE her şeyi (admin
+  // hesapları dahil) temizler — bu bilinçli: script yalnızca demo/geliştirme
+  // veritabanı için, üretimde asla çalıştırılmamalı.
+  const existing = await pool.query('SELECT count(*)::int AS c FROM users');
   if (existing.rows[0].c > 0) {
-    console.log(`Zaten ${existing.rows[0].c} demo kullanıcı var. Önce temizlemek için:`);
-    console.log("  DELETE FROM users WHERE email LIKE 'test%@stray.test';");
-    console.log('(İlişkili hayvan/yorum/aksiyonlar ON DELETE CASCADE ile silinmez —');
-    console.log(' temiz bir başlangıç için veritabanını sıfırlayıp migrate etmek daha kolay.)');
-    await pool.end();
-    return;
+    console.log(`Mevcut ${existing.rows[0].c} kullanıcı ve tüm veriler temizleniyor...`);
+    await pool.query(
+      `TRUNCATE users, animals, animal_photos, health_records, vaccinations,
+               animal_comments, user_animal_care, care_actions, friendships,
+               user_badge_awards, audit_log, advertisers, ad_events
+       RESTART IDENTITY CASCADE`
+    );
+    console.log('(Admin hesabı da silindi; gerekiyorsa: npm run make-admin)');
   }
 
   const photoUrls = writeSeedPhotos();
@@ -342,7 +468,6 @@ async function seed() {
 
   console.log('Vitrin hayvanlarına sağlık ve aşı kaydı ekleniyor...');
   const healthIds = [];
-  const vaccinationIds = [];
   // Aşıların bir kısmını tek bir kullanıcıya yığıyoruz: "Aşı Gönüllüsü"
   // rozetinin gümüş kademesi (5 kayıt) demo veride de görünsün.
   const vaccineChampion = userIds[0];
@@ -370,12 +495,11 @@ async function seed() {
     );
     healthIds.push(health.rows[0].id);
 
-    const vaccine = await pool.query(
+    await pool.query(
       `INSERT INTO vaccinations (animal_id, vaccine_type, note, vet_verified,
                                  administered_at, next_due_at, recorded_by)
        VALUES ($1, $2, $3, $4, now() - ($5 * interval '1 day'),
-               now() + interval '1 year', $6)
-       RETURNING id`,
+               now() + interval '1 year', $6)`,
       [
         animal.id,
         VACCINE_TYPES[i % VACCINE_TYPES.length],
@@ -385,24 +509,24 @@ async function seed() {
         i < 5 ? vaccineChampion : animal.created_by,
       ]
     );
-    vaccinationIds.push(vaccine.rows[0].id);
   }
 
-  // Kayda bağlı yorumlar: sağlık kaydının ve aşının kendi sohbeti var.
+  // Sağlık kaydına bağlı yorumlar. Aşıların sohbeti yok (bkz. 001_init.sql);
+  // aşı notu zaten kaydın kendi `note` alanında duruyor.
   const recordCommentValues = [];
   const recordCommentParams = [];
   showcaseRows.forEach((animal, i) => {
-    for (const [healthRecordId, vaccinationId, body] of [
-      [healthIds[i], null, SHOWCASE_HEALTH_NOTES[i % SHOWCASE_HEALTH_NOTES.length]],
-      [null, vaccinationIds[i], SHOWCASE_VACCINE_NOTES[i % SHOWCASE_VACCINE_NOTES.length]],
-    ]) {
-      const b = recordCommentParams.length;
-      recordCommentValues.push(`($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5})`);
-      recordCommentParams.push(animal.id, animal.created_by, healthRecordId, vaccinationId, body);
-    }
+    const b = recordCommentParams.length;
+    recordCommentValues.push(`($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4})`);
+    recordCommentParams.push(
+      animal.id,
+      animal.created_by,
+      healthIds[i],
+      SHOWCASE_HEALTH_NOTES[i % SHOWCASE_HEALTH_NOTES.length]
+    );
   });
   await pool.query(
-    `INSERT INTO animal_comments (animal_id, user_id, health_record_id, vaccination_id, body)
+    `INSERT INTO animal_comments (animal_id, user_id, health_record_id, body)
      VALUES ${recordCommentValues.join(',')}`,
     recordCommentParams
   );
@@ -538,12 +662,54 @@ async function seed() {
   // Her yerleşimde iki marka var ki rotasyon da denenebilsin.
   console.log('Örnek reklamverenler ekleniyor...');
   const DEMO_ADS = [
-    ['Pati Mama', 'food_popup', 'Pati Mama', 'Sokak dostları için tam tahıllı mama', 'https://ornek.example.com/pati-mama', 1],
-    ['Minnoş Kuru Mama', 'food_popup', 'Minnoş Mama', 'Kedilerin favorisi, 15 kg avantajlı paket', 'https://ornek.example.com/minnos', 2],
-    ['Berrak Kaynak Suyu', 'water_popup', 'Berrak Kaynak', 'Temiz su, mutlu pati', 'https://ornek.example.com/berrak', 1],
-    ['Damla Su', 'water_popup', 'Damla Su', 'Sokak kapları için 5 litrelik bidon', 'https://ornek.example.com/damla', 2],
-    ['Kadıköy Veteriner Kliniği', 'vet_health_record', 'Kadıköy Veteriner', '7/24 acil hizmet, sokak hayvanlarına indirim', 'https://ornek.example.com/vet-kadikoy', 1],
-    ['Pati Dostu Veteriner', 'vet_health_record', 'Pati Dostu Veteriner', 'Ücretsiz ilk muayene', 'https://ornek.example.com/pati-dostu', 2],
+    [
+      'Pati Mama',
+      'food_popup',
+      'Pati Mama',
+      'Sokak dostları için tam tahıllı mama',
+      'https://ornek.example.com/pati-mama',
+      1,
+    ],
+    [
+      'Minnoş Kuru Mama',
+      'food_popup',
+      'Minnoş Mama',
+      'Kedilerin favorisi, 15 kg avantajlı paket',
+      'https://ornek.example.com/minnos',
+      2,
+    ],
+    [
+      'Berrak Kaynak Suyu',
+      'water_popup',
+      'Berrak Kaynak',
+      'Temiz su, mutlu pati',
+      'https://ornek.example.com/berrak',
+      1,
+    ],
+    [
+      'Damla Su',
+      'water_popup',
+      'Damla Su',
+      'Sokak kapları için 5 litrelik bidon',
+      'https://ornek.example.com/damla',
+      2,
+    ],
+    [
+      'Kadıköy Veteriner Kliniği',
+      'vet_health_record',
+      'Kadıköy Veteriner',
+      '7/24 acil hizmet, sokak hayvanlarına indirim',
+      'https://ornek.example.com/vet-kadikoy',
+      1,
+    ],
+    [
+      'Pati Dostu Veteriner',
+      'vet_health_record',
+      'Pati Dostu Veteriner',
+      'Ücretsiz ilk muayene',
+      'https://ornek.example.com/pati-dostu',
+      2,
+    ],
   ];
   const adValues = DEMO_ADS.map((_, i) => {
     const b = i * 7;

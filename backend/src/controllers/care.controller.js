@@ -110,7 +110,9 @@ async function listCareActions(req, res, next) {
     }
 
     if (lat === undefined || lng === undefined) {
-      return res.status(400).json({ error: 'lat/lng ya da minLat/maxLat/minLng/maxLng zorunludur' });
+      return res
+        .status(400)
+        .json({ error: 'lat/lng ya da minLat/maxLat/minLng/maxLng zorunludur' });
     }
 
     const params = [lng, lat, radiusMeters];

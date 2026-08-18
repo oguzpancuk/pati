@@ -27,8 +27,26 @@ const AVATAR_PREFIX = 'pati-avatar:';
 
 /** 10 kadın + 10 erkek. Anahtarlar kalıcı: sıra değişse de f3 hep aynı yüz. */
 const AVATAR_KEYS = [
-  'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10',
-  'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10',
+  'f1',
+  'f2',
+  'f3',
+  'f4',
+  'f5',
+  'f6',
+  'f7',
+  'f8',
+  'f9',
+  'f10',
+  'm1',
+  'm2',
+  'm3',
+  'm4',
+  'm5',
+  'm6',
+  'm7',
+  'm8',
+  'm9',
+  'm10',
 ];
 
 const AVATAR_KEY_SET = new Set(AVATAR_KEYS);

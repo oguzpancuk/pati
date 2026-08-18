@@ -1,11 +1,7 @@
 const fs = require('fs');
 const pool = require('../config/db');
 const { getUserBadges } = require('../utils/badges');
-const {
-  getUnseenAwards,
-  markAwardsSeen,
-  refreshRankSnapshot,
-} = require('../utils/badgeAwards');
+const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../utils/badgeAwards');
 const { getUserRank } = require('./leaderboard.controller');
 const { avatarValueFor } = require('../utils/avatars');
 
@@ -16,9 +12,7 @@ const MAX_FEATURED_BADGES = 3;
 // (örn. gümüşten altına çıkınca) gösterim otomatik güncel kalıyor.
 function resolveFeatured(featuredKeys, badges) {
   const byKey = new Map(badges.map((b) => [b.key, b]));
-  return (featuredKeys || [])
-    .map((key) => byKey.get(key))
-    .filter((badge) => badge && badge.tier);
+  return (featuredKeys || []).map((key) => byKey.get(key)).filter((badge) => badge && badge.tier);
 }
 
 async function getStats(userId) {
@@ -268,10 +262,7 @@ async function markMyBadgeAwardsSeen(req, res, next) {
     if (!Array.isArray(ids)) {
       return res.status(400).json({ error: 'ids bir dizi olmalıdır' });
     }
-    const updated = await markAwardsSeen(
-      req.user.userId,
-      ids.map(Number).filter(Number.isInteger)
-    );
+    const updated = await markAwardsSeen(req.user.userId, ids.map(Number).filter(Number.isInteger));
     res.json({ updated });
   } catch (err) {
     next(err);
@@ -339,7 +330,8 @@ async function getPublicProfile(req, res, next) {
         if (row.status === 'accepted') {
           friendshipStatus = 'friends';
         } else {
-          friendshipStatus = row.requester_id === req.user.userId ? 'pending_sent' : 'pending_received';
+          friendshipStatus =
+            row.requester_id === req.user.userId ? 'pending_sent' : 'pending_received';
         }
       }
     }

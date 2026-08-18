@@ -9,12 +9,10 @@ const SERIES = [
   { key: 'animals' as const, label: 'Yeni hayvan', color: 'var(--clay)' },
 ];
 
+// Sağlık kaydı artık yalnızca iki tip; aşı ayrı tabloda sayılıyor.
 const RECORD_TYPE_LABELS: Record<string, string> = {
   illness: 'Hastalık',
   injury: 'Yaralanma',
-  treatment: 'Tedavi',
-  vaccination: 'Aşı',
-  medication: 'İlaç',
 };
 
 export default function Dashboard() {
@@ -34,10 +32,7 @@ export default function Dashboard() {
   const t = stats.totals;
   // Tüm serileri aynı ölçekte göstermek için günlük toplamların en büyüğünü alıyoruz;
   // her seriyi kendi ölçeğinde çizmek günler arası karşılaştırmayı bozardı.
-  const maxDay = Math.max(
-    1,
-    ...stats.daily.map((d) => d.food + d.water + d.comments + d.animals)
-  );
+  const maxDay = Math.max(1, ...stats.daily.map((d) => d.food + d.water + d.comments + d.animals));
 
   return (
     <>
@@ -77,6 +72,11 @@ export default function Dashboard() {
           <div className="stat-value">{t.health_records}</div>
           <div className="stat-sub">{t.recovered_records} tanesi iyileşti</div>
         </div>
+        <div className="stat">
+          <div className="stat-label">Aşı kaydı</div>
+          <div className="stat-value">{t.vaccinations}</div>
+          <div className="stat-sub">{t.vet_verified_vaccinations} veteriner onaylı</div>
+        </div>
       </div>
 
       <div className="card">
@@ -111,29 +111,55 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {stats.healthRecordTypes.length > 0 && (
-        <div className="card">
-          <h2>Sağlık kaydı türleri</h2>
-          <div className="table-wrap">
-            <table style={{ minWidth: 0 }}>
-              <thead>
-                <tr>
-                  <th>Tür</th>
-                  <th>Adet</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.healthRecordTypes.map((r) => (
-                  <tr key={r.record_type}>
-                    <td>{RECORD_TYPE_LABELS[r.record_type] ?? r.record_type}</td>
-                    <td className="num">{r.count}</td>
+      <div className="two-col">
+        {stats.healthRecordTypes.length > 0 && (
+          <div className="card">
+            <h2>Sağlık kaydı türleri</h2>
+            <div className="table-wrap">
+              <table style={{ minWidth: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Tür</th>
+                    <th>Adet</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {stats.healthRecordTypes.map((r) => (
+                    <tr key={r.record_type}>
+                      <td>{RECORD_TYPE_LABELS[r.record_type] ?? r.record_type}</td>
+                      <td className="num">{r.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {stats.vaccineTypes.length > 0 && (
+          <div className="card">
+            <h2>Aşı türleri</h2>
+            <div className="table-wrap">
+              <table style={{ minWidth: 0 }}>
+                <thead>
+                  <tr>
+                    <th>Aşı</th>
+                    <th>Adet</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.vaccineTypes.map((r) => (
+                    <tr key={r.vaccine_type}>
+                      <td>{r.vaccine_type}</td>
+                      <td className="num">{r.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </>
   );
 }

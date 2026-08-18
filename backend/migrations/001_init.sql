@@ -99,25 +99,22 @@ CREATE INDEX IF NOT EXISTS idx_vaccinations_animal ON vaccinations (animal_id, a
 CREATE INDEX IF NOT EXISTS idx_vaccinations_recorder ON vaccinations (recorded_by);
 
 -- Hayvan profilindeki sohbet. Bir yorum isteğe bağlı olarak bir sağlık kaydına
--- YA DA bir aşı kaydına bağlanabilir; böylece kayda tıklandığında yalnızca o
--- kayda ait yorumlar listelenebiliyor.
--- İkisi aynı anda dolu olamaz: bir yorum ya hastalığa ya aşıya ait.
+-- bağlanabilir; böylece kayda tıklandığında yalnızca o kayda ait yorumlar
+-- listelenebiliyor.
+-- Aşı kayıtlarının sohbeti YOK: aşı tek seferlik ve doğrulanabilir bir olay,
+-- "iyileşti mi, nasıl gidiyor" gibi bir takip süreci yok. Yorum alanı açık
+-- kalınca boş duruyor ve sağlık kaydıyla karıştırılıyordu.
 CREATE TABLE IF NOT EXISTS animal_comments (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     health_record_id INTEGER REFERENCES health_records(id) ON DELETE SET NULL,
-    vaccination_id INTEGER REFERENCES vaccinations(id) ON DELETE SET NULL,
     body TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT animal_comments_single_target CHECK (
-        health_record_id IS NULL OR vaccination_id IS NULL
-    )
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_animal_comments_animal ON animal_comments (animal_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_animal_comments_health_record ON animal_comments (health_record_id);
-CREATE INDEX IF NOT EXISTS idx_animal_comments_vaccination ON animal_comments (vaccination_id);
 
 -- Kullanıcı ile hayvan arasındaki bakım (takip) ilişkisi
 CREATE TABLE IF NOT EXISTS user_animal_care (

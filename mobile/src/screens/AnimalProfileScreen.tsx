@@ -18,7 +18,6 @@ import {
   addVaccination,
   AnimalComment,
   AnimalDetail,
-  CommentTarget,
   fetchAnimal,
   fetchAnimalComments,
   HealthRecord,
@@ -64,34 +63,8 @@ const STATUS_META: Record<
 
 const RECORD_TYPE_OPTIONS: HealthRecordType[] = ['illness', 'injury'];
 
-/**
- * Sohbetteki bir yorumun ya da açılan kayıt günlüğünün hedefi. Yorum ya bir
- * sağlık kaydına ya bir aşıya bağlanabiliyor, ikisine birden değil; tek bir
- * birleşik tip tutmak iki ayrı state'i senkron tutma derdini ortadan
- * kaldırıyor.
- */
-type RecordRef =
-  | { kind: 'health'; record: HealthRecord }
-  | { kind: 'vaccine'; vaccination: Vaccination };
-
-function refId(ref: RecordRef): number {
-  return ref.kind === 'health' ? ref.record.id : ref.vaccination.id;
-}
-
-function refKey(ref: RecordRef): string {
-  return `${ref.kind}:${refId(ref)}`;
-}
-
-function refLabel(ref: RecordRef): string {
-  return ref.kind === 'health'
-    ? `${RECORD_TYPE_LABELS[ref.record.record_type]}: ${ref.record.description}`
-    : `Aşı: ${ref.vaccination.vaccine_type}`;
-}
-
-function refTarget(ref: RecordRef): CommentTarget {
-  return ref.kind === 'health'
-    ? { healthRecordId: ref.record.id }
-    : { vaccinationId: ref.vaccination.id };
+function recordLabel(record: HealthRecord): string {
+  return `${RECORD_TYPE_LABELS[record.record_type]}: ${record.description}`;
 }
 
 function formatDate(iso: string) {
@@ -112,9 +85,9 @@ export default function AnimalProfileScreen({ route }: any) {
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [draft, setDraft] = useState('');
-  // Yoruma bağlanacak kayıt: "şu hastalık için ilacını verdim" ya da "aşıyı
-  // belediye yaptı" gibi yorumların ilgili kayda iliştirilmesini sağlar.
-  const [linkedRef, setLinkedRef] = useState<RecordRef | null>(null);
+  // Yoruma bağlanacak sağlık kaydı: "şu hastalık için ilacını verdim" gibi
+  // yorumların ilgili kayda iliştirilmesini sağlar. Aşıların sohbeti yok.
+  const [linkedRecord, setLinkedRecord] = useState<HealthRecord | null>(null);
   const [sending, setSending] = useState(false);
 
   const [recordModalVisible, setRecordModalVisible] = useState(false);
@@ -127,8 +100,8 @@ export default function AnimalProfileScreen({ route }: any) {
   const [vaccineNote, setVaccineNote] = useState('');
   const [savingVaccine, setSavingVaccine] = useState(false);
 
-  // Bir kayda tıklandığında yalnızca o kayda bağlı yorumlar listelenir.
-  const [logRef, setLogRef] = useState<RecordRef | null>(null);
+  // Bir sağlık kaydına tıklandığında yalnızca o kayda bağlı yorumlar listelenir.
+  const [logRecord, setLogRecord] = useState<HealthRecord | null>(null);
   const [logComments, setLogComments] = useState<AnimalComment[]>([]);
 
   const load = useCallback(async () => {
@@ -156,13 +129,9 @@ export default function AnimalProfileScreen({ route }: any) {
 
     setSending(true);
     try {
-      const created = await addAnimalComment(
-        animalId,
-        body,
-        linkedRef ? refTarget(linkedRef) : undefined
-      );
+      const created = await addAnimalComment(animalId, body, linkedRecord?.id);
       setDraft('');
-      setLinkedRef(null);
+      setLinkedRecord(null);
       await load();
       celebrate(created);
     } catch (err: any) {
@@ -217,11 +186,11 @@ export default function AnimalProfileScreen({ route }: any) {
     }
   }
 
-  async function handleOpenLog(ref: RecordRef) {
+  async function handleOpenLog(record: HealthRecord) {
     try {
-      const data = await fetchAnimalComments(animalId, refTarget(ref));
+      const data = await fetchAnimalComments(animalId, record.id);
       setLogComments(data);
-      setLogRef(ref);
+      setLogRecord(record);
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? 'Bir hata oluştu');
     }
@@ -240,9 +209,7 @@ export default function AnimalProfileScreen({ route }: any) {
               const updated = await markHealthRecordRecovered(animalId, record.id);
               // Yoruma bağlanmak için seçiliyse seçimi kaldır: kapanmış kayda
               // yorum gönderilemez.
-              setLinkedRef((prev) =>
-                prev?.kind === 'health' && prev.record.id === record.id ? null : prev
-              );
+              setLinkedRecord((prev) => (prev?.id === record.id ? null : prev));
               await load();
               celebrate(updated);
             } catch (err: any) {
@@ -268,14 +235,9 @@ export default function AnimalProfileScreen({ route }: any) {
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const latitude = animal.location.coordinates[1];
   const longitude = animal.location.coordinates[0];
-  // İyileşmiş kayıtlar kapalı: sunucu da yorum kabul etmiyor. Aşılar ise
-  // kapanmıyor, hepsi yoruma açık.
-  const linkableRefs: RecordRef[] = [
-    ...animal.healthRecords
-      .filter((r) => r.status !== 'recovered')
-      .map((record) => ({ kind: 'health' as const, record })),
-    ...animal.vaccinations.map((vaccination) => ({ kind: 'vaccine' as const, vaccination })),
-  ];
+  // İyileşmiş kayıtlar kapalı; sunucu da yorum kabul etmediği için seçilebilir
+  // listede hiç göstermiyoruz.
+  const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
 
   return (
     <KeyboardAvoidingView
@@ -323,14 +285,48 @@ export default function AnimalProfileScreen({ route }: any) {
             rotateEnabled={false}
           >
             <Marker coordinate={{ latitude, longitude }} anchor={{ x: 0.5, y: 0.5 }}>
-              <AnimalAvatar
-                species={animal.species}
-                photoUrl={animal.photos[0]?.url ?? null}
-                size={32}
-              />
+              <AnimalAvatar species={animal.species} breed={animal.breed} size={32} />
             </Marker>
           </MapView>
         </View>
+
+        {/* Aşı, sağlık kaydının üstünde: "bu hayvan aşılı mı" sorusu sokakta
+            hastalık geçmişinden önce geliyor (kuduz riski, yaklaşılabilir mi).
+            Kartlar dokunulabilir değil — aşının sohbeti yok, tek seferlik ve
+            doğrulanabilir bir olay. */}
+        <SectionHeader
+          title="Aşı kayıtları"
+          actionLabel={animal.isCarer ? '+ Aşı ekle' : undefined}
+          onAction={animal.isCarer ? () => setVaccineModalVisible(true) : undefined}
+          style={styles.sectionTop}
+        />
+        {animal.vaccinations.length === 0 ? (
+          <Card variant="flat" style={styles.block}>
+            <Text variant="caption">Henüz aşı kaydı yok.</Text>
+          </Card>
+        ) : (
+          animal.vaccinations.map((vaccination) => (
+            <Card key={vaccination.id} variant="flat" padding="md" style={styles.block}>
+              <View style={styles.recordHeader}>
+                <Text variant="bodyStrong" style={styles.recordType} numberOfLines={2}>
+                  {vaccination.vaccine_type}
+                </Text>
+                {vaccination.vet_verified && <Chip label="Veteriner onaylı" tone="success" />}
+              </View>
+              {vaccination.note ? (
+                <Text variant="body" style={styles.recordDesc}>
+                  {vaccination.note}
+                </Text>
+              ) : null}
+              <Text variant="caption">
+                {formatDate(vaccination.administered_at)} · {vaccination.recorded_by_name ?? ''}
+              </Text>
+              {vaccination.next_due_at ? (
+                <Text variant="caption">Sonraki doz: {formatDate(vaccination.next_due_at)}</Text>
+              ) : null}
+            </Card>
+          ))
+        )}
 
         <SectionHeader
           title="Sağlık kayıtları"
@@ -356,7 +352,7 @@ export default function AnimalProfileScreen({ route }: any) {
                 variant="flat"
                 padding="md"
                 style={styles.block}
-                onPress={() => handleOpenLog({ kind: 'health', record })}
+                onPress={() => handleOpenLog(record)}
               >
                 <View style={styles.recordHeader}>
                   <Text variant="bodyStrong" style={styles.recordType} numberOfLines={2}>
@@ -392,49 +388,6 @@ export default function AnimalProfileScreen({ route }: any) {
           })
         )}
 
-        {/* Aşı ayrı bölüm: sağlık kaydından farklı olarak "iyileşti" durumu
-            yok, tekrar tarihi var ve kimin yaptığı ayrı bir güven sorusu. */}
-        <SectionHeader
-          title="Aşı kayıtları"
-          actionLabel={animal.isCarer ? '+ Aşı ekle' : undefined}
-          onAction={animal.isCarer ? () => setVaccineModalVisible(true) : undefined}
-          style={styles.sectionTop}
-        />
-        {animal.vaccinations.length === 0 ? (
-          <Card variant="flat" style={styles.block}>
-            <Text variant="caption">Henüz aşı kaydı yok.</Text>
-          </Card>
-        ) : (
-          animal.vaccinations.map((vaccination) => (
-            <Card
-              key={vaccination.id}
-              variant="flat"
-              padding="md"
-              style={styles.block}
-              onPress={() => handleOpenLog({ kind: 'vaccine', vaccination })}
-            >
-              <View style={styles.recordHeader}>
-                <Text variant="bodyStrong" style={styles.recordType} numberOfLines={2}>
-                  {vaccination.vaccine_type}
-                </Text>
-                {vaccination.vet_verified && <Chip label="Veteriner onaylı" tone="success" />}
-              </View>
-              {vaccination.note ? (
-                <Text variant="body" style={styles.recordDesc}>
-                  {vaccination.note}
-                </Text>
-              ) : null}
-              <Text variant="caption">
-                {formatDate(vaccination.administered_at)} · {vaccination.recorded_by_name ?? ''} ·{' '}
-                {vaccination.comment_count} yorum
-              </Text>
-              {vaccination.next_due_at ? (
-                <Text variant="caption">Sonraki doz: {formatDate(vaccination.next_due_at)}</Text>
-              ) : null}
-            </Card>
-          ))
-        )}
-
         <SectionHeader title="Sohbet" style={styles.sectionTop} />
         {comments.length === 0 ? (
           <Card variant="flat" style={styles.block}>
@@ -457,11 +410,6 @@ export default function AnimalProfileScreen({ route }: any) {
                     {comment.health_record_description}
                   </Text>
                 )}
-                {comment.vaccination_type && (
-                  <Text variant="captionStrong" color="brand" style={styles.commentTag}>
-                    Aşı: {comment.vaccination_type}
-                  </Text>
-                )}
                 <Text variant="body">{comment.body}</Text>
               </View>
             </View>
@@ -470,20 +418,20 @@ export default function AnimalProfileScreen({ route }: any) {
       </Screen>
 
       <View style={styles.composer}>
-        {linkableRefs.length > 0 && (
+        {openRecords.length > 0 && (
           <ScrollView
             horizontal
             style={styles.tagRow}
             contentContainerStyle={styles.tagRowContent}
             showsHorizontalScrollIndicator={false}
           >
-            <Chip label="Genel" selected={!linkedRef} onPress={() => setLinkedRef(null)} />
-            {linkableRefs.map((ref) => (
+            <Chip label="Genel" selected={!linkedRecord} onPress={() => setLinkedRecord(null)} />
+            {openRecords.map((record) => (
               <Chip
-                key={refKey(ref)}
-                label={refLabel(ref)}
-                selected={!!linkedRef && refKey(linkedRef) === refKey(ref)}
-                onPress={() => setLinkedRef(ref)}
+                key={record.id}
+                label={recordLabel(record)}
+                selected={linkedRecord?.id === record.id}
+                onPress={() => setLinkedRecord(record)}
               />
             ))}
           </ScrollView>
@@ -607,11 +555,11 @@ export default function AnimalProfileScreen({ route }: any) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={!!logRef} transparent animationType="slide">
+      <Modal visible={!!logRecord} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text variant="heading" style={styles.modalTitle}>
-              {logRef ? refLabel(logRef) : ''}
+              {logRecord ? recordLabel(logRecord) : ''}
             </Text>
             <ScrollView style={styles.modalScroll}>
               {logComments.length === 0 ? (
@@ -634,7 +582,7 @@ export default function AnimalProfileScreen({ route }: any) {
             </ScrollView>
             <Button
               title="Kapat"
-              onPress={() => setLogRef(null)}
+              onPress={() => setLogRecord(null)}
               fullWidth
               style={styles.modalPrimary}
             />
