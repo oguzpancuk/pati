@@ -84,8 +84,9 @@ function formatDate(iso: string) {
 const COMMENT_PREVIEW = 3;
 const COMMENT_PAGE = 20;
 // Aşı ve sağlık kayıtları profille birlikte tam geliyor (kısa listeler);
-// yine de 3'ten fazlası katlanıyor ki profil aynı özet düzeninde kalsın.
-const RECORD_PREVIEW = 3;
+// kartları uzun olduğu için (durum rozeti, "iyileşti" düğmesi) 2'den fazlası
+// katlanıyor — 3 kart bile sohbeti ekranın altına itiyordu.
+const RECORD_PREVIEW = 2;
 
 export default function AnimalProfileScreen({ route }: any) {
   const styles = useStyles();
