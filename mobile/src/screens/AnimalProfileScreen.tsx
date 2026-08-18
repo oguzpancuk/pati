@@ -83,6 +83,9 @@ function formatDate(iso: string) {
 // sayfalar üste ekleniyor.
 const COMMENT_PREVIEW = 3;
 const COMMENT_PAGE = 20;
+// Aşı ve sağlık kayıtları profille birlikte tam geliyor (kısa listeler);
+// yine de 3'ten fazlası katlanıyor ki profil aynı özet düzeninde kalsın.
+const RECORD_PREVIEW = 3;
 
 export default function AnimalProfileScreen({ route }: any) {
   const styles = useStyles();
@@ -112,6 +115,8 @@ export default function AnimalProfileScreen({ route }: any) {
   const [logComments, setLogComments] = useState<AnimalComment[]>([]);
   const [commentTotal, setCommentTotal] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [visibleVaccinations, setVisibleVaccinations] = useState(RECORD_PREVIEW);
+  const [visibleRecords, setVisibleRecords] = useState(RECORD_PREVIEW);
 
   const load = useCallback(async () => {
     try {
@@ -334,7 +339,7 @@ export default function AnimalProfileScreen({ route }: any) {
             <Text variant="caption">Henüz aşı kaydı yok.</Text>
           </Card>
         ) : (
-          animal.vaccinations.map((vaccination) => (
+          animal.vaccinations.slice(0, visibleVaccinations).map((vaccination) => (
             <Card key={vaccination.id} variant="flat" padding="md" style={styles.block}>
               <View style={styles.recordHeader}>
                 <Text variant="bodyStrong" style={styles.recordType} numberOfLines={2}>
@@ -357,6 +362,11 @@ export default function AnimalProfileScreen({ route }: any) {
           ))
         )}
 
+        <LoadMoreButton
+          remaining={animal.vaccinations.length - visibleVaccinations}
+          onPress={() => setVisibleVaccinations(animal.vaccinations.length)}
+        />
+
         <SectionHeader
           title="Sağlık kayıtları"
           actionLabel={animal.isCarer ? '+ Kayıt ekle' : undefined}
@@ -373,7 +383,7 @@ export default function AnimalProfileScreen({ route }: any) {
             <Text variant="caption">Henüz kayıt yok.</Text>
           </Card>
         ) : (
-          animal.healthRecords.map((record) => {
+          animal.healthRecords.slice(0, visibleRecords).map((record) => {
             const status = STATUS_META[record.status];
             return (
               <Card
@@ -416,6 +426,11 @@ export default function AnimalProfileScreen({ route }: any) {
             );
           })
         )}
+
+        <LoadMoreButton
+          remaining={animal.healthRecords.length - visibleRecords}
+          onPress={() => setVisibleRecords(animal.healthRecords.length)}
+        />
 
         <SectionHeader title="Sohbet" style={styles.sectionTop} />
         <LoadMoreButton
