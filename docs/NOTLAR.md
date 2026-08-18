@@ -380,6 +380,15 @@ zemin). Uygulama boyutu artmıyor, yeni bir yüz eklemek tek satır ve hepsi ayn
 çizim diline uyuyor. Aynı yaklaşım rozet madalyonlarında ve seviye
 amblemlerinde de kullanılıyor.
 
+### İki PWA yüzeyi var — dağıtımda birleştirilmeli
+`backend/public/` kök adreste ana ekrana eklenebilir bir **tanıtım sayfası**
+(yerel oturumun işi), `web/` ise tam uygulama istemcisi. İkisi de `/`,
+`/manifest.webmanifest` ve `/sw.js` adreslerini istiyor; aynı origin'de ikisi
+birden yaşayamaz. Dağıtım kararı: uygulama yayınlanırken `/` web/dist'e
+verilmeli, tanıtım içeriği ya uygulamanın giriş ekranına katılmalı ya da ayrı
+bir yola (`/tanitim`) taşınmalı. Şimdilik ikisi de duruyor — karar verilmeden
+biri silinmedi.
+
 ### Web (PWA) kalıcı üçüncü istemci olarak eklendi
 Mağaza uygulamasının *yanında* yaşayan bir web sürümü (bilinçli tercih; hızlı
 pilot aracı seçeneği de değerlendirildi). Kopya büyütmemek için: web, sözlüğü

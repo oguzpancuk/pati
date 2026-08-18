@@ -13,13 +13,14 @@ import {
 import { FALLBACK_CENTER, getCurrentLocation, Coordinates } from '../location';
 
 // Mobil MapScreen ile aynı kurallar: Türkiye sınır kutusu, 100 m daireler,
-// ağırlığa göre solan yeşil, sokak ölçeğinde görünen hayvanlar.
+// ağırlığa göre solan yeşil, sokak ölçeğinde görünen hayvanlar. Kırmızı taban
+// katmanı mobille birlikte kaldırıldı ("her yer alarm" hissi veriyordu);
+// eksiklik mesajını üstteki banner taşıyor, yeşil buna karşılık daha tok.
 const TURKEY_BOUNDS = { minLat: 35.8, maxLat: 42.1, minLng: 25.6, maxLng: 44.8 };
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 const ANIMAL_RADIUS_METERS = 10000;
 const ANIMAL_VISIBLE_MIN_ZOOM = 14;
-const MAX_GREEN_ALPHA = 0.3;
-const BASE_RED = 'rgba(255, 92, 92, 0.18)';
+const MAX_GREEN_ALPHA = 0.5;
 
 type ViewType = 'food' | 'water';
 
@@ -53,15 +54,6 @@ export default function MapPage() {
       attribution: '&copy; OpenStreetMap',
     }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-    // Kırmızı taban: bakım olmayan her yer "ilgi bekliyor" hissi versin.
-    L.rectangle(
-      [
-        [TURKEY_BOUNDS.minLat, TURKEY_BOUNDS.minLng],
-        [TURKEY_BOUNDS.maxLat, TURKEY_BOUNDS.maxLng],
-      ],
-      { color: 'transparent', fillColor: BASE_RED, fillOpacity: 1, interactive: false }
-    ).addTo(map);
 
     circlesRef.current = L.layerGroup().addTo(map);
     animalsRef.current = L.layerGroup().addTo(map);
