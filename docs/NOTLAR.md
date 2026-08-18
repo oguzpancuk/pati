@@ -250,6 +250,17 @@ yeşil daire (`MapScreen.tsx` → `MAX_GREEN_ALPHA` 0.30 → 0.50), "buralarda
 mama yok" mesajını banner ve bildirim veriyor. Kural aynı kaldı: yeşil
 dairenin dışındaysanız uyarılırsınız.
 
+### Web'de konum alınamazsa kayıt engellenmiyor
+Mobil uygulama mama/su ve hayvan kaydında gerçek cihaz konumunu şart koşuyor.
+Web (`web/`) daha esnek: konum alınamazsa (http adresi — tarayıcı güvensiz
+bağlamda hiç sormadan reddediyor —, izin yok, masaüstü) mama/su kaydı
+**haritanın ortasına**, hayvan kaydı **Kadıköy merkezine** düşüyor ve nedeni
+kullanıcıya söyleniyor (`web/src/location.ts` → `LocationError`, mesaj sebebe
+göre: http / izin yok / bulunamadı). Gerekçe: aynı Wi‑Fi'daki `http://<ip>`
+adresinde kullanıcı izin verse bile konum gelmiyor; "izin ver" demek yanıltıcı,
+akışı kesmek de denemeyi imkânsız kılıyordu. Yayında (https) tarayıcı normal
+şekilde soruyor; reddedilirse yine bu esneklik geçerli.
+
 ## 2. Teknik kararlar
 
 ### Leaderboard set-based hesaplanıyor

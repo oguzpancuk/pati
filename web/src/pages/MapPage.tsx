@@ -10,7 +10,7 @@ import {
   fetchCareActionsInBounds,
   fetchCareStatus,
 } from '../api';
-import { FALLBACK_CENTER, getCurrentLocation, Coordinates } from '../location';
+import { FALLBACK_CENTER, getCurrentLocation, describeLocationError, Coordinates } from '../location';
 
 // Mobil MapScreen ile aynı kurallar: Türkiye sınır kutusu, 100 m daireler,
 // ağırlığa göre solan yeşil, sokak ölçeğinde görünen hayvanlar. Kırmızı taban
@@ -156,11 +156,19 @@ export default function MapPage() {
     setBusy(true);
     setError(null);
     try {
-      const loc = await getCurrentLocation().catch(() => {
-        throw new Error('Konum alınamadı — tarayıcıya konum izni verin');
+      // Konum alınamazsa (http adresi, izin yok) kullanıcıyı engellemek yerine
+      // haritanın ortası kullanılıyor ve nedeni söyleniyor: kişi zaten baktığı
+      // yere bırakıyor. Mobil uygulama gerçek konumu şart koşuyor; web daha
+      // esnek (bkz. docs/NOTLAR.md).
+      let usedFallback: string | null = null;
+      const loc = await getCurrentLocation().catch((err) => {
+        usedFallback = describeLocationError(err);
+        const center = mapRef.current?.getCenter();
+        return center ? { lat: center.lat, lng: center.lng } : FALLBACK_CENTER;
       });
       setMyLocation(loc);
       await addCareAction(loc.lat, loc.lng, viewType, file);
+      if (usedFallback) setError(`${usedFallback} Kayıt haritanın ortasına düştü.`);
       setConfirmOpen(false);
       await loadCircles();
       const s = await fetchCareStatus(loc.lat, loc.lng, viewType).catch(() => null);

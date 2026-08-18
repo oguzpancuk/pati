@@ -11,7 +11,12 @@ import {
   SimilarityReason,
 } from '../api';
 import { AnimalAvatar } from '../avatars';
-import { Coordinates, getCurrentLocation } from '../location';
+import {
+  Coordinates,
+  FALLBACK_CENTER,
+  getCurrentLocation,
+  describeLocationError,
+} from '../location';
 
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
@@ -135,6 +140,18 @@ export default function AddAnimalPage() {
   const [markings, setMarkings] = useState(draft?.markings ?? '');
   const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Form açılır açılmaz konum deneniyor: alınamıyorsa (http adresi, izin yok)
+  // kullanıcı kaydetmeden önce görsün, tarayıcı izin soracaksa şimdi sorsun.
+  const [locationNote, setLocationNote] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getCurrentLocation()
+      .then(() => alive && setLocationNote(null))
+      .catch((err) => alive && setLocationNote(describeLocationError(err)));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [busy, setBusy] = useState(false);
 
   // Akış: form → (kaydet) → eşleştirme beklemesi → adaylar → yeni kayıt ya da
@@ -183,9 +200,9 @@ export default function AddAnimalPage() {
     setStep('matching');
     const startedAt = Date.now();
     try {
-      const loc = await getCurrentLocation().catch(() => {
-        throw new Error('Konum alınamadı — tarayıcıya konum izni verin');
-      });
+      // Konum alınamazsa (http adresi, izin yok) kayıt varsayılan merkeze
+      // düşüyor; nedeni formda zaten yazıyor (locationNote), akış kesilmiyor.
+      const loc = await getCurrentLocation().catch(() => FALLBACK_CENTER);
       setLocation(loc);
       const result = await matchAnimals({ lat: loc.lat, lng: loc.lng, species, breed, color });
 
@@ -408,7 +425,11 @@ export default function AddAnimalPage() {
         }}
       />
 
-      <p className="subtle">Konumun otomatik olarak kaydedilecek.</p>
+      <p className="subtle">
+        {locationNote
+          ? `${locationNote} Kayıt varsayılan merkeze (Kadıköy) düşecek.`
+          : 'Konumun otomatik olarak kaydedilecek.'}
+      </p>
       <button className="btn full" disabled={busy} onClick={submit}>
         {busy ? 'Kaydediliyor…' : 'Hayvanı kaydet'}
       </button>
