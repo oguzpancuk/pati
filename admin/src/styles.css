@@ -1,0 +1,442 @@
+:root {
+  --ground: #f6f8f5;
+  --surface: #ffffff;
+  --sunken: #eef1ec;
+  --ink: #16211c;
+  --ink-soft: #55635b;
+  --ink-faint: #8a968f;
+  --rule: #dfe5e0;
+  --moss: #2f6b4f;
+  --moss-deep: #1f4a36;
+  --moss-wash: #e5efe9;
+  --clay: #a8412f;
+  --clay-wash: #f8e7e3;
+  --amber: #8a6212;
+  --amber-wash: #f6eeda;
+  --radius: 6px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--moss);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+}
+button:hover:not(:disabled) {
+  border-color: var(--ink-faint);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button.primary {
+  background: var(--moss);
+  border-color: var(--moss);
+  color: #fff;
+}
+button.danger {
+  background: var(--clay);
+  border-color: var(--clay);
+  color: #fff;
+}
+button.small {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+/* ---------------- düzen ---------------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--rule);
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.brand small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nav-link {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.nav-link:hover {
+  background: var(--sunken);
+}
+.nav-link.active {
+  background: var(--moss-wash);
+  color: var(--moss-deep);
+  font-weight: 600;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.main {
+  padding: 24px 28px 60px;
+  min-width: 0;
+}
+
+h1 {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+}
+.page-hint {
+  color: var(--ink-faint);
+  margin: 0 0 20px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.toolbar .spacer {
+  flex: 1;
+}
+
+/* ---------------- kartlar ---------------- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.stat-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.card h2 {
+  font-size: 15px;
+  margin: 0 0 12px;
+}
+
+/* ---------------- grafik ---------------- */
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 130px;
+}
+.chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+  min-width: 0;
+}
+.chart-bar {
+  border-radius: 1px;
+}
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 10px;
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+/* ---------------- tablo ---------------- */
+
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 700px;
+}
+th,
+td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-faint);
+  font-weight: 600;
+  white-space: nowrap;
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+tbody tr:hover {
+  background: var(--sunken);
+}
+td.num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* İşlem sütunu sağa sabitlenir: tablo yatay kaydığında butonlar kenarda kesilip
+   erişilemez hale geliyordu. */
+td.actions,
+th.actions {
+  white-space: nowrap;
+  text-align: right;
+  position: sticky;
+  right: 0;
+  background: var(--surface);
+  box-shadow: -8px 0 8px -8px rgba(16, 33, 28, 0.25);
+}
+tbody tr:hover td.actions {
+  background: var(--sunken);
+}
+td.actions button + button {
+  margin-left: 6px;
+}
+
+.thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--sunken);
+  display: block;
+}
+.thumb.round {
+  border-radius: 50%;
+}
+.thumb.large {
+  width: 68px;
+  height: 68px;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tag-admin {
+  background: var(--moss-wash);
+  color: var(--moss-deep);
+}
+.tag-vet {
+  background: var(--amber-wash);
+  color: var(--amber);
+}
+.tag-user {
+  background: var(--sunken);
+  color: var(--ink-soft);
+}
+.tag-suspended {
+  background: var(--clay-wash);
+  color: var(--clay);
+}
+
+.muted {
+  color: var(--ink-faint);
+}
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.empty {
+  padding: 30px;
+  text-align: center;
+  color: var(--ink-faint);
+}
+
+.error-banner {
+  background: var(--clay-wash);
+  color: var(--clay);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+
+/* ---------------- giriş ---------------- */
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 28px;
+  width: 100%;
+  max-width: 360px;
+}
+.login-card h1 {
+  margin-bottom: 2px;
+}
+.login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+.login-card input {
+  width: 100%;
+}
+
+/* ---------------- kip (modal) ---------------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 20, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 10;
+}
+.modal {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 22px;
+  width: 100%;
+  max-width: 460px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.modal h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+}
+.modal .field {
+  display: block;
+  margin-top: 14px;
+}
+.modal .field span {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.modal .field input,
+.modal .field select,
+.modal .field textarea {
+  width: 100%;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}

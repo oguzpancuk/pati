@@ -7,6 +7,7 @@ const careRoutes = require('./routes/care.routes');
 const animalRoutes = require('./routes/animal.routes');
 const friendshipRoutes = require('./routes/friendship.routes');
 const leaderboardRoutes = require('./routes/leaderboard.routes');
+const adminRoutes = require('./routes/admin.routes');
 const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
 const { UPLOADS_DIR } = require('./config/upload');
 
@@ -24,6 +25,7 @@ app.use('/api/care-actions', careRoutes);
 app.use('/api/animals', animalRoutes);
 app.use('/api/friendships', friendshipRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

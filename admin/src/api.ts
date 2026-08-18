@@ -1,0 +1,147 @@
+const TOKEN_KEY = 'stray-admin-token';
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string | null) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`/api${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+
+  if (res.status === 401) {
+    // Oturum düştüyse token'ı temizleyip giriş ekranına dön; aksi halde panel
+    // her istekte anlamsız hata gösterip kilitli kalıyor.
+    setToken(null);
+    window.location.href = '/login';
+    throw new ApiError(401, 'Oturumunuz sona erdi');
+  }
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(res.status, (body as { error?: string }).error || `HTTP ${res.status}`);
+  }
+  return body as T;
+}
+
+export const api = {
+  get: <T>(path: string) => request<T>(path),
+  post: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: 'POST', body: JSON.stringify(data ?? {}) }),
+  patch: <T>(path: string, data: unknown) =>
+    request<T>(path, { method: 'PATCH', body: JSON.stringify(data) }),
+  del: <T>(path: string, data?: unknown) =>
+    request<T>(path, { method: 'DELETE', body: JSON.stringify(data ?? {}) }),
+};
+
+// ---------------------------------------------------------------- tipler
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: 'user' | 'vet' | 'admin';
+  avatar_url: string | null;
+  created_at: string;
+  suspended_at: string | null;
+  suspended_reason: string | null;
+  last_points: number;
+  care_action_count: number;
+  animal_count: number;
+  comment_count: number;
+}
+
+export interface AdminAnimal {
+  id: number;
+  species: 'cat' | 'dog';
+  name: string | null;
+  color: string | null;
+  breed: string | null;
+  markings: string | null;
+  created_at: string;
+  location_updated_at: string;
+  location: { type: 'Point'; coordinates: [number, number] };
+  created_by_id: number;
+  created_by_name: string;
+  cover_photo_url: string | null;
+  photo_count: number;
+  comment_count: number;
+  carer_count: number;
+}
+
+export interface AdminCareAction {
+  id: number;
+  action_type: 'food' | 'water';
+  photo_url: string;
+  created_at: string;
+  location: { type: 'Point'; coordinates: [number, number] };
+  user_id: number;
+  user_name: string;
+  user_suspended_at: string | null;
+}
+
+export interface AdminComment {
+  id: number;
+  body: string;
+  created_at: string;
+  health_record_id: number | null;
+  user_id: number;
+  user_name: string;
+  animal_id: number;
+  animal_name: string | null;
+  animal_species: 'cat' | 'dog';
+}
+
+export interface AuditEntry {
+  id: number;
+  action: string;
+  target_type: string;
+  target_id: number | null;
+  details: Record<string, unknown>;
+  created_at: string;
+  actor_id: number | null;
+  actor_name: string | null;
+}
+
+export interface DashboardStats {
+  totals: {
+    users: number;
+    suspended_users: number;
+    new_users_7d: number;
+    animals: number;
+    care_actions: number;
+    care_actions_24h: number;
+    comments: number;
+    health_records: number;
+    recovered_records: number;
+  };
+  daily: { day: string; food: number; water: number; animals: number; comments: number }[];
+  species: { species: 'cat' | 'dog'; count: number }[];
+  healthRecordTypes: { record_type: string; count: number }[];
+}
+
+export interface CurrentUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}

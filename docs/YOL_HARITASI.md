@@ -256,7 +256,23 @@ tekrar edilmek zorunda kalır.
 
 ---
 
-## 5. Admin sayfası (web)
+## 5. Admin sayfası (web) — ✅ temel panel tamamlandı
+
+**Yapıldı (18 Ağustos 2026):** `admin/` klasöründe React + Vite + TypeScript
+paneli. Altyapı: `requireAdmin` middleware, `/api/admin/*` route grubu,
+`users.suspended_at` ile askıya alma ve `audit_log` denetim kaydı. Ekranlar:
+gösterge paneli (30 günlük aktivite grafiği), kullanıcı yönetimi, hayvan yönetimi
++ mükerrer birleştirme, bakım kaydı fotoğraf moderasyonu, yorum moderasyonu,
+denetim kaydı. İlk yönetici `npm run make-admin` scriptiyle oluşturuluyor.
+
+**Kalanlar:**
+- [ ] Reklamveren yönetimi (madde 3 ile birlikte)
+- [ ] Bağış kurumu yönetimi ve raporları (madde 2 ile birlikte)
+- [ ] Panelin dağıtımı: nerede yayınlanacak, IP kısıtı olacak mı, 2FA gerekli mi
+- [ ] Giriş uç noktasına rate limit (parola deneme saldırısına karşı)
+
+<details>
+<summary>Orijinal plan (referans için)</summary>
 
 ### İstenen
 Tüm uygulamanın kontrol edileceği, verinin takip ve manipüle edileceği web
@@ -299,25 +315,55 @@ ile, ama **rol kontrolü eklenmeli**.
 - [ ] Dağıtım: admin paneli nerede yayınlanacak, kim erişebilecek
 
 ### Karar verilmesi gerekenler
-- İlk admin kullanıcısı nasıl oluşturulacak? (script / elle SQL)
-- Panel herkese açık bir adreste mi olacak, yoksa IP kısıtlı mı?
+- ~~İlk admin kullanıcısı nasıl oluşturulacak?~~ → `npm run make-admin` scripti
+- Panel herkese açık bir adreste mi olacak, yoksa IP kısıtlı mı? **(hâlâ açık)**
 - İki aşamalı doğrulama (2FA) gerekli mi? Veri manipüle edilebilen bir panel
-  için önerilir.
+  için önerilir. **(hâlâ açık)**
+
+</details>
 
 ---
 
-## Üretime çıkmadan önce (bu beş maddeden bağımsız)
+## 🚀 Yayına Çıkma Sprint'i — ertelendi, unutulmayacak
+
+> **Durum: ertelendi (18 Ağustos 2026).** Karar: "yayına çıkmaya daha çok var,
+> şimdilik admin panelinden devam edelim." Bu bölüm bilerek burada duruyor —
+> özellik geliştirmeye devam edilse bile bu maddeler **gerçek bir kullanıcı
+> uygulamaya dokunmadan önce** kapatılmak zorunda. Aşağıdaki maddelerden biri
+> bile eksikken canlıya çıkılırsa veri kaybı, kötüye kullanım veya KVKK sorunu
+> yaşanır.
+>
+> **Bu sprint'i her büyük iş bitiminde tekrar gündeme getir.**
 
 Bunlar özellik değil, "yayınlanabilir hâle gelme" işleri —
 [NOTLAR.md](NOTLAR.md#3-bilinen-sınırlar-ve-teknik-borç) içinde gerekçeleriyle
-duruyor:
+duruyor. Tahmini süre: 1–2 hafta.
 
+**Veri güvenliği (bunlar olmadan gerçek veri girilmemeli):**
 - [ ] Fotoğrafları nesne depolamaya (S3/R2) taşı + görsel yeniden boyutlandırma
-- [ ] Artımlı migrasyon aracına geç
-- [ ] Rate limit + kötüye kullanım koruması
-- [ ] Backend testleri + CI
-- [ ] Gerçek arka plan bildirimi (APNs/FCM) veya geofencing
-- [ ] Konum override kodunu kaldır
-- [ ] CORS'u kısıtla, JWT iptal mekanizması
+      — bugün sunucunun yerel diskinde, konteyner yeniden oluşturulunca kayboluyor
+- [ ] Artımlı migrasyon aracına geç (node-pg-migrate / Knex) — bugün şema
+      değişince veritabanı sıfırlanıyor
+- [ ] Veritabanı yedeği (yönetilen Postgres kullanılacaksa otomatik gelir)
+
+**Kötüye kullanım koruması:**
+- [ ] Rate limit (özellikle `POST /care-actions` ve yorum uç noktalarında)
+- [ ] Fotoğraf moderasyonu — admin panelinin bir parçası (madde 5)
+- [ ] Kullanıcı askıya alma + JWT iptal mekanizması
+- [ ] CORS'u kısıtla
+
+**Hukuk / mağaza:**
 - [ ] KVKK: aydınlatma metni, gizlilik politikası, veri silme akışı
 - [ ] Mağaza hazırlığı: ikon, ekran görüntüleri, gizlilik beyanı
+- [ ] Konum override kodunu kaldır (`mobile/src/location.ts`)
+
+**Kalite:**
+- [ ] Backend testleri + CI (bugün backend'de hiç otomatik test yok)
+- [ ] Gerçek arka plan bildirimi (APNs/FCM) veya geofencing — bugün bildirimler
+      yalnızca uygulama çalışırken geliyor
+
+**Dağıtım:**
+- [ ] Backend'i bir sunucuya deploy et (Fly.io / Railway / Hetzner) + yönetilen
+      PostgreSQL + PostGIS
+- [ ] TestFlight (iOS) ve Play internal testing (Android) derlemeleri
+- [ ] Tek bir mahallede 10–20 gerçek kullanıcıyla pilot

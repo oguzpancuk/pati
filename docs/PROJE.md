@@ -137,6 +137,25 @@ kapalıyken kazanılanlar profil ekranı açıldığında yakalanıyor.
 - Aynı uyarı 6 saatte birden sık gönderilmiyor
 - Konum sunucuya sürekli gönderilmiyor — kontrol cihazda yapılıyor
 
+### Yönetim paneli (web)
+Ayrı bir web uygulaması, aynı API üzerinde çalışır. Yalnızca `role = admin` olan
+hesaplar girebilir; her `/api/admin` isteği sunucuda `requireAdmin`'den geçer.
+
+- **Gösterge paneli** — kullanıcı/hayvan/bakım/yorum sayıları, askıya alınan hesap
+  sayısı, tür dağılımı ve son 30 günlük aktivite grafiği
+- **Kullanıcılar** — arama, rol değiştirme (kullanıcı/veteriner/yönetici), askıya
+  alma. Askıya alınan hesap token'ı elinde olsa bile API'ye erişemez
+- **Hayvanlar** — düzenleme, silme ve **mükerrer kayıt birleştirme**: kaynak
+  kaydın fotoğrafları, yorumları, sağlık kayıtları ve bakım verenleri hedefe
+  taşınır, kaynak silinir (tek transaction)
+- **Bakım kayıtları** — kanıt fotoğraflarının moderasyonu
+- **Yorumlar** — uygunsuz yorumları silme
+- **Denetim kaydı** — panelden yapılan her işlem; kim, ne zaman, neyi, hangi
+  sebeple değiştirdi
+
+İlk yönetici `npm run make-admin -- eposta@adresi.com` scriptiyle oluşturulur
+(admin uç noktaları zaten yönetici yetkisi istediği için API'den yapılamaz).
+
 ### Demo verisi
 `npm run seed` ile 100 kullanıcı, 200 hayvan, Kadıköy çevresine dağılmış
 mama/su kayıtları ve hayvan profillerinde sohbet oluşturuluyor. 20 kullanıcı
@@ -152,6 +171,7 @@ kademeleri veride görünüyor.
 stray/
 ├── backend/    Node.js + Express API (PostgreSQL + PostGIS, JWT)
 ├── mobile/     React Native uygulaması (iOS + Android)
+├── admin/      Web tabanlı yönetim paneli (React + Vite + TS)
 └── docs/       Dokümantasyon
 ```
 
@@ -179,6 +199,7 @@ user_animal_care   kim hangi hayvana bakıyor (çoka çok)
 care_actions       konum, tür (food/water), photo_url, zaman
 friendships        requester/addressee, pending|accepted
 user_badge_awards  rozetin ilk kazanıldığı an + o andaki puan/sıralama/seviye
+audit_log          panelden yapılan her değişiklik: kim, ne, ne zaman, neden
 ```
 Coğrafi kolonlar `GEOGRAPHY(POINT, 4326)` tipinde ve GIST index'li. Yakınlık
 sorguları `ST_DWithin`, harita penceresi `ST_MakeEnvelope`, istemciye dönüş
@@ -213,6 +234,15 @@ GET    /api/friendships/me
 POST   /api/friendships | /:id/accept    DELETE /api/friendships/:id
 
 GET    /api/leaderboard
+
+                                          # hepsi requireAuth + requireAdmin
+GET    /api/admin/stats
+GET    /api/admin/users                   PATCH /api/admin/users/:id
+GET    /api/admin/animals                 PATCH /api/admin/animals/:id
+DELETE /api/admin/animals/:id             POST  /api/admin/animals/:id/merge
+GET    /api/admin/care-actions            DELETE /api/admin/care-actions/:id
+GET    /api/admin/comments                DELETE /api/admin/comments/:id
+GET    /api/admin/audit-log
 ```
 
 ### Dikkate değer birkaç uygulama detayı

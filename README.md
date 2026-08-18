@@ -19,6 +19,7 @@ beslenme, sağlık ve refah durumunu koordine etmelerini sağlar.
 stray/
 ├── backend/    Node.js + Express API (PostgreSQL + PostGIS, JWT auth)
 ├── mobile/     React Native uygulaması
+├── admin/      Web tabanlı yönetim paneli (React + Vite)
 └── docs/       Ürün dokümantasyonu
 ```
 
@@ -69,6 +70,10 @@ stray/
   puana göre 10 kademeli seviye sistemi; yeni rozet kazanıldığında sıralama ve
   puan değişimini gösteren kutlama penceresi; tüm kullanıcıların sıralandığı bir
   liderlik tablosu (profilden erişilir)
+- **Yönetim paneli (web):** gösterge paneli, kullanıcı yönetimi (rol değiştirme,
+  askıya alma), hayvan yönetimi (düzenleme, silme, **mükerrer kayıt birleştirme**),
+  bakım kaydı fotoğraf moderasyonu, yorum moderasyonu ve her işlemin kaydedildiği
+  denetim kaydı
 
 ## Yapılacaklar
 
@@ -90,14 +95,24 @@ Ayrıntılı planlar, önerilen yaklaşımlar ve karar bekleyen konular için bk
   tıkta sıra bir sonrakine geçer. *(Kendi reklam sunucumuz + gösterim/tık ölçümü)*
 - [ ] **4. UI** — Uygulamanın genel görsel giydirmesi. *(Önce küçük bir tasarım
   sistemi/token seti, tam giydirme en sona)*
-- [ ] **5. Admin sayfası (web)** — Tüm uygulamanın kontrol edileceği, verinin
-  takip ve manipüle edileceği web tabanlı panel. *(React + Vite, mevcut API
-  üzerine; `users.role` + `requireAdmin` + denetim kaydı altyapısı)*
+- [x] **5. Admin sayfası (web)** — ✅ Temel panel tamamlandı: gösterge paneli,
+  kullanıcı/hayvan/bakım/yorum yönetimi, mükerrer birleştirme, moderasyon ve
+  denetim kaydı. Reklamveren ve bağış kurumu ekranları 2. ve 3. maddelerle
+  birlikte eklenecek.
 
-**Önerilen sıra:** Admin paneli (5) → Reklam (3) → Bağış (2), çünkü hem reklam
+**Önerilen sıra:** ~~Admin paneli (5)~~ → Reklam (3) → Bağış (2), çünkü hem reklam
 firmaları hem bağış kurumları admin panelinden giriliyor. Tasarım sistemi erken,
 tam UI giydirmesi en sona. YZ eşleştirme (1) paralel yürüyebilir; en büyük
 teknik belirsizlik orada olduğu için önce kısa bir deneme yapılması öneriliyor.
+
+> ### 🚀 Yayına Çıkma Sprint'i — ertelendi, unutulmayacak
+>
+> Özellik geliştirmeye devam ediyoruz, ama **gerçek bir kullanıcı uygulamaya
+> dokunmadan önce** kapatılması zorunlu bir liste var: fotoğrafların nesne
+> depolamaya taşınması, artımlı migrasyon, rate limit, moderasyon, KVKK metinleri,
+> deploy ve pilot. Tam liste ve gerekçeleri
+> [docs/YOL_HARITASI.md → Yayına Çıkma Sprint'i](docs/YOL_HARITASI.md#-yayına-çıkma-sprinti--ertelendi-unutulmayacak)
+> içinde. **Her büyük iş bitiminde bu listeyi tekrar gözden geçirin.**
 
 Üretime çıkmadan kapatılması gereken teknik borç listesi
 [docs/NOTLAR.md](docs/NOTLAR.md#3-bilinen-sınırlar-ve-teknik-borç) içinde.
@@ -196,8 +211,8 @@ Tüm demo hesapların girişi: `test1@stray.test` … `test100@stray.test`,
 > Script mevcut demo veriyi görürse tekrar çalışmaz; sıfırdan üretmek için
 > veritabanını sıfırlayıp `npm run migrate && npm run seed` yapın.
 
-> Şema zaman zaman değişiyor (en son: `user_badge_awards` tablosu ve
-> `users.last_rank`/`last_points` eklendi).
+> Şema zaman zaman değişiyor (en son: `audit_log` tablosu ve
+> `users.suspended_at`/`suspended_reason` eklendi).
 > Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
 > `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
 >
@@ -263,6 +278,45 @@ Backend'e otomatik olarak `10.0.2.2:3000` üzerinden bağlanır (Android emülat
 "localhost"u kendi üzerinde arar). Gerçek bir cihazda test ediyorsanız
 `mobile/src/api/client.ts` içindeki `API_BASE_URL`'i bilgisayarınızın yerel ağ
 IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
+
+### 5c. Yönetim panelini çalıştırma (web)
+
+Panel ayrı bir web uygulaması ama aynı API'yi kullanır — ek bir sunucu gerekmez.
+
+**Önce bir yönetici hesabı gerekiyor.** Uygulamadan (veya demo verisinden) bir
+hesap oluşturduktan sonra backend klasöründe:
+```bash
+cd backend
+npm run make-admin -- eposta@adresiniz.com
+```
+Demo verisi yüklediyseniz `npm run make-admin -- test1@stray.test` da olur.
+
+> İlk yöneticiyi neden API'den yapamıyoruz? Admin uç noktaları zaten yönetici
+> yetkisi istiyor — yumurta-tavuk. Bu yüzden sunucuya erişimi olan birinin elle
+> çalıştırdığı bir script kullanıyoruz. Yöneticiliği geri almak için
+> `npm run make-admin -- eposta@adresiniz.com --revoke`.
+
+**Paneli başlatın** (yeni bir terminalde, backend çalışır durumdayken):
+```bash
+cd admin
+npm install
+npm run dev
+```
+`http://localhost:5174` adresinden yönetici hesabınızla giriş yapın. Vite, `/api`
+isteklerini `localhost:3000`'e yönlendirir; backend başka bir adresteyse
+`API_URL=http://sunucu:3000 npm run dev` şeklinde çalıştırın.
+
+Üretim derlemesi: `npm run build` → `admin/dist/` (statik dosyalar).
+
+**Panelde neler var:**
+- **Gösterge paneli** — kullanıcı/hayvan/bakım sayıları ve son 30 günlük aktivite grafiği
+- **Kullanıcılar** — arama, rol değiştirme, askıya alma. Askıya alınan hesap
+  token'ı elinde olsa bile API'ye erişemez (her istekte kontrol edilir)
+- **Hayvanlar** — düzenleme, silme ve **mükerrer kayıt birleştirme** (kaynak
+  kaydın fotoğrafları, yorumları, sağlık kayıtları ve bakım verenleri hedefe taşınır)
+- **Bakım kayıtları** — fotoğraf moderasyonu; kanıt fotoğrafı geçersizse kaydı silin
+- **Yorumlar** — uygunsuz yorumları silme
+- **Denetim kaydı** — panelden yapılan her işlem, kimin yaptığı ve sebebiyle birlikte
 
 ### 6. Uygulamada gezinme
 

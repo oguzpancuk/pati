@@ -90,6 +90,34 @@ popup'ı olarak patlıyordu. `seed-demo.js` bu yüzden mevcut rozetleri
 > görecek. Sıfırdan bir veritabanında sorun değil, ama veri varken deploy
 > edilecekse benzer bir backfill çalıştırılmalı.
 
+### Kullanıcı silinmiyor, askıya alınıyor
+Admin panelinde "sil" yok, "askıya al" var. Gerekçe: kullanıcının bıraktığı bakım
+kayıtları haritanın verisi, yorumları da başkalarının okuduğu içerik — hesabı
+silmek başkalarının gördüğü veriyi de götürüyor. Askıya alınan hesap
+`suspended_at` dolu olduğu için API'ye erişemiyor (`requireAuth` her istekte
+kontrol ediyor), ama geçmiş katkısı yerinde kalıyor.
+
+Bu aynı zamanda **JWT'nin iptal edilememesi** sorununu pratikte çözüyor: token
+geçerli olsa bile askıya alınmış kullanıcı 403 alıyor.
+
+### Yönetici kendi rolünü/durumunu değiştiremiyor
+Tek yöneticinin kendini yanlışlıkla kullanıcıya düşürmesi paneli tamamen
+erişilemez hale getirir (geri dönüş yalnızca sunucudaki script). Bu yüzden
+kullanıcı kendi kaydında rol ve askı alanlarını değiştiremiyor.
+
+### Denetim kaydı "best effort"
+`writeAuditLog` hata verirse asıl işlem geri alınmıyor, yalnızca loglanıyor.
+Gerekçe: silme/düzenleme zaten gerçekleşmiş oluyor; kaydı yazamamak yüzünden
+kullanıcıya hata döndürmek durumu daha da karıştırır. Silinen kayıtların içeriği
+denetim kaydına yazılıyor — satır artık yok ama "ne silindi" sorusu
+cevaplanabilir kalıyor.
+
+### Hayvan birleştirme tek transaction'da
+Fotoğraf, yorum, sağlık kaydı ve bakım veren taşıma işlemlerinin yarısı olup
+yarısı olmazsa geriye iki bozuk kayıt kalır. `user_animal_care` birleşik birincil
+anahtar kullandığı için aynı kişi iki kayda da bakıyorsa `ON CONFLICT DO NOTHING`
+gerekiyor.
+
 ### Öne çıkan rozetler yalnızca anahtarı saklıyor
 `users.featured_badges` içinde `["streak:feeder", "breed:Tekir"]` gibi
 anahtarlar var, kademe bilgisi yok. Gerekçe: kullanıcı gümüşten altına
@@ -207,11 +235,11 @@ düşmesi yaşandı.
    profiline girmezse kutlama gecikir. Gerçek zamanlı olması istenirse push
    bildirimi gerekir.
 
-10. **Rol var ama kullanılmıyor.** `users.role` kolonu mevcut
-    (`user` / `vet` / `admin`) ve yalnızca sağlık kaydının "veteriner onaylı"
-    işaretlenmesinde okunuyor. Admin paneli için bir `requireAdmin` middleware'i
-    ve `/api/admin/*` route grubu eklenmesi gerekecek (bkz. `YOL_HARITASI.md`
-    madde 5).
+10. **Admin paneli korumasız bir adreste.** Panel `/api/admin` üzerinden rol
+    kontrolü yapıyor ama panelin kendisi (statik dosyalar) herkese açık bir
+    adreste sunulursa giriş ekranı internete açılmış olur. Üretimde IP kısıtı
+    veya en azından iki aşamalı doğrulama düşünülmeli. Ayrıca panelde henüz
+    rate limit yok — parola deneme saldırısına karşı korumasız.
 
 11. **Konum override kodu repoda.** `__DEV__` ile korunuyor ama üretime
     çıkmadan önce tamamen kaldırılmalı (`mobile/src/location.ts`).

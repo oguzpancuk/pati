@@ -193,7 +193,8 @@ async function seed() {
       const base = animalParams.length;
       animalValues.push(
         `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5},
-          ST_SetSRID(ST_MakePoint($${base + 6}, $${base + 7}), 4326)::geography, $${base + 8})`
+          ST_SetSRID(ST_MakePoint($${base + 6}, $${base + 7}), 4326)::geography, $${base + 8},
+          now() - ($${base + 9} * interval '1 day'))`
       );
       animalParams.push(
         species,
@@ -203,12 +204,16 @@ async function seed() {
         randomItem(MARKINGS),
         CENTER.lng + randomOffset(),
         CENTER.lat + randomOffset(),
-        userId
+        userId,
+        // Kayıt tarihlerini son 30 güne yayıyoruz. Hepsi bugüne yığılırsa admin
+        // panelindeki günlük aktivite grafiği tek bir devasa sütunla eziliyor ve
+        // "kaydedici" seri rozetleri de hiç oluşmuyor.
+        Math.floor(Math.random() * 30)
       );
     }
   }
   const animals = await pool.query(
-    `INSERT INTO animals (species, name, color, breed, markings, location, created_by)
+    `INSERT INTO animals (species, name, color, breed, markings, location, created_by, created_at)
      VALUES ${animalValues.join(',')} RETURNING id, created_by`,
     animalParams
   );

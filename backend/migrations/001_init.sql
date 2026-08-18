@@ -18,6 +18,11 @@ CREATE TABLE IF NOT EXISTS users (
     -- puan kazanmasıyla da değiştiği için geçmişe dönük hesaplanamaz.
     last_rank INTEGER,
     last_points INTEGER NOT NULL DEFAULT 0,
+    -- Admin panelinden askıya alınan hesaplar. Silmek yerine askıya alıyoruz ki
+    -- kullanıcının bıraktığı bakım kayıtları ve yorumlar (başkalarının gördüğü
+    -- veri) kaybolmasın. Dolu ise API 403 döner.
+    suspended_at TIMESTAMPTZ,
+    suspended_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -93,7 +98,8 @@ CREATE TABLE IF NOT EXISTS user_animal_care (
 
 -- Bakım noktaları: kullanıcıların mama/su bıraktığı tam konumlar.
 -- Bölge/idari sınır kavramı yok; harita bu noktaların yoğunluğuna göre ısı haritası
--- olarak renklendirilir ve "son 24 saatte 500m içinde bakım var mı" sorgusu buradan hesaplanır.
+-- olarak renklendirilir ve "yakınımda bakım var mı" sorgusu buradan hesaplanır
+-- (yarıçap ve zaman penceresi care.controller.js içinde: 100m, mama 4sa / su 6sa).
 CREATE TABLE IF NOT EXISTS care_actions (
     id SERIAL PRIMARY KEY,
     location GEOGRAPHY(POINT, 4326) NOT NULL,
@@ -119,9 +125,6 @@ CREATE TABLE IF NOT EXISTS friendships (
     CHECK (requester_id <> addressee_id),
     UNIQUE (requester_id, addressee_id)
 );
-
--- Kazanılan rozetlerin anı. Rozetin kendisi türetilmiş veri (bkz. utils/badges.js),
--- ama "yeni rozet kazandın" popupını
 
 -- Kazanılan rozetlerin anı. Rozetin kendisi türetilmiş veri (bkz. utils/badges.js),
 -- ama "yeni rozet kazandın" popup'ını gösterebilmek için rozetin ilk kez ne zaman
@@ -151,3 +154,20 @@ CREATE INDEX IF NOT EXISTS idx_user_badge_awards_unseen
 
 -- Bir kullanıcının son yorumlarını profilinde listeleyebilmek için.
 CREATE INDEX IF NOT EXISTS idx_animal_comments_user ON animal_comments (user_id, created_at DESC);
+
+-- Admin panelinden yapılan her değişikliğin kaydı. Veri manipüle edilebilen bir
+-- panelde bu olmadan "bu hayvanı kim sildi?" sorusu cevaplanamıyor.
+-- target_type/target_id serbest metin: yeni bir varlık türü eklenince şema
+-- değişmesin diye yabancı anahtar konmadı (kayıt silinse bile iz kalmalı).
+CREATE TABLE IF NOT EXISTS audit_log (
+    id SERIAL PRIMARY KEY,
+    actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    action VARCHAR(60) NOT NULL,
+    target_type VARCHAR(40) NOT NULL,
+    target_id INTEGER,
+    details JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_target ON audit_log (target_type, target_id);
