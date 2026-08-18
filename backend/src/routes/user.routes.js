@@ -7,7 +7,7 @@ const {
   setAvatarKey,
   clearAvatar,
   setFeaturedBadges,
-  getMyAnimals,
+  getUserAnimals,
   getUserComments,
   getMyBadgeAwards,
   markMyBadgeAwardsSeen,
@@ -22,13 +22,14 @@ router.post('/me/avatar', requireAuth, upload.single('photo'), uploadAvatar);
 router.put('/me/avatar-key', requireAuth, setAvatarKey);
 router.delete('/me/avatar', requireAuth, clearAvatar);
 router.put('/me/featured-badges', requireAuth, setFeaturedBadges);
-router.get('/me/animals', requireAuth, getMyAnimals);
+router.get('/me/animals', requireAuth, getUserAnimals);
 router.get('/me/comments', requireAuth, getUserComments);
 router.get('/me/badge-awards', requireAuth, getMyBadgeAwards);
 router.post('/me/badge-awards/seen', requireAuth, markMyBadgeAwardsSeen);
 router.get('/search', requireAuth, searchUsers);
 // '/:id' ile başlayan yollar en sonda: yukarıdaki sabit '/me/...' yolları önce eşleşsin.
 router.get('/:id/comments', requireAuth, getUserComments);
+router.get('/:id/animals', requireAuth, getUserAnimals);
 router.get('/:id', requireAuth, getPublicProfile);
 
 module.exports = router;

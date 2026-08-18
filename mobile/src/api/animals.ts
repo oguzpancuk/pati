@@ -81,15 +81,63 @@ export interface AnimalDetail extends Animal {
   isCarer: boolean;
 }
 
-export async function fetchAnimals(
-  lat?: number,
-  lng?: number,
-  radiusMeters?: number,
-  species?: 'cat' | 'dog'
-): Promise<Animal[]> {
+export interface FetchAnimalsOptions {
+  lat?: number;
+  lng?: number;
+  radiusMeters?: number;
+  species?: 'cat' | 'dog';
+  limit?: number;
+  offset?: number;
+}
+
+// limit verilmezse sunucu geniş bir varsayılan uyguluyor (harita tek seferde
+// çevreyi çekiyor); liste ekranları sayfa sayfa istesin.
+export async function fetchAnimals(options: FetchAnimalsOptions = {}): Promise<Animal[]> {
+  const { lat, lng, radiusMeters, species, limit, offset } = options;
   const { data } = await apiClient.get<Animal[]>('/animals', {
-    params: lat && lng ? { lat, lng, radiusMeters, species } : { species },
+    params:
+      lat && lng ? { lat, lng, radiusMeters, species, limit, offset } : { species, limit, offset },
   });
+  return data;
+}
+
+export type SimilarityLevel = 'high' | 'medium' | 'low';
+export type SimilarityReason = 'breed' | 'color' | 'distance';
+
+export interface AnimalMatch extends Animal {
+  distance_meters: number;
+  similarity: SimilarityLevel;
+  similarity_reasons: SimilarityReason[];
+}
+
+export interface MatchAnimalsInput {
+  lat: number;
+  lng: number;
+  species: 'cat' | 'dog';
+  breed?: string | null;
+  color?: string | null;
+}
+
+/**
+ * Yeni kayıt açmadan önce "bu hayvan zaten kayıtlı mı?" adayları. Sunucu 1 km
+ * içindeki aynı türden hayvanları girilen desen/renk ve mesafeye göre
+ * yüksek/orta/düşük benzerlikle sıralıyor (sayısal yüzde yok, bilerek).
+ */
+export async function matchAnimals(
+  input: MatchAnimalsInput
+): Promise<{ candidates: AnimalMatch[]; radiusMeters: number }> {
+  const { data } = await apiClient.get<{ candidates: AnimalMatch[]; radiusMeters: number }>(
+    '/animals/match',
+    {
+      params: {
+        lat: input.lat,
+        lng: input.lng,
+        species: input.species,
+        breed: input.breed || undefined,
+        color: input.color || undefined,
+      },
+    }
+  );
   return data;
 }
 
@@ -177,17 +225,26 @@ export async function reportSighting(animalId: number, lat: number, lng: number)
   return data;
 }
 
+export interface CommentPage {
+  comments: AnimalComment[];
+  total: number;
+}
+
 /**
  * Yorumlar yalnızca hayvana ya da bir sağlık kaydına bağlanabiliyor. Aşı
  * kayıtlarının sohbeti yok: aşı tek seferlik bir olay, takip edilecek bir
  * süreci yok.
+ *
+ * Sohbet en yeniden geriye sayfalanır: offset 0 son N yorumu (kronolojik
+ * sırayla) getirir, "öncekileri yükle" dedikçe offset büyür.
  */
 export async function fetchAnimalComments(
   animalId: number,
-  healthRecordId?: number
-): Promise<AnimalComment[]> {
-  const { data } = await apiClient.get<AnimalComment[]>(`/animals/${animalId}/comments`, {
-    params: healthRecordId ? { healthRecordId } : undefined,
+  options: { healthRecordId?: number; limit?: number; offset?: number } = {}
+): Promise<CommentPage> {
+  const { healthRecordId, limit, offset } = options;
+  const { data } = await apiClient.get<CommentPage>(`/animals/${animalId}/comments`, {
+    params: { healthRecordId, limit, offset },
   });
   return data;
 }

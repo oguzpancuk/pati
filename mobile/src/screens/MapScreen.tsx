@@ -14,8 +14,9 @@ import {
 import { Animal, fetchAnimals } from '../api/animals';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
+import HeartBurst, { HEART_BURST_DURATION_MS, heartRiseFor } from '../components/HeartBurst';
 import UserLocationMarker from '../components/UserLocationMarker';
-import { Coordinates, getCurrentLocation } from '../location';
+import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Banner, Button, Text } from '../components/ui';
 import { Icon } from '../components/brand';
@@ -52,6 +53,13 @@ const MAX_DELTA = 40;
 // ölçeğinde onlarca avatar üst üste binip haritayı tamamen kapatıyordu.
 const ANIMAL_VISIBLE_MAX_DELTA = 0.02;
 
+// Mama/su bırakılınca haritanın odaklandığı ölçek: yeşil daire (100 m) ve
+// içindeki hayvanlar rahatça görünsün diye sokak ölçeğinin de biraz altı.
+const CELEBRATE_ZOOM_DELTA = 0.006;
+const CELEBRATE_ZOOM_MS = 400;
+const ANIMAL_MARKER_SIZE = 36;
+const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
+
 // react-native-maps'in Heatmap bileşeni yalnızca Google Maps sağlayıcısında çalışıyor
 // (iOS'ta Apple Maps kullandığımız için desteklenmiyor, Google'a geçmek iOS'ta da API
 // key zorunluluğu getirirdi). Bunun yerine kırmızı bir taban katmanının üstüne, ağırlığa
@@ -84,6 +92,19 @@ export default function MapScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
+  // Kalp patlamaları haritanın üstünde ayrı bir katmanda, ekran koordinatıyla
+  // çiziliyor (marker'ın içine gömülmüyor): iOS marker görünümünü bir kez
+  // resme çevirip öyle çizdiği için içindeki animasyon takılıyor ya da yanlış
+  // yerde beliriyordu. `round` her kayıtta artıyor ki aynı hayvan üst üste iki
+  // kayıtta yeniden patlasın (HeartBurst tek seferlik; yeni key = yeni mount).
+  const [hearts, setHearts] = useState<{
+    bursts: { id: number; x: number; y: number }[];
+    round: number;
+  }>({ bursts: [], round: 0 });
+  const heartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Yakınlaşma bitene kadar bekleyen kutlama; ekran noktaları harita durunca
+  // hesaplanıyor (hareket hâlindeyken alınan nokta yanlış yere düşüyor).
+  const pendingHeartsRef = useRef<Animal[] | null>(null);
 
   const typeLabel = viewType === 'food' ? 'mama' : 'su';
 
@@ -128,17 +149,19 @@ export default function MapScreen({ navigation }: any) {
         setMyLocation(loc);
         const [statusData, animalData] = await Promise.all([
           fetchCareStatus(loc.lat, loc.lng, viewType),
-          fetchAnimals(loc.lat, loc.lng, ANIMAL_RADIUS_METERS),
+          fetchAnimals({ lat: loc.lat, lng: loc.lng, radiusMeters: ANIMAL_RADIUS_METERS }),
         ]);
         setStatus(statusData);
         setAnimals(animalData);
         centerOnUser(loc);
+        return animalData;
       }
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
     } finally {
       setLoading(false);
     }
+    return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewType]);
 
@@ -151,6 +174,7 @@ export default function MapScreen({ navigation }: any) {
   function handleRegionChangeComplete(region: MapRegion) {
     currentRegionRef.current = region;
     setAnimalsVisible(region.latitudeDelta <= ANIMAL_VISIBLE_MAX_DELTA);
+    if (pendingHeartsRef.current) flushPendingHearts();
 
     const { latitude, longitude } = region;
     if (
@@ -165,6 +189,63 @@ export default function MapScreen({ navigation }: any) {
 
   function handleAnimalPress(animalId: number) {
     navigation.navigate('AnimalProfile', { animalId });
+  }
+
+  /**
+   * Bırakılan mama/suyun etki alanındaki (yeşil daire, 100 m) hayvanların
+   * avatarından kalpler çıkar. Harita da o alana yakınlaşıyor: kullanıcı
+   * genelde sokak ölçeğinin üstünde duruyor ve avatarlar o ölçekte çizilmiyor;
+   * animasyonu görmesi için önce hayvanların görünür olması gerekiyor.
+   */
+  function celebrateNearbyAnimals(origin: Coordinates, currentAnimals: Animal[]) {
+    const affected = currentAnimals.filter(
+      (animal) =>
+        distanceMeters(origin, {
+          lat: animal.location.coordinates[1],
+          lng: animal.location.coordinates[0],
+        }) <= ACTION_CIRCLE_RADIUS_METERS
+    );
+
+    mapRef.current?.animateToRegion(
+      {
+        latitude: origin.lat,
+        longitude: origin.lng,
+        latitudeDelta: CELEBRATE_ZOOM_DELTA,
+        longitudeDelta: CELEBRATE_ZOOM_DELTA,
+      },
+      CELEBRATE_ZOOM_MS
+    );
+    setAnimalsVisible(true);
+    if (affected.length === 0) return;
+
+    // Normalde onRegionChangeComplete tetikler; harita zaten o bölgedeyse
+    // animasyon olmayabilir, o yüzden yedek zamanlayıcı da var.
+    pendingHeartsRef.current = affected;
+    if (heartTimerRef.current) clearTimeout(heartTimerRef.current);
+    heartTimerRef.current = setTimeout(flushPendingHearts, CELEBRATE_ZOOM_MS + 600);
+  }
+
+  async function flushPendingHearts() {
+    const affected = pendingHeartsRef.current;
+    const map = mapRef.current;
+    if (!affected || !map) return;
+    pendingHeartsRef.current = null;
+    if (heartTimerRef.current) clearTimeout(heartTimerRef.current);
+
+    const bursts = await Promise.all(
+      affected.map(async (animal) => {
+        const point = await map.pointForCoordinate({
+          latitude: animal.location.coordinates[1],
+          longitude: animal.location.coordinates[0],
+        });
+        return { id: animal.id, x: point.x, y: point.y };
+      })
+    );
+    setHearts((prev) => ({ bursts, round: prev.round + 1 }));
+    heartTimerRef.current = setTimeout(
+      () => setHearts((prev) => ({ bursts: [], round: prev.round })),
+      HEART_BURST_DURATION_MS + 200
+    );
   }
 
   /**
@@ -207,7 +288,8 @@ export default function MapScreen({ navigation }: any) {
         fileName: asset.fileName,
       });
       setConfirmOpen(false);
-      await load();
+      const refreshed = await load();
+      celebrateNearbyAnimals(device, refreshed ?? animals);
       celebrate(created);
     } catch (err: any) {
       Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
@@ -274,10 +356,36 @@ export default function MapScreen({ navigation }: any) {
               tracksViewChanges={false}
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <AnimalAvatar species={animal.species} breed={animal.breed} size={36} />
+              <AnimalAvatar
+                species={animal.species}
+                breed={animal.breed}
+                size={ANIMAL_MARKER_SIZE}
+              />
             </Marker>
           ))}
       </MapView>
+
+      {/* Kalp katmanı: harita tam ekran olduğu için pointForCoordinate'in verdiği
+          nokta doğrudan bu katmanın koordinatı. Her patlama avatarın merkezine
+          oturur, kalpler oradan yukarı süzülür. */}
+      {hearts.bursts.length > 0 && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {hearts.bursts.map((burst) => (
+            <View
+              key={`hearts-${hearts.round}-${burst.id}`}
+              style={{
+                position: 'absolute',
+                left: burst.x - ANIMAL_MARKER_SIZE / 2,
+                top: burst.y - ANIMAL_MARKER_SIZE / 2 - HEART_RISE,
+                width: ANIMAL_MARKER_SIZE,
+                height: ANIMAL_MARKER_SIZE + HEART_RISE,
+              }}
+            >
+              <HeartBurst size={ANIMAL_MARKER_SIZE} />
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Üst katman: harita tam ekran, kontroller üstünde yüzüyor. */}
       <SafeAreaView style={styles.topLayer} edges={['top']} pointerEvents="box-none">

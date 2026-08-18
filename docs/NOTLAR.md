@@ -178,6 +178,66 @@ binerdi.
 
 ---
 
+### Eşleştirme "2 saniye" beklemesi bilinçli bir yer tutucu
+Hayvan ekleme akışında "yapay zekâ eşleştiriyor" ekranı en az 2 sn duruyor
+(`mobile/src/screens/AddAnimalScreen.tsx` → `MIN_MATCHING_MS`). Sunucu şu an
+yalnızca tür/desen/renk/mesafeye bakıp anında döndüğü için bekleme yapay; ama
+kullanıcıya bir karşılaştırma yapıldığını hissettiriyor ve fotoğraf tabanlı
+eşleştirme (YOL_HARITASI §1) geldiğinde gerçek işlem süresi bu yerin altını
+dolduracak. O gün sabit silinir, ekran değişmez.
+
+### Benzerlik kademe, yüzde değil
+`GET /api/animals/match` yüksek/orta/düşük döner; sayısal skor istemciye hiç
+gitmiyor. Elimizdeki sinyal kullanıcının girdiği birkaç alan; "%73 benzer"
+olmayan bir kesinlik vaat eder. Puanlama `animal.controller.js` →
+`similarityFor` içinde tek yerde (desen +2, renk +1, 200 m içinde +1;
+≥3 yüksek, 2 orta, gerisi düşük). Tür filtre: kediyle köpek eşleşmez.
+
+### Yakındaki hayvanlar 1 km, mama/su etki alanı 100 m
+"Yakındakiler" listesi 5 km'den 1 km'ye indi: yürüyerek gidilip bakılabilecek
+mesafe bu; sokak hayvanı kendi mahallesinden çıkmıyor, 5 km'de liste alakasız
+kayıtla doluyordu. Kalp animasyonu ise haritadaki yeşil daireyle aynı 100 m'yi
+kullanıyor (`MapScreen.tsx` → `ACTION_CIRCLE_RADIUS_METERS`) — "etki alanı"nın
+uygulamada tek bir tanımı olsun diye. Genişletmek gerekirse tek sabit.
+
+### Sayfalama: profil önizleme + "daha fazla göster", listeler kaydırdıkça
+Profil ekranları ScrollView; orada sonsuz kaydırma yerine açık bir düğme
+(`ui/LoadMoreButton`, "Daha fazla göster (12)") var — kullanıcı nerede
+bittiğini ve kaç tane daha olduğunu görsün. Tam liste ekranları (Yakındakiler,
+Yorumlar) FlatList `onEndReached` ile yüklüyor. Sunucu tarafı `limit/offset`;
+`limit` verilmezse eski geniş varsayılan korunuyor ki harita tek istekte
+çevreyi çeksin. Yorum sohbeti en yeniden geriye sayfalanır ve sayfa kronolojik
+sırayla döner (`listComments`).
+
+### Kök adres bir PWA kabuğu, web sürümü değil
+`backend/public/` altındaki sayfa "URL ile ana ekrana ekle" isteğinin
+karşılığı: manifest + service worker + ikonlar, tam ekran açılır, çevrimdışı
+kabuk. Halka açık `/api/care-actions/status` ile "yakınımda mama/su var mı"
+gösteriyor; giriş, harita, profil yok. Gerçek bir web sürümü (react-native-web)
+ayrı ve büyük bir karar (YOL_HARITASI). Service worker `Cache-Control:
+no-cache` ile servis ediliyor; aksi halde tarayıcı eski sw.js'e yapışıp
+güncellemeyi hiç almıyor. Kabuk dosyaları değişince `sw.js` → `CACHE` sürümünü
+artırın.
+
+### `pati://` derin bağlantı şeması
+`mobile/src/navigation/index.tsx` → `linking`. Paylaşım linkleri için altyapı
+ve geliştirmede ekranlara doğrudan gitmek için:
+`xcrun simctl openurl booted pati://add-animal` (ya da `pati://animal/12`,
+`pati://profile`). Ekran görüntüsü alırken elle dolaşmayı bitiriyor. Şema
+iOS Info.plist ve AndroidManifest'te kayıtlı — **değişirse native build**.
+
+iOS simülatörü `openurl` için her seferinde "pati ile açılsın mı?" onayı
+istiyor ve bu komut satırından onaylanamıyor. Geliştirme kaçamağı: `__DEV__`
+modunda `linking.getInitialURL` AsyncStorage'daki `devInitialUrl` anahtarını
+okuyup siliyor. Kullanım (Metro çalışırken):
+
+```bash
+D=booted; C=$(xcrun simctl get_app_container $D com.patiapp data)
+M="$C/Library/Application Support/com.patiapp/RCTAsyncLocalStorage_V1/manifest.json"
+node -e 'const f=process.argv[1];const m=JSON.parse(require("fs").readFileSync(f));m.devInitialUrl="pati://add-animal";require("fs").writeFileSync(f,JSON.stringify(m))' "$M"
+xcrun simctl terminate $D com.patiapp; xcrun simctl launch $D com.patiapp
+```
+
 ## 2. Teknik kararlar
 
 ### Leaderboard set-based hesaplanıyor

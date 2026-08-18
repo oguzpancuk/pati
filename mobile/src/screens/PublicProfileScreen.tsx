@@ -3,7 +3,9 @@ import { Alert, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   acceptFriendRequest,
+  fetchUserAnimals,
   fetchUserProfile,
+  ProfileAnimal,
   PublicProfile,
   removeFriendship,
   sendFriendRequest,
@@ -20,12 +22,16 @@ import {
   Card,
   Divider,
   LoadingState,
+  LoadMoreButton,
   Screen,
   SectionHeader,
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
 import { makeStyles, spacing, useTheme } from '../theme';
+
+// Profil özet; hayvanların ilk sayfası profille geliyor, gerisi buradan.
+const ANIMAL_PAGE = 20;
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -40,6 +46,8 @@ export default function PublicProfileScreen({ route, navigation }: any) {
   const { colors } = useTheme();
   const { userId } = route.params;
   const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [animals, setAnimals] = useState<ProfileAnimal[]>([]);
+  const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
   const [busy, setBusy] = useState(false);
   const [catalogVisible, setCatalogVisible] = useState(false);
 
@@ -47,10 +55,24 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     try {
       const data = await fetchUserProfile(userId);
       setProfile(data);
+      setAnimals(data.animals);
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
     }
   }, [userId]);
+
+  async function handleLoadMoreAnimals() {
+    setLoadingMoreAnimals(true);
+    try {
+      const page = await fetchUserAnimals(userId, ANIMAL_PAGE, animals.length);
+      setAnimals((prev) => [...prev, ...page.animals]);
+      setProfile((prev) => (prev ? { ...prev, animalCount: page.total } : prev));
+    } catch (err: any) {
+      Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setLoadingMoreAnimals(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -199,12 +221,12 @@ export default function PublicProfileScreen({ route, navigation }: any) {
       )}
 
       <SectionHeader title="Bakım verdiği hayvanlar" style={styles.sectionTop} />
-      {profile.animals.length === 0 ? (
+      {animals.length === 0 ? (
         <Card variant="flat" style={styles.block}>
           <Text variant="caption">Henüz bir hayvana bakım vermiyor.</Text>
         </Card>
       ) : (
-        profile.animals.map((animal) => (
+        animals.map((animal) => (
           <Card
             key={animal.id}
             variant="flat"
@@ -225,6 +247,11 @@ export default function PublicProfileScreen({ route, navigation }: any) {
           </Card>
         ))
       )}
+      <LoadMoreButton
+        remaining={(profile.animalCount ?? animals.length) - animals.length}
+        loading={loadingMoreAnimals}
+        onPress={handleLoadMoreAnimals}
+      />
 
       <View style={styles.sectionTop}>
         <RecentComments

@@ -37,6 +37,7 @@ import {
   ChoiceField,
   Input,
   LoadingState,
+  LoadMoreButton,
   Screen,
   SectionHeader,
   Text,
@@ -77,6 +78,10 @@ function formatDate(iso: string) {
   });
 }
 
+// Sohbetin son N yorumu profille geliyor; "önceki yorumları yükle" dedikçe
+// aynı boyutta sayfalar ekleniyor.
+const COMMENT_PAGE = 20;
+
 export default function AnimalProfileScreen({ route }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -103,19 +108,40 @@ export default function AnimalProfileScreen({ route }: any) {
   // Bir sağlık kaydına tıklandığında yalnızca o kayda bağlı yorumlar listelenir.
   const [logRecord, setLogRecord] = useState<HealthRecord | null>(null);
   const [logComments, setLogComments] = useState<AnimalComment[]>([]);
+  const [commentTotal, setCommentTotal] = useState(0);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [detail, commentData] = await Promise.all([
+      const [detail, commentPage] = await Promise.all([
         fetchAnimal(animalId),
-        fetchAnimalComments(animalId),
+        fetchAnimalComments(animalId, { limit: COMMENT_PAGE }),
       ]);
       setAnimal(detail);
-      setComments(commentData);
+      setComments(commentPage.comments);
+      setCommentTotal(commentPage.total);
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bilinmeyen hata');
     }
   }, [animalId]);
+
+  // Sohbet en yeniden geriye açılıyor: son sayfa ekranda, eskiler düğmeyle.
+  // Öncekiler listenin *başına* ekleniyor ki kronoloji bozulmasın.
+  async function handleLoadOlderComments() {
+    setLoadingOlder(true);
+    try {
+      const page = await fetchAnimalComments(animalId, {
+        limit: COMMENT_PAGE,
+        offset: comments.length,
+      });
+      setComments((prev) => [...page.comments, ...prev]);
+      setCommentTotal(page.total);
+    } catch (err: any) {
+      Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -188,8 +214,9 @@ export default function AnimalProfileScreen({ route }: any) {
 
   async function handleOpenLog(record: HealthRecord) {
     try {
-      const data = await fetchAnimalComments(animalId, record.id);
-      setLogComments(data);
+      // Kayıt sohbeti kısa (tek konu); tek sayfada tamamı yeterli.
+      const data = await fetchAnimalComments(animalId, { healthRecordId: record.id, limit: 100 });
+      setLogComments(data.comments);
       setLogRecord(record);
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? 'Bir hata oluştu');
@@ -389,6 +416,13 @@ export default function AnimalProfileScreen({ route }: any) {
         )}
 
         <SectionHeader title="Sohbet" style={styles.sectionTop} />
+        <LoadMoreButton
+          remaining={commentTotal - comments.length}
+          loading={loadingOlder}
+          onPress={handleLoadOlderComments}
+          label="Önceki yorumları yükle"
+          style={styles.olderComments}
+        />
         {comments.length === 0 ? (
           <Card variant="flat" style={styles.block}>
             <Text variant="caption">Henüz yorum yok. İlk yorumu sen yap.</Text>
@@ -594,6 +628,7 @@ export default function AnimalProfileScreen({ route }: any) {
 }
 
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
+  olderComments: { marginBottom: spacing.sm },
   flex: { flex: 1, backgroundColor: c.background },
   headerCard: { marginBottom: spacing.sm },
   markings: { marginTop: spacing.xs },

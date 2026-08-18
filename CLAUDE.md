@@ -87,7 +87,10 @@ doğrulamayı gerçekten çalıştırın, "muhtemelen çalışır" demeyin.
 
 - `main` üzerinde çalışılıyor, PR akışı yok. Commit + push serbest.
 - Ekran görüntüsü ya da görsel çıktı üretilebiliyorsa üretin — bu projede
-  gözle görülmeyen hatalar (kırpılma, kayma) testlerden kaçıyor.
+  gözle görülmeyen hatalar (kırpılma, kayma) testlerden kaçıyor. Simülatörde
+  ekrana doğrudan gitmek için `pati://` derin bağlantıları var:
+  `xcrun simctl openurl booted pati://add-animal` (yollar:
+  `mobile/src/navigation/index.tsx` → `linking`).
 
 ## Kalıcı hatırlatma
 

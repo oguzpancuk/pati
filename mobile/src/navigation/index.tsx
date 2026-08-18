@@ -1,6 +1,7 @@
 import React from 'react';
-import { View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { Linking, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NavigationContainer, type LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +42,48 @@ export type MainTabParamList = {
   Map: undefined;
   Animals: undefined;
   Profile: undefined;
+};
+
+/**
+ * `pati://` derin bağlantıları. İki işi var: (1) ileride paylaşım linkleri —
+ * "pati://animal/12" bir hayvanın profilini açar; (2) geliştirmede ekranlara
+ * doğrudan gitmek (`xcrun simctl openurl booted pati://add-animal`), böylece
+ * ekran görüntüsü almak için her seferinde elle dolaşmak gerekmiyor. Şema
+ * iOS'ta Info.plist (CFBundleURLTypes), Android'de AndroidManifest'te kayıtlı.
+ * Giriş yapılmamışsa eşleşen ekran yok; bağlantı sessizce yok sayılır.
+ */
+const DEV_INITIAL_URL_KEY = 'devInitialUrl';
+
+const linking: LinkingOptions<MainStackParamList> = {
+  prefixes: ['pati://'],
+  // Yalnızca geliştirme: `xcrun simctl openurl` iOS'ta her seferinde "pati ile
+  // açılsın mı?" onayı istiyor ve komut satırından onaylanamıyor. Bunun yerine
+  // simülatörün AsyncStorage dosyasına tek seferlik bir URL yazılıp uygulama
+  // yeniden başlatılıyor (bkz. docs/NOTLAR.md "pati:// derin bağlantı").
+  // Anahtar okunur okunmaz siliniyor ki sonraki açılışlar normal başlasın.
+  async getInitialURL() {
+    if (__DEV__) {
+      const pending = await AsyncStorage.getItem(DEV_INITIAL_URL_KEY);
+      if (pending) {
+        await AsyncStorage.removeItem(DEV_INITIAL_URL_KEY);
+        return pending;
+      }
+    }
+    return Linking.getInitialURL();
+  },
+  config: {
+    screens: {
+      Tabs: {
+        screens: { Map: 'map', Animals: 'animals', Profile: 'profile' },
+      },
+      AddAnimal: 'add-animal',
+      AnimalProfile: { path: 'animal/:animalId', parse: { animalId: Number } },
+      PublicProfile: { path: 'user/:userId', parse: { userId: Number } },
+      FindFriends: 'friends',
+      Leaderboard: 'leaderboard',
+      UserComments: 'comments',
+    },
+  },
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -138,7 +181,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme(theme)}>
+    <NavigationContainer theme={navigationTheme(theme)} linking={user ? linking : undefined}>
       {user ? (
         // Rozet kutlama popup'ı navigasyonun üstünde duruyor ki hangi ekranda
         // kazanılırsa kazanılsın aynı yerden gösterilebilsin.

@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 
@@ -17,6 +18,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Kök adres "ana ekrana eklenebilir" web sayfası (public/): manifest, service
+// worker ve ikonlar. Mobil uygulamanın web sürümü değil; kısayol + hızlı
+// "yakınımda mama/su var mı" bakışı. Service worker'ın önbelleğe alınmaması
+// önemli: tarayıcı sw.js'i eski sürümden okursa güncelleme hiç gelmez.
+app.use(
+  express.static(path.join(__dirname, '..', 'public'), {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache');
+    },
+  })
+);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

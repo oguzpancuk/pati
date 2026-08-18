@@ -73,12 +73,19 @@ MVP tamamlandı ve uçtan uca test edildi. Aşağıdakilerin hepsi çalışır d
 ### Hayvan profilleri
 - Manuel kayıt: en az 2 fotoğraf zorunlu, kedi/köpek için çoktan seçmeli
   cins/desen listesi
-- Yeni hayvan eklerken yakındaki kayıtlı hayvanlar önce gösteriliyor;
-  "bu zaten kayıtlı" denirse hayvanın güncel konumu oraya taşınıyor
-  (mükerrer kaydı azaltmak için)
+- Yeni hayvan eklerken önce form dolduruluyor; "kaydet" denince kısa bir
+  "yapay zekâ eşleştiriyor" ekranından sonra 1 km içindeki aynı türden
+  hayvanlar benzerlik kademesiyle (yüksek/orta/düşük) listeleniyor. "Bu o"
+  denirse hayvanın güncel konumu oraya taşınıyor ve kullanıcı bakım listesine
+  ekleniyor; "hiçbiri" denirse yeni kayıt açılıyor (mükerrer kaydı azaltmak
+  için — bkz. YOL_HARITASI §1)
+- Formda seçilen tür/desene göre hayvanın avatarı anında önizleniyor
 - Hayvanlar sokak ölçeğinde yakınlaştırıldığında haritada profil fotoğraflarıyla
   yuvarlak olarak görünüyor; dokununca profile gidiliyor
-- Hayvanlar sekmesinde mesafeye göre sıralı liste, tür (kedi/köpek) filtresi
+- Hayvanlar sekmesinde 1 km içindekiler mesafeye göre sıralı ve sayfalı
+  (kaydırdıkça yüklenir), tür (kedi/köpek) filtresi
+- Mama/su bırakılınca 100 m'lik etki alanındaki hayvanların avatarından kalpler
+  uçuyor; harita o alana yakınlaşıyor
 - Profilde mini harita, fotoğraf galerisi ve son görülme bilgisi
 
 ### Sohbet ve sağlık takibi

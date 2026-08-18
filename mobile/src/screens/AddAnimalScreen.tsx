@@ -1,33 +1,58 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Pressable, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Easing, Image, Pressable, View } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { addAnimalPhoto, Animal, createAnimal, fetchAnimals, reportSighting } from '../api/animals';
+import {
+  addAnimalPhoto,
+  AnimalMatch,
+  createAnimal,
+  matchAnimals,
+  reportSighting,
+  SimilarityLevel,
+  SimilarityReason,
+} from '../api/animals';
 import type { PhotoAsset } from '../api/care';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Coordinates, getCurrentLocation } from '../location';
-import {
-  Banner,
-  Button,
-  Card,
-  Chip,
-  ChoiceField,
-  Input,
-  LoadingState,
-  Screen,
-  Text,
-} from '../components/ui';
+import { Banner, Button, Card, Chip, ChoiceField, Input, Screen, Text } from '../components/ui';
 import { Icon } from '../components/brand';
 import { colorsFor, patternsFor, type Species } from '../taxonomy';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
 
-// Aynı hayvanın ikinci kez kaydedilmesini önlemek için form açılmadan önce
-// yakındaki kayıtlı hayvanlar gösterilir. Yapay zekâ ile fotoğraf eşleştirme
-// yerine kullanıcı seçimine dayanıyor (bkz. PRD 4.3, sonraki faz).
-const DUPLICATE_CHECK_RADIUS_METERS = 500;
-
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
+
+/**
+ * "Eşleştiriliyor" ekranının en az ne kadar görüneceği. Şu an sunucu yalnızca
+ * tür/desen/renk/mesafeye bakıyor ve anında dönüyor; bekleme, kullanıcıya bir
+ * karşılaştırma yapıldığını hissettirmek için. Fotoğraf tabanlı yapay zekâ
+ * eşleştirme geldiğinde gerçek işlem süresi bunun yerini alacak ve bu sabit
+ * kaldırılacak (bkz. docs/NOTLAR.md).
+ */
+const MIN_MATCHING_MS = 2000;
+
+const SIMILARITY_LABEL: Record<SimilarityLevel, string> = {
+  high: 'Yüksek benzerlik',
+  medium: 'Orta benzerlik',
+  low: 'Düşük benzerlik',
+};
+const SIMILARITY_TONE: Record<SimilarityLevel, 'success' | 'warning' | 'neutral'> = {
+  high: 'success',
+  medium: 'warning',
+  low: 'neutral',
+};
+const REASON_LABEL: Record<SimilarityReason, string> = {
+  breed: 'Aynı desen',
+  color: 'Aynı renk',
+  distance: 'Aynı sokakta',
+};
+
+function formatDistance(meters: number) {
+  if (meters < 1000) return `${Math.round(meters)} m uzakta`;
+  return `${(meters / 1000).toFixed(1)} km uzakta`;
+}
+
+type Step = 'form' | 'matching' | 'results';
 
 export default function AddAnimalScreen({ navigation }: any) {
   const styles = useStyles();
@@ -41,47 +66,13 @@ export default function AddAnimalScreen({ navigation }: any) {
   const [photos, setPhotos] = useState<PhotoAsset[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const [step, setStep] = useState<'checking' | 'duplicate-check' | 'form'>('checking');
-  const [nearby, setNearby] = useState<Animal[]>([]);
+  // Akış: form → (kaydet) → eşleştirme beklemesi → adaylar → yeni kayıt ya da
+  // mevcut profil. Eskiden mükerrer kontrolü form açılmadan yapılıyordu; ama
+  // o zaman elimizde karşılaştıracak bilgi yoktu, yalnızca mesafeye bakılıyordu.
+  const [step, setStep] = useState<Step>('form');
+  const [candidates, setCandidates] = useState<AnimalMatch[]>([]);
+  const [matchRadius, setMatchRadius] = useState(1000);
   const [location, setLocation] = useState<Coordinates | null>(null);
-
-  const loadNearby = useCallback(async () => {
-    try {
-      const loc = await getCurrentLocation();
-      setLocation(loc);
-      const found = await fetchAnimals(loc.lat, loc.lng, DUPLICATE_CHECK_RADIUS_METERS);
-      setNearby(found);
-      setStep(found.length > 0 ? 'duplicate-check' : 'form');
-    } catch (err: any) {
-      // Konum alınamazsa mükerrer kontrolü yapamayız; kullanıcıyı engellemek
-      // yerine doğrudan forma geçiriyoruz.
-      Alert.alert('Konum alınamadı', err?.message ?? 'Yakındaki hayvanlar kontrol edilemedi');
-      setStep('form');
-    }
-  }, []);
-
-  useEffect(() => {
-    loadNearby();
-  }, [loadNearby]);
-
-  async function handleExistingAnimal(animal: Animal) {
-    if (!location) {
-      navigation.replace('AnimalProfile', { animalId: animal.id });
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await reportSighting(animal.id, location.lat, location.lng);
-      navigation.replace('AnimalProfile', { animalId: animal.id });
-    } catch (err: any) {
-      Alert.alert(
-        'Güncellenemedi',
-        err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   function handleSpeciesChange(next: Species) {
     setSpecies(next);
@@ -107,15 +98,49 @@ export default function AddAnimalScreen({ navigation }: any) {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   }
 
+  /** Form gönderildi: önce eşleştir, sonra karar ver. */
   async function handleSubmit() {
     if (photos.length < MIN_PHOTOS) {
       Alert.alert('Fotoğraf gerekli', `En az ${MIN_PHOTOS} fotoğraf eklemelisin.`);
       return;
     }
 
-    setSubmitting(true);
+    setStep('matching');
+    const startedAt = Date.now();
     try {
       const loc = await getCurrentLocation();
+      setLocation(loc);
+      const result = await matchAnimals({ lat: loc.lat, lng: loc.lng, species, breed, color });
+
+      // Bekleme ekranı en az MIN_MATCHING_MS görünsün; sunucu ondan hızlı
+      // döndüyse kalan süre kadar tutuluyor.
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_MATCHING_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_MATCHING_MS - elapsed));
+      }
+
+      setCandidates(result.candidates);
+      setMatchRadius(result.radiusMeters);
+      if (result.candidates.length === 0) {
+        // Yakında aynı türden hiç kayıt yok: soracak bir şey yok, doğrudan kaydet.
+        await createNewAnimal(loc);
+      } else {
+        setStep('results');
+      }
+    } catch (err: any) {
+      // Konum ya da sunucu hatası: kullanıcıyı engellemek yerine forma geri
+      // döndürüyoruz, tekrar deneyebilir.
+      Alert.alert(
+        'Eşleştirme yapılamadı',
+        err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+      );
+      setStep('form');
+    }
+  }
+
+  async function createNewAnimal(loc: Coordinates) {
+    setSubmitting(true);
+    try {
       const animal = await createAnimal({
         species,
         name: name || undefined,
@@ -132,48 +157,81 @@ export default function AddAnimalScreen({ navigation }: any) {
       celebrate(animal);
     } catch (err: any) {
       Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+      setStep(candidates.length > 0 ? 'results' : 'form');
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (step === 'checking') {
+  async function handleExistingAnimal(animal: AnimalMatch) {
+    if (!location) {
+      navigation.replace('AnimalProfile', { animalId: animal.id });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await reportSighting(animal.id, location.lat, location.lng);
+      navigation.replace('AnimalProfile', { animalId: animal.id });
+    } catch (err: any) {
+      Alert.alert(
+        'Güncellenemedi',
+        err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (step === 'matching') {
     return (
       <Screen>
-        <LoadingState label="Yakındaki kayıtlı hayvanlar kontrol ediliyor…" />
+        <MatchingState species={species} breed={breed} />
       </Screen>
     );
   }
 
-  if (step === 'duplicate-check') {
+  if (step === 'results') {
     return (
       <Screen scroll>
         <Banner
-          tone="warning"
+          tone="info"
           emoji="🔎"
-          title="Bu hayvan zaten kayıtlı olabilir"
-          description="Eklemek istediğin hayvan aşağıdakilerden biriyse seç — konumu güncellenir ve bakım listene eklenir."
-          style={styles.duplicateBanner}
+          title="Benzer kayıtlar bulundu"
+          description={`Girdiğin bilgiler ${
+            matchRadius >= 1000 ? `${matchRadius / 1000} km` : `${matchRadius} m`
+          } içindeki ${
+            species === 'cat' ? 'kedilerle' : 'köpeklerle'
+          } karşılaştırıldı. Eklemek istediğin hayvan bunlardan biriyse seç — konumu güncellenir ve bakım listene eklenir.`}
+          style={styles.resultsBanner}
         />
 
-        {nearby.map((animal) => (
+        {candidates.map((animal) => (
           <Card
             key={animal.id}
             variant="flat"
             padding="md"
-            style={styles.nearbyRow}
+            style={styles.candidateRow}
             onPress={() => handleExistingAnimal(animal)}
           >
             <AnimalAvatar species={animal.species} breed={animal.breed} size={52} />
-            <View style={styles.nearbyText}>
-              <Text variant="subheading" numberOfLines={1}>
-                {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
-              </Text>
+            <View style={styles.candidateText}>
+              <View style={styles.candidateHead}>
+                <Text variant="subheading" numberOfLines={1} style={styles.candidateName}>
+                  {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
+                </Text>
+                <Chip
+                  label={SIMILARITY_LABEL[animal.similarity]}
+                  tone={SIMILARITY_TONE[animal.similarity]}
+                />
+              </View>
               <Text variant="caption" numberOfLines={1}>
-                {animal.breed ?? 'Türü belirtilmemiş'}
-                {animal.distance_meters !== undefined
-                  ? ` · ${Math.round(animal.distance_meters)} m uzakta`
-                  : ''}
+                {[animal.breed, animal.color].filter(Boolean).join(' · ') || 'Desen belirtilmemiş'}
+              </Text>
+              <Text variant="micro" color="brand" numberOfLines={1} style={styles.candidateReasons}>
+                {[
+                  ...animal.similarity_reasons.map((r) => REASON_LABEL[r]),
+                  formatDistance(animal.distance_meters),
+                ].join(' · ')}
               </Text>
             </View>
             <Icon name="chevronRight" size={18} color={colors.textSubtle} />
@@ -182,11 +240,18 @@ export default function AddAnimalScreen({ navigation }: any) {
 
         <Button
           title="Hiçbiri — yeni hayvan kaydet"
-          variant="secondary"
+          onPress={() => location && createNewAnimal(location)}
+          loading={submitting}
+          fullWidth
+          size="lg"
+          style={styles.newAnimalButton}
+        />
+        <Button
+          title="Forma dön"
+          variant="ghost"
           onPress={() => setStep('form')}
           disabled={submitting}
           fullWidth
-          style={styles.newAnimalButton}
         />
       </Screen>
     );
@@ -194,6 +259,16 @@ export default function AddAnimalScreen({ navigation }: any) {
 
   return (
     <Screen scroll>
+      {/* Seçilen tür/desene göre hayvanın "yüzü" anında burada beliriyor:
+          kullanıcı ne kaydettiğini görsün, listede/haritada nasıl
+          görüneceğini önceden bilsin. */}
+      <View style={styles.previewWrap}>
+        <AnimalAvatar species={species} breed={breed} size={96} />
+        <Text variant="caption" center style={styles.previewCaption}>
+          Profil resmi tür ve desene göre otomatik oluşur
+        </Text>
+      </View>
+
       <Text variant="label" style={styles.label}>
         TÜR
       </Text>
@@ -273,7 +348,8 @@ export default function AddAnimalScreen({ navigation }: any) {
       </View>
 
       <Text variant="caption" center style={styles.locationNote}>
-        Konumun otomatik olarak kaydedilecek.
+        Konumun otomatik olarak kaydedilecek. Kaydetmeden önce yakındaki kayıtlarla
+        karşılaştırılacak.
       </Text>
 
       <Button
@@ -287,15 +363,81 @@ export default function AddAnimalScreen({ navigation }: any) {
   );
 }
 
+/**
+ * "Eşleştiriliyor" bekleme ekranı: seçilen avatar nefes alır gibi büyüyüp
+ * küçülüyor, altında tarama halkası dönüyor. Süre kısa (2 sn) ama boş bir
+ * spinner "takıldı" hissi veriyordu; ne yapıldığı yazıyla söyleniyor.
+ */
+function MatchingState({ species, breed }: { species: Species; breed: string | null }) {
+  const styles = useStyles();
+  const pulse = useRef(new Animated.Value(0)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(pulse, {
+            toValue: 1,
+            duration: 700,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulse, {
+            toValue: 0,
+            duration: 700,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.timing(spin, {
+          toValue: 1,
+          duration: 1400,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, spin]);
+
+  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  return (
+    <View style={styles.matchingWrap}>
+      <View style={styles.matchingStage}>
+        <Animated.View style={[styles.matchingRing, { transform: [{ rotate }] }]} />
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <AnimalAvatar species={species} breed={breed} size={96} />
+        </Animated.View>
+      </View>
+      <Text variant="heading" center style={styles.matchingTitle}>
+        Yapay zekâ eşleştiriyor…
+      </Text>
+      <Text variant="caption" center style={styles.matchingDesc}>
+        Girdiğin bilgiler sistemdeki hayvanlarla karşılaştırılıyor. Aynı hayvanın iki kez
+        kaydedilmesini önlemek için yakındaki kayıtlar taranıyor.
+      </Text>
+    </View>
+  );
+}
+
 const useStyles = makeStyles(({ colors: c }) => ({
-  duplicateBanner: { marginBottom: spacing.lg },
-  nearbyRow: {
+  previewWrap: { alignItems: 'center', marginBottom: spacing.xl },
+  previewCaption: { marginTop: spacing.sm },
+  resultsBanner: { marginBottom: spacing.lg },
+  candidateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  nearbyText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
-  newAnimalButton: { marginTop: spacing.xl },
+  candidateText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
+  candidateHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  candidateName: { flex: 1, marginRight: spacing.sm },
+  candidateReasons: { marginTop: 2 },
+  newAnimalButton: { marginTop: spacing.xl, marginBottom: spacing.sm },
   label: { marginBottom: spacing.sm },
   field: { marginBottom: spacing.lg },
   chipRow: {
@@ -344,4 +486,29 @@ const useStyles = makeStyles(({ colors: c }) => ({
   },
   addPhotoText: { marginTop: 2 },
   locationNote: { marginBottom: spacing.lg },
+  matchingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  matchingStage: {
+    width: 140,
+    height: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
+  },
+  // Tarama halkası: kesik kenarlık dönünce "tarıyor" hissi veriyor.
+  matchingRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 3,
+    borderColor: c.brand,
+    borderStyle: 'dashed',
+  },
+  matchingTitle: { marginBottom: spacing.sm },
+  matchingDesc: { maxWidth: 320 },
 }));

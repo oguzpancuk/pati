@@ -181,7 +181,26 @@ const CARED_ANIMALS_SQL = `
   ) cover ON true
   WHERE uac.user_id = $1
   ORDER BY uac.created_at DESC
-  LIMIT 100`;
+  LIMIT $2::int OFFSET $3::int`;
+
+// Profil ekranı önizleme gösteriyor (ilk birkaç hayvan + toplam); tam liste
+// aynı sorgunun sayfalı hâliyle "daha fazla göster" dedikçe geliyor. Böylece
+// 40 hayvana bakan bir gönüllünün profili kilometrelerce uzamıyor.
+const PROFILE_ANIMAL_PREVIEW = 5;
+const MAX_ANIMAL_PAGE = 50;
+
+async function fetchCaredAnimals(userId, limit = PROFILE_ANIMAL_PREVIEW, offset = 0) {
+  const result = await pool.query(CARED_ANIMALS_SQL, [userId, limit, offset]);
+  return result.rows;
+}
+
+async function countCaredAnimals(userId) {
+  const result = await pool.query(
+    'SELECT count(*)::int AS count FROM user_animal_care WHERE user_id = $1',
+    [userId]
+  );
+  return result.rows[0].count;
+}
 
 // Profilde gösterilen "son yorumlar" listesi. Yorumun hangi hayvana yapıldığı da
 // dönüyor ki listeden doğrudan hayvanın profiline gidilebilsin.
@@ -214,10 +233,21 @@ async function countComments(userId) {
   return result.rows[0].count;
 }
 
-async function getMyAnimals(req, res, next) {
+// Hem /me/animals hem /:id/animals buradan geçiyor; kendi profili için de
+// başkasınınki için de dönen şekil aynı ({ animals, total }).
+async function getUserAnimals(req, res, next) {
   try {
-    const result = await pool.query(CARED_ANIMALS_SQL, [req.user.userId]);
-    res.json(result.rows);
+    const targetId = req.params.id ? Number(req.params.id) : req.user.userId;
+    if (!Number.isInteger(targetId)) {
+      return res.status(400).json({ error: 'Geçersiz kullanıcı' });
+    }
+    const limit = Math.min(Number(req.query.limit) || PROFILE_ANIMAL_PREVIEW, MAX_ANIMAL_PAGE);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const [animals, total] = await Promise.all([
+      fetchCaredAnimals(targetId, limit, offset),
+      countCaredAnimals(targetId),
+    ]);
+    res.json({ animals, total });
   } catch (err) {
     next(err);
   }
@@ -299,11 +329,21 @@ async function getPublicProfile(req, res, next) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    const [stats, badgeData, animals, friendCount, rank, recentComments, commentCount] =
+    const [
+      stats,
+      badgeData,
+      animals,
+      animalCount,
+      friendCount,
+      rank,
+      recentComments,
+      commentCount,
+    ] =
       await Promise.all([
         getStats(targetId),
         getUserBadges(targetId),
-        pool.query(CARED_ANIMALS_SQL, [targetId]),
+        fetchCaredAnimals(targetId),
+        countCaredAnimals(targetId),
         pool.query(
           `SELECT count(*)::int AS count FROM friendships
            WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
@@ -344,7 +384,8 @@ async function getPublicProfile(req, res, next) {
       level: badgeData.level,
       featuredBadges: resolveFeatured(userResult.rows[0].featured_badges, badgeData.badges),
       rank,
-      animals: animals.rows,
+      animals,
+      animalCount,
       friendCount: friendCount.rows[0].count,
       recentComments,
       commentCount,
@@ -362,7 +403,7 @@ module.exports = {
   setAvatarKey,
   clearAvatar,
   setFeaturedBadges,
-  getMyAnimals,
+  getUserAnimals,
   getUserComments,
   getMyBadgeAwards,
   markMyBadgeAwardsSeen,

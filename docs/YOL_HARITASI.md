@@ -121,10 +121,15 @@ hayvanlar arasından en çok benzeyen 5 tanesini benzerlik oranıyla gösterir.
 Bu hayvanlardan biri seçilirse kullanıcı o hayvanın bakım verenlerine eklenir;
 seçilmezse yeni hayvan oluşturulur.
 
-> Not: Bugün bunun elle yapılan bir hâli var — yeni hayvan eklerken yakındaki
-> kayıtlılar mesafeye göre listeleniyor ve "bu zaten kayıtlı" denebiliyor.
-> Yeni akış bunun yerini alacak; `POST /api/animals/:id/sightings` uç noktası
-> (mevcut hayvana bakım veren ekleme + konum güncelleme) aynen kullanılabilir.
+> **Durum (19 Ağustos 2026):** Akışın arayüzü ve iskeleti **hazır**, yalnızca
+> "yapay zekâ" kısmı kural tabanlı bir yer tutucu. Form → "Yapay zekâ
+> eşleştiriyor…" ekranı (en az 2 sn) → 1 km içindeki aynı türden hayvanlar
+> **yüksek / orta / düşük** benzerlik kademesiyle listeleniyor → "bu o" ya da
+> "yeni kayıt". Kademe şimdilik desen (+2), renk (+1) ve 200 m mesafe (+1)
+> puanından geliyor (`GET /api/animals/match`, `animal.controller.js` →
+> `similarityFor`). Fotoğraf gömme servisi geldiğinde aynı uca eklenir, arayüz
+> ve kademeler değişmez; 2 sn'lik yapay bekleme
+> (`AddAnimalScreen.tsx` → `MIN_MATCHING_MS`) o zaman kaldırılır.
 
 ### Önerilen yaklaşım
 Model **eğitilmesin**. Hazır bir görüntü gömme (embedding) modeliyle vektör
@@ -165,19 +170,20 @@ yapmamalı.
 - [ ] `pgvector` eklentisi + `animal_photos.embedding` kolonu + index
 - [ ] Python gömme servisi (FastAPI) + backend'den çağrı
 - [ ] Mevcut fotoğrafları toplu vektörleştiren script (seed verisi dahil)
-- [ ] `POST /api/animals/match` — fotoğraf + konum + tür alır, en benzer 5
-      hayvanı skorla döner
-- [ ] Mobil: "Hayvan Ekle" akışını değiştir — form + fotoğraf sonrası eşleştirme
-      ekranı, "bu o hayvan" / "yeni hayvan oluştur" seçimi
+- [ ] `GET /api/animals/match` — **kural tabanlı sürümü var** (tür/desen/renk/
+      mesafe); fotoğraf gömme skoru bu uca eklenecek
+- [x] Mobil: "Hayvan Ekle" akışını değiştir — form + fotoğraf sonrası eşleştirme
+      ekranı, "bu o hayvan" / "yeni hayvan oluştur" seçimi (19 Ağustos 2026)
 - [ ] Kullanıcı seçimlerini `animal_match_feedback` tablosuna kaydet (ileride
       kalibrasyon için)
 
 ### Karar verilmesi gerekenler
 - ~~Gömme servisi nerede koşacak, CPU yeterli mi?~~ → **CPU yeterli, GPU
   gerekmiyor** (spike ölçümü: kayıt başına 0,33 sn)
-- Skor kullanıcıya sayı olarak mı gösterilecek, kademe olarak mı?
-- Eşleşme bulunamadığında akış nasıl devam edecek (sessizce yeni kayıt mı,
-  "emin misiniz?" mi)
+- ~~Skor kullanıcıya sayı olarak mı gösterilecek, kademe olarak mı?~~ →
+  **kademe** (yüksek/orta/düşük); sayı gösterilmiyor
+- ~~Eşleşme bulunamadığında akış nasıl devam edecek~~ → 1 km'de aynı türden
+  hiç kayıt yoksa **sessizce yeni kayıt** açılıyor (soracak aday yok)
 - ViT-B/16 mı ViT-B/32 mi? (isabet ölçülünce netleşecek — B/32 dört kat hızlı)
 
 </details>

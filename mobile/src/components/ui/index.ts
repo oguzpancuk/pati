@@ -11,3 +11,4 @@ export { default as Avatar } from './Avatar';
 export { default as Divider } from './Divider';
 export { default as SectionHeader } from './SectionHeader';
 export { default as EmptyState, LoadingState } from './EmptyState';
+export { default as LoadMoreButton } from './LoadMoreButton';

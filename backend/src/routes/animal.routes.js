@@ -3,6 +3,7 @@ const { requireAuth } = require('../middleware/auth.middleware');
 const { upload } = require('../config/upload');
 const {
   listAnimals,
+  matchAnimals,
   getAnimal,
   createAnimal,
   reportSighting,
@@ -18,6 +19,8 @@ const {
 const router = express.Router();
 
 router.get('/', listAnimals);
+// '/match' sabit yolu '/:id'den önce gelmeli, yoksa "match" bir id sanılır.
+router.get('/match', requireAuth, matchAnimals);
 router.get('/:id', requireAuth, getAnimal);
 router.post('/', requireAuth, createAnimal);
 router.post('/:id/sightings', requireAuth, reportSighting);

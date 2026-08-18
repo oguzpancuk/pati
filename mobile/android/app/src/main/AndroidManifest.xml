@@ -31,6 +31,13 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- pati:// derin bağlantıları (bkz. mobile/src/navigation/index.tsx). -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="pati" />
+        </intent-filter>
       </activity>
     </application>
 </manifest>

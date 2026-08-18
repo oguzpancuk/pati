@@ -40,16 +40,28 @@ const COVER_PHOTO_JOIN = `
   ) cover ON true
 `;
 
+// Sayfalama: `limit` verilmezse eski davranış korunuyor (harita tek seferde
+// çevredeki her şeyi çekiyor); liste ekranları ise küçük sayfalar istiyor.
+const DEFAULT_LIST_LIMIT = 200;
+const MAX_LIST_LIMIT = 500;
+
+function pageParams(query, defaultLimit = DEFAULT_LIST_LIMIT, maxLimit = MAX_LIST_LIMIT) {
+  const limit = Math.min(Math.max(Number(query.limit) || defaultLimit, 1), maxLimit);
+  const offset = Math.max(Number(query.offset) || 0, 0);
+  return { limit, offset };
+}
+
 async function listAnimals(req, res, next) {
   try {
     const { lat, lng, radiusMeters, species } = req.query;
     if (species && !['cat', 'dog'].includes(species)) {
       return res.status(400).json({ error: 'species cat veya dog olmalıdır' });
     }
+    const { limit, offset } = pageParams(req.query);
     const speciesFilter = species ? 'AND a.species = $SPECIES' : '';
 
     if (lat && lng) {
-      const params = [lng, lat, radiusMeters || 2000];
+      const params = [lng, lat, radiusMeters || 2000, limit, offset];
       let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
                         ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url,
                         ST_Distance(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
@@ -57,7 +69,8 @@ async function listAnimals(req, res, next) {
                  ${COVER_PHOTO_JOIN}
                  WHERE ST_DWithin(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
                  ${speciesFilter}
-                 ORDER BY distance_meters`;
+                 ORDER BY distance_meters, a.id
+                 LIMIT $4::int OFFSET $5::int`;
       if (species) {
         params.push(species);
         sql = sql.replace('$SPECIES', `$${params.length}`);
@@ -66,20 +79,101 @@ async function listAnimals(req, res, next) {
       return res.json(result.rows);
     }
 
-    const params = [];
+    const params = [limit, offset];
     let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
                       ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url
                FROM animals a
                ${COVER_PHOTO_JOIN}
                WHERE true
                ${speciesFilter}
-               ORDER BY a.created_at DESC LIMIT 100`;
+               ORDER BY a.created_at DESC, a.id DESC
+               LIMIT $1::int OFFSET $2::int`;
     if (species) {
       params.push(species);
       sql = sql.replace('$SPECIES', `$${params.length}`);
     }
     const result = await pool.query(sql, params);
     res.json(result.rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Yeni kayıt açılmadan önce "bu hayvan zaten kayıtlı mı?" sorusu. Yarıçap
+// bilerek dar (1 km): sokak hayvanı kendi bölgesinden pek çıkmaz, daha geniş
+// arama alakasız adayları öne çıkarıp gerçek eşleşmeyi gömüyordu.
+const MATCH_RADIUS_METERS = 1000;
+const MATCH_LIMIT = 20;
+
+/**
+ * Benzerlik bir olasılık değil, seviye (yüksek/orta/düşük). Sayısal yüzde
+ * göstermiyoruz çünkü elimizdeki sinyal yalnızca kullanıcının girdiği birkaç
+ * alan; "%73 benzer" demek olmayan bir kesinlik vaat eder. Puanlama:
+ *   desen aynı  +2 (en ayırt edici alan)
+ *   renk aynı   +1
+ *   200 m içinde +1 (aynı sokak/site)
+ * Tür zaten filtre — kediyle köpek eşleşmez. Fotoğraf eşleştirme (yapay zekâ)
+ * geldiğinde bu puana eklenecek; arayüz seviyeleri o zaman da aynı kalır.
+ */
+function normalizeChoice(value) {
+  return typeof value === 'string' ? value.trim().toLocaleLowerCase('tr-TR') : '';
+}
+
+function similarityFor(candidate, input) {
+  const reasons = [];
+  let score = 0;
+  if (input.breed && normalizeChoice(candidate.breed) === normalizeChoice(input.breed)) {
+    score += 2;
+    reasons.push('breed');
+  }
+  if (input.color && normalizeChoice(candidate.color) === normalizeChoice(input.color)) {
+    score += 1;
+    reasons.push('color');
+  }
+  if (Number(candidate.distance_meters) <= 200) {
+    score += 1;
+    reasons.push('distance');
+  }
+  const level = score >= 3 ? 'high' : score === 2 ? 'medium' : 'low';
+  return { level, score, reasons };
+}
+
+async function matchAnimals(req, res, next) {
+  try {
+    const { lat, lng, species, breed, color } = req.query;
+    if (!species || !['cat', 'dog'].includes(species)) {
+      return res.status(400).json({ error: 'species cat veya dog olmalıdır' });
+    }
+    if (lat === undefined || lng === undefined) {
+      return res.status(400).json({ error: 'lat ve lng zorunludur' });
+    }
+
+    const result = await pool.query(
+      `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
+              ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url,
+              ST_Distance(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
+       FROM animals a
+       ${COVER_PHOTO_JOIN}
+       WHERE ST_DWithin(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
+         AND a.species = $4
+       ORDER BY distance_meters, a.id
+       LIMIT 200`,
+      [lng, lat, MATCH_RADIUS_METERS, species]
+    );
+
+    const input = { breed, color };
+    const candidates = result.rows
+      .map((row) => {
+        const { level, score, reasons } = similarityFor(row, input);
+        return { ...row, similarity: level, similarity_reasons: reasons, _score: score };
+      })
+      .sort(
+        (a, b) => b._score - a._score || Number(a.distance_meters) - Number(b.distance_meters)
+      )
+      .slice(0, MATCH_LIMIT)
+      .map(({ _score, ...rest }) => rest);
+
+    res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS });
   } catch (err) {
     next(err);
   }
@@ -375,24 +469,39 @@ const COMMENT_SELECT_SQL = `
   LEFT JOIN health_records h ON h.id = c.health_record_id
 `;
 
+// Sohbet en yeniden geriye sayfalanıyor: istemci önce son N yorumu alır,
+// "öncekileri yükle" dedikçe offset büyür. Sayfa istemciye kronolojik (eski →
+// yeni) sırayla dönüyor ki ekranda doğrudan alt alta dizilebilsin.
+const DEFAULT_COMMENT_LIMIT = 20;
+const MAX_COMMENT_LIMIT = 100;
+
 async function listComments(req, res, next) {
   try {
     const { healthRecordId } = req.query;
+    const { limit, offset } = pageParams(req.query, DEFAULT_COMMENT_LIMIT, MAX_COMMENT_LIMIT);
     const params = [req.params.id];
     let filter = '';
     if (healthRecordId) {
       params.push(healthRecordId);
       filter = `AND c.health_record_id = $${params.length}`;
     }
+    const countParams = [...params];
+    params.push(limit, offset);
 
-    const result = await pool.query(
-      `${COMMENT_SELECT_SQL}
-       WHERE c.animal_id = $1 ${filter}
-       ORDER BY c.created_at ASC
-       LIMIT 500`,
-      params
-    );
-    res.json(result.rows);
+    const [page, count] = await Promise.all([
+      pool.query(
+        `${COMMENT_SELECT_SQL}
+         WHERE c.animal_id = $1 ${filter}
+         ORDER BY c.created_at DESC, c.id DESC
+         LIMIT $${params.length - 1}::int OFFSET $${params.length}::int`,
+        params
+      ),
+      pool.query(
+        `SELECT count(*)::int AS count FROM animal_comments c WHERE c.animal_id = $1 ${filter}`,
+        countParams
+      ),
+    ]);
+    res.json({ comments: page.rows.reverse(), total: count.rows[0].count });
   } catch (err) {
     next(err);
   }
@@ -465,6 +574,7 @@ async function followAnimal(req, res, next) {
 
 module.exports = {
   listAnimals,
+  matchAnimals,
   getAnimal,
   createAnimal,
   reportSighting,

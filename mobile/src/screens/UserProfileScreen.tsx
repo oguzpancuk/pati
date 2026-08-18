@@ -7,8 +7,8 @@ import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
   acceptFriendRequest,
   fetchMe,
-  fetchMyAnimals,
   fetchMyFriendships,
+  fetchUserAnimals,
   FriendshipEntry,
   FriendshipsResponse,
   Me,
@@ -32,12 +32,17 @@ import {
   Chip,
   EmptyState,
   LoadingState,
+  LoadMoreButton,
   Screen,
   SectionHeader,
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
 import { makeStyles, radius, spacing, useTheme, useThemeMode, type ThemeMode } from '../theme';
+
+// Profil bir özet ekranı: her bölümden birkaç satır, gerisi "daha fazla göster".
+const PROFILE_PREVIEW = 5;
+const PROFILE_PAGE = 20;
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: 'Sistem' },
@@ -53,6 +58,11 @@ export default function UserProfileScreen({ navigation }: any) {
   const { checkPending } = useBadgeAwards();
   const [me, setMe] = useState<Me | null>(null);
   const [myAnimals, setMyAnimals] = useState<ProfileAnimal[]>([]);
+  const [animalTotal, setAnimalTotal] = useState(0);
+  const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
+  // Arkadaş listesi tek istekte geliyor (kısa); profili şişirmemek için
+  // istemci tarafında parça parça açılıyor.
+  const [visibleFriends, setVisibleFriends] = useState(PROFILE_PREVIEW);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -61,19 +71,33 @@ export default function UserProfileScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     try {
-      const [meData, animals, friendshipsData] = await Promise.all([
+      const [meData, animalPage, friendshipsData] = await Promise.all([
         fetchMe(),
-        fetchMyAnimals(),
+        fetchUserAnimals('me', PROFILE_PREVIEW, 0),
         fetchMyFriendships(),
       ]);
       setMe(meData);
-      setMyAnimals(animals);
+      setMyAnimals(animalPage.animals);
+      setAnimalTotal(animalPage.total);
       setFriendships(friendshipsData);
       setLoadError(null);
     } catch (err: any) {
       setLoadError(err?.response?.data?.error ?? err?.message ?? 'Profil yüklenemedi');
     }
   }, []);
+
+  async function handleLoadMoreAnimals() {
+    setLoadingMoreAnimals(true);
+    try {
+      const page = await fetchUserAnimals('me', PROFILE_PAGE, myAnimals.length);
+      setMyAnimals((prev) => [...prev, ...page.animals]);
+      setAnimalTotal(page.total);
+    } catch (err: any) {
+      Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setLoadingMoreAnimals(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -300,6 +324,11 @@ export default function UserProfileScreen({ navigation }: any) {
           </Card>
         ))
       )}
+      <LoadMoreButton
+        remaining={animalTotal - myAnimals.length}
+        loading={loadingMoreAnimals}
+        onPress={handleLoadMoreAnimals}
+      />
 
       <View style={styles.sectionTop}>
         <RecentComments
@@ -348,7 +377,7 @@ export default function UserProfileScreen({ navigation }: any) {
           <Text variant="caption">Henüz arkadaşın yok.</Text>
         </Card>
       ) : (
-        friends.map((item) => (
+        friends.slice(0, visibleFriends).map((item) => (
           <Card
             key={item.friendship_id}
             variant="flat"
@@ -364,6 +393,10 @@ export default function UserProfileScreen({ navigation }: any) {
           </Card>
         ))
       )}
+      <LoadMoreButton
+        remaining={friends.length - visibleFriends}
+        onPress={() => setVisibleFriends((n) => n + PROFILE_PAGE)}
+      />
 
       <SectionHeader title="Görünüm" style={styles.sectionTop} />
       <View style={styles.themeRow}>

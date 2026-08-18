@@ -121,6 +121,7 @@ export interface PublicProfile {
   featuredBadges: Badge[];
   rank: UserRank | null;
   animals: ProfileAnimal[];
+  animalCount: number;
   friendCount: number;
   recentComments: UserComment[];
   commentCount: number;
@@ -224,8 +225,20 @@ export async function fetchUserProfile(id: number): Promise<PublicProfile> {
   return data;
 }
 
-export async function fetchMyAnimals(): Promise<ProfileAnimal[]> {
-  const { data } = await apiClient.get<ProfileAnimal[]>('/users/me/animals');
+export interface AnimalPage {
+  animals: ProfileAnimal[];
+  total: number;
+}
+
+// Profildeki "bakım verdiği hayvanlar" sayfalı geliyor; ilk sayfa profille
+// birlikte önizleme olarak düşüyor, gerisi "daha fazla göster" ile buradan.
+export async function fetchUserAnimals(
+  userId: number | 'me',
+  limit: number,
+  offset: number
+): Promise<AnimalPage> {
+  const path = userId === 'me' ? '/users/me/animals' : `/users/${userId}/animals`;
+  const { data } = await apiClient.get<AnimalPage>(path, { params: { limit, offset } });
   return data;
 }
 
