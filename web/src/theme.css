@@ -473,3 +473,44 @@ select {
   background: var(--warning-soft);
   color: var(--on-warning);
 }
+
+.tag.neutral {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+}
+
+/* Eşleştirme bekleme ekranı: dönen halka + hayvan avatarı (mobildeki
+   MatchingState'in web karşılığı). */
+.center-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.matching-stage {
+  position: relative;
+  width: 128px;
+  height: 128px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.matching-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--brand-soft);
+  border-top-color: var(--brand);
+  animation: matching-spin 1.4s linear infinite;
+}
+
+@keyframes matching-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

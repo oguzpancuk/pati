@@ -140,6 +140,15 @@ export interface AnimalComment {
   health_record_description: string | null;
 }
 
+export type SimilarityLevel = 'high' | 'medium' | 'low';
+export type SimilarityReason = 'breed' | 'color' | 'distance';
+
+export interface AnimalMatch extends Animal {
+  distance_meters: number;
+  similarity: SimilarityLevel;
+  similarity_reasons: SimilarityReason[];
+}
+
 export interface AnimalDetail extends Animal {
   location_updated_at: string;
   photos: AnimalPhoto[];
@@ -220,10 +229,19 @@ export function addAnimalPhoto(animalId: number, file: File) {
   return api.postForm<AnimalPhoto>(`/animals/${animalId}/photos`, form);
 }
 
-export const fetchComments = (animalId: number, healthRecordId?: number) =>
-  api.get<AnimalComment[]>(
-    `/animals/${animalId}/comments${healthRecordId ? `?healthRecordId=${healthRecordId}` : ''}`
+/** Sohbet sayfalı: sunucu en yeniden geriye `limit/offset` ile dönüyor. */
+export const fetchComments = (
+  animalId: number,
+  opts: { limit?: number; offset?: number; healthRecordId?: number } = {}
+) => {
+  const q = new URLSearchParams();
+  if (opts.limit) q.set('limit', String(opts.limit));
+  if (opts.offset) q.set('offset', String(opts.offset));
+  if (opts.healthRecordId) q.set('healthRecordId', String(opts.healthRecordId));
+  return api.get<{ comments: AnimalComment[]; total: number }>(
+    `/animals/${animalId}/comments?${q}`
   );
+};
 
 export const addComment = (animalId: number, body: string, healthRecordId?: number) =>
   api.post<AnimalComment>(`/animals/${animalId}/comments`, { body, healthRecordId });
@@ -236,3 +254,30 @@ export const addHealthRecord = (
 
 export const addVaccination = (animalId: number, vaccineType: string, note?: string) =>
   api.post<Vaccination>(`/animals/${animalId}/vaccinations`, { vaccineType, note });
+
+/**
+ * Yeni kayıt açmadan önce "bu hayvan zaten kayıtlı mı?" adayları. Sunucu 1 km
+ * içindeki aynı türden hayvanları desen/renk ve mesafeye göre yüksek/orta/
+ * düşük benzerlikle sıralıyor (sayısal yüzde yok, bilerek).
+ */
+export const matchAnimals = (input: {
+  lat: number;
+  lng: number;
+  species: 'cat' | 'dog';
+  breed?: string | null;
+  color?: string | null;
+}) => {
+  const q = new URLSearchParams({
+    lat: String(input.lat),
+    lng: String(input.lng),
+    species: input.species,
+  });
+  if (input.breed) q.set('breed', input.breed);
+  if (input.color) q.set('color', input.color);
+  return api.get<{ candidates: AnimalMatch[]; radiusMeters: number }>(`/animals/match?${q}`);
+};
+
+// Kayıtlı hayvanı yeniden gördüğünü bildirir: konumunu taşır, bildireni
+// bakım listesine ekler.
+export const reportSighting = (animalId: number, lat: number, lng: number) =>
+  api.post<Animal>(`/animals/${animalId}/sightings`, { lat, lng });

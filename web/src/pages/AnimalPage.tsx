@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { mergeById } from '@mobile/paging';
 import { conditionsFor, OTHER, VACCINE_TYPES } from '@mobile/taxonomy';
 import {
   addComment,
@@ -19,6 +20,12 @@ const STATUS_META = {
   in_treatment: { label: 'Tedavi sürüyor', cls: 'warning' },
   recovered: { label: 'İyileşti', cls: 'success' },
 } as const;
+
+// Mobil AnimalProfileScreen ile aynı sayılar: sohbet açılışta son 3 yorum,
+// "öncekileri yükle" 20'lik sayfalar; kayıt kartları 2'de katlanıyor.
+const COMMENT_PREVIEW = 3;
+const COMMENT_PAGE = 20;
+const RECORD_PREVIEW = 2;
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -91,9 +98,18 @@ function ChoiceChips({
 
 export default function AnimalPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Hayvan ekleme akışından "adayı incele" ile gelindi mi? Sorgu parametresi
+  // sayfa yenilense de hayatta kalsın diye state yerine URL'de taşınıyor.
+  const matchReview = searchParams.get('inceleme') === '1';
   const animalId = Number(id);
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
+  const [commentTotal, setCommentTotal] = useState(0);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [visibleVaccinations, setVisibleVaccinations] = useState(RECORD_PREVIEW);
+  const [visibleRecords, setVisibleRecords] = useState(RECORD_PREVIEW);
   const [error, setError] = useState<string | null>(null);
 
   const [draft, setDraft] = useState('');
@@ -111,12 +127,14 @@ export default function AnimalPage() {
 
   const load = useCallback(async () => {
     try {
-      const [detail, commentData] = await Promise.all([
+      const [detail, commentPage] = await Promise.all([
         fetchAnimal(animalId),
-        fetchComments(animalId),
+        // Açılışta sadece son birkaç yorum: sohbet uzadıkça ilk boya ağırlaşmasın.
+        fetchComments(animalId, { limit: COMMENT_PREVIEW }),
       ]);
       setAnimal(detail);
-      setComments(commentData);
+      setComments(commentPage.comments);
+      setCommentTotal(commentPage.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Yüklenemedi');
     }
@@ -125,6 +143,24 @@ export default function AnimalPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function loadOlderComments() {
+    setLoadingOlder(true);
+    try {
+      const page = await fetchComments(animalId, {
+        limit: COMMENT_PAGE,
+        offset: comments.length,
+      });
+      // mergeById: "yükle"ye basılırken yeni yorum düştüyse aynı id iki kez
+      // listelenmesin. Eski sayfa listenin başına eklenir (kronolojik akış).
+      setComments((prev) => mergeById(prev, page.comments, 'start'));
+      setCommentTotal(page.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yorumlar yüklenemedi');
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
 
   async function sendComment(e: FormEvent) {
     e.preventDefault();
@@ -212,7 +248,7 @@ export default function AnimalPage() {
         <div className="label" style={{ margin: 0 }}>
           AŞI KAYITLARI
         </div>
-        {animal.isCarer && (
+        {animal.isCarer && !matchReview && (
           <button className="btn ghost small" onClick={() => setVaccineOpen(true)}>
             + Aşı ekle
           </button>
@@ -221,7 +257,7 @@ export default function AnimalPage() {
       {animal.vaccinations.length === 0 ? (
         <div className="card flat muted">Henüz aşı kaydı yok.</div>
       ) : (
-        animal.vaccinations.map((v) => (
+        animal.vaccinations.slice(0, visibleVaccinations).map((v) => (
           <div key={v.id} className="card flat">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <strong>{v.vaccine_type}</strong>
@@ -234,6 +270,14 @@ export default function AnimalPage() {
             </div>
           </div>
         ))
+      )}
+      {animal.vaccinations.length > visibleVaccinations && (
+        <button
+          className="btn ghost small full"
+          onClick={() => setVisibleVaccinations(animal.vaccinations.length)}
+        >
+          Devamını göster ({animal.vaccinations.length - visibleVaccinations})
+        </button>
       )}
 
       <div className="row" style={{ justifyContent: 'space-between', marginTop: 18 }}>
@@ -252,7 +296,7 @@ export default function AnimalPage() {
       {animal.healthRecords.length === 0 ? (
         <div className="card flat muted">Henüz kayıt yok.</div>
       ) : (
-        animal.healthRecords.map((r) => {
+        animal.healthRecords.slice(0, visibleRecords).map((r) => {
           const st = STATUS_META[r.status];
           return (
             <div key={r.id} className="card flat">
@@ -274,8 +318,27 @@ export default function AnimalPage() {
           );
         })
       )}
+      {animal.healthRecords.length > visibleRecords && (
+        <button
+          className="btn ghost small full"
+          onClick={() => setVisibleRecords(animal.healthRecords.length)}
+        >
+          Devamını göster ({animal.healthRecords.length - visibleRecords})
+        </button>
+      )}
 
       <div className="label">SOHBET</div>
+      {commentTotal > comments.length && (
+        <button
+          className="btn ghost small full"
+          disabled={loadingOlder}
+          onClick={loadOlderComments}
+        >
+          {loadingOlder
+            ? 'Yükleniyor…'
+            : `Önceki yorumları yükle (${commentTotal - comments.length})`}
+        </button>
+      )}
       {comments.length === 0 && (
         <div className="card flat muted">Henüz yorum yok. İlk yorumu sen yap.</div>
       )}
@@ -297,46 +360,69 @@ export default function AnimalPage() {
         </div>
       ))}
 
-      <form onSubmit={sendComment} className="card" style={{ position: 'sticky', bottom: 0 }}>
-        {openRecords.length > 0 && (
-          <div className="chiprow scroll">
-            <button
-              type="button"
-              className={`chip ${!linkedRecord ? 'selected' : ''}`}
-              onClick={() => setLinkedRecord(null)}
-            >
-              Genel
+      {matchReview ? (
+        /* Hayvan ekleme akışından bakılıyor: kullanıcı fotoğraflara ve
+           kayıtlara bakıp karar versin. Karar AddAnimalPage'e state ile döner. */
+        <div className="card" style={{ position: 'sticky', bottom: 0 }}>
+          <p className="muted" style={{ margin: '0 0 8px', textAlign: 'center' }}>
+            Eklemek istediğin hayvan bu mu?
+          </p>
+          <div className="row">
+            <button className="btn secondary grow" onClick={() => navigate(-1)}>
+              Geri dön
             </button>
-            {openRecords.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                className={`chip ${linkedRecord?.id === r.id ? 'selected' : ''}`}
-                onClick={() => setLinkedRecord(r)}
-              >
-                {RECORD_TYPE_LABELS[r.record_type]}: {r.description}
-              </button>
-            ))}
+            <button
+              className="btn grow"
+              onClick={() =>
+                navigate('/hayvanlar/yeni', { state: { confirmedAnimalId: animalId } })
+              }
+            >
+              ✓ Bu o — eşleştir
+            </button>
           </div>
-        )}
-        <div className="row">
-          <input
-            className="grow"
-            style={{
-              border: '1.5px solid var(--border)',
-              borderRadius: 10,
-              padding: 10,
-              background: 'var(--surface)',
-            }}
-            placeholder="Yorum yaz…"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-          />
-          <button className="btn small" disabled={sending || !draft.trim()}>
-            Gönder
-          </button>
         </div>
-      </form>
+      ) : (
+        <form onSubmit={sendComment} className="card" style={{ position: 'sticky', bottom: 0 }}>
+          {openRecords.length > 0 && (
+            <div className="chiprow scroll">
+              <button
+                type="button"
+                className={`chip ${!linkedRecord ? 'selected' : ''}`}
+                onClick={() => setLinkedRecord(null)}
+              >
+                Genel
+              </button>
+              {openRecords.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  className={`chip ${linkedRecord?.id === r.id ? 'selected' : ''}`}
+                  onClick={() => setLinkedRecord(r)}
+                >
+                  {RECORD_TYPE_LABELS[r.record_type]}: {r.description}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="row">
+            <input
+              className="grow"
+              style={{
+                border: '1.5px solid var(--border)',
+                borderRadius: 10,
+                padding: 10,
+                background: 'var(--surface)',
+              }}
+              placeholder="Yorum yaz…"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <button className="btn small" disabled={sending || !draft.trim()}>
+              Gönder
+            </button>
+          </div>
+        </form>
+      )}
 
       {recordOpen && (
         <div className="backdrop" onClick={() => !saving && setRecordOpen(false)}>

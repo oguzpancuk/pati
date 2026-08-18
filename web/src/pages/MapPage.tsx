@@ -63,6 +63,9 @@ export default function MapPage() {
 
     getCurrentLocation()
       .then((loc) => {
+        // Konum, sayfadan çıkıldıktan sonra da gelebilir; kaldırılmış haritada
+        // setView çağırmak Leaflet'i patlatıyor (_leaflet_pos hatası).
+        if (mapRef.current !== map) return;
         setMyLocation(loc);
         map.setView([loc.lat, loc.lng], 16);
         L.circleMarker([loc.lat, loc.lng], {
