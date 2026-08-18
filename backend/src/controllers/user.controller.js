@@ -1,6 +1,11 @@
 const fs = require('fs');
 const pool = require('../config/db');
 const { getUserBadges } = require('../utils/badges');
+const {
+  getUnseenAwards,
+  markAwardsSeen,
+  refreshRankSnapshot,
+} = require('../utils/badgeAwards');
 const { getUserRank } = require('./leaderboard.controller');
 
 const MAX_FEATURED_BADGES = 3;
@@ -37,11 +42,17 @@ async function getMe(req, res, next) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    const [stats, badgeData, rank] = await Promise.all([
+    const [stats, badgeData, rank, recentComments, commentCount] = await Promise.all([
       getStats(req.user.userId),
       getUserBadges(req.user.userId),
       getUserRank(req.user.userId),
+      fetchRecentComments(req.user.userId),
+      countComments(req.user.userId),
     ]);
+
+    // Sıralama burada zaten hesaplandı; rozet popup'ının "önceki sıralaman"
+    // değeri "en son baktığında kaçıncıydın" anlamına gelsin diye tazeliyoruz.
+    await refreshRankSnapshot(req.user.userId, rank ? rank.rank : null, badgeData.points.total);
 
     const user = result.rows[0];
     res.json({
@@ -49,8 +60,11 @@ async function getMe(req, res, next) {
       stats,
       badges: badgeData.badges,
       points: badgeData.points,
+      level: badgeData.level,
       featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
       rank,
+      recentComments,
+      commentCount,
     });
   } catch (err) {
     next(err);
@@ -113,6 +127,7 @@ async function uploadAvatar(req, res, next) {
       stats,
       badges: badgeData.badges,
       points: badgeData.points,
+      level: badgeData.level,
       featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
       rank,
     });
@@ -124,18 +139,105 @@ async function uploadAvatar(req, res, next) {
   }
 }
 
+// Bakım verilen hayvanlar hem kendi profilinde hem başkasının profilinde aynı
+// şekilde (kapak fotoğrafıyla) listeleniyor; sorgu tek yerde dursun.
+const CARED_ANIMALS_SQL = `
+  SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
+         ST_AsGeoJSON(a.location)::json AS location,
+         cover.url AS cover_photo_url
+  FROM animals a
+  JOIN user_animal_care uac ON uac.animal_id = a.id
+  LEFT JOIN LATERAL (
+    SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
+  ) cover ON true
+  WHERE uac.user_id = $1
+  ORDER BY uac.created_at DESC
+  LIMIT 100`;
+
+// Profilde gösterilen "son yorumlar" listesi. Yorumun hangi hayvana yapıldığı da
+// dönüyor ki listeden doğrudan hayvanın profiline gidilebilsin.
+const USER_COMMENTS_SQL = `
+  SELECT c.id, c.body, c.created_at, c.health_record_id,
+         a.id AS animal_id, a.species AS animal_species,
+         a.name AS animal_name, a.breed AS animal_breed,
+         cover.url AS animal_photo_url
+  FROM animal_comments c
+  JOIN animals a ON a.id = c.animal_id
+  LEFT JOIN LATERAL (
+    SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
+  ) cover ON true
+  WHERE c.user_id = $1
+  ORDER BY c.created_at DESC
+  LIMIT $2::int OFFSET $3::int`;
+
+const PROFILE_COMMENT_PREVIEW = 3;
+
+async function fetchRecentComments(userId, limit = PROFILE_COMMENT_PREVIEW, offset = 0) {
+  const result = await pool.query(USER_COMMENTS_SQL, [userId, limit, offset]);
+  return result.rows;
+}
+
+async function countComments(userId) {
+  const result = await pool.query(
+    'SELECT count(*)::int AS count FROM animal_comments WHERE user_id = $1',
+    [userId]
+  );
+  return result.rows[0].count;
+}
+
 async function getMyAnimals(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
-              ST_AsGeoJSON(a.location)::json AS location
-       FROM animals a
-       JOIN user_animal_care c ON c.animal_id = a.id
-       WHERE c.user_id = $1
-       ORDER BY a.created_at DESC`,
-      [req.user.userId]
-    );
+    const result = await pool.query(CARED_ANIMALS_SQL, [req.user.userId]);
     res.json(result.rows);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getUserComments(req, res, next) {
+  try {
+    const targetId = req.params.id ? Number(req.params.id) : req.user.userId;
+    if (!Number.isInteger(targetId)) {
+      return res.status(400).json({ error: 'Geçersiz kullanıcı' });
+    }
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+
+    const [user, comments, total] = await Promise.all([
+      pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [targetId]),
+      fetchRecentComments(targetId, limit, offset),
+      countComments(targetId),
+    ]);
+
+    if (user.rows.length === 0) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    res.json({ user: user.rows[0], comments, total });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getMyBadgeAwards(req, res, next) {
+  try {
+    res.json(await getUnseenAwards(req.user.userId));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function markMyBadgeAwardsSeen(req, res, next) {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ error: 'ids bir dizi olmalıdır' });
+    }
+    const updated = await markAwardsSeen(
+      req.user.userId,
+      ids.map(Number).filter(Number.isInteger)
+    );
+    res.json({ updated });
   } catch (err) {
     next(err);
   }
@@ -171,30 +273,20 @@ async function getPublicProfile(req, res, next) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    const [stats, badgeData, animals, friendCount, rank] = await Promise.all([
-      getStats(targetId),
-      getUserBadges(targetId),
-      pool.query(
-        `SELECT a.id, a.species, a.name, a.breed, a.created_at,
-                ST_AsGeoJSON(a.location)::json AS location,
-                cover.url AS cover_photo_url
-         FROM animals a
-         JOIN user_animal_care uac ON uac.animal_id = a.id
-         LEFT JOIN LATERAL (
-           SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
-         ) cover ON true
-         WHERE uac.user_id = $1
-         ORDER BY uac.created_at DESC
-         LIMIT 50`,
-        [targetId]
-      ),
-      pool.query(
-        `SELECT count(*)::int AS count FROM friendships
-         WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
-        [targetId]
-      ),
-      getUserRank(targetId),
-    ]);
+    const [stats, badgeData, animals, friendCount, rank, recentComments, commentCount] =
+      await Promise.all([
+        getStats(targetId),
+        getUserBadges(targetId),
+        pool.query(CARED_ANIMALS_SQL, [targetId]),
+        pool.query(
+          `SELECT count(*)::int AS count FROM friendships
+           WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
+          [targetId]
+        ),
+        getUserRank(targetId),
+        fetchRecentComments(targetId),
+        countComments(targetId),
+      ]);
 
     let friendshipStatus = 'none';
     let friendshipId = null;
@@ -222,10 +314,13 @@ async function getPublicProfile(req, res, next) {
       stats,
       badges: badgeData.badges,
       points: badgeData.points,
+      level: badgeData.level,
       featuredBadges: resolveFeatured(userResult.rows[0].featured_badges, badgeData.badges),
       rank,
       animals: animals.rows,
       friendCount: friendCount.rows[0].count,
+      recentComments,
+      commentCount,
       friendshipStatus,
       friendshipId,
     });
@@ -239,6 +334,9 @@ module.exports = {
   uploadAvatar,
   setFeaturedBadges,
   getMyAnimals,
+  getUserComments,
+  getMyBadgeAwards,
+  markMyBadgeAwardsSeen,
   searchUsers,
   getPublicProfile,
 };

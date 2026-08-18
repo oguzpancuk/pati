@@ -27,6 +27,52 @@ export interface UserRank {
   totalUsers: number;
 }
 
+// Seviye eşikleri de sunucuda; istemci yalnızca gelen değeri gösteriyor ki
+// eşikler değiştiğinde uygulama güncellemesi gerekmesin.
+export interface UserLevel {
+  level: number;
+  title: string;
+  emoji: string;
+  minPoints: number;
+  nextLevelPoints: number | null;
+  nextTitle: string | null;
+  progress: number;
+}
+
+export interface UserComment {
+  id: number;
+  body: string;
+  created_at: string;
+  health_record_id: number | null;
+  animal_id: number;
+  animal_species: 'cat' | 'dog';
+  animal_name: string | null;
+  animal_breed: string | null;
+  animal_photo_url: string | null;
+}
+
+// Rozet kazanıldığı anın kaydı. rankBefore null olabilir: kullanıcının daha önce
+// hesaplanmış bir sıralaması yoksa (ilk rozeti) karşılaştıracak bir değer yok.
+export interface BadgeAward {
+  id: number;
+  badgeKey: string;
+  tier: BadgeTier;
+  label: string;
+  pointsAwarded: number;
+  pointsBefore: number | null;
+  pointsAfter: number | null;
+  rankBefore: number | null;
+  rankAfter: number | null;
+  levelBefore: number | null;
+  levelAfter: number | null;
+  createdAt: string;
+}
+
+// Puan kazandıran uç noktaların yanıtına eklenen alan.
+export interface WithNewBadges {
+  newBadges?: BadgeAward[];
+}
+
 export interface UserStats {
   foodCount: number;
   waterCount: number;
@@ -43,8 +89,11 @@ export interface Me {
   stats: UserStats;
   badges: Badge[];
   points: UserPoints;
+  level: UserLevel;
   featuredBadges: Badge[];
   rank: UserRank | null;
+  recentComments: UserComment[];
+  commentCount: number;
 }
 
 export type FriendshipStatus = 'none' | 'self' | 'friends' | 'pending_sent' | 'pending_received';
@@ -66,10 +115,13 @@ export interface PublicProfile {
   stats: UserStats;
   badges: Badge[];
   points: UserPoints;
+  level: UserLevel;
   featuredBadges: Badge[];
   rank: UserRank | null;
   animals: ProfileAnimal[];
   friendCount: number;
+  recentComments: UserComment[];
+  commentCount: number;
   friendshipStatus: FriendshipStatus;
   friendshipId: number | null;
 }
@@ -101,9 +153,16 @@ export interface LeaderboardEntry {
   points: number;
   badgePoints: number;
   commentPoints: number;
+  level: UserLevel;
   badgeCount: number;
   topTier: BadgeTier | null;
   rank: number;
+}
+
+export interface UserCommentsResponse {
+  user: UserSummary;
+  comments: UserComment[];
+  total: number;
 }
 
 export interface LeaderboardResponse {
@@ -145,6 +204,33 @@ export async function searchUsers(q: string): Promise<UserSummary[]> {
 export async function fetchUserProfile(id: number): Promise<PublicProfile> {
   const { data } = await apiClient.get<PublicProfile>(`/users/${id}`);
   return data;
+}
+
+export async function fetchMyAnimals(): Promise<ProfileAnimal[]> {
+  const { data } = await apiClient.get<ProfileAnimal[]>('/users/me/animals');
+  return data;
+}
+
+// userId verilmezse kendi yorumlarımızı getirir ('/users/me/comments').
+export async function fetchUserComments(
+  userId: number | 'me',
+  limit = 50,
+  offset = 0
+): Promise<UserCommentsResponse> {
+  const { data } = await apiClient.get<UserCommentsResponse>(`/users/${userId}/comments`, {
+    params: { limit, offset },
+  });
+  return data;
+}
+
+export async function fetchUnseenBadgeAwards(): Promise<BadgeAward[]> {
+  const { data } = await apiClient.get<BadgeAward[]>('/users/me/badge-awards');
+  return data;
+}
+
+export async function markBadgeAwardsSeen(ids: number[]): Promise<void> {
+  if (ids.length === 0) return;
+  await apiClient.post('/users/me/badge-awards/seen', { ids });
 }
 
 export async function fetchLeaderboard(limit = 50): Promise<LeaderboardResponse> {

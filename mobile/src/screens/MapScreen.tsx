@@ -30,6 +30,7 @@ import { Animal, fetchAnimals } from '../api/animals';
 import AnimalAvatar from '../components/AnimalAvatar';
 import UserLocationMarker from '../components/UserLocationMarker';
 import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
+import { useBadgeAwards } from '../context/BadgeAwardContext';
 
 // Türkiye'nin yaklaşık coğrafi sınır kutusu (kesin idari sınır değil).
 // Harita bu alana odaklanır ve kullanıcı bu kutunun dışına fazla kayamaz.
@@ -83,6 +84,7 @@ function weightToGreenAlpha(weight: number) {
 type PendingPin = LatLng | null;
 
 export default function MapScreen({ navigation }: any) {
+  const { celebrate } = useBadgeAwards();
   const mapRef = useRef<MapView>(null);
   const currentRegionRef = useRef<MapRegion>(TURKEY_REGION);
   const mapReadyRef = useRef(false);
@@ -227,13 +229,17 @@ export default function MapScreen({ navigation }: any) {
         return;
       }
 
-      await addCareAction(pin.latitude, pin.longitude, actionType, device.lat, device.lng, {
-        uri: asset.uri,
-        type: asset.type,
-        fileName: asset.fileName,
-      });
+      const created = await addCareAction(
+        pin.latitude,
+        pin.longitude,
+        actionType,
+        device.lat,
+        device.lng,
+        { uri: asset.uri, type: asset.type, fileName: asset.fileName }
+      );
       setPendingPin(null);
       await load();
+      celebrate(created);
     } catch (err: any) {
       Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {

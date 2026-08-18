@@ -58,8 +58,9 @@ export default function LeaderboardScreen({ navigation }: any) {
         <View style={styles.info}>
           <Text style={styles.name}>{entry.name}</Text>
           <Text style={styles.meta}>
+            {entry.level ? `${entry.level.emoji} Sv.${entry.level.level} ${entry.level.title} · ` : ''}
             {entry.badgeCount} rozet
-            {entry.topTier ? ` · en yüksek ${TIER_EMOJI[entry.topTier]}` : ''}
+            {entry.topTier ? ` · ${TIER_EMOJI[entry.topTier]}` : ''}
           </Text>
         </View>
         <View style={styles.pointsBox}>
@@ -82,6 +83,11 @@ export default function LeaderboardScreen({ navigation }: any) {
             {data.me.points} puan · rozetlerden {data.me.badgePoints}, yorumlardan{' '}
             {data.me.commentPoints}
           </Text>
+          {data.me.level && (
+            <Text style={styles.myLevel}>
+              {data.me.level.emoji} Seviye {data.me.level.level} · {data.me.level.title}
+            </Text>
+          )}
         </View>
       )}
 
@@ -110,6 +116,7 @@ const styles = StyleSheet.create({
   myTitle: { color: '#2e7d32', fontWeight: '600', fontSize: 12 },
   myRank: { fontSize: 26, fontWeight: '700', marginTop: 2 },
   myMeta: { color: '#555', fontSize: 12, marginTop: 2 },
+  myLevel: { color: '#2e7d32', fontSize: 12, fontWeight: '600', marginTop: 4 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

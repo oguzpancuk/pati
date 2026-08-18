@@ -21,6 +21,7 @@ import {
 } from '../api/animals';
 import type { PhotoAsset } from '../api/care';
 import AnimalAvatar from '../components/AnimalAvatar';
+import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Coordinates, getCurrentLocation } from '../location';
 
 type Species = 'cat' | 'dog';
@@ -58,6 +59,7 @@ const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
 
 export default function AddAnimalScreen({ navigation }: any) {
+  const { celebrate } = useBadgeAwards();
   const [species, setSpecies] = useState<Species>('cat');
   const [name, setName] = useState('');
   const [color, setColor] = useState('');
@@ -148,6 +150,7 @@ export default function AddAnimalScreen({ navigation }: any) {
       await Promise.all(photos.map((photo) => addAnimalPhoto(animal.id, photo)));
 
       navigation.replace('AnimalProfile', { animalId: animal.id });
+      celebrate(animal);
     } catch (err: any) {
       Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {

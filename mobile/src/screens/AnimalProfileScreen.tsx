@@ -28,6 +28,7 @@ import {
   markHealthRecordRecovered,
 } from '../api/animals';
 import AnimalAvatar from '../components/AnimalAvatar';
+import { useBadgeAwards } from '../context/BadgeAwardContext';
 
 const RECORD_TYPE_LABELS: Record<HealthRecordType, string> = {
   illness: 'Hastalık',
@@ -62,6 +63,7 @@ function formatDate(iso: string) {
 }
 
 export default function AnimalProfileScreen({ route }: any) {
+  const { celebrate } = useBadgeAwards();
   const { animalId } = route.params;
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
@@ -105,10 +107,11 @@ export default function AnimalProfileScreen({ route }: any) {
 
     setSending(true);
     try {
-      await addAnimalComment(animalId, body, linkedRecord?.id);
+      const created = await addAnimalComment(animalId, body, linkedRecord?.id);
       setDraft('');
       setLinkedRecord(null);
       await load();
+      celebrate(created);
     } catch (err: any) {
       Alert.alert('Gönderilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
@@ -124,11 +127,12 @@ export default function AnimalProfileScreen({ route }: any) {
     }
     setSavingRecord(true);
     try {
-      await addHealthRecord(animalId, recordType, description);
+      const created = await addHealthRecord(animalId, recordType, description);
       setRecordDescription('');
       setRecordType('illness');
       setRecordModalVisible(false);
       await load();
+      celebrate(created);
     } catch (err: any) {
       Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
@@ -156,11 +160,12 @@ export default function AnimalProfileScreen({ route }: any) {
           text: 'İyileşti',
           onPress: async () => {
             try {
-              await markHealthRecordRecovered(animalId, record.id);
+              const updated = await markHealthRecordRecovered(animalId, record.id);
               // Yoruma bağlanmak için seçiliyse seçimi kaldır: kapanmış kayda
               // yorum gönderilemez.
               setLinkedRecord((prev) => (prev?.id === record.id ? null : prev));
               await load();
+              celebrate(updated);
             } catch (err: any) {
               Alert.alert(
                 'İşaretlenemedi',

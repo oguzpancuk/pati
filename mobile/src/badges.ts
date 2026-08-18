@@ -39,7 +39,7 @@ export function badgeGroup(badge: Badge): BadgeGroup {
 
 export const GROUP_LABELS: Record<BadgeGroup, string> = {
   streak: 'Süreklilik',
-  breed: 'Cins Avcılığı',
+  breed: 'Cins Dostlukları',
   count: 'Katkı',
 };
 

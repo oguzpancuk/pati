@@ -268,7 +268,9 @@ Mevcut API'yi kullanır, ayrı bir backend kurulmaz. Kimlik doğrulama mevcut JW
 ile, ama **rol kontrolü eklenmeli**.
 
 **Önce altyapı:**
-- `users.role` kolonu (`'user' | 'admin'`)
+- `users.role` kolonu zaten var (`'user' | 'vet' | 'admin'`) ama yalnızca sağlık
+  kaydının "veteriner onaylı" işaretlenmesinde okunuyor — yetkilendirme için
+  kullanılmaya başlanmalı
 - `requireAdmin` middleware
 - `/api/admin/*` route grubu
 - Admin işlemlerinin denetim kaydı (`audit_log`) — kim neyi ne zaman değiştirdi.
@@ -288,7 +290,7 @@ ile, ama **rol kontrolü eklenmeli**.
 - **İçerik moderasyonu:** yorum silme, kullanıcı şikâyetleri
 
 ### Yapılacaklar
-- [ ] Şema: `users.role`, `audit_log`
+- [ ] Şema: `audit_log` (denetim kaydı)
 - [ ] Backend: `requireAdmin`, `/api/admin/*` uç noktaları, denetim kaydı
 - [ ] `admin/` web projesi (Vite + React + TS), giriş ekranı, yetki koruması
 - [ ] Gösterge paneli

@@ -6,6 +6,9 @@ const {
   uploadAvatar,
   setFeaturedBadges,
   getMyAnimals,
+  getUserComments,
+  getMyBadgeAwards,
+  markMyBadgeAwardsSeen,
   searchUsers,
   getPublicProfile,
 } = require('../controllers/user.controller');
@@ -16,7 +19,12 @@ router.get('/me', requireAuth, getMe);
 router.post('/me/avatar', requireAuth, upload.single('photo'), uploadAvatar);
 router.put('/me/featured-badges', requireAuth, setFeaturedBadges);
 router.get('/me/animals', requireAuth, getMyAnimals);
+router.get('/me/comments', requireAuth, getUserComments);
+router.get('/me/badge-awards', requireAuth, getMyBadgeAwards);
+router.post('/me/badge-awards/seen', requireAuth, markMyBadgeAwardsSeen);
 router.get('/search', requireAuth, searchUsers);
+// '/:id' ile başlayan yollar en sonda: yukarıdaki sabit '/me/...' yolları önce eşleşsin.
+router.get('/:id/comments', requireAuth, getUserComments);
 router.get('/:id', requireAuth, getPublicProfile);
 
 module.exports = router;

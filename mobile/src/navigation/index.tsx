@@ -13,6 +13,8 @@ import UserProfileScreen from '../screens/UserProfileScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
 import FindFriendsScreen from '../screens/FindFriendsScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
+import UserCommentsScreen from '../screens/UserCommentsScreen';
+import { BadgeAwardProvider } from '../context/BadgeAwardContext';
 import { useCareAlerts } from '../useCareAlerts';
 
 export type AuthStackParamList = {
@@ -27,6 +29,8 @@ export type MainStackParamList = {
   PublicProfile: { userId: number };
   FindFriends: undefined;
   Leaderboard: undefined;
+  // userId verilmezse kendi yorumlarımız listelenir.
+  UserComments: { userId?: number | 'me'; name?: string } | undefined;
 };
 
 export type MainTabParamList = {
@@ -87,6 +91,11 @@ function MainNavigator() {
         component={LeaderboardScreen}
         options={{ title: 'Sıralama' }}
       />
+      <MainStack.Screen
+        name="UserComments"
+        component={UserCommentsScreen}
+        options={{ title: 'Yorumlar' }}
+      />
     </MainStack.Navigator>
   );
 }
@@ -102,7 +111,15 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer>
-      {user ? <MainNavigator /> : <AuthNavigator />}
+      {user ? (
+        // Rozet kutlama popup'ı navigasyonun üstünde duruyor ki hangi ekranda
+        // kazanılırsa kazanılsın aynı yerden gösterilebilsin.
+        <BadgeAwardProvider>
+          <MainNavigator />
+        </BadgeAwardProvider>
+      ) : (
+        <AuthNavigator />
+      )}
     </NavigationContainer>
   );
 }

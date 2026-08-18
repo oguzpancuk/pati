@@ -20,6 +20,8 @@ import {
 import { badgeProgressText, badgeTitle, sortBadges, TIER_EMOJI } from '../badges';
 import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
+import LevelBar from '../components/LevelBar';
+import RecentComments from '../components/RecentComments';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -93,6 +95,8 @@ export default function PublicProfileScreen({ route, navigation }: any) {
           </Text>
         )}
       </View>
+
+      <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
 
       <View style={styles.statsRow}>
         <View style={styles.statBox}>
@@ -191,6 +195,17 @@ export default function PublicProfileScreen({ route, navigation }: any) {
           </TouchableOpacity>
         ))
       )}
+
+      <RecentComments
+        comments={profile.recentComments ?? []}
+        total={profile.commentCount ?? 0}
+        title="Son Yorumları"
+        emptyText="Henüz yorum yapmamış."
+        onSeeAll={() =>
+          navigation.push('UserComments', { userId: profile.id, name: profile.name })
+        }
+        onOpenAnimal={(animalId) => navigation.push('AnimalProfile', { animalId })}
+      />
 
       <BadgeCatalogModal
         visible={catalogVisible}

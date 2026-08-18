@@ -15,6 +15,7 @@ const zlib = require('zlib');
 const bcrypt = require('bcrypt');
 const pool = require('../src/config/db');
 const { UPLOADS_DIR } = require('../src/config/upload');
+const { getBadgesForUsers } = require('../src/utils/badges');
 
 const USER_COUNT = 100;
 const ANIMALS_PER_USER = 2;
@@ -359,13 +360,43 @@ async function seed() {
     );
   }
 
+  // Demo kullanıcıların rozetlerini "kazanılmış ve görülmüş" olarak işliyoruz.
+  // Aksi halde bir demo hesapla ilk aksiyon yapıldığında 30 günlük serinin
+  // biriktirdiği onlarca rozet aynı anda kutlama popup'ı olarak patlıyor.
+  console.log('Demo kullanıcıların rozetleri geçmişe işleniyor...');
+  const badgeMap = await getBadgesForUsers(userIds);
+  const awardRows = [];
+  for (const [userId, data] of badgeMap.entries()) {
+    for (const badge of data.badges.filter((b) => b.tier)) {
+      awardRows.push([userId, badge.key, badge.tier, badge.label, badge.points]);
+    }
+    await pool.query('UPDATE users SET last_points = $1 WHERE id = $2', [
+      data.points.total,
+      userId,
+    ]);
+  }
+  for (let i = 0; i < awardRows.length; i += 200) {
+    const slice = awardRows.slice(i, i + 200);
+    const values = slice.map(
+      (_, idx) =>
+        `($${idx * 5 + 1}, $${idx * 5 + 2}, $${idx * 5 + 3}, $${idx * 5 + 4}, $${idx * 5 + 5}, now())`
+    );
+    await pool.query(
+      `INSERT INTO user_badge_awards (user_id, badge_key, tier, label, points_awarded, seen_at)
+       VALUES ${values.join(',')}
+       ON CONFLICT DO NOTHING`,
+      slice.flat()
+    );
+  }
+
   const counts = await pool.query(
     `SELECT
        (SELECT count(*) FROM users WHERE email LIKE 'test%@stray.test')::int AS users,
        (SELECT count(*) FROM animals)::int AS animals,
        (SELECT count(*) FROM care_actions)::int AS care_actions,
        (SELECT count(*) FROM animal_comments)::int AS comments,
-       (SELECT count(*) FROM user_animal_care)::int AS carers`
+       (SELECT count(*) FROM user_animal_care)::int AS carers,
+       (SELECT count(*) FROM user_badge_awards)::int AS badge_awards`
   );
 
   console.log('\nTamamlandı:');
@@ -374,6 +405,7 @@ async function seed() {
   console.log(`  Mama/su kaydı  : ${counts.rows[0].care_actions}`);
   console.log(`  Yorum          : ${counts.rows[0].comments}`);
   console.log(`  Bakım ilişkisi : ${counts.rows[0].carers}`);
+  console.log(`  Kazanılmış rozet: ${counts.rows[0].badge_awards}`);
   console.log(`\n  30 günlük seri : ${streakSummary[30]} kullanıcı (Altın rozet)`);
   console.log(`  7 günlük seri  : ${streakSummary[7]} kullanıcı (Gümüş rozet)`);
   console.log(`  1-3 günlük     : ${streakSummary.short} kullanıcı (Bronz rozet)`);

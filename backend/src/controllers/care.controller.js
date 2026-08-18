@@ -1,6 +1,7 @@
 const fs = require('fs');
 const pool = require('../config/db');
 const { distanceMeters } = require('../utils/distance');
+const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 
 // Mama ve su farklı hızda tükeniyor: mama daha çabuk bitiyor/bozuluyor, su daha
 // uzun süre işe yarıyor. Haritadaki yeşil alanın solma süresi ile "bu bölgede
@@ -59,7 +60,10 @@ async function addCareAction(req, res, next) {
       [pinLng, pinLat, req.user.userId, actionType, photoUrl]
     );
 
-    res.status(201).json(result.rows[0]);
+    // Yeni kazanılan rozetler yanıtla birlikte dönüyor ki istemci ayrı bir
+    // istek atmadan kutlama popup'ını gösterebilsin.
+    const newBadges = await syncBadgeAwardsSafe(req.user.userId);
+    res.status(201).json({ ...result.rows[0], newBadges });
   } catch (err) {
     if (req.file) {
       fs.unlink(req.file.path, () => {});

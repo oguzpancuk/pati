@@ -58,11 +58,16 @@ stray/
   Her kaydın 3 durumu var: **Tedaviye başlanmadı** (hiç yorum yok) → **Tedavi
   sürüyor** (en az bir yorum) → **İyileşti** ("İyileşti" butonuyla, bakım verenler
   işaretler). İyileşmiş kayda yeni yorum eklenemez
-- Kullanıcı profili: profil fotoğrafı, rozetler, öne çıkan 3 rozet seçimi,
+- Kullanıcı profili: profil fotoğrafı, seviye, rozetler, öne çıkan 3 rozet seçimi,
   sıralamadaki yeri ve arkadaşlık sistemi (kullanıcı arama, istek gönderme/kabul
-  etme, başka kullanıcıların profilini görüntüleme)
-- Rozetler ve puanlar: seri, cins ve sayaç bazlı rozetler; toplanan puanlara göre
-  tüm kullanıcıların sıralandığı bir liderlik tablosu (profilden erişilir)
+  etme, başka kullanıcıların profilini görüntüleme). Hem kendi hem başkasının
+  profilinde bakım verilen hayvanlar profil fotoğraflarıyla listelenir ve
+  dokununca hayvanın profiline gidilir; son yorumlar da gösterilir, "Tümünü gör"
+  ile tam yorum geçmişine ulaşılır
+- Rozetler, seviyeler ve puanlar: seri, cins ve sayaç bazlı rozetler; toplam
+  puana göre 10 kademeli seviye sistemi; yeni rozet kazanıldığında sıralama ve
+  puan değişimini gösteren kutlama penceresi; tüm kullanıcıların sıralandığı bir
+  liderlik tablosu (profilden erişilir)
 
 ## Yapılacaklar
 
@@ -190,8 +195,8 @@ Tüm demo hesapların girişi: `test1@stray.test` … `test100@stray.test`,
 > Script mevcut demo veriyi görürse tekrar çalışmaz; sıfırdan üretmek için
 > veritabanını sıfırlayıp `npm run migrate && npm run seed` yapın.
 
-> Şema zaman zaman değişiyor (en son: `health_records.recovered_at`/`recovered_by`
-> ve `users.featured_badges` eklendi).
+> Şema zaman zaman değişiyor (en son: `user_badge_awards` tablosu ve
+> `users.last_rank`/`last_points` eklendi).
 > Migrasyon hata verirse veritabanınızı sıfırlayıp tekrar deneyin:
 > `docker exec -it stray-db psql -U stray -d stray -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
 >
@@ -277,7 +282,8 @@ IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
 6. **Hayvanlar** sekmesinde yakınınızdaki kayıtlı hayvanları (mesafeye göre sıralı)
    görür, **Yeni Hayvan Ekle** ile konumunuz otomatik alınarak yeni bir profil
    oluşturabilirsiniz.
-7. **Profilim** sekmesinden rozet kataloğunu açabilir, öne çıkan 3 rozetinizi
+7. **Profilim** sekmesinde seviyeniz, bakım verdiğiniz hayvanlar ve son
+   yorumlarınız görünür; rozet kataloğunu açabilir, öne çıkan 3 rozetinizi
    seçebilir, **Sıralama** ekranına gidebilir ve çıkış yapabilirsiniz.
 
 ### Rozetler, puanlar ve sıralama
@@ -285,17 +291,36 @@ IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
 Tüm rozetler bronz / gümüş / altın / elmas kademelerinde. Bir kere kazanılan rozet
 kalıcıdır (seri bozulsa bile düşürülmez). Üç grup var:
 
-| Grup | Nasıl kazanılır | Eşikler (bronz → elmas) |
+| Grup | Rozetler | Eşikler (bronz → elmas) |
 | --- | --- | --- |
-| **Seri** | Mama, su ve hayvan kaydetme için ayrı ayrı, en uzun ardışık gün serisi | 1 / 7 / 30 / 365 gün |
-| **Cins** | Her kedi/köpek cinsi için ayrı rozet (ör. "Altın Tekir Avcısı") | 1 / 5 / 20 / 100 kayıt |
-| **Sayaç** | Yorumcu (hayvan profillerine yorum) ve Şifacı (sağlık kaydı ekleme/iyileştirme) | Yorumcu 1/10/50/200, Şifacı 1/5/20/100 |
+| **Seri** | **Mama Perisi**, **Su Elçisi**, **Mahalle Muhabiri** (yeni hayvan kaydetme) — en uzun ardışık gün serisine göre | 1 / 7 / 30 / 365 gün |
+| **Cins** | Her kedi/köpek cinsi için ayrı: **Tekir Ahbabı**, **Sarman Sırdaşı**, **Kara Kedi Kankası**, **Kangal Yoldaşı**, **Golden Kankası**… | 1 / 5 / 20 / 100 kayıt |
+| **Sayaç** | **Mahalle Dedikoducusu** (yorum), **Pati Şifacısı** (sağlık kaydı ekleme/iyileştirme) | Yorum 1/10/50/200 · Sağlık 1/5/20/100 |
+
+Rozetin tam adı kademesiyle birlikte okunur: "Altın Tekir Ahbabı", "Elmas Mama Perisi".
 
 **Puanlar:** her rozet kademesi puan verir (bronz 10, gümüş 25, altın 60, elmas 150).
 Yorumlar ayrıca puan getirir, ama ağırlıklı: aynı hayvana yığılan yorumları
 ödüllendirmemek için hayvan başına en fazla 5 yorum sayılır (yorum başına 1 puan) ve
 yorum yapılan **farklı** hayvan başına 3 puan verilir — yani genişlik, tekrar
 yorumdan daha değerli.
+
+**Seviyeler:** Toplam puan (rozet + yorum) bir seviyeye karşılık gelir. Profilde
+seviye rozeti ve bir sonraki seviyeye kalan puanı gösteren bir ilerleme çubuğu var.
+
+| Sv. | Ünvan | Puan | Sv. | Ünvan | Puan |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 🌱 Yeni Komşu | 0 | 6 | 🧭 Sokak Kâşifi | 750 |
+| 2 | 🏘️ Mahalle Sakini | 40 | 7 | 🎖️ Mahalle Muhtarı | 1200 |
+| 3 | 🤝 Sokak Gönüllüsü | 120 | 8 | 🦉 Sokak Bilgesi | 1800 |
+| 4 | 🍲 Mama Nöbetçisi | 250 | 9 | 🦸 Pati Kahramanı | 2600 |
+| 5 | 🐾 Pati Dostu | 450 | 10 | 👑 Sokakların Piri | 3600 |
+
+**Rozet kutlaması:** Yeni bir rozet kazanıldığında (mama/su bırakma, hayvan
+kaydetme, yorum, sağlık kaydı) ekranda bir kutlama penceresi açılır: kazanılan
+rozet, aldığı puan, önceki → yeni sıralama ve seviye atlandıysa yeni seviye.
+Aynı anda birden fazla rozet kazanılırsa sırayla gösterilir. Uygulama kapalıyken
+kazanılan rozetler profil ekranı açıldığında yakalanır.
 
 **Öne çıkan rozetler:** Profilinizden en fazla 3 rozet seçip profilinizin üstünde
 sergileyebilirsiniz. Seçim rozetin anahtarını saklar, kademesini değil; rozetiniz

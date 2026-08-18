@@ -92,11 +92,15 @@ MVP tamamlandı ve uçtan uca test edildi. Aşağıdakilerin hepsi çalışır d
 ### Rozetler, puanlar, liderlik tablosu
 Üç rozet grubu, hepsi bronz / gümüş / altın / elmas kademelerinde:
 
-| Grup | Nasıl kazanılır | Eşikler |
+| Grup | Rozetler | Eşikler |
 | --- | --- | --- |
-| Seri | Mama, su, hayvan kaydetme için ayrı ayrı; en uzun ardışık gün serisi | 1 / 7 / 30 / 365 gün |
-| Cins | Her kedi/köpek cinsi için ayrı (ör. "Altın Tekir Avcısı") | 1 / 5 / 20 / 100 kayıt |
-| Sayaç | Yorumcu ve Sağlık Takipçisi | Yorum 1/10/50/200 · Sağlık 1/5/20/100 |
+| Seri | Mama Perisi, Su Elçisi, Mahalle Muhabiri — en uzun ardışık gün serisi | 1 / 7 / 30 / 365 gün |
+| Cins | Her kedi/köpek cinsi için ayrı: Tekir Ahbabı, Sarman Sırdaşı, Kara Kedi Kankası, Kangal Yoldaşı… | 1 / 5 / 20 / 100 kayıt |
+| Sayaç | Mahalle Dedikoducusu (yorum), Pati Şifacısı (sağlık) | Yorum 1/10/50/200 · Sağlık 1/5/20/100 |
+
+Rozet adı kademesiyle birlikte okunur: "Altın Tekir Ahbabı". İsimler bilerek sıcak
+ve biraz esprili — "avcı" gibi agresif çağrışımlı kelimelerden kaçınıldı, çünkü
+burada kovalanan bir av değil bakılan bir canlı var.
 
 - Puanlar: bronz 10, gümüş 25, altın 60, elmas 150
 - Yorumlar ek puan getiriyor ama **ağırlıklı**: hayvan başına en fazla 5 yorum
@@ -108,9 +112,22 @@ MVP tamamlandı ve uçtan uca test edildi. Aşağıdakilerin hepsi çalışır d
   sırayı paylaşıyor (1, 2, 2, 4). Kullanıcı kendi sırasını profilinde ve
   listenin üstünde görüyor
 
+**Seviyeler:** Toplam puan 10 kademeli bir seviyeye karşılık geliyor — 🌱 Yeni
+Komşu (0) → 🏘️ Mahalle Sakini (40) → 🤝 Sokak Gönüllüsü (120) → 🍲 Mama Nöbetçisi
+(250) → 🐾 Pati Dostu (450) → 🧭 Sokak Kâşifi (750) → 🎖️ Mahalle Muhtarı (1200) →
+🦉 Sokak Bilgesi (1800) → 🦸 Pati Kahramanı (2600) → 👑 Sokakların Piri (3600).
+Profilde ilerleme çubuğu ve bir sonraki seviyeye kalan puan gösteriliyor.
+
+**Rozet kutlaması:** Yeni rozet kazanıldığında bir kutlama penceresi açılıyor:
+kazanılan rozet, aldığı puan, önceki → yeni sıralama ve seviye atlandıysa yeni
+seviye. Aynı anda birden fazla rozet kazanılırsa sırayla gösteriliyor; uygulama
+kapalıyken kazanılanlar profil ekranı açıldığında yakalanıyor.
+
 ### Sosyal
 - Profil fotoğrafı, kullanıcı arama, arkadaşlık isteği gönderme/kabul etme
-- Başka kullanıcıların profili: rozetleri, puanı, sırası, kaydettiği hayvanlar
+- Profillerde (hem kendi hem başkasının) seviye çubuğu, öne çıkan rozetler,
+  bakım verilen hayvanlar profil fotoğraflarıyla (dokununca hayvanın profiline
+  gider) ve son yorumlar — "Tümünü gör" ile tam yorum geçmişi
 
 ### Bildirimler
 - Uygulama açıkken 30 dakikada bir (ve öne her geldiğinde) kullanıcının 500
@@ -160,6 +177,7 @@ health_records     hastalık/tedavi; recovered_at + recovered_by ile iyileşme
 user_animal_care   kim hangi hayvana bakıyor (çoka çok)
 care_actions       konum, tür (food/water), photo_url, zaman
 friendships        requester/addressee, pending|accepted
+user_badge_awards  rozetin ilk kazanıldığı an + o andaki puan/sıralama/seviye
 ```
 Coğrafi kolonlar `GEOGRAPHY(POINT, 4326)` tipinde ve GIST index'li. Yakınlık
 sorguları `ST_DWithin`, harita penceresi `ST_MakeEnvelope`, istemciye dönüş
@@ -183,9 +201,12 @@ POST   /api/animals/:id/health-records
 POST   /api/animals/:id/health-records/:recordId/recover
 POST   /api/animals/:id/follow
 
-GET    /api/users/me | /me/animals | /search | /:id
+GET    /api/users/me | /me/animals | /me/comments | /search | /:id
+GET    /api/users/:id/comments
 POST   /api/users/me/avatar
 PUT    /api/users/me/featured-badges
+GET    /api/users/me/badge-awards          # okunmamış rozet kutlamaları
+POST   /api/users/me/badge-awards/seen
 
 GET    /api/friendships/me
 POST   /api/friendships | /:id/accept    DELETE /api/friendships/:id

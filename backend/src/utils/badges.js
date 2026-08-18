@@ -7,9 +7,45 @@ const TIER_ORDER = ['bronze', 'silver', 'gold', 'diamond'];
 
 // Üst üste gün serisine dayalı rozetler (mama/su/hayvan kaydetme).
 const STREAK_THRESHOLDS = { bronze: 1, silver: 7, gold: 30, diamond: 365 };
-// Adet bazlı rozetler (cins avcılığı, yorum, sağlık takibi).
+// Adet bazlı rozetler (cins dostlukları, yorum, sağlık takibi).
 const COUNT_THRESHOLDS = { bronze: 1, silver: 5, gold: 20, diamond: 100 };
 const COMMENT_THRESHOLDS = { bronze: 1, silver: 10, gold: 50, diamond: 200 };
+
+// Toplam puana göre seviye. Rozetlerden ve yorumlardan gelen puan tek bir
+// ilerleme çubuğunda toplansın diye var. Eşikler başta sık, sonra seyrek: ilk
+// günlerde hızlı ilerleme hissi olsun, üst seviyeler ise gerçekten anlam taşısın.
+const LEVELS = [
+  { level: 1, title: 'Yeni Komşu', emoji: '🌱', minPoints: 0 },
+  { level: 2, title: 'Mahalle Sakini', emoji: '🏘️', minPoints: 40 },
+  { level: 3, title: 'Sokak Gönüllüsü', emoji: '🤝', minPoints: 120 },
+  { level: 4, title: 'Mama Nöbetçisi', emoji: '🍲', minPoints: 250 },
+  { level: 5, title: 'Pati Dostu', emoji: '🐾', minPoints: 450 },
+  { level: 6, title: 'Sokak Kâşifi', emoji: '🧭', minPoints: 750 },
+  { level: 7, title: 'Mahalle Muhtarı', emoji: '🎖️', minPoints: 1200 },
+  { level: 8, title: 'Sokak Bilgesi', emoji: '🦉', minPoints: 1800 },
+  { level: 9, title: 'Pati Kahramanı', emoji: '🦸', minPoints: 2600 },
+  { level: 10, title: 'Sokakların Piri', emoji: '👑', minPoints: 3600 },
+];
+
+function levelFor(points) {
+  const safePoints = Math.max(0, points || 0);
+  let current = LEVELS[0];
+  for (const entry of LEVELS) {
+    if (safePoints >= entry.minPoints) current = entry;
+  }
+  const next = LEVELS[current.level] || null; // LEVELS sıralı, index = level
+  const span = next ? next.minPoints - current.minPoints : 0;
+  return {
+    level: current.level,
+    title: current.title,
+    emoji: current.emoji,
+    minPoints: current.minPoints,
+    nextLevelPoints: next ? next.minPoints : null,
+    nextTitle: next ? next.title : null,
+    // İlerleme çubuğu için 0-1 arası oran; en üst seviyede 1.
+    progress: next ? Math.min(1, (safePoints - current.minPoints) / span) : 1,
+  };
+}
 
 function tierFor(value, thresholds) {
   let result = null;
@@ -25,15 +61,18 @@ function nextThresholdFor(tier, thresholds) {
   return thresholds[TIER_ORDER[nextIndex]];
 }
 
+// Rozet isimleri bilerek sıcak ve biraz esprili: "avcı" gibi agresif çağrışımı
+// olan kelimelerden kaçınıyoruz, çünkü burada kovalanan bir av değil bakılan bir
+// canlı var.
 const STREAK_CATEGORIES = {
-  feeder: { label: 'Besleyici', unit: 'gün' },
-  water: { label: 'Sucu', unit: 'gün' },
-  registrar: { label: 'Kaydedici', unit: 'gün' },
+  feeder: { label: 'Mama Perisi', unit: 'gün' },
+  water: { label: 'Su Elçisi', unit: 'gün' },
+  registrar: { label: 'Mahalle Muhabiri', unit: 'gün' },
 };
 
 const COUNT_CATEGORIES = {
-  commenter: { label: 'Yorumcu', unit: 'yorum', thresholds: COMMENT_THRESHOLDS },
-  healer: { label: 'Sağlık Takipçisi', unit: 'kayıt', thresholds: COUNT_THRESHOLDS },
+  commenter: { label: 'Mahalle Dedikoducusu', unit: 'yorum', thresholds: COMMENT_THRESHOLDS },
+  healer: { label: 'Pati Şifacısı', unit: 'kayıt', thresholds: COUNT_THRESHOLDS },
 };
 
 // Tek bir kullanıcı için, tüm kullanıcılar için hesaplama yapan sorgulardan
@@ -131,21 +170,21 @@ async function fetchHealthCounts(userIds) {
 }
 
 const BREED_LABELS = {
-  Tekir: 'Tekir Avcısı',
-  Sarman: 'Sarman Avcısı',
-  Siyah: 'Siyah Kedi Avcısı',
-  Beyaz: 'Beyaz Kedi Avcısı',
-  'Van Kedisi': 'Van Kedisi Avcısı',
-  'Ankara Kedisi': 'Ankara Kedisi Avcısı',
-  'Halı (Calico)': 'Calico Avcısı',
-  Kangal: 'Kangal Avcısı',
-  Akbaş: 'Akbaş Avcısı',
-  'Çoban Köpeği': 'Çoban Köpeği Avcısı',
-  'Terrier Tipi': 'Terrier Avcısı',
-  'Av Köpeği Tipi': 'Av Köpeği Avcısı',
-  'Golden/Labrador Tipi': 'Golden/Labrador Avcısı',
-  'Sokak Melezi': 'Sokak Melezi Avcısı',
-  Diğer: 'Nadir Cins Avcısı',
+  Tekir: 'Tekir Ahbabı',
+  Sarman: 'Sarman Sırdaşı',
+  Siyah: 'Kara Kedi Kankası',
+  Beyaz: 'Bembeyaz Ahbap',
+  'Van Kedisi': 'Van Kedisi Hayranı',
+  'Ankara Kedisi': 'Ankara Kedisi Hayranı',
+  'Halı (Calico)': 'Calico Meraklısı',
+  Kangal: 'Kangal Yoldaşı',
+  Akbaş: 'Akbaş Yoldaşı',
+  'Çoban Köpeği': 'Çoban Köpeği Yoldaşı',
+  'Terrier Tipi': 'Terrier Takipçisi',
+  'Av Köpeği Tipi': 'Av Köpeği Yoldaşı',
+  'Golden/Labrador Tipi': 'Golden Kankası',
+  'Sokak Melezi': 'Sokak Melezi Kankası',
+  Diğer: 'Nadir Cins Meraklısı',
 };
 
 function badgeEntry(key, label, unit, value, tier, thresholds) {
@@ -194,7 +233,7 @@ function buildBadgesFor(userId, streaks, breeds, comments, health) {
     badges.push(
       badgeEntry(
         `breed:${breed}`,
-        BREED_LABELS[breed] || `${breed} Avcısı`,
+        BREED_LABELS[breed] || `${breed} Ahbabı`,
         'hayvan',
         count,
         tierFor(count, COUNT_THRESHOLDS),
@@ -228,14 +267,16 @@ function buildBadgesFor(userId, streaks, breeds, comments, health) {
 
   const badgePoints = badges.reduce((sum, b) => sum + b.points, 0);
   const engagementPoints = commentPoints(commentData);
+  const total = badgePoints + engagementPoints;
 
   return {
     badges,
     points: {
       badges: badgePoints,
       comments: engagementPoints,
-      total: badgePoints + engagementPoints,
+      total,
     },
+    level: levelFor(total),
   };
 }
 
@@ -263,6 +304,8 @@ async function getUserBadges(userId) {
 module.exports = {
   getUserBadges,
   getBadgesForUsers,
+  levelFor,
+  LEVELS,
   TIER_POINTS,
   TIER_ORDER,
   STREAK_THRESHOLDS,

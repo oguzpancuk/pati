@@ -51,6 +51,45 @@ içinde türetiliyor. Gerekçe: saklansaydı yorum eklendiğinde/silindiğinde
 güncellenmeyi unutup gerçekle uyumsuz hale gelebilirdi. Türetilmiş değer
 desenkron olamaz.
 
+### Rozet isimleri bilerek sıcak ve esprili
+İlk sürümde cins rozetleri "Tekir Avcısı" gibi isimlendirilmişti; "avcı" bu ürüne
+yakışmayan agresif bir çağrışım taşıyor — burada kovalanan bir av değil bakılan
+bir canlı var. Şimdiki isimler dostluk üzerinden kuruluyor: Tekir Ahbabı, Sarman
+Sırdaşı, Kara Kedi Kankası, Kangal Yoldaşı, Mama Perisi, Su Elçisi, Mahalle
+Muhabiri, Mahalle Dedikoducusu, Pati Şifacısı. Kademe sıfat olarak öne geliyor:
+"Altın Tekir Ahbabı".
+
+### Rozet kazanma anı saklanıyor, rozetin kendisi saklanmıyor
+Rozetler türetilmiş veri (istenildiği an yeniden hesaplanabiliyor), ama "bu rozeti
+ne zaman kazandın ve o an kaçıncı sıradaydın" bilgisi geçmişe dönük
+hesaplanamıyor — sıralama başkalarının puan kazanmasıyla da değişiyor. Bu yüzden
+`user_badge_awards` tablosu yalnızca **kazanma anının fotoğrafını** tutuyor:
+puan öncesi/sonrası, sıralama öncesi/sonrası, seviye öncesi/sonrası.
+
+"Önceki sıralama" değeri `users.last_rank` anlık görüntüsünden geliyor ve bu
+görüntü hem rozet kazanıldığında hem profil açıldığında tazeleniyor — yani
+pratikte "en son baktığında kaçıncıydın" anlamına geliyor. İlk rozette
+karşılaştırılacak bir değer olmadığı için `rank_before` NULL kalıyor; arayüz bu
+durumu ayrıca ele alıyor.
+
+### Sıralama yalnızca gerçekten yeni rozet varsa hesaplanıyor
+`syncBadgeAwards` her puan kazandıran işlemden sonra çalışıyor, ama pahalı kısmı
+(tüm kullanıcıları tarayan sıralama hesabı) sadece gerçekten yeni bir rozet
+kazanıldığında yapılıyor. Ayrıca rozet senkronizasyonu bir yan iş olduğu için
+hata verirse asıl işlem (mama bırakma, yorum...) düşürülmüyor — kullanıcı
+açısından rozetin gecikmesi, işlemin başarısız olmasından iyidir.
+
+### Seed script rozetleri "görülmüş" olarak işliyor
+Demo kullanıcıların 30 günlük serileri onlarca rozet üretiyor. Backfill olmasaydı
+bir demo hesapla yapılan ilk aksiyonda bu rozetlerin hepsi aynı anda kutlama
+popup'ı olarak patlıyordu. `seed-demo.js` bu yüzden mevcut rozetleri
+`seen_at = now()` ile yazıyor.
+
+> Aynı durum gerçek kullanıcılar için de geçerli: bu özellik canlıya alındığında
+> mevcut kullanıcılar bir sonraki aksiyonlarında birikmiş tüm rozetlerini
+> görecek. Sıfırdan bir veritabanında sorun değil, ama veri varken deploy
+> edilecekse benzer bir backfill çalıştırılmalı.
+
 ### Öne çıkan rozetler yalnızca anahtarı saklıyor
 `users.featured_badges` içinde `["streak:feeder", "breed:Tekir"]` gibi
 anahtarlar var, kademe bilgisi yok. Gerekçe: kullanıcı gümüşten altına
@@ -162,13 +201,22 @@ düşmesi yaşandı.
 8. **`MAX_DISTANCE_TO_PIN_METERS` iki yerde tanımlı** (backend + mobil).
    Ortak bir yapılandırma uç noktasından okunması daha doğru olur.
 
-9. **Rol kavramı yok.** `users` tablosunda `role` kolonu yok; admin paneli için
-   eklenmesi gerekecek (bkz. `YOL_HARITASI.md` madde 5).
+9. **Rozet kutlaması aksiyon yanıtına bağlı.** Popup, puan kazandıran uç
+   noktaların yanıtındaki `newBadges` alanından besleniyor; kaçırılanlar profil
+   ekranı açıldığında `/users/me/badge-awards` ile toplanıyor. Kullanıcı hiç
+   profiline girmezse kutlama gecikir. Gerçek zamanlı olması istenirse push
+   bildirimi gerekir.
 
-10. **Konum override kodu repoda.** `__DEV__` ile korunuyor ama üretime
+10. **Rol var ama kullanılmıyor.** `users.role` kolonu mevcut
+    (`user` / `vet` / `admin`) ve yalnızca sağlık kaydının "veteriner onaylı"
+    işaretlenmesinde okunuyor. Admin paneli için bir `requireAdmin` middleware'i
+    ve `/api/admin/*` route grubu eklenmesi gerekecek (bkz. `YOL_HARITASI.md`
+    madde 5).
+
+11. **Konum override kodu repoda.** `__DEV__` ile korunuyor ama üretime
     çıkmadan önce tamamen kaldırılmalı (`mobile/src/location.ts`).
 
-11. **CORS herkese açık** (`app.use(cors())`). Üretimde origin kısıtlanmalı.
+12. **CORS herkese açık** (`app.use(cors())`). Üretimde origin kısıtlanmalı.
 
 ---
 

@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { PhotoAsset } from './care';
+import type { WithNewBadges } from './users';
 
 export interface Animal {
   id: number;
@@ -92,8 +93,10 @@ export interface CreateAnimalInput {
   lng: number;
 }
 
-export async function createAnimal(input: CreateAnimalInput): Promise<Animal> {
-  const { data } = await apiClient.post<Animal>('/animals', input);
+export async function createAnimal(
+  input: CreateAnimalInput
+): Promise<Animal & WithNewBadges> {
+  const { data } = await apiClient.post<Animal & WithNewBadges>('/animals', input);
   return data;
 }
 
@@ -115,8 +118,8 @@ export async function addHealthRecord(
   animalId: number,
   recordType: HealthRecordType,
   description: string
-): Promise<HealthRecord> {
-  const { data } = await apiClient.post<HealthRecord>(`/animals/${animalId}/health-records`, {
+): Promise<HealthRecord & WithNewBadges> {
+  const { data } = await apiClient.post<HealthRecord & WithNewBadges>(`/animals/${animalId}/health-records`, {
     recordType,
     description,
   });
@@ -126,8 +129,8 @@ export async function addHealthRecord(
 export async function markHealthRecordRecovered(
   animalId: number,
   recordId: number
-): Promise<HealthRecord> {
-  const { data } = await apiClient.post<HealthRecord>(
+): Promise<HealthRecord & WithNewBadges> {
+  const { data } = await apiClient.post<HealthRecord & WithNewBadges>(
     `/animals/${animalId}/health-records/${recordId}/recover`
   );
   return data;
@@ -158,8 +161,8 @@ export async function addAnimalComment(
   animalId: number,
   body: string,
   healthRecordId?: number
-): Promise<AnimalComment> {
-  const { data } = await apiClient.post<AnimalComment>(`/animals/${animalId}/comments`, {
+): Promise<AnimalComment & WithNewBadges> {
+  const { data } = await apiClient.post<AnimalComment & WithNewBadges>(`/animals/${animalId}/comments`, {
     body,
     healthRecordId,
   });

@@ -21,6 +21,7 @@ async function computeLeaderboard() {
       points: data.points.total,
       badgePoints: data.points.badges,
       commentPoints: data.points.comments,
+      level: data.level,
       badgeCount: earned.length,
       topTier: earned.reduce((best, b) => {
         const order = ['bronze', 'silver', 'gold', 'diamond'];

@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS users (
     -- Profilde öne çıkarılacak en fazla 3 rozetin anahtarı (örn. "breed:Tekir").
     -- Rozetler hesaplanmış veriden türetildiği için burada yalnızca seçim saklanıyor.
     featured_badges JSONB NOT NULL DEFAULT '[]'::jsonb,
+    -- Rozet kazanma popup'ında "eski sıralaman / yeni sıralaman" gösterebilmek için
+    -- en son hesaplanan sıralama ve puanın anlık görüntüsü. Sıralama başkalarının
+    -- puan kazanmasıyla da değiştiği için geçmişe dönük hesaplanamaz.
+    last_rank INTEGER,
+    last_points INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -114,3 +119,35 @@ CREATE TABLE IF NOT EXISTS friendships (
     CHECK (requester_id <> addressee_id),
     UNIQUE (requester_id, addressee_id)
 );
+
+-- Kazanılan rozetlerin anı. Rozetin kendisi türetilmiş veri (bkz. utils/badges.js),
+-- ama "yeni rozet kazandın" popupını
+
+-- Kazanılan rozetlerin anı. Rozetin kendisi türetilmiş veri (bkz. utils/badges.js),
+-- ama "yeni rozet kazandın" popup'ını gösterebilmek için rozetin ilk kez ne zaman
+-- kazanıldığını ve o andaki puan/sıralama/seviye bilgisini saklamak gerekiyor —
+-- bu bilgi sonradan yeniden hesaplanamaz.
+CREATE TABLE IF NOT EXISTS user_badge_awards (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    badge_key VARCHAR(160) NOT NULL,
+    tier VARCHAR(20) NOT NULL CHECK (tier IN ('bronze', 'silver', 'gold', 'diamond')),
+    label VARCHAR(200) NOT NULL,
+    points_awarded INTEGER NOT NULL DEFAULT 0,
+    points_before INTEGER,
+    points_after INTEGER,
+    rank_before INTEGER,
+    rank_after INTEGER,
+    level_before INTEGER,
+    level_after INTEGER,
+    -- Popup gösterildikten sonra doldurulur; NULL olanlar "henüz gösterilmedi".
+    seen_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, badge_key, tier)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_badge_awards_unseen
+    ON user_badge_awards (user_id, created_at DESC) WHERE seen_at IS NULL;
+
+-- Bir kullanıcının son yorumlarını profilinde listeleyebilmek için.
+CREATE INDEX IF NOT EXISTS idx_animal_comments_user ON animal_comments (user_id, created_at DESC);

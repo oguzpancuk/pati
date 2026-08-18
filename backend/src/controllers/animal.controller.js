@@ -1,5 +1,6 @@
 const fs = require('fs');
 const pool = require('../config/db');
+const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 
 // Takip durumu ayrı bir kolon değil, mevcut veriden türetiliyor:
 //   iyileşti      -> recovered_at dolu
@@ -173,7 +174,8 @@ async function createAnimal(req, res, next) {
       [req.user.userId, animal.id]
     );
 
-    res.status(201).json(animal);
+    const newBadges = await syncBadgeAwardsSafe(req.user.userId);
+    res.status(201).json({ ...animal, newBadges });
   } catch (err) {
     next(err);
   }
@@ -233,7 +235,8 @@ async function addHealthRecord(req, res, next) {
     const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
       inserted.rows[0].id,
     ]);
-    res.status(201).json(result.rows[0]);
+    const newBadges = await syncBadgeAwardsSafe(req.user.userId);
+    res.status(201).json({ ...result.rows[0], newBadges });
   } catch (err) {
     next(err);
   }
@@ -267,7 +270,8 @@ async function markRecovered(req, res, next) {
     const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
       req.params.recordId,
     ]);
-    res.json(result.rows[0]);
+    const newBadges = await syncBadgeAwardsSafe(req.user.userId);
+    res.json({ ...result.rows[0], newBadges });
   } catch (err) {
     next(err);
   }
@@ -346,7 +350,8 @@ async function addComment(req, res, next) {
     );
 
     const result = await pool.query(`${COMMENT_SELECT_SQL} WHERE c.id = $1`, [inserted.rows[0].id]);
-    res.status(201).json(result.rows[0]);
+    const newBadges = await syncBadgeAwardsSafe(req.user.userId);
+    res.status(201).json({ ...result.rows[0], newBadges });
   } catch (err) {
     next(err);
   }

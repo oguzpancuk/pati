@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { WithNewBadges } from './users';
 
 export interface CareAction {
   id: number;
@@ -57,7 +58,7 @@ export async function addCareAction(
   deviceLat: number,
   deviceLng: number,
   photo: PhotoAsset
-): Promise<CareAction> {
+): Promise<CareAction & WithNewBadges> {
   const form = new FormData();
   form.append('lat', String(lat));
   form.append('lng', String(lng));
@@ -70,7 +71,7 @@ export async function addCareAction(
     name: photo.fileName ?? 'photo.jpg',
   } as unknown as Blob);
 
-  const { data } = await apiClient.post<CareAction>('/care-actions', form, {
+  const { data } = await apiClient.post<CareAction & WithNewBadges>('/care-actions', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;

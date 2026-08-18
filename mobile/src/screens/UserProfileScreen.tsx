@@ -13,26 +13,31 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useAuth } from '../context/AuthContext';
-import { apiClient } from '../api/client';
-import type { Animal } from '../api/animals';
+import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
   acceptFriendRequest,
   fetchMe,
+  fetchMyAnimals,
   fetchMyFriendships,
   FriendshipEntry,
   FriendshipsResponse,
   Me,
+  ProfileAnimal,
   removeFriendship,
   setFeaturedBadges,
   uploadAvatar,
 } from '../api/users';
 import { badgeProgressText, badgeTitle, TIER_EMOJI } from '../badges';
+import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
+import LevelBar from '../components/LevelBar';
+import RecentComments from '../components/RecentComments';
 
 export default function UserProfileScreen({ navigation }: any) {
   const { logout } = useAuth();
+  const { checkPending } = useBadgeAwards();
   const [me, setMe] = useState<Me | null>(null);
-  const [myAnimals, setMyAnimals] = useState<Animal[]>([]);
+  const [myAnimals, setMyAnimals] = useState<ProfileAnimal[]>([]);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -40,13 +45,13 @@ export default function UserProfileScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     try {
-      const [meData, animalsRes, friendshipsData] = await Promise.all([
+      const [meData, animals, friendshipsData] = await Promise.all([
         fetchMe(),
-        apiClient.get<Animal[]>('/users/me/animals'),
+        fetchMyAnimals(),
         fetchMyFriendships(),
       ]);
       setMe(meData);
-      setMyAnimals(animalsRes.data);
+      setMyAnimals(animals);
       setFriendships(friendshipsData);
       setLoadError(null);
     } catch (err: any) {
@@ -57,7 +62,9 @@ export default function UserProfileScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+      // Uygulama kapalıyken kazanılmış olabilecek rozetler burada yakalanır.
+      checkPending();
+    }, [load, checkPending])
   );
 
   async function handleChangeAvatar() {
@@ -144,6 +151,8 @@ export default function UserProfileScreen({ navigation }: any) {
         </View>
       </View>
 
+      <LevelBar level={me.level} points={me.points?.total ?? 0} />
+
       <TouchableOpacity
         style={styles.rankCard}
         onPress={() => navigation.navigate('Leaderboard')}
@@ -198,16 +207,33 @@ export default function UserProfileScreen({ navigation }: any) {
       />
 
       <Text style={styles.sectionTitle}>Bakım Verdiğim Hayvanlar</Text>
-      <FlatList
-        data={myAnimals}
-        keyExtractor={(item) => String(item.id)}
-        scrollEnabled={false}
-        renderItem={({ item }) => (
-          <View style={styles.listRow}>
-            <Text>{item.name ?? (item.species === 'cat' ? 'Kedi' : 'Köpek')}</Text>
-          </View>
-        )}
-        ListEmptyComponent={<Text style={styles.meta}>Henüz bir hayvana bakım vermiyorsunuz.</Text>}
+      {myAnimals.length === 0 ? (
+        <Text style={styles.meta}>Henüz bir hayvana bakım vermiyorsunuz.</Text>
+      ) : (
+        myAnimals.map((animal) => (
+          <TouchableOpacity
+            key={animal.id}
+            style={styles.animalRow}
+            onPress={() => navigation.navigate('AnimalProfile', { animalId: animal.id })}
+          >
+            <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={44} />
+            <View style={styles.animalText}>
+              <Text style={styles.animalName}>
+                {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
+              </Text>
+              <Text style={styles.metaSmall}>{animal.breed ?? '-'}</Text>
+            </View>
+          </TouchableOpacity>
+        ))
+      )}
+
+      <RecentComments
+        comments={me.recentComments ?? []}
+        total={me.commentCount ?? 0}
+        title="Son Yorumlarım"
+        emptyText="Henüz yorum yapmadınız."
+        onSeeAll={() => navigation.navigate('UserComments', { userId: 'me' })}
+        onOpenAnimal={(animalId) => navigation.navigate('AnimalProfile', { animalId })}
       />
 
       <View style={styles.friendsHeader}>
@@ -305,6 +331,16 @@ const styles = StyleSheet.create({
   badgeLabel: { fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 4 },
   badgeStreak: { fontSize: 11, color: '#888', marginTop: 2 },
   listRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  metaSmall: { color: '#888', fontSize: 12, marginTop: 2 },
+  animalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  animalText: { flex: 1, marginLeft: 12 },
+  animalName: { fontSize: 16, fontWeight: '600' },
   friendsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
