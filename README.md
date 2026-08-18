@@ -142,6 +142,16 @@ gerekçeler [docs/NOTLAR.md](docs/NOTLAR.md) içinde:
 
 ## Başlarken — Baştan Sona Kurulum
 
+Çalıştırılacak **üç parça** var:
+
+| Parça | Klasör | Nasıl çalışır | Şart mı? |
+| --- | --- | --- | --- |
+| **API** | `backend/` | `npm run dev` → `localhost:3000` | Evet, diğer ikisi buna bağlı |
+| **Mobil uygulama** | `mobile/` | `npm run ios` / `npm run android` | Evet |
+| **Yönetim paneli (web)** | `admin/` | `npm run dev` → `localhost:5174` | Hayır, ayrıca çalıştırılır |
+
+Aşağıdaki adımlar sırayla: veritabanı → backend → mobil → yönetim paneli.
+
 ### 1. Repoyu klonlayın
 
 GitHub artık HTTPS üzerinden şifreyle git işlemine izin vermiyor — klonlarken şifre
@@ -284,9 +294,11 @@ Backend'e otomatik olarak `10.0.2.2:3000` üzerinden bağlanır (Android emülat
 `mobile/src/api/client.ts` içindeki `API_BASE_URL`'i bilgisayarınızın yerel ağ
 IP'siyle (örn. `http://192.168.1.5:3000/api`) değiştirin.
 
-### 5c. Yönetim panelini çalıştırma (web)
+### 6. Yönetim panelini çalıştırma (web)
 
 Panel ayrı bir web uygulaması ama aynı API'yi kullanır — ek bir sunucu gerekmez.
+Mobil uygulamadan bağımsızdır; yalnızca paneli çalıştırmak isterseniz 4. ve 5.
+adımları atlayabilirsiniz.
 
 **Önce bir yönetici hesabı gerekiyor.** Uygulamadan (veya demo verisinden) bir
 hesap oluşturduktan sonra backend klasöründe:
@@ -325,7 +337,7 @@ isteklerini `localhost:3000`'e yönlendirir; backend başka bir adresteyse
   görsel yükleme, kampanya tarih aralığı, yayına alma-durdurma ve gösterim/tık/CTR raporu
 - **Denetim kaydı** — panelden yapılan her işlem, kimin yaptığı ve sebebiyle birlikte
 
-### 6. Uygulamada gezinme
+### 7. Uygulamada gezinme
 
 1. **Kayıt Ol** ekranından yeni hesap oluşturun.
 2. Konum ve bildirim izni isteyecek — **izin verin** (harita, bakım kontrolü ve
@@ -400,12 +412,22 @@ gönderilmez. Arka planda da çalışabilmesi için "her zaman konum" izni isten
 vermezseniz uygulama çalışmaya devam eder, yalnızca uygulama kapalıyken uyarı
 gelmez.
 
-**Uzaktan test için konum override'ı:** `oguzpancuk@gmail.com` ve
-`sumeyyeayan@gmail.com` hesaplarıyla giriş yapıldığında (yalnızca geliştirme
-derlemelerinde, `__DEV__`), gerçek GPS yerine her zaman Kadıköy'de sabit bir konum
-kullanılır — bu sayede Türkiye dışından da 20m mesafe kontrolü gerektiren akışlar
-test edilebilir. İki hesabın konumu birbirine yakın ama aynı değil (~250m), böylece
-iki kullanıcıyla mükerrer hayvan tespiti de denenebilir. Bkz. `mobile/src/location.ts`.
+**Uzaktan test için konum override'ı:** Yalnızca geliştirme derlemelerinde
+(`__DEV__`) aşağıdaki hesaplar gerçek GPS yerine Kadıköy'de sabit bir konum
+kullanır — bu sayede Türkiye dışından da 20m mesafe kontrolü gerektiren akışlar
+test edilebilir ve demo verisi haritada görünür:
+
+- `oguzpancuk@gmail.com` → Kadıköy, Rıhtım
+- `sumeyyeayan@gmail.com` → Kadıköy, Bahariye (~250m ötesi; iki kullanıcıyla
+  mükerrer hayvan tespiti denenebilsin diye yakın ama aynı değil)
+- **`test1@stray.test` … `test100@stray.test`** (demo hesapları) → Kadıköy
+  merkezinin 90–360m çevresine dağıtılır. Her hesap her açılışta aynı yerde
+  durur, farklı hesaplar üst üste binmez.
+
+Bkz. `mobile/src/location.ts`.
+
+> Demo hesabıyla giriş yapıp harita boş görünüyorsa büyük ihtimalle uygulama
+> gerçek GPS'e düşmüştür — o hesap override listesinde mi diye bakın.
 
 ## Sık Karşılaşılan Sorunlar
 

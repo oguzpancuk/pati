@@ -160,10 +160,21 @@ sürekli gönderilmiyor; bu yaklaşım konum verisini cihazda tutuyor. Bedeli:
 uygulama tamamen kapalıyken bildirim gelmiyor (bkz. Bilinen Sınırlar #6).
 
 ### Konum override'ı yalnızca `__DEV__`
-`oguzpancuk@gmail.com` ve `sumeyyeayan@gmail.com` hesapları için Kadıköy'de
-sabit konum döndürülüyor — yurt dışından 20m mesafe kontrolü gerektiren
-akışları test edebilmek için. Prod derlemede bu dal hiç çalışmıyor.
-İki konum ~250m arayla seçildi ki mükerrer hayvan tespiti de denenebilsin.
+İki kişisel hesap (`oguzpancuk@gmail.com`, `sumeyyeayan@gmail.com`) ve **tüm demo
+hesapları** (`test1@stray.test` … `test100@stray.test`) için Kadıköy'de sabit
+konum döndürülüyor — yurt dışından 20m mesafe kontrolü gerektiren akışları test
+edebilmek için. Prod derlemede bu dal hiç çalışmıyor.
+
+Kişisel iki hesabın konumu ~250m arayla seçildi ki mükerrer hayvan tespiti de
+denenebilsin. Demo hesapları ise numaralarından **deterministik** olarak
+üretiliyor (altın açıyla dağıtılmış, merkeze 90–360m): rastgele olsaydı hesap her
+girişte başka yere ışınlanırdı; sabit tek bir nokta olsaydı 100 hesap üst üste
+binerdi.
+
+> Demo hesapları başta override kapsamında değildi ve demo veriyle test ederken
+> harita boş görünüyordu — kullanıcı yurt dışındayken cihazın gerçek GPS'i
+> kullanılıyordu. Seed verisi Kadıköy'e yazıldığı için override'ın seed merkeziyle
+> aynı noktayı kullanması şart.
 
 ---
 

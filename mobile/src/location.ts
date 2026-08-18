@@ -7,23 +7,54 @@ export interface Coordinates {
   lng: number;
 }
 
+// Demo verisinin merkezi (bkz. backend/scripts/seed-demo.js). Konum override'ları
+// buranın çevresine dağıtılıyor ki seed'lenen hayvanlar ve bakım noktaları
+// haritada görünsün.
+const KADIKOY = { lat: 40.9905, lng: 29.0277 }; // Kadıköy, Rıhtım
+
 // Test amaçlı: bu hesaplarla giriş yapıldığında gerçek GPS yerine hep Kadıköy
 // civarında sabit bir konum döndürülür (uzaktan test edebilmek için). İki hesap
 // birbirine yakın ama aynı noktada değil; böylece iki kullanıcıyla mükerrer
-// hayvan tespiti ve 10m yakınlık kontrolü gerçekçi şekilde denenebiliyor.
+// hayvan tespiti ve 20m yakınlık kontrolü gerçekçi şekilde denenebiliyor.
 // Yalnızca __DEV__ derlemelerinde aktiftir, prod derlemede bu dal hiç çalışmaz.
 const LOCATION_OVERRIDES: Record<string, Coordinates> = {
-  'oguzpancuk@gmail.com': { lat: 40.9905, lng: 29.0277 }, // Kadıköy, Rıhtım
+  'oguzpancuk@gmail.com': KADIKOY,
   'sumeyyeayan@gmail.com': { lat: 40.9892, lng: 29.0301 }, // Kadıköy, Bahariye (~250m ötesi)
 };
+
+// Demo hesapları (test1@stray.test … test100@stray.test) de override kapsamında:
+// aksi halde demo veriyle test ederken cihazın gerçek konumu kullanılıyor ve
+// Kadıköy'e seed'lenmiş hayvanlar/bakım noktaları haritada hiç görünmüyor.
+const DEMO_EMAIL_PATTERN = /^test(\d+)@stray\.test$/i;
+
+/**
+ * Demo hesabın numarasından sabit ama birbirinden farklı bir konum üretir.
+ * Aynı hesap her açılışta aynı yerde durur (rastgele olsaydı hesap her
+ * girişte başka yere ışınlanırdı), farklı hesaplar ise üst üste binmez —
+ * altın açı ile dağıtıldıkları için birbirlerine yakın ama ayrı noktalarda.
+ */
+function demoLocationFor(email: string): Coordinates | null {
+  const match = DEMO_EMAIL_PATTERN.exec(email);
+  if (!match) return null;
+
+  const n = Number(match[1]);
+  const angle = (n * 137.5 * Math.PI) / 180;
+  const radiusDeg = 0.0008 + (n % 7) * 0.0004; // merkeze ~90m - 400m arası
+  return {
+    lat: KADIKOY.lat + radiusDeg * Math.sin(angle),
+    // Boylam dereceleri enleme göre daralıyor; aynı metrik mesafe için düzeltme.
+    lng: KADIKOY.lng + (radiusDeg * Math.cos(angle)) / Math.cos((KADIKOY.lat * Math.PI) / 180),
+  };
+}
 
 async function getLocationOverride(): Promise<Coordinates | null> {
   if (!__DEV__) return null;
   try {
     const stored = await AsyncStorage.getItem('user');
     if (!stored) return null;
-    const user = JSON.parse(stored);
-    return LOCATION_OVERRIDES[user?.email] ?? null;
+    const email = JSON.parse(stored)?.email;
+    if (typeof email !== 'string') return null;
+    return LOCATION_OVERRIDES[email] ?? demoLocationFor(email);
   } catch {
     return null;
   }
