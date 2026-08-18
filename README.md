@@ -89,11 +89,12 @@ Ayrıntılı planlar, önerilen yaklaşımlar ve karar bekleyen konular için bk
   hayvanlar arasından en benzeyen 5 tanesini benzerlik oranıyla gösterir. Biri
   seçilirse kullanıcı o hayvanın bakım verenlerine eklenir, seçilmezse yeni
   kayıt açılır. *(Hazır görüntü gömme modeli + pgvector; model eğitilmeyecek)*
-- [ ] **2. Bağış sistemi** — Admin panelinden girilen kurumlara uygulama
-  üzerinden bağış; bağışların %5'i platforma kalır. Doğrudan uygulamaya bağış
-  seçeneği en üstte çıkar. Toplam bağış miktarı rozet kazandırır.
-  *(Ödeme sağlayıcı seçimi, pazaryeri/split-payment modeli ve hukuki kontrol
-  gerekiyor)*
+- [ ] **2. Bağış sistemi** — ⏸️ **Ertelendi.** Admin panelinden girilen kurumlara
+  uygulama üzerinden bağış; bağışların %5'i platforma kalır. Doğrudan uygulamaya
+  bağış seçeneği en üstte çıkar. Toplam bağış miktarı rozet kazandırır.
+  *Bloke ediciler kod değil dış taraflar: ödeme sağlayıcı, tüzel kişilik, mali
+  müşavir/avukat teyidi ve mağaza kuralları. Karar listesi
+  [YOL_HARITASI.md](docs/YOL_HARITASI.md) içinde hazır bekliyor.*
 - [x] **3. Reklam** — ✅ Tamamlandı: mama pop-up'ında mama, su pop-up'ında su,
   sağlık kaydı eklerken veteriner kliniği reklamı. Markalar admin panelinden
   girilir, kullanıcı pop-up'ı her açtığında sıradaki markayı görür. Gösterim ve
@@ -105,10 +106,10 @@ Ayrıntılı planlar, önerilen yaklaşımlar ve karar bekleyen konular için bk
   denetim kaydı. Reklamveren ve bağış kurumu ekranları 2. ve 3. maddelerle
   birlikte eklenecek.
 
-**Önerilen sıra:** ~~Admin paneli (5)~~ → ~~Reklam (3)~~ → **Bağış (2)** → YZ
-eşleştirme (1) → tam UI giydirmesi (4). Bağış için ödeme sağlayıcı seçimi ve
-hukuki kontrol kod yazmadan önce netleşmeli. YZ eşleştirme paralel yürüyebilir;
-en büyük teknik belirsizlik orada olduğu için önce kısa bir deneme öneriliyor.
+**Önerilen sıra:** ~~Admin paneli (5)~~ → ~~Reklam (3)~~ → **YZ eşleştirme (1)**
+→ tasarım sistemi → tam UI giydirmesi (4). Bağış (2) ertelendi: bloke edicileri
+kod değil dış taraflar. YZ eşleştirmenin hiç dış bağımlılığı yok ve en büyük
+teknik belirsizliği kapatıyor, bu yüzden sıraya öne alındı.
 
 > ### 🚀 Yayına Çıkma Sprint'i — ertelendi, unutulmayacak
 >

@@ -14,14 +14,16 @@ Ayrıca üretime çıkmadan kapatılması gereken teknik borç listesi için bkz
 
 ```
 ✅ 1. Admin paneli (madde 5)  ──┬──> ✅ 2. Reklam (madde 3)
-   + rol/yetki altyapısı        └──>    3. Bağış (madde 2)   ← SIRADA
-                                      │
-4. Tasarım sistemi (madde 4a) ────────┤   (erken, küçük)
-                                      │
-5. YZ hayvan eşleştirme (madde 1) ────┤   (paralel yürüyebilir)
-                                      │
-6. UI giydirme (madde 4b) ────────────┘   (en son, tüm ekranlar oturunca)
+   + rol/yetki altyapısı        └──> ⏸️  Bağış (madde 2) — ertelendi,
+                                          dış taraflar netleşince
+3. YZ hayvan eşleştirme (madde 1)  ← SIRADA (dış bağımlılığı yok)
+4. Tasarım sistemi (madde 4a)         (erken, küçük)
+5. UI giydirme (madde 4b)             (en son, tüm ekranlar oturunca)
 ```
+
+> **Bağış neden ertelendi:** Bloke ediciler kod değil dış taraflar — ödeme
+> sağlayıcı, tüzel kişilik, mali müşavir/avukat, mağaza kuralları. Karar listesi
+> [madde 2](#2-bağış-sistemi--️-ertelendi) altında hazır bekliyor.
 
 **Neden bu sıra:**
 
@@ -113,7 +115,58 @@ yapmamalı.
 
 ---
 
-## 2. Bağış sistemi
+## 2. Bağış sistemi — ⏸️ ertelendi
+
+> **Durum: ertelendi (18 Ağustos 2026).** Karar: *"orada netleştirilmesi gereken
+> çok taraf var."* Doğru karar — bu maddenin bloke edicileri kod değil, dış
+> taraflar: ödeme sağlayıcı, tüzel kişilik, mali müşavir/avukat ve mağaza
+> kuralları. Bunlar netleşmeden yazılan kod büyük ihtimalle çöpe gider.
+>
+> Aşağıdaki **karar listesi** hazır bekliyor; bu dört başlık netleşince madde
+> hemen açılabilir.
+
+### Kod yazmadan önce netleşmesi şart
+
+| # | Karar | Neden bloke ediyor |
+| --- | --- | --- |
+| 1 | **Ödeme sağlayıcı ve model** — pazaryeri (split payment) mi, tek hesap mı? | Veri modeli ve para akışı buna göre şekilleniyor. *Önerilen: pazaryeri* |
+| 2 | **Tüzel kişilik** — şirket kurulu mu, üye işyeri hesabı kimin adına? | Test ortamından öteye geçilemez |
+| 3 | **Hukuki teyit** — %5 komisyon + bağış toplama izni (2860 sayılı kanun) | Yanlış model = izinsiz bağış toplama riski |
+| 4 | **Mağaza kuralları** — Apple/Google'ın hayır kurumu bağışı kuralları (IAP değil harici ödeme) | Yanlış entegrasyon = mağaza reddi |
+
+**Neden pazaryeri modeli öneriliyor:** Parayı önce kendi hesabınıza toplayıp
+sonra kuruma aktarmak sizi "bağış toplayan taraf" yapar ve Türkiye'de bağış
+toplamak izne tabidir (2860 sayılı Yardım Toplama Kanunu). Pazaryeri modelinde
+para doğrudan kuruma gider, siz yalnızca hizmet komisyonu alırsınız — hem
+operasyonel hem hukuki olarak temiz.
+
+### Ürün kararları (kod yazarken lazım, bloke etmiyor)
+
+- Kurumlar sisteme nasıl dahil olacak — siz mi ekleyeceksiniz, başvuru mu?
+  (alt üye işyeri kaydı için kurumun evrakları gerekiyor)
+- Tekrarlayan (aylık) bağış olacak mı? *Önerilen: ilk sürümde yalnızca tek seferlik*
+- Tutar seçenekleri: sabit butonlar mı, serbest giriş mi, alt/üst limit?
+- "Uygulamaya bağış" kalemi kullanıcıya nasıl anlatılacak? (hayır kurumu bağışı
+  değil, platforma destek — %5 mantığı burada işlemiyor)
+- Anonim bağış olacak mı? Bağış yapan profilinde/listede görünecek mi?
+- Bağış yapana reklamsız deneyim? (madde 3'ten kalan açık soru)
+
+### ⚠️ Üzerinde durulması gereken tasarım kararı
+
+**Bağış puanı liderlik tablosuna girmeli mi?**
+
+Rozet kısmı sorunsuz. Ama o rozetlerin puanı liderlik tablosuna eklenirse
+sıralama "en çok bakan" değil kısmen "en çok ödeyen" listesine dönüşür. Şimdiye
+kadar kurulan her şey (seri rozetleri, yorum puanının genişliğe göre
+ağırlıklandırılması) tam da bunu engellemek üzerineydi.
+
+**Önerilen:** Bağış rozetleri ayrı bir vitrin olsun, liderlik puanına girmesin.
+Profilde görünsün, öne çıkan 3 rozet arasında seçilebilsin, ama sıralamayı
+etkilemesin. İstenirse ayrı bir "Destekçiler" listesi yapılabilir. Bu bağışı
+değersizleştirmez — sadece iki farklı katkı türünü karıştırmaz.
+
+<details>
+<summary>Teknik plan (kararlar netleşince açılacak)</summary>
 
 ### İstenen akış
 Admin sayfasından bağış yapılabilecek kurumlar girilir. Uygulama üzerinden bu
@@ -167,12 +220,9 @@ bronz/gümüş/altın/elmas (`donation:total`).
 - [ ] Mobil: bağış ekranı (uygulamaya bağış en üstte), ödeme akışı, makbuz
 - [ ] Rozet: toplam bağış miktarına göre kademe
 
-### Karar verilmesi gerekenler
-- Hangi ödeme sağlayıcı?
-- Şirket/şahıs şirketi kurulu mu? (üye işyeri hesabı için gerekli)
-- Kurumlar sisteme nasıl dahil olacak — siz mi ekleyeceksiniz, başvuru mu
-  alacaksınız? Alt üye işyeri kaydı için kurumun evrakları gerekiyor.
-- Tekrarlayan (aylık) bağış olacak mı, yoksa yalnızca tek seferlik mi?
+*(Karar listesi yukarı taşındı.)*
+
+</details>
 
 ---
 
