@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { PhotoAsset } from './care';
+import type { BadgeSymbolName } from '../components/badges';
 
 export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'diamond';
 
@@ -13,6 +14,8 @@ export interface Badge {
   tier: BadgeTier | null;
   points: number;
   nextThreshold: number | null;
+  /** Hangi madalyon sembolünün çizileceği (bkz. components/badges/BadgeSymbol). */
+  symbol: BadgeSymbolName;
 }
 
 export interface UserPoints {
@@ -32,7 +35,6 @@ export interface UserRank {
 export interface UserLevel {
   level: number;
   title: string;
-  emoji: string;
   minPoints: number;
   nextLevelPoints: number | null;
   nextTitle: string | null;

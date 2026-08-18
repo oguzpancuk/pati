@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 import type { BadgeAward } from '../api/users';
-import { TIER_EMOJI, TIER_LABELS } from '../badges';
+import { TIER_LABELS, symbolForKey } from '../badges';
+import { BadgeSymbol } from './badges';
 import Button from './ui/Button';
 import Text from './ui/Text';
 import { makeStyles, radius, spacing } from '../theme';
@@ -41,7 +42,7 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
           </Text>
 
           <View style={styles.medallion}>
-            <Text style={styles.medallionEmoji}>{TIER_EMOJI[award.tier]}</Text>
+            <BadgeSymbol symbol={symbolForKey(award.badgeKey)} tier={award.tier} size={92} />
           </View>
 
           <Text variant="title" center style={styles.title}>
@@ -112,16 +113,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     alignItems: 'center',
     ...shadow.modal,
   },
-  medallion: {
-    width: 100,
-    height: 100,
-    borderRadius: radius.pill,
-    backgroundColor: c.brandTint,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  medallionEmoji: { fontSize: 52, lineHeight: 62 },
+  medallion: { marginTop: spacing.lg },
   title: { marginTop: spacing.lg, marginBottom: spacing.xs },
   levelUp: {
     backgroundColor: c.warningSoft,

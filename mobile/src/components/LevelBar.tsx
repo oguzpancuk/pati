@@ -2,6 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import type { UserLevel } from '../api/users';
 import Text from './ui/Text';
+import { LevelMark } from './badges';
 import { makeStyles, radius, spacing } from '../theme';
 
 interface Props {
@@ -23,8 +24,8 @@ export default function LevelBar({ level, points }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={styles.emojiBox}>
-          <Text style={styles.emoji}>{level.emoji}</Text>
+        <View style={styles.mark}>
+          <LevelMark level={level.level} size={44} />
         </View>
         <View style={styles.titleBox}>
           <Text variant="micro">SEVİYE {level.level}</Text>
@@ -42,7 +43,7 @@ export default function LevelBar({ level, points }: Props) {
       <Text variant="caption" style={styles.hint}>
         {level.nextTitle
           ? `${level.nextTitle} için ${remaining} puan daha`
-          : 'En üst seviyedesin 👑'}
+          : 'En üst seviyedesin'}
       </Text>
     </View>
   );
@@ -57,16 +58,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
     padding: spacing.lg,
   },
   topRow: { flexDirection: 'row', alignItems: 'center' },
-  emojiBox: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    backgroundColor: c.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  emoji: { fontSize: 24, lineHeight: 30 },
+  mark: { marginRight: spacing.md },
   titleBox: { flex: 1 },
   track: {
     height: 8,

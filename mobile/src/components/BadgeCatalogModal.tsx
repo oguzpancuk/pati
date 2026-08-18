@@ -8,7 +8,6 @@ import {
   GROUP_DESCRIPTIONS,
   GROUP_LABELS,
   sortBadges,
-  TIER_EMOJI,
   TIER_LABELS,
   TIER_ORDER,
   TIER_POINTS,
@@ -17,6 +16,7 @@ import {
 import Button from './ui/Button';
 import Text from './ui/Text';
 import Icon from './brand/Icon';
+import { BadgeSymbol } from './badges';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
 
 interface Props {
@@ -98,7 +98,7 @@ export default function BadgeCatalogModal({
             {selectable
               ? `Profilinde gösterilecek en fazla ${maxFeatured} rozet seç (${selection.length}/${maxFeatured}).`
               : `${earnedCount} rozet kazanıldı. Kademeler: ${TIER_ORDER.map(
-                  (t) => `${TIER_EMOJI[t]} ${TIER_LABELS[t]} ${TIER_POINTS[t]}p`
+                  (t) => `${TIER_LABELS[t]} ${TIER_POINTS[t]}p`
                 ).join(' · ')}`}
           </Text>
 
@@ -129,9 +129,9 @@ export default function BadgeCatalogModal({
                         onPress={() => toggle(badge)}
                         disabled={!selectable || disabled}
                       >
-                        <Text style={styles.emoji}>
-                          {badge.tier ? TIER_EMOJI[badge.tier] : '🔒'}
-                        </Text>
+                        <View style={styles.symbol}>
+                          <BadgeSymbol symbol={badge.symbol} tier={badge.tier} size={36} />
+                        </View>
                         <View style={styles.rowText}>
                           <Text variant="bodyStrong">{badgeTitle(badge)}</Text>
                           <Text variant="caption">{badgeProgressText(badge)}</Text>
@@ -206,7 +206,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     opacity: 0.65,
   },
   rowSelected: { backgroundColor: c.brandTint, borderColor: c.brand },
-  emoji: { fontSize: 24, lineHeight: 30, marginRight: spacing.md },
+  symbol: { marginRight: spacing.md },
   rowText: { flex: 1, marginRight: spacing.sm },
   secondary: { marginTop: spacing.xs },
 }));

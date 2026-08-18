@@ -6,8 +6,8 @@
  *   - Stil sayfası için: `makeStyles(({ colors: c, shadow }) => ({ ... }))`
  *   - JSX içinde tek tük renk için: `const { colors } = useTheme()`
  */
-export { mapColors, caredFill, lightPalette, darkPalette, palettes } from './colors';
-export type { ColorName, Palette, ThemeName } from './colors';
+export { mapColors, caredFill, tierColors, lightPalette, darkPalette, palettes } from './colors';
+export type { ColorName, Palette, ThemeName, TierColorName } from './colors';
 export { fonts, type, VARIANT_COLOR } from './typography';
 export type { TypeVariant } from './typography';
 export { spacing, radius, makeShadows, hitSlop, minTouch } from './layout';

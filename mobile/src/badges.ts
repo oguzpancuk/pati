@@ -1,11 +1,5 @@
 import type { Badge, BadgeTier } from './api/users';
-
-export const TIER_EMOJI: Record<BadgeTier, string> = {
-  bronze: '🥉',
-  silver: '🥈',
-  gold: '🥇',
-  diamond: '💎',
-};
+import type { BadgeSymbolName } from './components/badges';
 
 export const TIER_LABELS: Record<BadgeTier, string> = {
   bronze: 'Bronz',
@@ -23,9 +17,28 @@ export const TIER_POINTS: Record<BadgeTier, number> = {
 
 export const TIER_ORDER: BadgeTier[] = ['bronze', 'silver', 'gold', 'diamond'];
 
-// Rozetin tam adı kademesiyle birlikte anlam kazanıyor: "Altın Tekir Avcısı".
+// Rozetin tam adı kademesiyle birlikte anlam kazanıyor: "Altın Tekir Dostu".
 export function badgeTitle(badge: Badge): string {
   return badge.tier ? `${TIER_LABELS[badge.tier]} ${badge.label}` : badge.label;
+}
+
+/**
+ * Rozet anahtarından sembol adı. Rozet listesi `symbol` alanını zaten
+ * taşıyor; bu yardımcı yalnızca onu taşımayan yerler için gerekiyor —
+ * kazanılan rozetin anı (`user_badge_awards`) sunucuda kaydedilirken sembol
+ * saklanmıyor, çünkü sembol rozetin türünden zaten belli.
+ */
+export function symbolForKey(key: string): BadgeSymbolName {
+  const [group, name] = key.split(':');
+  if (group === 'breed') return 'paw';
+  if (group === 'streak') {
+    if (name === 'feeder') return 'food';
+    if (name === 'water') return 'water';
+    return 'register';
+  }
+  if (name === 'commenter') return 'comment';
+  if (name === 'vaccinator') return 'vaccine';
+  return 'health';
 }
 
 export type BadgeGroup = 'streak' | 'breed' | 'count';
@@ -39,13 +52,13 @@ export function badgeGroup(badge: Badge): BadgeGroup {
 
 export const GROUP_LABELS: Record<BadgeGroup, string> = {
   streak: 'Süreklilik',
-  breed: 'Cins Dostlukları',
+  breed: 'Desen Dostlukları',
   count: 'Katkı',
 };
 
 export const GROUP_DESCRIPTIONS: Record<BadgeGroup, string> = {
   streak: 'Üst üste kaç gün aksiyon aldığınıza göre kazanılır.',
-  breed: 'Aynı cinsten kaç hayvan kaydettiğinize göre kazanılır.',
+  breed: 'Aynı tür/desenden kaç hayvan kaydettiğinize göre kazanılır.',
   count: 'Toplam katkı adedinize göre kazanılır.',
 };
 

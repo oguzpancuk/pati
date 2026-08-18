@@ -33,8 +33,10 @@ admin/     React 18 + Vite + TypeScript (yönetim paneli)
 - **Tek migrasyon dosyası** (`backend/migrations/001_init.sql`). Artımlı
   migrasyon yok; şema değişince veritabanı sıfırlanıyor. `CREATE TABLE IF NOT
   EXISTS` mevcut tabloda sessizce hiçbir şey yapmaz — kolon eklerken dikkat.
-- **`MAX_DISTANCE_TO_PIN_METERS` iki yerde tanımlı** (backend controller +
-  `mobile/src/screens/MapScreen.tsx`). Birini değiştiren diğerini de değiştirir.
+- **Sözlük iki yerde kopya**: `backend/src/utils/taxonomy.js` ve
+  `mobile/src/taxonomy.ts` (desen, renk, hastalık, yaralanma, aşı listeleri).
+  Birini değiştiren diğerini de değiştirir; sunucu doğrulamayı istemciye
+  bırakamaz.
 
 ## Doğrulama
 
@@ -64,8 +66,8 @@ doğrulamayı gerçekten çalıştırın, "muhtemelen çalışır" demeyin.
 - **`fontSize` ezerken `lineHeight` de verin.** Yalnız biri verilirse iOS yazıyı
   kırpar (giriş ekranındaki logo bu yüzden bozulmuştu).
 - Ekran dosyalarında **hex renk yok**; hepsi `src/theme/` altından.
-- Emoji yerine `components/brand/Icon`. İstisna: rozet kademeleri ve seviye
-  amblemleri bilerek emoji.
+- Emoji yerine `components/brand/Icon`. Rozet madalyonları ve seviye amblemleri
+  de artık SVG: `components/badges/{BadgeSymbol,LevelMark}`.
 
 ## Geliştirme ortamı tuzakları
 

@@ -136,4 +136,25 @@ export function caredFill(alpha: number) {
   return `rgba(52, 168, 83, ${alpha})`;
 }
 
+/**
+ * Rozet kademelerinin madeni renkleri. Emoji madalyalar (🥉🥈🥇💎) yerine
+ * kendi çizdiğimiz madalyonu kullanıyoruz: emoji her cihazda farklı çiziliyor,
+ * marka tipografisiyle aynı hizaya oturmuyor ve renk verilemiyor.
+ *
+ * Her kademe üç tondan oluşuyor: `ring` dış halka, `fill` iç disk, `ink`
+ * ortadaki sembol. Madenin kendi rengi temaya göre değişmediği için (altın
+ * karanlık modda da altındır) tek set yeterli; `ink`/`fill` kontrastı iki
+ * temada da okunabilecek şekilde seçildi.
+ */
+export const tierColors = {
+  bronze: { ring: '#B87333', fill: '#F0D6BC', ink: '#7A4A1E' },
+  silver: { ring: '#9AA5B1', fill: '#E6EAEF', ink: '#59636D' },
+  gold: { ring: '#D9A520', fill: '#FBEEC4', ink: '#8A6408' },
+  diamond: { ring: '#4FB0C6', fill: '#D9F1F7', ink: '#1F6B7D' },
+  /** Henüz kazanılmamış rozet: renksiz ama boş kutu gibi de durmuyor. */
+  locked: { ring: '#C4C9CF', fill: '#EFF1F3', ink: '#8B9198' },
+} as const;
+
+export type TierColorName = keyof typeof tierColors;
+
 export type ColorName = keyof Palette;

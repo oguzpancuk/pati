@@ -2,8 +2,9 @@ import React, { useCallback, useState } from 'react';
 import { Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchLeaderboard, LeaderboardEntry, LeaderboardResponse } from '../api/users';
-import { TIER_EMOJI } from '../badges';
+import { TIER_LABELS } from '../badges';
 import { Avatar, Card, EmptyState, Screen, Text } from '../components/ui';
+import { LevelMark } from '../components/badges';
 import { makeStyles, radius, spacing } from '../theme';
 
 function medalFor(rank: number) {
@@ -58,11 +59,9 @@ export default function LeaderboardScreen({ navigation }: any) {
             {entry.name}
           </Text>
           <Text variant="caption" numberOfLines={1}>
-            {entry.level
-              ? `${entry.level.emoji} Sv.${entry.level.level} ${entry.level.title} · `
-              : ''}
+            {entry.level ? `Sv.${entry.level.level} ${entry.level.title} · ` : ''}
             {entry.badgeCount} rozet
-            {entry.topTier ? ` · ${TIER_EMOJI[entry.topTier]}` : ''}
+            {entry.topTier ? ` · en yüksek ${TIER_LABELS[entry.topTier]}` : ''}
           </Text>
         </View>
         <View style={styles.pointsBox}>
@@ -100,8 +99,9 @@ export default function LeaderboardScreen({ navigation }: any) {
               </Text>
               {data.me.level && (
                 <View style={styles.levelPill}>
-                  <Text variant="captionStrong" color="brandDark">
-                    {data.me.level.emoji} Seviye {data.me.level.level} · {data.me.level.title}
+                  <LevelMark level={data.me.level.level} size={22} />
+                  <Text variant="captionStrong" color="brandDark" style={styles.levelPillText}>
+                    Seviye {data.me.level.level} · {data.me.level.title}
                   </Text>
                 </View>
               )}
@@ -132,6 +132,8 @@ const useStyles = makeStyles(({ colors: c }) => ({
   myCard: { marginBottom: spacing.lg },
   myRank: { marginTop: 2, marginBottom: spacing.xs },
   levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
     marginTop: spacing.md,
     backgroundColor: c.brandSoft,
@@ -139,6 +141,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
     paddingVertical: spacing.xs + 2,
     paddingHorizontal: spacing.md,
   },
+  levelPillText: { marginLeft: spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   rowHighlight: { borderColor: c.brand, backgroundColor: c.brandTint },
   rankBox: { width: 34, alignItems: 'center' },

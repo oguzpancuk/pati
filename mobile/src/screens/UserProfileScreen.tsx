@@ -17,9 +17,10 @@ import {
   setFeaturedBadges,
   uploadAvatar,
 } from '../api/users';
-import { badgeProgressText, badgeTitle, TIER_EMOJI } from '../badges';
+import { badgeProgressText, badgeTitle } from '../badges';
 import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
+import { BadgeSymbol } from '../components/badges';
 import LevelBar from '../components/LevelBar';
 import RecentComments from '../components/RecentComments';
 import {
@@ -223,7 +224,9 @@ export default function UserProfileScreen({ navigation }: any) {
               style={styles.badgeCard}
               onPress={() => setCatalogVisible(true)}
             >
-              <Text style={styles.badgeEmoji}>{badge.tier ? TIER_EMOJI[badge.tier] : '⬜'}</Text>
+              <View style={styles.badgeSymbol}>
+                <BadgeSymbol symbol={badge.symbol} tier={badge.tier} size={40} />
+              </View>
               <Text variant="captionStrong" color="text" center numberOfLines={2}>
                 {badgeTitle(badge)}
               </Text>
@@ -402,7 +405,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
   block: { marginBottom: spacing.sm },
   badgeRow: { flexDirection: 'row', gap: spacing.sm },
   badgeCard: { flex: 1, alignItems: 'center' },
-  badgeEmoji: { fontSize: 28, lineHeight: 34, marginBottom: spacing.xs },
+  badgeSymbol: { marginBottom: spacing.xs },
   badgeStreak: { marginTop: 2 },
   animalRow: {
     flexDirection: 'row',
