@@ -6,7 +6,7 @@
  *   #FFF3E7 krem     — arka plan
  *   #2B2B2B koyu gri — metin
  *   #34A853 yeşil    — haritada "bakım var"
- *   #FF5C5C kırmızı  — haritada "bakım yok"
+ *   #FF5C5C kırmızı  — "bakım yok" uyarıları (haritada zemin boyanmıyor)
  *
  * Koyu temada nötr gri değil **sıcak kahve** tonları kullanıldı; marka kremi
  * sıcak olduğu için soğuk gri bir koyu tema aynı uygulama gibi durmuyor.
@@ -122,8 +122,9 @@ export const palettes: Record<ThemeName, Palette> = {
 export const mapColors = {
   cared: lightPalette.success,
   caredFill: 'rgba(52, 168, 83, 0.18)',
+  // Haritada artık kırmızı taban yok (bkz. MapScreen); "bakım eksik" rengi
+  // banner ve durum metinlerinde kullanılıyor.
   needsCare: lightPalette.danger,
-  needsCareFill: 'rgba(255, 92, 92, 0.18)',
   userRadius: 'rgba(244, 122, 74, 0.16)',
   userRadiusStroke: lightPalette.brand,
 } as const;

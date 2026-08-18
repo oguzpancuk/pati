@@ -240,6 +240,16 @@ node -e 'const f=process.argv[1];const m=JSON.parse(require("fs").readFileSync(f
 xcrun simctl terminate $D com.patiapp; xcrun simctl launch $D com.patiapp
 ```
 
+### Haritada kırmızı taban katmanı kaldırıldı
+Eskiden tüm Türkiye kırmızı bir çokgenle boyanıyor, bakım olan yerler yeşil
+dairelerle "temizleniyordu" (her yer alarm, iyi yerler istisna). Kaldırıldı:
+Apple Maps'in bej zemininde harita bulanıklaşıyor ve uygulamanın sakin tonuna
+aykırı bir gerginlik veriyordu. Amber ve terracotta denendi, zeminde
+kaybolduğu için değmedi. Şimdi: bakılmamış yer sade harita, bakılan yer tok
+yeşil daire (`MapScreen.tsx` → `MAX_GREEN_ALPHA` 0.30 → 0.38), "buralarda
+mama yok" mesajını banner ve bildirim veriyor. Kural aynı kaldı: yeşil
+dairenin dışındaysanız uyarılırsınız.
+
 ## 2. Teknik kararlar
 
 ### Leaderboard set-based hesaplanıyor

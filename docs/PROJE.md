@@ -67,8 +67,9 @@ MVP tamamlandı ve uçtan uca test edildi. Aşağıdakilerin hepsi çalışır d
   kademeli olarak soluyor. Aynı noktaya ne kadar çok kişi bıraktıysa renk o
   kadar belirgin
 - Kullanıcının 100 metre çevresinde (yeşil dairenin yarıçapıyla aynı) bakım
-  yoksa haritanın üstünde uyarı bandı çıkıyor — yani kırmızı zemindeyseniz
-  uyarılırsınız, yeşil zemindeyseniz uyarılmazsınız
+  yoksa haritanın üstünde uyarı bandı çıkıyor — yani yeşil dairenin dışındaysanız
+  uyarılırsınız, içindeyseniz uyarılmazsınız (harita zemini boyanmıyor; bakım
+  olmayan yer sade harita, uyarıyı banner veriyor)
 
 ### Hayvan profilleri
 - Manuel kayıt: en az 2 fotoğraf zorunlu, kedi/köpek için çoktan seçmeli

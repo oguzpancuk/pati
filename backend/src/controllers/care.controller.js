@@ -10,8 +10,8 @@ const WINDOW_HOURS = { food: 4, water: 6 };
 const DEFAULT_WINDOW_HOURS = Math.max(WINDOW_HOURS.food, WINDOW_HOURS.water);
 const DEFAULT_RADIUS_METERS = 3000;
 // "Bu bölgede bakım eksik mi?" yarıçapı, haritadaki yeşil dairenin yarıçapıyla
-// aynı (100m). Böylece kural tek cümleye iniyor: kırmızı zemindeyseniz uyarı
-// alırsınız, yeşil zemindeyseniz almazsınız. Daha geniş bir yarıçap, iki sokak
+// aynı (100m). Böylece kural tek cümleye iniyor: yeşil dairenin dışındaysanız
+// uyarı alırsınız, içindeyseniz almazsınız. Daha geniş bir yarıçap, iki sokak
 // ötedeki mamayı "buraya bakılıyor" saydığı için yanıltıcı oluyordu.
 const DEFAULT_STATUS_RADIUS_METERS = 100;
 

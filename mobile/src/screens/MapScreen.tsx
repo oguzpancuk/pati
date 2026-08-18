@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Circle, LatLng, Marker, Polygon, Region as MapRegion } from 'react-native-maps';
+import MapView, { Circle, Marker, Region as MapRegion } from 'react-native-maps';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import {
   addCareAction,
@@ -20,7 +20,7 @@ import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Banner, Button, Text } from '../components/ui';
 import { Icon } from '../components/brand';
-import { caredFill, makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
+import { caredFill, makeStyles, radius, spacing, useTheme } from '../theme';
 
 // Türkiye'nin yaklaşık coğrafi sınır kutusu (kesin idari sınır değil).
 // Harita bu alana odaklanır ve kullanıcı bu kutunun dışına fazla kayamaz.
@@ -36,12 +36,6 @@ const TURKEY_REGION: MapRegion = {
   latitudeDelta: TURKEY_BOUNDS.maxLat - TURKEY_BOUNDS.minLat,
   longitudeDelta: TURKEY_BOUNDS.maxLng - TURKEY_BOUNDS.minLng,
 };
-const TURKEY_POLYGON: LatLng[] = [
-  { latitude: TURKEY_BOUNDS.minLat, longitude: TURKEY_BOUNDS.minLng },
-  { latitude: TURKEY_BOUNDS.minLat, longitude: TURKEY_BOUNDS.maxLng },
-  { latitude: TURKEY_BOUNDS.maxLat, longitude: TURKEY_BOUNDS.maxLng },
-  { latitude: TURKEY_BOUNDS.maxLat, longitude: TURKEY_BOUNDS.minLng },
-];
 
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 const ANIMAL_RADIUS_METERS = 10000;
@@ -62,13 +56,14 @@ const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 
 // react-native-maps'in Heatmap bileşeni yalnızca Google Maps sağlayıcısında çalışıyor
 // (iOS'ta Apple Maps kullandığımız için desteklenmiyor, Google'a geçmek iOS'ta da API
-// key zorunluluğu getirirdi). Bunun yerine kırmızı bir taban katmanının üstüne, ağırlığa
-// göre saydamlaşan yeşil daireler çiziyoruz: hiç bakım yoksa kırmızı görünür, taze/çok
-// sayıda aksiyon olan yerlerde daireler üst üste binip belirgin yeşile döner.
-// Opaklıklar bilinçli olarak düşük tutuldu; altındaki sokak/işletme isimleri okunabilir
-// kalmalı, katmanlar haritayı gizlememeli.
-const BASE_RED_FILL = mapColors.needsCareFill;
-const MAX_GREEN_ALPHA = 0.3;
+// key zorunluluğu getirirdi). Bunun yerine ağırlığa göre saydamlaşan yeşil daireler
+// çiziyoruz: taze/çok sayıda aksiyon olan yerlerde daireler üst üste binip belirgin
+// yeşile döner. Eskiden altta tüm ülkeyi kaplayan kırmızı bir taban katmanı vardı
+// ("her yer alarm"); kaldırıldı — haritayı bulanıklaştırıyor, uygulamanın tonuna
+// aykırı bir gerginlik veriyordu. Bakılmamış yer artık sade harita; "buralarda mama
+// yok" mesajını üstteki banner veriyor. Yeşil buna karşılık biraz daha tok.
+// Opaklık yine de düşük: altındaki sokak/işletme isimleri okunabilir kalmalı.
+const MAX_GREEN_ALPHA = 0.38;
 
 function weightToGreenAlpha(weight: number) {
   return Math.min(Math.max(weight, 0), 1) * MAX_GREEN_ALPHA;
@@ -319,8 +314,6 @@ export default function MapScreen({ navigation }: any) {
         onMapReady={handleMapReady}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
-        <Polygon coordinates={TURKEY_POLYGON} fillColor={BASE_RED_FILL} strokeColor="transparent" />
-
         {actions.map((action) => (
           <Circle
             key={action.id}

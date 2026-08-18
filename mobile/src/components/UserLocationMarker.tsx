@@ -6,7 +6,7 @@ import { makeStyles, mapColors, radius } from '../theme';
 // olduğunu ima eder, beyaz çerçeveli iç nokta ise haritanın üzerinde her zaman
 // seçilebilir kalır. Daha önce kullanılan düz Circle, harita zemininde kaybolan
 // ve boyutu zoom'a göre değişen bir leke gibi görünüyordu.
-// Renk marka turuncusu: haritadaki yeşil/kırmızı bakım katmanlarıyla karışmıyor.
+// Renk marka turuncusu: haritadaki yeşil bakım daireleriyle karışmıyor.
 export default function UserLocationMarker() {
   const styles = useStyles();
   return (

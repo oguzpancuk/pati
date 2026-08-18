@@ -45,11 +45,11 @@ stray/
   "Su Bıraktım" işaretleme — fotoğraf çekimi zorunlu, kullanıcının anlık konumu
   işaretlediği pinden 20 metreden uzaksa reddedilir (şehir içinde tipik GPS
   hassasiyeti 5–20m olduğu için tolerans buna göre seçildi)
-- Haritanın kırmızıdan yeşile boyanması: hiç bakım yoksa kırmızı, işaretlenen
-  noktaların 100m çevresi yeşil. Yeşil, mama için 4 saatte, su için 6 saatte
+- Haritada bakım yapılan noktaların 100m çevresi yeşil; bakım olmayan yer sade
+  harita (kırmızı taban katmanı kaldırıldı, gerginlik veriyordu). Yeşil, mama için 4 saatte, su için 6 saatte
   kademeli olarak solar; aynı noktaya ne kadar çok kişi bıraktıysa o kadar belirgin
 - Konum bazlı bakım eksikliği kontrolü (100m — yeşil dairenin yarıçapıyla aynı,
-  yani kırmızı zemindeyseniz uyarılırsınız). Mama/Su haritaları ayrı ayrı
+  yani yeşil dairenin dışındaysanız uyarılırsınız). Mama/Su haritaları ayrı ayrı
   görüntülenebilir. Bulunduğunuz bölgede yeşil alan söndüyse cihaz üzerinde
   bildirim gönderilir (arka plan konum izni gerekir, 6 saat bildirim aralığı)
 - Hayvan profili oluşturma (manuel, en az 2 fotoğraf zorunlu, kedi/köpek için
@@ -361,10 +361,10 @@ isteklerini `localhost:3000`'e yönlendirir; backend başka bir adresteyse
 1. **Kayıt Ol** ekranından yeni hesap oluşturun.
 2. Konum ve bildirim izni isteyecek — **izin verin** (harita, bakım kontrolü ve
    uyarılar buna dayanıyor).
-3. **Harita** sekmesinde Türkiye'nin tamamı görünür; henüz bakım yapılmamış yerler
-   kırmızı, işaretlenmiş noktaların 100m çevresi yeşildir. Bulunduğunuz konumun
-   100m çevresinde bakım yoksa üstte kırmızı bir uyarı çıkar (yani kırmızı
-   zemindeyseniz uyarılırsınız, yeşil zemindeyseniz uyarılmazsınız).
+3. **Harita** sekmesinde Türkiye'nin tamamı görünür; işaretlenmiş noktaların
+   100m çevresi yeşildir, gerisi sade harita. Bulunduğunuz konumun 100m
+   çevresinde bakım yoksa üstte kırmızı bir uyarı çıkar (yani yeşil dairenin
+   dışındaysanız uyarılırsınız, içindeyseniz uyarılmazsınız).
 4. Mama/su bırakmak için **haritaya dokunarak bir pin bırakın** (kendi konum
    işaretinize dokunursanız pin doğrudan bulunduğunuz yere düşer), çıkan **Mama
    Bıraktım** / **Su Bıraktım** butonlarından birini seçin. Kamera açılır —

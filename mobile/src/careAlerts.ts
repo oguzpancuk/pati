@@ -45,8 +45,8 @@ async function writeCooldown(map: Record<string, number>) {
 /**
  * Kullanıcının bulunduğu yerin yakın çevresinde mama/su kalmadıysa (yeşil alan
  * solup bittiyse) cihaz üzerinde bir bildirim gösterir. Yarıçapı sunucu
- * belirliyor ve haritadaki yeşil dairenin yarıçapıyla aynı: kırmızı zemindeyse
- * uyarı gelir, yeşil zemindeyse gelmez.
+ * belirliyor ve haritadaki yeşil dairenin yarıçapıyla aynı: yeşil dairenin
+ * dışındaysa uyarı gelir, içindeyse gelmez.
  *
  * Sunucuya "bu kullanıcıya bildirim gönder" demek yerine cihazın kendi konumunu
  * kontrol etmesinin sebebi: konum sürekli sunucuya gönderilmediği için sunucu
