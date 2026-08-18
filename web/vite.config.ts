@@ -16,6 +16,15 @@ export default defineConfig({
   },
   server: {
     port: 5175,
+    // Telefondan bakmak için: host=true dış arayüzlerde de dinler (aynı Wi‑Fi,
+    // http://<mac-ip>:5175). iOS Safari http üzerinden konum izni vermediği ve
+    // service worker çalışmadığı için gerçek PWA denemesi HTTPS ister — hesap
+    // gerektirmeyen yol Cloudflare quick tunnel:
+    //   TUNNEL=1 npm run dev  &&  cloudflared tunnel --url http://localhost:5175
+    // TUNNEL=1 iken HMR istemcisi 443/wss'e bağlanır (tünel 5175'i dışarı açmıyor).
+    host: true,
+    allowedHosts: ['.trycloudflare.com'],
+    hmr: process.env.TUNNEL ? { clientPort: 443, protocol: 'wss' } : undefined,
     fs: { allow: ['..'] },
     proxy: {
       '/api': { target: process.env.API_URL || 'http://localhost:3000', changeOrigin: true },
