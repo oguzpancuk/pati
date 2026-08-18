@@ -1,6 +1,5 @@
 const fs = require('fs');
 const pool = require('../config/db');
-const { distanceMeters } = require('../utils/distance');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 
 // Mama ve su farklı hızda tükeniyor: mama daha çabuk bitiyor/bozuluyor, su daha
@@ -15,17 +14,20 @@ const DEFAULT_RADIUS_METERS = 3000;
 // alırsınız, yeşil zemindeyseniz almazsınız. Daha geniş bir yarıçap, iki sokak
 // ötedeki mamayı "buraya bakılıyor" saydığı için yanıltıcı oluyordu.
 const DEFAULT_STATUS_RADIUS_METERS = 100;
-// GPS hassasiyeti şehir içinde 5-20m arasında değişebiliyor; 10m sınırı dürüst
-// kullanıcıları da engelliyordu. 20m hâlâ fiilen oraya gitmeyi gerektiriyor.
-const MAX_DISTANCE_TO_PIN_METERS = 20;
 
 function windowHoursFor(actionType) {
   return WINDOW_HOURS[actionType] ?? DEFAULT_WINDOW_HOURS;
 }
 
+/**
+ * Mama/su kaydı. Konum artık haritaya dokunarak seçilmiyor; uygulama alttaki
+ * butonla kullanıcının **kendi** konumunu gönderiyor. Bu yüzden eskiden burada
+ * duran "seçtiğin noktaya 20 m'den yakın mısın" kontrolü kalktı: karşılaştırma
+ * artık cihazın konumunu kendisiyle karşılaştırmak anlamına geliyordu.
+ */
 async function addCareAction(req, res, next) {
   try {
-    const { lat, lng, actionType, deviceLat, deviceLng } = req.body;
+    const { lat, lng, actionType } = req.body;
 
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
@@ -33,25 +35,15 @@ async function addCareAction(req, res, next) {
     if (!['food', 'water'].includes(actionType)) {
       return res.status(400).json({ error: 'actionType food veya water olmalıdır' });
     }
-    if (deviceLat === undefined || deviceLng === undefined) {
-      return res.status(400).json({ error: 'deviceLat ve deviceLng zorunludur' });
-    }
     if (!req.file) {
       return res.status(400).json({ error: 'Fotoğraf zorunludur' });
     }
 
     const pinLat = Number(lat);
     const pinLng = Number(lng);
-    const userLat = Number(deviceLat);
-    const userLng = Number(deviceLng);
-
-    const distance = distanceMeters(pinLat, pinLng, userLat, userLng);
-    if (distance > MAX_DISTANCE_TO_PIN_METERS) {
+    if (!Number.isFinite(pinLat) || !Number.isFinite(pinLng)) {
       fs.unlink(req.file.path, () => {});
-      return res.status(400).json({
-        error: `İşaretlediğiniz konuma çok uzaktasınız (${Math.round(distance)}m). En az ${MAX_DISTANCE_TO_PIN_METERS}m yaklaşın.`,
-        distanceMeters: distance,
-      });
+      return res.status(400).json({ error: 'lat ve lng sayı olmalıdır' });
     }
 
     const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;

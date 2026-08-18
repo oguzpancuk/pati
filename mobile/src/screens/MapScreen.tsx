@@ -2,14 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, {
-  Circle,
-  LatLng,
-  MapPressEvent,
-  Marker,
-  Polygon,
-  Region as MapRegion,
-} from 'react-native-maps';
+import MapView, { Circle, LatLng, Marker, Polygon, Region as MapRegion } from 'react-native-maps';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import {
   addCareAction,
@@ -22,7 +15,7 @@ import { Animal, fetchAnimals } from '../api/animals';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import UserLocationMarker from '../components/UserLocationMarker';
-import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
+import { Coordinates, getCurrentLocation } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { Banner, Button, Text } from '../components/ui';
 import { Icon } from '../components/brand';
@@ -49,9 +42,6 @@ const TURKEY_POLYGON: LatLng[] = [
   { latitude: TURKEY_BOUNDS.maxLat, longitude: TURKEY_BOUNDS.minLng },
 ];
 
-// Sunucudaki sınırla aynı tutulmalı (care.controller.js): GPS hassasiyeti şehir
-// içinde 5-20m arasında değiştiği için 10m dürüst kullanıcıları da engelliyordu.
-const MAX_DISTANCE_TO_PIN_METERS = 20;
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 const ANIMAL_RADIUS_METERS = 10000;
 const USER_ZOOM_DELTA = 0.03;
@@ -61,12 +51,6 @@ const MAX_DELTA = 40;
 // Hayvan avatarları yalnızca sokak ölçeğine yakınlaşınca çizilir; şehir/ülke
 // ölçeğinde onlarca avatar üst üste binip haritayı tamamen kapatıyordu.
 const ANIMAL_VISIBLE_MAX_DELTA = 0.02;
-
-// Bir marker'a dokunulduğunda MapView'in onPress'i de tetikleniyor (Android'de
-// action alanıyla ayırt edilebiliyor, iOS'ta edilemiyor). Marker dokunuşundan
-// hemen sonra gelen harita dokunuşunu yok saymak için kısa bir pencere tutuyoruz;
-// aksi halde hayvana tıklarken mama/su popup'ı da açılıyor.
-const MARKER_PRESS_GUARD_MS = 600;
 
 // react-native-maps'in Heatmap bileşeni yalnızca Google Maps sağlayıcısında çalışıyor
 // (iOS'ta Apple Maps kullandığımız için desteklenmiyor, Google'a geçmek iOS'ta da API
@@ -82,8 +66,6 @@ function weightToGreenAlpha(weight: number) {
   return Math.min(Math.max(weight, 0), 1) * MAX_GREEN_ALPHA;
 }
 
-type PendingPin = LatLng | null;
-
 export default function MapScreen({ navigation }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -93,13 +75,12 @@ export default function MapScreen({ navigation }: any) {
   const mapReadyRef = useRef(false);
   const pendingCenterRef = useRef<Coordinates | null>(null);
   const hasCenteredOnUser = useRef(false);
-  const markerPressedAtRef = useRef(0);
   const [actions, setActions] = useState<CareAction[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [status, setStatus] = useState<CareStatus | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [viewType, setViewType] = useState<'food' | 'water'>('food');
-  const [pendingPin, setPendingPin] = useState<PendingPin>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
@@ -182,24 +163,16 @@ export default function MapScreen({ navigation }: any) {
     }
   }
 
-  function handleMapPress(event: MapPressEvent) {
-    // Android bunu doğrudan söylüyor; iOS'ta marker dokunuşundan sonraki kısa
-    // pencereye bakarak ayırt ediyoruz.
-    if (event.nativeEvent.action === 'marker-press') return;
-    if (Date.now() - markerPressedAtRef.current < MARKER_PRESS_GUARD_MS) return;
-    setPendingPin(event.nativeEvent.coordinate);
-  }
-
   function handleAnimalPress(animalId: number) {
-    markerPressedAtRef.current = Date.now();
-    setPendingPin(null);
     navigation.navigate('AnimalProfile', { animalId });
   }
 
+  /**
+   * Kayıt her zaman kullanıcının bulunduğu noktaya düşüyor. Konum, fotoğraf
+   * çekildikten **sonra** okunuyor: kamera açıkken geçen sürede kullanıcı
+   * yürümüş olabilir, kaydın doğru yere düşmesi için en güncel konum lazım.
+   */
   async function handleChooseAction(actionType: 'food' | 'water') {
-    if (!pendingPin) return;
-    const pin = pendingPin;
-
     try {
       let photoResult = await launchCamera({
         mediaType: 'photo',
@@ -228,29 +201,12 @@ export default function MapScreen({ navigation }: any) {
       setSubmitting(true);
 
       const device = await getCurrentLocation();
-      const distance = distanceMeters(device, {
-        lat: pin.latitude,
-        lng: pin.longitude,
+      const created = await addCareAction(device.lat, device.lng, actionType, {
+        uri: asset.uri,
+        type: asset.type,
+        fileName: asset.fileName,
       });
-      if (distance > MAX_DISTANCE_TO_PIN_METERS) {
-        Alert.alert(
-          'Çok uzaktasınız',
-          `İşaretlediğiniz konuma ${Math.round(
-            distance
-          )}m uzaktasınız. En az ${MAX_DISTANCE_TO_PIN_METERS}m yaklaşıp tekrar deneyin.`
-        );
-        return;
-      }
-
-      const created = await addCareAction(
-        pin.latitude,
-        pin.longitude,
-        actionType,
-        device.lat,
-        device.lng,
-        { uri: asset.uri, type: asset.type, fileName: asset.fileName }
-      );
-      setPendingPin(null);
+      setConfirmOpen(false);
       await load();
       celebrate(created);
     } catch (err: any) {
@@ -280,7 +236,6 @@ export default function MapScreen({ navigation }: any) {
         initialRegion={TURKEY_REGION}
         onMapReady={handleMapReady}
         onRegionChangeComplete={handleRegionChangeComplete}
-        onPress={handleMapPress}
       >
         <Polygon coordinates={TURKEY_POLYGON} fillColor={BASE_RED_FILL} strokeColor="transparent" />
 
@@ -302,14 +257,6 @@ export default function MapScreen({ navigation }: any) {
             coordinate={{ latitude: myLocation.lat, longitude: myLocation.lng }}
             anchor={{ x: 0.5, y: 0.5 }}
             tracksViewChanges={false}
-            // Konum göstergesi haritanın dokunuşunu yutuyor; en doğal davranış
-            // kendi konumuna dokununca oraya işaret koymak.
-            onPress={() =>
-              setPendingPin({
-                latitude: myLocation.lat,
-                longitude: myLocation.lng,
-              })
-            }
           >
             <UserLocationMarker />
           </Marker>
@@ -330,8 +277,6 @@ export default function MapScreen({ navigation }: any) {
               <AnimalAvatar species={animal.species} photoUrl={animal.cover_photo_url} size={36} />
             </Marker>
           ))}
-
-        {pendingPin && <Marker coordinate={pendingPin} pinColor={colors.brand} />}
       </MapView>
 
       {/* Üst katman: harita tam ekran, kontroller üstünde yüzüyor. */}
@@ -394,32 +339,46 @@ export default function MapScreen({ navigation }: any) {
         </Pressable>
       </View>
 
-      {!pendingPin && (
-        <View style={styles.hint} pointerEvents="none">
-          <Text variant="captionStrong" center>
-            {viewType === 'food' ? 'Mama' : 'Su'} bıraktığın yeri işaretlemek için haritaya dokun
-          </Text>
-          {!animalsVisible && animals.length > 0 && (
-            <Text variant="caption" center style={styles.hintSub}>
+      {/* Alt katman: kayıt butonu. Konum haritadan seçilmiyor, kullanıcının
+          bulunduğu noktaya bırakılıyor — bu yüzden butonun etiketi "buraya". */}
+      <SafeAreaView style={styles.bottomLayer} edges={['bottom']} pointerEvents="box-none">
+        {!animalsVisible && animals.length > 0 && (
+          <View style={styles.hint} pointerEvents="none">
+            <Text variant="caption" center>
               Hayvanları görmek için yakınlaştır
             </Text>
-          )}
+          </View>
+        )}
+        <View style={styles.ctaWrap}>
+          <Button
+            title={viewType === 'food' ? 'Buraya mama bıraktım' : 'Buraya su bıraktım'}
+            onPress={() => setConfirmOpen(true)}
+            icon={
+              <Icon
+                name={viewType === 'food' ? 'food' : 'water'}
+                size={20}
+                color={colors.textOnBrand}
+              />
+            }
+            fullWidth
+            size="lg"
+          />
         </View>
-      )}
+      </SafeAreaView>
 
       {/* Hangi harita açıksa yalnızca ona ait aksiyon sunuluyor: mama haritasındayken
           su eklemek (ya da tersi) kafa karıştırıcı ve görüntülenen katmanla tutarsız. */}
-      <Modal visible={!!pendingPin} transparent animationType="fade">
+      <Modal visible={confirmOpen} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalIcon}>
               <Icon name={viewType === 'food' ? 'food' : 'water'} size={28} color={colors.brand} />
             </View>
             <Text variant="heading" center>
-              Bu noktaya {typeLabel} bıraktın mı?
+              Bulunduğun yere {typeLabel} bıraktın mı?
             </Text>
             <Text variant="caption" center style={styles.modalDesc}>
-              Fotoğrafını çek, haritada herkes görsün.
+              Fotoğrafını çek, haritada herkes görsün. Kayıt şu anki konumuna düşecek.
             </Text>
 
             <Button
@@ -433,7 +392,7 @@ export default function MapScreen({ navigation }: any) {
             <Button
               title="Vazgeç"
               variant="ghost"
-              onPress={() => setPendingPin(null)}
+              onPress={() => setConfirmOpen(false)}
               fullWidth
               style={styles.modalCancel}
             />
@@ -441,7 +400,7 @@ export default function MapScreen({ navigation }: any) {
             {/* Mama haritasında mama markası, su haritasında su markası. */}
             <AdBanner
               slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
-              visible={!!pendingPin}
+              visible={confirmOpen}
             />
           </View>
         </View>
@@ -485,7 +444,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginTop: spacing.md,
     ...shadow.card,
   },
-  zoomControls: { position: 'absolute', right: spacing.md, bottom: 110 },
+  // Yakınlaştırma tuşları kayıt butonunun üstünde kalmalı; aksi halde büyük
+  // butonun altında kalıp dokunulamaz oluyorlar.
+  zoomControls: { position: 'absolute', right: spacing.md, bottom: 140 },
   zoomButton: {
     width: 42,
     height: 42,
@@ -497,18 +458,22 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     ...shadow.card,
   },
   zoomButtonText: { fontSize: 22, lineHeight: 26, color: c.textMuted },
+  bottomLayer: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   hint: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: spacing.xl,
+    alignSelf: 'center',
+    marginBottom: spacing.sm,
     backgroundColor: c.surface,
     borderRadius: radius.pill,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     ...shadow.card,
   },
-  hintSub: { marginTop: 2 },
+  ctaWrap: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    borderRadius: radius.pill,
+    ...shadow.raised,
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: c.overlay,

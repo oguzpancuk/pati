@@ -54,20 +54,21 @@ export interface PhotoAsset {
   fileName?: string;
 }
 
+/**
+ * Mama/su kaydı. `lat`/`lng` her zaman kullanıcının **kendi** konumu: artık
+ * haritadan nokta seçilmiyor, alttaki butona basınca bulunduğu yere bırakıyor.
+ * Bu yüzden eskiden ayrıca gönderilen `deviceLat`/`deviceLng` kalktı.
+ */
 export async function addCareAction(
   lat: number,
   lng: number,
   actionType: 'food' | 'water',
-  deviceLat: number,
-  deviceLng: number,
   photo: PhotoAsset
 ): Promise<CareAction & WithNewBadges> {
   const form = new FormData();
   form.append('lat', String(lat));
   form.append('lng', String(lng));
   form.append('actionType', actionType);
-  form.append('deviceLat', String(deviceLat));
-  form.append('deviceLng', String(deviceLng));
   form.append('photo', {
     uri: photo.uri,
     type: photo.type ?? 'image/jpeg',

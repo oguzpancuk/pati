@@ -1,6 +1,8 @@
 // Demo/test verisi üretir: 100 kullanıcı, her birinin 2 hayvanı, bir kısmı 7 bir
 // kısmı 30 gündür üst üste mama/su bırakan seriler ve bakım verdikleri hayvanlara
-// yapılmış yorumlar.
+// yapılmış yorumlar. Ayrıca sözlükteki (src/utils/taxonomy.js) her desen için
+// birer "vitrin" hayvanı: sağlık kaydı, aşı kaydı ve kayda bağlı yorumlarıyla
+// birlikte — böylece yeni eklenen ekranlar boş veriyle test edilmiyor.
 //
 // Kullanım:  npm run seed
 // Tüm hesapların şifresi: password123
@@ -16,6 +18,15 @@ const bcrypt = require('bcrypt');
 const pool = require('../src/config/db');
 const { UPLOADS_DIR } = require('../src/config/upload');
 const { getBadgesForUsers } = require('../src/utils/badges');
+const {
+  CAT_PATTERNS,
+  DOG_PATTERNS,
+  CAT_COLORS,
+  DOG_COLORS,
+  ILLNESSES,
+  INJURIES,
+  VACCINE_TYPES,
+} = require('../src/utils/taxonomy');
 
 const USER_COUNT = 100;
 const ANIMALS_PER_USER = 2;
@@ -39,9 +50,6 @@ const LAST_NAMES = [
 
 const CAT_NAMES = ['Pamuk', 'Duman', 'Tekir', 'Boncuk', 'Zeytin', 'Mırnav', 'Karamel', 'Şeker', 'Minnoş', 'Pofuduk'];
 const DOG_NAMES = ['Karabaş', 'Çomar', 'Paşa', 'Bobi', 'Kont', 'Fındık', 'Zorro', 'Leo', 'Rex', 'Maya'];
-const CAT_BREEDS = ['Tekir', 'Sarman', 'Siyah', 'Beyaz', 'Van Kedisi', 'Ankara Kedisi', 'Halı (Calico)', 'Sokak Melezi'];
-const DOG_BREEDS = ['Kangal', 'Akbaş', 'Çoban Köpeği', 'Terrier Tipi', 'Av Köpeği Tipi', 'Golden/Labrador Tipi', 'Sokak Melezi'];
-const COLORS = ['sarı-beyaz', 'siyah', 'beyaz', 'gri', 'kahverengi', 'alaca', 'sarı', 'siyah-beyaz'];
 const MARKINGS = [
   'Sol kulakta çentik', 'Kuyruğu kısa', 'Gözlerinin etrafı koyu', 'Boynunda beyaz leke',
   'Sağ ön ayağı beyaz', 'Sırtında çizgiler', null, null,
@@ -60,6 +68,40 @@ const COMMENT_TEMPLATES = [
   'Soğuklar için kutudan barınak yaptım.',
   'Aşı için veterinere götürmeyi planlıyorum.',
   'Diğer kedilerle arası iyi.',
+];
+
+// Sözlükteki her desenden birer "vitrin" hayvanı. Amaç: yeni desen/renk
+// listeleri, sağlık kaydı ve aşı ekranları demo veride gerçekten görünsün.
+// Son sıradaki ikisi "Diğer" seçilince ne olduğunu gösteriyor: listede olmayan
+// bir metin doğrudan `breed` kolonuna yazılıyor, ayrı bir kolon yok.
+const SHOWCASE_CATS = [
+  { name: 'Boncuk', breed: CAT_PATTERNS[0], color: CAT_COLORS[0], markings: 'Sol kulakta çentik' },
+  { name: 'Zeytin', breed: CAT_PATTERNS[1], color: CAT_COLORS[1], markings: 'Kuyruğu kalın' },
+  { name: 'Duman', breed: CAT_PATTERNS[2], color: CAT_COLORS[2], markings: 'Göğsünde küçük beyaz leke' },
+  { name: 'Şeker', breed: CAT_PATTERNS[3], color: CAT_COLORS[4], markings: 'Burnunun yarısı siyah' },
+  { name: 'Bıyık', breed: CAT_PATTERNS[4], color: CAT_COLORS[4], markings: 'Dört ayağı beyaz' },
+  { name: 'Pamuk', breed: 'Ankara kedisi kırması', color: CAT_COLORS[3], markings: 'Gözleri iki renk' },
+];
+const SHOWCASE_DOGS = [
+  { name: 'Karabaş', breed: DOG_PATTERNS[0], color: DOG_COLORS[0], markings: 'Boynu kalın, kulakları düşük' },
+  { name: 'Paşa', breed: DOG_PATTERNS[1], color: DOG_COLORS[2], markings: 'Sırtında sarı leke' },
+  { name: 'Çomar', breed: DOG_PATTERNS[2], color: DOG_COLORS[4], markings: 'Kuyruk ucu beyaz' },
+  { name: 'Fındık', breed: DOG_PATTERNS[3], color: DOG_COLORS[1], markings: 'Bacakları kısa, gövdesi uzun' },
+  { name: 'Zorro', breed: DOG_PATTERNS[4], color: DOG_COLORS[3], markings: 'Yüzünde koyu maske' },
+  { name: 'Leo', breed: 'Golden kırması', color: DOG_COLORS[0], markings: 'Tüyleri uzun ve dalgalı' },
+];
+
+// Vitrin hayvanlarının sağlık ve aşı kayıtları. Hastalık/yaralanma sırayla
+// dönüyor ki her iki kayıt tipi de demo veride bulunsun.
+const SHOWCASE_HEALTH_NOTES = [
+  'Bugün fark ettim, veterinere haber verdim.',
+  'İlk gün kötüydü, şimdi biraz daha iyi.',
+  'Komşularla nöbetleşe takip ediyoruz.',
+];
+const SHOWCASE_VACCINE_NOTES = [
+  'Belediye ekibi mahallede yaparken kaydettim.',
+  'Veteriner ücretsiz yaptı, kulak küpesi de takıldı.',
+  'Kendi götürdüm, fişi bende duruyor.',
 ];
 
 function randomItem(list) {
@@ -199,8 +241,8 @@ async function seed() {
       animalParams.push(
         species,
         randomItem(species === 'cat' ? CAT_NAMES : DOG_NAMES),
-        randomItem(COLORS),
-        randomItem(species === 'cat' ? CAT_BREEDS : DOG_BREEDS),
+        randomItem(species === 'cat' ? CAT_COLORS : DOG_COLORS),
+        randomItem(species === 'cat' ? CAT_PATTERNS : DOG_PATTERNS),
         randomItem(MARKINGS),
         CENTER.lng + randomOffset(),
         CENTER.lat + randomOffset(),
@@ -237,6 +279,122 @@ async function seed() {
   await pool.query(
     `INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ${photoValues.join(',')}`,
     photoParams
+  );
+
+  // --- Vitrin hayvanları -----------------------------------------------
+  // Rastgele üretilen 200 hayvan listeden rastgele desen seçiyor; hangi
+  // desenin hiç düşmediği garanti edilemiyor. Buradaki 12 kayıt her deseni
+  // birer kez, sağlık ve aşı kaydıyla birlikte garanti ediyor.
+  console.log('Her desenden birer vitrin hayvanı oluşturuluyor...');
+  const showcaseSpecs = [
+    ...SHOWCASE_CATS.map((s) => ({ ...s, species: 'cat' })),
+    ...SHOWCASE_DOGS.map((s) => ({ ...s, species: 'dog' })),
+  ];
+
+  const showcaseValues = [];
+  const showcaseParams = [];
+  showcaseSpecs.forEach((spec, i) => {
+    const b = showcaseParams.length;
+    showcaseValues.push(
+      `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5},
+        ST_SetSRID(ST_MakePoint($${b + 6}, $${b + 7}), 4326)::geography, $${b + 8},
+        now() - ($${b + 9} * interval '1 day'))`
+    );
+    showcaseParams.push(
+      spec.species,
+      spec.name,
+      spec.color,
+      spec.breed,
+      spec.markings,
+      CENTER.lng + randomOffset(),
+      CENTER.lat + randomOffset(),
+      userIds[i % userIds.length],
+      3 + i
+    );
+  });
+  const showcase = await pool.query(
+    `INSERT INTO animals (species, name, color, breed, markings, location, created_by, created_at)
+     VALUES ${showcaseValues.join(',')} RETURNING id, created_by`,
+    showcaseParams
+  );
+  const showcaseRows = showcase.rows;
+
+  await pool.query(
+    `INSERT INTO animal_photos (animal_id, url, uploaded_by)
+     SELECT a.id, $1, a.created_by FROM animals a WHERE a.id = ANY($2)`,
+    [photoUrls[0], showcaseRows.map((r) => r.id)]
+  );
+  await pool.query(
+    `INSERT INTO user_animal_care (user_id, animal_id)
+     SELECT created_by, id FROM animals WHERE id = ANY($1) ON CONFLICT DO NOTHING`,
+    [showcaseRows.map((r) => r.id)]
+  );
+
+  console.log('Vitrin hayvanlarına sağlık ve aşı kaydı ekleniyor...');
+  const healthIds = [];
+  const vaccinationIds = [];
+  // Aşıların bir kısmını tek bir kullanıcıya yığıyoruz: "Aşı Gönüllüsü"
+  // rozetinin gümüş kademesi (5 kayıt) demo veride de görünsün.
+  const vaccineChampion = userIds[0];
+
+  for (let i = 0; i < showcaseRows.length; i += 1) {
+    const animal = showcaseRows[i];
+    const isIllness = i % 2 === 0;
+    const health = await pool.query(
+      `INSERT INTO health_records (animal_id, record_type, description, recorded_by, recorded_at,
+                                   recovered_at, recovered_by)
+       VALUES ($1, $2, $3, $4::int, now() - ($5::int * interval '1 day'),
+               CASE WHEN $6::boolean THEN now() - interval '1 day' END,
+               CASE WHEN $6::boolean THEN $4::int END)
+       RETURNING id`,
+      [
+        animal.id,
+        isIllness ? 'illness' : 'injury',
+        isIllness ? ILLNESSES[i % ILLNESSES.length] : INJURIES[i % INJURIES.length],
+        animal.created_by,
+        2 + (i % 5),
+        // Her üçüncü kayıt iyileşmiş olsun; "aktif" ve "geçmiş" ayrımı
+        // arayüzde iki farklı görünüm üretiyor, ikisi de test edilebilmeli.
+        i % 3 === 0,
+      ]
+    );
+    healthIds.push(health.rows[0].id);
+
+    const vaccine = await pool.query(
+      `INSERT INTO vaccinations (animal_id, vaccine_type, note, vet_verified,
+                                 administered_at, next_due_at, recorded_by)
+       VALUES ($1, $2, $3, $4, now() - ($5 * interval '1 day'),
+               now() + interval '1 year', $6)
+       RETURNING id`,
+      [
+        animal.id,
+        VACCINE_TYPES[i % VACCINE_TYPES.length],
+        randomItem(SHOWCASE_VACCINE_NOTES),
+        i % 2 === 0,
+        5 + i,
+        i < 5 ? vaccineChampion : animal.created_by,
+      ]
+    );
+    vaccinationIds.push(vaccine.rows[0].id);
+  }
+
+  // Kayda bağlı yorumlar: sağlık kaydının ve aşının kendi sohbeti var.
+  const recordCommentValues = [];
+  const recordCommentParams = [];
+  showcaseRows.forEach((animal, i) => {
+    for (const [healthRecordId, vaccinationId, body] of [
+      [healthIds[i], null, SHOWCASE_HEALTH_NOTES[i % SHOWCASE_HEALTH_NOTES.length]],
+      [null, vaccinationIds[i], SHOWCASE_VACCINE_NOTES[i % SHOWCASE_VACCINE_NOTES.length]],
+    ]) {
+      const b = recordCommentParams.length;
+      recordCommentValues.push(`($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5})`);
+      recordCommentParams.push(animal.id, animal.created_by, healthRecordId, vaccinationId, body);
+    }
+  });
+  await pool.query(
+    `INSERT INTO animal_comments (animal_id, user_id, health_record_id, vaccination_id, body)
+     VALUES ${recordCommentValues.join(',')}`,
+    recordCommentParams
   );
 
   console.log('Mama/su serileri oluşturuluyor (7 ve 30 günlük)...');
@@ -422,6 +580,8 @@ async function seed() {
        (SELECT count(*) FROM animals)::int AS animals,
        (SELECT count(*) FROM care_actions)::int AS care_actions,
        (SELECT count(*) FROM animal_comments)::int AS comments,
+       (SELECT count(*) FROM health_records)::int AS health_records,
+       (SELECT count(*) FROM vaccinations)::int AS vaccinations,
        (SELECT count(*) FROM user_animal_care)::int AS carers,
        (SELECT count(*) FROM user_badge_awards)::int AS badge_awards,
        (SELECT count(*) FROM advertisers)::int AS advertisers`
@@ -432,6 +592,8 @@ async function seed() {
   console.log(`  Hayvan         : ${counts.rows[0].animals}`);
   console.log(`  Mama/su kaydı  : ${counts.rows[0].care_actions}`);
   console.log(`  Yorum          : ${counts.rows[0].comments}`);
+  console.log(`  Sağlık kaydı   : ${counts.rows[0].health_records}`);
+  console.log(`  Aşı kaydı      : ${counts.rows[0].vaccinations}`);
   console.log(`  Bakım ilişkisi : ${counts.rows[0].carers}`);
   console.log(`  Kazanılmış rozet: ${counts.rows[0].badge_awards}`);
   console.log(`  Reklamveren     : ${counts.rows[0].advertisers}`);

@@ -8,6 +8,7 @@ const {
   reportSighting,
   addPhoto,
   addHealthRecord,
+  addVaccination,
   markRecovered,
   listComments,
   addComment,
@@ -23,6 +24,7 @@ router.post('/:id/sightings', requireAuth, reportSighting);
 router.post('/:id/photos', requireAuth, upload.single('photo'), addPhoto);
 router.post('/:id/health-records', requireAuth, addHealthRecord);
 router.post('/:id/health-records/:recordId/recover', requireAuth, markRecovered);
+router.post('/:id/vaccinations', requireAuth, addVaccination);
 router.get('/:id/comments', requireAuth, listComments);
 router.post('/:id/comments', requireAuth, addComment);
 router.post('/:id/follow', requireAuth, followAnimal);

@@ -1,4 +1,9 @@
 const pool = require('../config/db');
+const { CAT_PATTERNS, DOG_PATTERNS } = require('./taxonomy');
+
+// Rozet üretilebilen desenler. Serbest metin ("Diğer" seçilince yazılan) rozet
+// açmıyor: aksi hâlde her yazım hatası ayrı bir rozet olurdu.
+const BADGEABLE_PATTERNS = new Set([...CAT_PATTERNS, ...DOG_PATTERNS]);
 
 // Rozet kademeleri ve puanları. Bir kere kazanılan rozet kalıcıdır (seri bozulsa
 // bile düşmez); leaderboard puanı yalnızca ulaşılan en yüksek kademeden gelir.
@@ -14,17 +19,21 @@ const COMMENT_THRESHOLDS = { bronze: 1, silver: 10, gold: 50, diamond: 200 };
 // Toplam puana göre seviye. Rozetlerden ve yorumlardan gelen puan tek bir
 // ilerleme çubuğunda toplansın diye var. Eşikler başta sık, sonra seyrek: ilk
 // günlerde hızlı ilerleme hissi olsun, üst seviyeler ise gerçekten anlam taşısın.
+//
+// İsimlendirme standardı: seviyeler bir **sorumluluk basamağı** anlatır.
+// Gönüllü → Sorumlu → Temsilci → Onur. Şaka yok, abartı yok; rozet isimleriyle
+// aynı kayıtta duruyor (bkz. STREAK_CATEGORIES).
 const LEVELS = [
-  { level: 1, title: 'Yeni Komşu', emoji: '🌱', minPoints: 0 },
-  { level: 2, title: 'Mahalle Sakini', emoji: '🏘️', minPoints: 40 },
-  { level: 3, title: 'Sokak Gönüllüsü', emoji: '🤝', minPoints: 120 },
-  { level: 4, title: 'Mama Nöbetçisi', emoji: '🍲', minPoints: 250 },
-  { level: 5, title: 'Pati Dostu', emoji: '🐾', minPoints: 450 },
-  { level: 6, title: 'Sokak Kâşifi', emoji: '🧭', minPoints: 750 },
-  { level: 7, title: 'Mahalle Muhtarı', emoji: '🎖️', minPoints: 1200 },
-  { level: 8, title: 'Sokak Bilgesi', emoji: '🦉', minPoints: 1800 },
-  { level: 9, title: 'Pati Kahramanı', emoji: '🦸', minPoints: 2600 },
-  { level: 10, title: 'Sokakların Piri', emoji: '👑', minPoints: 3600 },
+  { level: 1, title: 'Yeni Komşu', minPoints: 0 },
+  { level: 2, title: 'Mahalle Gönüllüsü', minPoints: 40 },
+  { level: 3, title: 'Düzenli Gönüllü', minPoints: 120 },
+  { level: 4, title: 'Mahalle Sorumlusu', minPoints: 250 },
+  { level: 5, title: 'Kıdemli Gönüllü', minPoints: 450 },
+  { level: 6, title: 'Bölge Gönüllüsü', minPoints: 750 },
+  { level: 7, title: 'Mahalle Temsilcisi', minPoints: 1200 },
+  { level: 8, title: 'Kıdemli Temsilci', minPoints: 1800 },
+  { level: 9, title: 'Şehir Gönüllüsü', minPoints: 2600 },
+  { level: 10, title: 'Onur Üyesi', minPoints: 3600 },
 ];
 
 function levelFor(points) {
@@ -38,7 +47,9 @@ function levelFor(points) {
   return {
     level: current.level,
     title: current.title,
-    emoji: current.emoji,
+    // Seviye amblemi emoji değil: mobil taraf seviye numarasından prosedürel
+    // bir işaret çiziyor (bkz. components/badges/LevelMark). Böylece 10 ayrı
+    // görsel çizmek gerekmiyor ve ilerleme görsel olarak da bir seri oluşturuyor.
     minPoints: current.minPoints,
     nextLevelPoints: next ? next.minPoints : null,
     nextTitle: next ? next.title : null,
@@ -61,18 +72,46 @@ function nextThresholdFor(tier, thresholds) {
   return thresholds[TIER_ORDER[nextIndex]];
 }
 
-// Rozet isimleri bilerek sıcak ve biraz esprili: "avcı" gibi agresif çağrışımı
-// olan kelimelerden kaçınıyoruz, çünkü burada kovalanan bir av değil bakılan bir
-// canlı var.
+//
+// ## Rozet isimlendirme standardı
+//
+// İki kalıp var, üçüncüsü yok:
+//   1. Katkı rozetleri  →  "<Alan> Gönüllüsü"   (Mama Gönüllüsü, Aşı Gönüllüsü)
+//   2. Desen rozetleri  →  "<Desen> Dostu"      (Tekir Dostu, Kangal Melezi Dostu)
+//
+// Kademe sıfat olarak öne geliyor: "Altın Mama Gönüllüsü".
+//
+// Neden böyle: önceki isimler ("Mama Perisi", "Mahalle Dedikoducusu") her biri
+// ayrı bir şaka olduğu için ne bir arada durabiliyordu ne de yeni rozet
+// eklenince kalıbı belliydi. Bu iki kalıpla yeni kategori eklemek mekanik bir iş.
+// "Gönüllü" kelimesi ayrıca işin gerçeğini anlatıyor — bunlar gerçekten gönüllü.
+//
+// `symbol` mobil tarafın hangi SVG'yi çizeceğini söylüyor (emoji kullanmıyoruz).
 const STREAK_CATEGORIES = {
-  feeder: { label: 'Mama Perisi', unit: 'gün' },
-  water: { label: 'Su Elçisi', unit: 'gün' },
-  registrar: { label: 'Mahalle Muhabiri', unit: 'gün' },
+  feeder: { label: 'Mama Gönüllüsü', unit: 'gün', symbol: 'food' },
+  water: { label: 'Su Gönüllüsü', unit: 'gün', symbol: 'water' },
+  registrar: { label: 'Kayıt Gönüllüsü', unit: 'gün', symbol: 'register' },
 };
 
 const COUNT_CATEGORIES = {
-  commenter: { label: 'Mahalle Dedikoducusu', unit: 'yorum', thresholds: COMMENT_THRESHOLDS },
-  healer: { label: 'Pati Şifacısı', unit: 'kayıt', thresholds: COUNT_THRESHOLDS },
+  commenter: {
+    label: 'Takip Gönüllüsü',
+    unit: 'yorum',
+    symbol: 'comment',
+    thresholds: COMMENT_THRESHOLDS,
+  },
+  healer: {
+    label: 'Sağlık Gönüllüsü',
+    unit: 'kayıt',
+    symbol: 'health',
+    thresholds: COUNT_THRESHOLDS,
+  },
+  vaccinator: {
+    label: 'Aşı Gönüllüsü',
+    unit: 'aşı',
+    symbol: 'vaccine',
+    thresholds: COUNT_THRESHOLDS,
+  },
 };
 
 // Tek bir kullanıcı için, tüm kullanıcılar için hesaplama yapan sorgulardan
@@ -155,6 +194,18 @@ async function fetchCommentStats(userIds) {
   return map;
 }
 
+async function fetchVaccinationCounts(userIds) {
+  const result = await pool.query(
+    `SELECT recorded_by AS user_id, count(*)::int AS count
+     FROM vaccinations WHERE recorded_by = ANY($1)
+     GROUP BY recorded_by`,
+    [userIds]
+  );
+  const map = new Map();
+  for (const row of result.rows) map.set(row.user_id, row.count);
+  return map;
+}
+
 async function fetchHealthCounts(userIds) {
   const result = await pool.query(
     `SELECT user_id, count(*)::int AS count FROM (
@@ -169,31 +220,23 @@ async function fetchHealthCounts(userIds) {
   return map;
 }
 
-const BREED_LABELS = {
-  Tekir: 'Tekir Ahbabı',
-  Sarman: 'Sarman Sırdaşı',
-  Siyah: 'Kara Kedi Kankası',
-  Beyaz: 'Bembeyaz Ahbap',
-  'Van Kedisi': 'Van Kedisi Hayranı',
-  'Ankara Kedisi': 'Ankara Kedisi Hayranı',
-  'Halı (Calico)': 'Calico Meraklısı',
-  Kangal: 'Kangal Yoldaşı',
-  Akbaş: 'Akbaş Yoldaşı',
-  'Çoban Köpeği': 'Çoban Köpeği Yoldaşı',
-  'Terrier Tipi': 'Terrier Takipçisi',
-  'Av Köpeği Tipi': 'Av Köpeği Yoldaşı',
-  'Golden/Labrador Tipi': 'Golden Kankası',
-  'Sokak Melezi': 'Sokak Melezi Kankası',
-  Diğer: 'Nadir Cins Meraklısı',
-};
+// Desen rozetleri tek kalıpla üretiliyor: "<Desen> Dostu". Ayrı bir eşleme
+// tablosu yok — taksonomiye yeni desen eklenince rozeti kendiliğinden oluşuyor.
+// Tek istisna serbest metin: kullanıcının yazdığı "Diğer" değerleri rozet
+// üretmiyor, aksi hâlde her yazım hatası ayrı bir rozet açardı.
+function breedBadgeLabel(breed) {
+  return `${breed} Dostu`;
+}
 
-function badgeEntry(key, label, unit, value, tier, thresholds) {
+function badgeEntry(key, label, unit, value, tier, thresholds, symbol) {
   return {
     key,
     label,
     unit,
     value,
     tier,
+    // Mobil taraf bu ada göre SVG sembolü çiziyor; emoji göndermiyoruz.
+    symbol,
     points: tier ? TIER_POINTS[tier] : 0,
     nextThreshold: nextThresholdFor(tier, thresholds),
   };
@@ -207,11 +250,12 @@ function commentPoints(stats) {
   return stats.capped * 1 + stats.distinctAnimals * 3;
 }
 
-function buildBadgesFor(userId, streaks, breeds, comments, health) {
+function buildBadgesFor(userId, streaks, breeds, comments, health, vaccines) {
   const streakData = streaks.get(userId) || {};
   const breedData = breeds.get(userId) || {};
   const commentData = comments.get(userId);
   const healthCount = health.get(userId) || 0;
+  const vaccineCount = vaccines.get(userId) || 0;
 
   const badges = [];
 
@@ -224,20 +268,23 @@ function buildBadgesFor(userId, streaks, breeds, comments, health) {
         meta.unit,
         value,
         tierFor(value, STREAK_THRESHOLDS),
-        STREAK_THRESHOLDS
+        STREAK_THRESHOLDS,
+        meta.symbol
       )
     );
   }
 
   for (const [breed, count] of Object.entries(breedData)) {
+    if (!BADGEABLE_PATTERNS.has(breed)) continue;
     badges.push(
       badgeEntry(
         `breed:${breed}`,
-        BREED_LABELS[breed] || `${breed} Ahbabı`,
+        breedBadgeLabel(breed),
         'hayvan',
         count,
         tierFor(count, COUNT_THRESHOLDS),
-        COUNT_THRESHOLDS
+        COUNT_THRESHOLDS,
+        'paw'
       )
     );
   }
@@ -250,7 +297,8 @@ function buildBadgesFor(userId, streaks, breeds, comments, health) {
       COUNT_CATEGORIES.commenter.unit,
       totalComments,
       tierFor(totalComments, COMMENT_THRESHOLDS),
-      COMMENT_THRESHOLDS
+      COMMENT_THRESHOLDS,
+      COUNT_CATEGORIES.commenter.symbol
     )
   );
 
@@ -261,7 +309,20 @@ function buildBadgesFor(userId, streaks, breeds, comments, health) {
       COUNT_CATEGORIES.healer.unit,
       healthCount,
       tierFor(healthCount, COUNT_THRESHOLDS),
-      COUNT_THRESHOLDS
+      COUNT_THRESHOLDS,
+      COUNT_CATEGORIES.healer.symbol
+    )
+  );
+
+  badges.push(
+    badgeEntry(
+      'count:vaccinator',
+      COUNT_CATEGORIES.vaccinator.label,
+      COUNT_CATEGORIES.vaccinator.unit,
+      vaccineCount,
+      tierFor(vaccineCount, COUNT_THRESHOLDS),
+      COUNT_THRESHOLDS,
+      COUNT_CATEGORIES.vaccinator.symbol
     )
   );
 
@@ -282,16 +343,17 @@ function buildBadgesFor(userId, streaks, breeds, comments, health) {
 
 async function getBadgesForUsers(userIds) {
   if (userIds.length === 0) return new Map();
-  const [streaks, breeds, comments, health] = await Promise.all([
+  const [streaks, breeds, comments, health, vaccines] = await Promise.all([
     fetchStreakDays(userIds),
     fetchBreedCounts(userIds),
     fetchCommentStats(userIds),
     fetchHealthCounts(userIds),
+    fetchVaccinationCounts(userIds),
   ]);
 
   const result = new Map();
   for (const userId of userIds) {
-    result.set(userId, buildBadgesFor(userId, streaks, breeds, comments, health));
+    result.set(userId, buildBadgesFor(userId, streaks, breeds, comments, health, vaccines));
   }
   return result;
 }
@@ -311,5 +373,4 @@ module.exports = {
   STREAK_THRESHOLDS,
   COUNT_THRESHOLDS,
   COMMENT_THRESHOLDS,
-  BREED_LABELS,
 };

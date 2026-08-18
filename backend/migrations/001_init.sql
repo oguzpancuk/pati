@@ -32,10 +32,10 @@ CREATE TABLE IF NOT EXISTS animals (
     species VARCHAR(10) NOT NULL CHECK (species IN ('cat', 'dog')),
     name VARCHAR(120),
     color VARCHAR(120),
-    -- Serbest metin: mobil uygulama türe göre (kedi/köpek) sabit bir seçenek listesi
-    -- sunar (Tekir, Sarman, Kangal, Melez vb.), burada CHECK kısıtlaması yok ki yeni
-    -- bir tür eklemek migrasyon gerektirmesin.
-    breed VARCHAR(50),
+    -- Tür/desen. Uygulama türe göre sabit bir liste sunuyor (bkz.
+    -- src/utils/taxonomy.js) ama "Diğer" seçilirse kullanıcının yazdığı metin
+    -- buraya giriyor; bu yüzden CHECK yok ve alan renkle aynı genişlikte.
+    breed VARCHAR(120),
     markings TEXT,
     -- Hayvanın en son görüldüğü konum. Biri "bu hayvan zaten kayıtlı" diyerek
     -- görüldü bildirdiğinde bu alan güncellenir, yani sabit bir kayıt yeri değil
@@ -57,14 +57,18 @@ CREATE TABLE IF NOT EXISTS animal_photos (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Sağlık ve ilaçlandırma kayıtları.
--- Takip durumu ayrı bir kolonda tutulmuyor; "tedaviye başlanmadı / başlandı"
--- ayrımı kayda bağlı yorum olup olmamasından türetiliyor (bkz. animal_comments).
+-- Sağlık kayıtları: yalnızca HASTALIK ve YARALANMA.
+-- Aşı ayrı bir tabloda (vaccinations) tutuluyor: aşının "iyileşti" durumu yok,
+-- tekrar tarihi var ve kim yaptı sorusu farklı (belediye/veteriner). Aynı
+-- tabloda tutmak iki kaydı da yarım yamalak modellemek olurdu.
+-- Takip durumu ayrı bir kolonda değil; "tedaviye başlanmadı / başlandı" ayrımı
+-- kayda bağlı yorum olup olmamasından türetiliyor (bkz. animal_comments).
 -- Yalnızca "iyileşti" kalıcı bir işaret olduğu için burada saklanıyor.
 CREATE TABLE IF NOT EXISTS health_records (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
-    record_type VARCHAR(20) NOT NULL CHECK (record_type IN ('illness', 'injury', 'treatment', 'vaccination', 'medication')),
+    record_type VARCHAR(20) NOT NULL CHECK (record_type IN ('illness', 'injury')),
+    -- Listeden seçilen başlık ya da "Diğer" seçilmişse kullanıcının yazdığı metin.
     description TEXT NOT NULL,
     vet_verified BOOLEAN NOT NULL DEFAULT false,
     recorded_by INTEGER NOT NULL REFERENCES users(id),
@@ -73,20 +77,47 @@ CREATE TABLE IF NOT EXISTS health_records (
     recovered_by INTEGER REFERENCES users(id)
 );
 
+-- Aşı ve paraziter ilaçlama kayıtları.
+-- `vaccine_type` listeden gelen bir değer ya da "Diğer" seçilmişse serbest metin.
+-- `next_due_at` bilinmiyorsa NULL: sokak hayvanında bir sonraki dozu kimse
+-- garanti edemiyor, zorunlu tutmak sahte veri üretirdi.
+CREATE TABLE IF NOT EXISTS vaccinations (
+    id SERIAL PRIMARY KEY,
+    animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
+    vaccine_type VARCHAR(120) NOT NULL,
+    note TEXT,
+    -- Belediye/veteriner tarafından yapıldıysa işaretleniyor; rozet ve
+    -- güvenilirlik açısından kullanıcı beyanından ayrışması gerekiyor.
+    vet_verified BOOLEAN NOT NULL DEFAULT false,
+    administered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    next_due_at TIMESTAMPTZ,
+    recorded_by INTEGER NOT NULL REFERENCES users(id),
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vaccinations_animal ON vaccinations (animal_id, administered_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vaccinations_recorder ON vaccinations (recorded_by);
+
 -- Hayvan profilindeki sohbet. Bir yorum isteğe bağlı olarak bir sağlık kaydına
--- bağlanabilir (örn. "şu hastalık için ilacını verdim"); böylece sağlık kaydına
--- tıklandığında o hastalıkla ilgili tüm yorumlar listelenebiliyor.
+-- YA DA bir aşı kaydına bağlanabilir; böylece kayda tıklandığında yalnızca o
+-- kayda ait yorumlar listelenebiliyor.
+-- İkisi aynı anda dolu olamaz: bir yorum ya hastalığa ya aşıya ait.
 CREATE TABLE IF NOT EXISTS animal_comments (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     health_record_id INTEGER REFERENCES health_records(id) ON DELETE SET NULL,
+    vaccination_id INTEGER REFERENCES vaccinations(id) ON DELETE SET NULL,
     body TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT animal_comments_single_target CHECK (
+        health_record_id IS NULL OR vaccination_id IS NULL
+    )
 );
 
 CREATE INDEX IF NOT EXISTS idx_animal_comments_animal ON animal_comments (animal_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_animal_comments_health_record ON animal_comments (health_record_id);
+CREATE INDEX IF NOT EXISTS idx_animal_comments_vaccination ON animal_comments (vaccination_id);
 
 -- Kullanıcı ile hayvan arasındaki bakım (takip) ilişkisi
 CREATE TABLE IF NOT EXISTS user_animal_care (
