@@ -4,7 +4,14 @@ Türkiye'deki sokak hayvanlarının refahını iyileştirmek için tasarlanmış
 platformu. Hayvan severler, veterinerler ve aktivistlerin sokak köpekleri ve kedilerinin
 beslenme, sağlık ve refah durumunu koordine etmelerini sağlar.
 
-Ürün gereksinimleri için bkz. [docs/PRD.md](docs/PRD.md).
+## Dokümantasyon
+
+| Doküman | İçerik |
+| --- | --- |
+| [docs/PROJE.md](docs/PROJE.md) | **Projenin bütünü tek yerde** — ne yaptığı, nasıl çalıştığı, nerede olduğu, sırada ne olduğu |
+| [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md) | Kalan beş büyük iş, önerilen sıra, yaklaşımlar ve karar bekleyen konular |
+| [docs/NOTLAR.md](docs/NOTLAR.md) | Teknik kararların gerekçeleri, bilinen sınırlar, geliştirme ortamı tuzakları |
+| [docs/PRD.md](docs/PRD.md) | Orijinal ürün gereksinimleri |
 
 ## Proje Yapısı
 
@@ -23,7 +30,7 @@ stray/
 - **Harita:** Leaflet + OpenStreetMap (web) / react-native-maps (mobil)
 - **Kimlik doğrulama:** JWT + bcrypt
 
-## MVP Kapsamı
+## MVP Kapsamı — tamamlandı ✅
 
 - Kullanıcı kaydı ve giriş sistemi
 - Türkiye'ye odaklı harita: haritaya dokunup pin bırakarak "Mama Bıraktım" /
@@ -56,6 +63,56 @@ stray/
   etme, başka kullanıcıların profilini görüntüleme)
 - Rozetler ve puanlar: seri, cins ve sayaç bazlı rozetler; toplanan puanlara göre
   tüm kullanıcıların sıralandığı bir liderlik tablosu (profilden erişilir)
+
+## Yapılacaklar
+
+Ayrıntılı planlar, önerilen yaklaşımlar ve karar bekleyen konular için bkz.
+[docs/YOL_HARITASI.md](docs/YOL_HARITASI.md).
+
+- [ ] **1. Yapay zekâ ile hayvan eşleştirme** — "Hayvan Ekle" doğrudan formu
+  açar; alanlar ve fotoğraf girildikten sonra yapay zekâ çevredeki kayıtlı
+  hayvanlar arasından en benzeyen 5 tanesini benzerlik oranıyla gösterir. Biri
+  seçilirse kullanıcı o hayvanın bakım verenlerine eklenir, seçilmezse yeni
+  kayıt açılır. *(Hazır görüntü gömme modeli + pgvector; model eğitilmeyecek)*
+- [ ] **2. Bağış sistemi** — Admin panelinden girilen kurumlara uygulama
+  üzerinden bağış; bağışların %5'i platforma kalır. Doğrudan uygulamaya bağış
+  seçeneği en üstte çıkar. Toplam bağış miktarı rozet kazandırır.
+  *(Ödeme sağlayıcı seçimi, pazaryeri/split-payment modeli ve hukuki kontrol
+  gerekiyor)*
+- [ ] **3. Reklam** — Mama pop-up'ında mama, su pop-up'ında su, sağlık kaydı
+  eklerken veteriner kliniği reklamı. Markalar admin panelinden girilir, her
+  tıkta sıra bir sonrakine geçer. *(Kendi reklam sunucumuz + gösterim/tık ölçümü)*
+- [ ] **4. UI** — Uygulamanın genel görsel giydirmesi. *(Önce küçük bir tasarım
+  sistemi/token seti, tam giydirme en sona)*
+- [ ] **5. Admin sayfası (web)** — Tüm uygulamanın kontrol edileceği, verinin
+  takip ve manipüle edileceği web tabanlı panel. *(React + Vite, mevcut API
+  üzerine; `users.role` + `requireAdmin` + denetim kaydı altyapısı)*
+
+**Önerilen sıra:** Admin paneli (5) → Reklam (3) → Bağış (2), çünkü hem reklam
+firmaları hem bağış kurumları admin panelinden giriliyor. Tasarım sistemi erken,
+tam UI giydirmesi en sona. YZ eşleştirme (1) paralel yürüyebilir; en büyük
+teknik belirsizlik orada olduğu için önce kısa bir deneme yapılması öneriliyor.
+
+Üretime çıkmadan kapatılması gereken teknik borç listesi
+[docs/NOTLAR.md](docs/NOTLAR.md#3-bilinen-sınırlar-ve-teknik-borç) içinde.
+
+## Bilinen Sınırlar (özet)
+
+Bilerek kabul edilmiş, üretim öncesi kapatılması gereken maddeler — tam liste ve
+gerekçeler [docs/NOTLAR.md](docs/NOTLAR.md) içinde:
+
+1. **Liderlik tablosu her istekte sıfırdan hesaplanıyor.** 100 demo kullanıcıda
+   sorunsuz (tek sorgu seti, kullanıcı başına sorgu yok), ama kullanıcı sayısı
+   binlere çıkarsa her açılışta tüm rozet ve yorum tablosunu taramak
+   sürdürülemez. Puanların periyodik bir işle bir tabloya yazılması gerekecek.
+   Şimdilik erken optimizasyon olacağı için yapılmadı.
+2. **Fotoğraflar sunucunun yerel diskinde** — yedeksiz, çok sunuculu kuruluma
+   uygun değil, görseller yeniden boyutlandırılmıyor. Üretim için S3/R2 + CDN şart.
+3. **Tek migrasyon dosyası** — şema değişince veritabanı sıfırlanıyor.
+4. **Fotoğraf kanıtı doğrulanmıyor, rate limit yok** — moderasyon gerekiyor.
+5. **Otomatik test kapsamı çok düşük**, CI yok.
+6. **Bildirimler yalnızca uygulama çalışırken geliyor** — gerçek arka plan
+   bildirimi için sunucu tarafı push (APNs/FCM) veya geofencing gerekiyor.
 
 ## Başlarken — Baştan Sona Kurulum
 

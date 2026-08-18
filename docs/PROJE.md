@@ -1,0 +1,334 @@
+# Stray — Proje Dokümanı
+
+**Son güncelleme:** 18 Ağustos 2026
+**Depo:** https://github.com/oguzpancuk/Stray
+
+Bu doküman projenin bütününü tek yerde anlatır: ne yaptığı, nasıl çalıştığı,
+şu an nerede olduğu ve sırada ne olduğu. Ayrıntılar için:
+
+| Doküman | İçerik |
+| --- | --- |
+| [PRD.md](PRD.md) | Orijinal ürün gereksinimleri |
+| [YOL_HARITASI.md](YOL_HARITASI.md) | Kalan beş büyük iş, önerilen sıra ve yaklaşımlar |
+| [NOTLAR.md](NOTLAR.md) | Teknik kararların gerekçeleri, bilinen sınırlar, ortam tuzakları |
+| [../README.md](../README.md) | Kurulum ve çalıştırma adımları |
+
+---
+
+## 1. Proje nedir?
+
+Stray, Türkiye'deki sokak hayvanlarının bakımını **koordine eden** bir mobil
+uygulama. Temel fikir şu: bir mahallede sokak hayvanlarıyla ilgilenen çok
+sayıda insan var, ama birbirlerinden habersizler. Aynı köşeye üç kişi mama
+bırakırken iki sokak ötede hiç kimse bırakmıyor olabilir. Uygulama bu görünmez
+koordinasyon boşluğunu kapatıyor.
+
+Çözüm üç ayağa dayanıyor:
+
+**Harita gerçeği gösteriyor.** Kullanıcı mama veya su bıraktığında haritada o
+noktayı işaretliyor — fotoğraf çekmek zorunlu ve o an fiziksel olarak orada
+olması gerekiyor (20 metre toleransla konum doğrulaması). Bırakılan bakımın
+etrafındaki 100 metrelik alan yeşile dönüyor ve zamanla soluyor: mama 4 saatte,
+su 6 saatte. Yani harita "buralara bakılıyor mu?" sorusunun canlı cevabı.
+Kırmızı kalan bölgeler ihmal edilen bölgeler.
+
+**Hayvanların kimliği var.** Kullanıcılar tek tek hayvanların profilini
+oluşturuyor: fotoğraflar, tür, cins, konum. Her hayvanın profilinde o hayvanla
+ilgilenenlerin yazdığı bir sohbet ve bir sağlık geçmişi var — hangi hastalık,
+hangi tedavi, iyileşti mi. Böylece "bu kediye kim baktı, ilacını verdi mi"
+bilgisi tek bir kişinin aklında kalmıyor.
+
+**Oyunlaştırma sürdürülebilirliği sağlıyor.** Rozetler, puanlar ve liderlik
+tablosu, düzenli bakımı ödüllendiriyor. Arkadaşlık sistemiyle insanlar
+birbirlerinin katkısını görüyor.
+
+### Kimler için
+Hayvanseverler, mahalle sakinleri, veterinerler, hayvan hakları aktivistleri ve
+belediye görevlileri.
+
+---
+
+## 2. Bugün ne çalışıyor?
+
+MVP tamamlandı ve uçtan uca test edildi. Aşağıdakilerin hepsi çalışır durumda:
+
+### Harita ve bakım işaretleme
+- Türkiye'ye odaklı harita; uygulama açılınca kullanıcının konumuna yakınlaşıyor
+- Haritaya dokunarak pin bırakılıyor, "Mama Bıraktım" / "Su Bıraktım" seçiliyor
+- **Fotoğraf zorunlu** — kamera açılıyor, fotoğraf çekilmeden işlem tamamlanmıyor
+- **Konum doğrulaması** — pin ile kullanıcının anlık konumu arasındaki mesafe
+  20 metreyi geçerse işlem reddediliyor ve kullanıcıya kaç metre uzakta olduğu
+  söyleniyor
+- Mama ve su haritaları ayrı ayrı görüntüleniyor; birinde diğerinin seçeneği
+  çıkmıyor
+- İşaretlenen noktanın 100 metre çevresi yeşile boyanıyor; mama 4, su 6 saatte
+  kademeli olarak soluyor. Aynı noktaya ne kadar çok kişi bıraktıysa renk o
+  kadar belirgin
+- Kullanıcının 500 metre çevresinde bakım yoksa haritanın üstünde uyarı bandı
+  çıkıyor
+
+### Hayvan profilleri
+- Manuel kayıt: en az 2 fotoğraf zorunlu, kedi/köpek için çoktan seçmeli
+  cins/desen listesi
+- Yeni hayvan eklerken yakındaki kayıtlı hayvanlar önce gösteriliyor;
+  "bu zaten kayıtlı" denirse hayvanın güncel konumu oraya taşınıyor
+  (mükerrer kaydı azaltmak için)
+- Hayvanlar sokak ölçeğinde yakınlaştırıldığında haritada profil fotoğraflarıyla
+  yuvarlak olarak görünüyor; dokununca profile gidiliyor
+- Hayvanlar sekmesinde mesafeye göre sıralı liste, tür (kedi/köpek) filtresi
+- Profilde mini harita, fotoğraf galerisi ve son görülme bilgisi
+
+### Sohbet ve sağlık takibi
+- Her hayvan profilinde sohbet; bakım verenler ve o hayvanı kaydetmeye
+  çalışanlar yorum yapabiliyor (yorum yapan otomatik olarak bakım listesine
+  ekleniyor)
+- Sağlık kaydı: hastalık ve tedavi girilebiliyor
+- Sohbetteki bir yorum ilgili sağlık kaydına bağlanabiliyor ("şu hastalık için
+  ilacını verdim"); sağlık kaydına dokununca o kayda ait tüm yorumlar listeleniyor
+- **Üç durumlu takip:** Tedaviye başlanmadı (hiç yorum yok) → Tedavi sürüyor
+  (en az bir yorum var) → İyileşti (bakım veren "İyileşti" ile işaretledi).
+  İyileşmiş bir kayda yeni yorum eklenemiyor
+
+### Rozetler, puanlar, liderlik tablosu
+Üç rozet grubu, hepsi bronz / gümüş / altın / elmas kademelerinde:
+
+| Grup | Nasıl kazanılır | Eşikler |
+| --- | --- | --- |
+| Seri | Mama, su, hayvan kaydetme için ayrı ayrı; en uzun ardışık gün serisi | 1 / 7 / 30 / 365 gün |
+| Cins | Her kedi/köpek cinsi için ayrı (ör. "Altın Tekir Avcısı") | 1 / 5 / 20 / 100 kayıt |
+| Sayaç | Yorumcu ve Sağlık Takipçisi | Yorum 1/10/50/200 · Sağlık 1/5/20/100 |
+
+- Puanlar: bronz 10, gümüş 25, altın 60, elmas 150
+- Yorumlar ek puan getiriyor ama **ağırlıklı**: hayvan başına en fazla 5 yorum
+  sayılıyor (yorum başına 1 puan) ve yorum yapılan farklı hayvan başına 3 puan
+  veriliyor. Böylece tek hayvana yığılan yorumlarla puan çiftlemek işe yaramıyor
+- Bir kere kazanılan rozet düşmüyor
+- Kullanıcı en fazla 3 rozeti profilinde öne çıkarabiliyor
+- Liderlik tablosu tüm kullanıcıları puana göre sıralıyor; eşit puanlılar aynı
+  sırayı paylaşıyor (1, 2, 2, 4). Kullanıcı kendi sırasını profilinde ve
+  listenin üstünde görüyor
+
+### Sosyal
+- Profil fotoğrafı, kullanıcı arama, arkadaşlık isteği gönderme/kabul etme
+- Başka kullanıcıların profili: rozetleri, puanı, sırası, kaydettiği hayvanlar
+
+### Bildirimler
+- Uygulama açıkken 30 dakikada bir (ve öne her geldiğinde) kullanıcının 500
+  metre çevresinde mama/su kalıp kalmadığı kontrol ediliyor; kalmadıysa cihaz
+  üzerinde bildirim gösteriliyor
+- Aynı uyarı 6 saatte birden sık gönderilmiyor
+- Konum sunucuya sürekli gönderilmiyor — kontrol cihazda yapılıyor
+
+### Demo verisi
+`npm run seed` ile 100 kullanıcı, 200 hayvan, Kadıköy çevresine dağılmış
+mama/su kayıtları ve hayvan profillerinde sohbet oluşturuluyor. 20 kullanıcı
+30 gün, 30 kullanıcı 7 gün üst üste bakım vermiş oluyor — böylece tüm rozet
+kademeleri veride görünüyor.
+
+---
+
+## 3. Nasıl çalışıyor? (Teknik)
+
+### Yapı
+```
+stray/
+├── backend/    Node.js + Express API (PostgreSQL + PostGIS, JWT)
+├── mobile/     React Native uygulaması (iOS + Android)
+└── docs/       Dokümantasyon
+```
+
+### Teknoloji
+| Katman | Seçim |
+| --- | --- |
+| Mobil | React Native 0.74.5, React 18.2, TypeScript |
+| Harita | react-native-maps 1.14.0 (iOS'ta Apple Maps, Android'de Google Maps) |
+| Navigasyon | React Navigation 6 (native-stack + bottom-tabs) |
+| Bildirim | @notifee/react-native |
+| Backend | Node.js 18+, Express 4 |
+| Veritabanı | PostgreSQL 16 + PostGIS 3.4 |
+| Kimlik | JWT (7 gün) + bcrypt |
+| Dosya yükleme | multer → yerel disk (`backend/uploads/`) |
+
+### Veri modeli
+```
+users              kullanıcı, avatar_url, featured_badges (JSONB)
+animals            tür, cins, konum (GEOGRAPHY POINT), location_updated_at
+animal_photos      hayvan fotoğrafları
+animal_comments    hayvan profili sohbeti; health_record_id ile sağlık
+                   kaydına bağlanabiliyor
+health_records     hastalık/tedavi; recovered_at + recovered_by ile iyileşme
+user_animal_care   kim hangi hayvana bakıyor (çoka çok)
+care_actions       konum, tür (food/water), photo_url, zaman
+friendships        requester/addressee, pending|accepted
+```
+Coğrafi kolonlar `GEOGRAPHY(POINT, 4326)` tipinde ve GIST index'li. Yakınlık
+sorguları `ST_DWithin`, harita penceresi `ST_MakeEnvelope`, istemciye dönüş
+`ST_AsGeoJSON` ile yapılıyor.
+
+### API
+```
+POST   /api/auth/register | /login
+
+GET    /api/care-actions              (bbox + tür filtresi)
+GET    /api/care-actions/status       (bir konumda bakım eksik mi)
+POST   /api/care-actions              (multipart: fotoğraf + konum doğrulama)
+
+GET    /api/animals                   (yakınlık + tür filtresi)
+GET    /api/animals/:id
+POST   /api/animals
+POST   /api/animals/:id/sightings     (görüldü: konum güncelle + bakıcı ekle)
+POST   /api/animals/:id/photos
+POST   /api/animals/:id/comments      GET .../comments
+POST   /api/animals/:id/health-records
+POST   /api/animals/:id/health-records/:recordId/recover
+POST   /api/animals/:id/follow
+
+GET    /api/users/me | /me/animals | /search | /:id
+POST   /api/users/me/avatar
+PUT    /api/users/me/featured-badges
+
+GET    /api/friendships/me
+POST   /api/friendships | /:id/accept    DELETE /api/friendships/:id
+
+GET    /api/leaderboard
+```
+
+### Dikkate değer birkaç uygulama detayı
+- **Solma ve uyarı penceresi aynı.** Haritadaki yeşilin solma süresi ile "bakım
+  eksik" uyarısının penceresi bilerek eşitlendi; farklı olsalardı harita
+  yeşilken uyarı çıkabiliyordu. Pencere satır bazında (`CASE action_type`)
+  hesaplandığı için mama ve su aynı sorguda listelense bile her biri kendi
+  hızında soluyor.
+- **Hastalık durumu saklanmıyor, türetiliyor.** Yorum var mı ve `recovered_at`
+  dolu mu sorularından SQL içinde çıkarılıyor; böylece gerçekle desenkron
+  olamıyor.
+- **Öne çıkan rozetler yalnızca anahtarı saklıyor**, kademeyi değil — kullanıcı
+  altına yükselince profildeki rozet kendiliğinden güncelleniyor.
+- **Seri hesabı** klasik "gaps and islands" SQL deseniyle, uygulama tarafında
+  döngü kurmadan yapılıyor.
+- **Liderlik tablosu set-based** hesaplanıyor: kullanıcı başına sorgu atmak
+  yerine tüm kullanıcılar tek sorgu setiyle hesaplanıyor.
+
+Bu kararların ayrıntılı gerekçeleri [NOTLAR.md](NOTLAR.md) içinde.
+
+---
+
+## 4. Bilinen sınırlar
+
+Bunlar bilinerek kabul edilmiş, üretime çıkmadan kapatılması gereken maddeler.
+Tam liste ve gerekçeler
+[NOTLAR.md → Bilinen Sınırlar](NOTLAR.md#3-bilinen-sınırlar-ve-teknik-borç)
+içinde; en önemlileri:
+
+1. **Liderlik tablosu her istekte sıfırdan hesaplanıyor.** 100 kullanıcıda
+   sorunsuz, binlerce kullanıcıda sürdürülemez — puanların periyodik olarak bir
+   tabloya yazılması gerekecek. Ölçek büyüdüğünde ilk bakılacak yer burası.
+2. **Fotoğraflar sunucunun yerel diskinde.** Yedeksiz, çok sunuculu kuruluma
+   uygun değil, görseller yeniden boyutlandırılmıyor. Üretim için nesne
+   depolama (S3/R2) + CDN şart.
+3. **Tek migrasyon dosyası** — şema değişince veritabanı sıfırlanıyor. Gerçek
+   veri girmeden önce artımlı migrasyona geçilmeli.
+4. **Fotoğraf kanıtı doğrulanmıyor, rate limit yok.** Moderasyon ve kötüye
+   kullanım koruması gerekiyor.
+5. **Otomatik test kapsamı çok düşük**, CI yok.
+6. **Bildirimler yalnızca uygulama çalışırken.** Gerçek arka plan bildirimi
+   için sunucu tarafı push (APNs/FCM) veya geofencing gerekiyor.
+
+---
+
+## 5. Sırada ne var?
+
+Beş büyük iş kaldı. Ayrıntılı planlar, önerilen yaklaşımlar ve karar verilmesi
+gerekenler [YOL_HARITASI.md](YOL_HARITASI.md) içinde.
+
+### 1. Yapay zekâ ile hayvan eşleştirme
+"Hayvan Ekle" doğrudan formu açacak; alanlar ve fotoğraf girildikten sonra
+yapay zekâ çevredeki kayıtlı hayvanlar arasından en benzeyen 5 tanesini
+benzerlik oranıyla gösterecek. Biri seçilirse kullanıcı o hayvanın bakım
+verenlerine ekleniyor, seçilmezse yeni kayıt açılıyor.
+
+*Yaklaşım:* Model eğitilmeyecek. Hazır bir görüntü gömme modeli (DINOv2/CLIP)
+ile vektör çıkarılıp, PostGIS ile ~1km'ye daraltılmış aday kümesi içinde kosinüs
+benzerliği hesaplanacak; vektörler `pgvector` ile veritabanında tutulacak.
+**Önemli:** kosinüs benzerliği bir olasılık değil — "%87 aynı" demek yanıltıcı
+olur. İlk sürümde kademeli etiket ("çok benzer / benzer"), veri biriktikçe
+kalibre edilmiş gerçek bir oran gösterilmesi öneriliyor. Son karar her zaman
+kullanıcıda kalmalı.
+
+### 2. Bağış sistemi
+Admin panelinden girilen kurumlara uygulama üzerinden bağış yapılabilecek;
+bağışların %5'i platforma kalacak. Doğrudan uygulamaya bağış seçeneği en üstte
+çıkacak. Toplam bağış miktarı rozet kazandıracak.
+
+*Yaklaşım:* Türkiye'de kart işlemleri için iyzico/PayTR gibi sağlayıcıların
+**pazaryeri (alt üye işyeri) modeli** kullanılmalı — böylece para doğrudan
+kuruma gider, siz yalnızca komisyon alırsınız. Parayı önce kendi hesabınıza
+toplayıp sonra aktarmak sizi "bağış toplayan taraf" yapar ve Türkiye'de bağış
+toplamak izne tabidir (2860 sayılı kanun). Ayrıca Apple, hayır kurumu
+bağışlarının uygulama içi satın alma ile **değil** harici ödeme yöntemiyle
+alınmasını istiyor. %5'lik kesinti bağış ekranında açıkça yazılmalı ve
+yayınlamadan önce mali müşavir/avukat teyidi alınmalı.
+
+### 3. Reklam
+Mama pop-up'ında mama markası, su pop-up'ında su markası, sağlık kaydı
+eklerken veteriner kliniği reklamı. Markalar admin panelinden giriliyor, her
+tıkta sıra bir sonrakine geçiyor.
+
+*Yaklaşım:* Hazır reklam ağı değil, kendi basit reklam sunucumuz — üç yerleşim
+(`food_popup`, `water_popup`, `vet_health_record`), yerleşim başına rotasyon
+imleci. Markalara satış yapabilmek için gösterim ve tıklama ayrı ayrı
+kaydedilmeli.
+
+### 4. UI
+*Yaklaşım: ikiye bölünsün.* Renk/tipografi/boşluk token'larından oluşan küçük
+bir tasarım sistemi **hemen** çıkarılsın ki yeni gelen ekranlar onun üzerine
+kurulsun; **tam giydirme en sona** kalsın, çünkü bağış, reklam ve YZ eşleştirme
+yeni ekranlar ekleyecek ve erken yapılan giydirme tekrar edilmek zorunda kalır.
+
+### 5. Admin sayfası (web)
+Tüm uygulamanın kontrol edileceği web tabanlı panel.
+
+*Yaklaşım:* Aynı repo içinde `admin/` klasörü, React + Vite + TypeScript,
+mevcut API üzerine. Önce altyapı: `users.role`, `requireAdmin` middleware,
+`/api/admin/*` ve **denetim kaydı** (`audit_log`). Panelde gösterge paneli,
+kullanıcı/hayvan/bakım kaydı yönetimi, mükerrer hayvan birleştirme, fotoğraf
+moderasyonu, reklamveren ve bağış kurumu yönetimi.
+
+### Önerilen sıra
+```
+1. Admin paneli  ──┬──> 2. Reklam
+   + rol altyapısı └──> 3. Bağış
+4. Tasarım sistemi (erken, küçük)
+5. YZ eşleştirme (paralel yürüyebilir)
+6. UI giydirme (en son)
+```
+**Admin önce**, çünkü hem reklam firmaları hem bağış kurumları oradan giriliyor
+— diğer ikisinin veri girişi ona bağlı. **Reklam ikinci**, çünkü teknik olarak
+en basiti ve dış bağımlılığı yok. **Bağış sonra**, çünkü ödeme sağlayıcı,
+hukuki kontrol ve mağaza kuralları kod yazmadan önce netleşmeli. **YZ
+eşleştirme** en büyük teknik belirsizlik olduğu için önce kısa bir deneme
+(spike) yapılması, isabetin yeterli olup olmadığının erken görülmesi mantıklı.
+
+---
+
+## 6. Kurulum özeti
+
+Ayrıntılı adımlar [README.md](../README.md) içinde. Kısaca:
+
+```bash
+# Veritabanı
+docker run -d --name stray-db -p 5433:5432 \
+  -e POSTGRES_USER=stray -e POSTGRES_PASSWORD=stray -e POSTGRES_DB=stray \
+  imresamu/postgis:16-3.4
+
+# Backend
+cd backend && cp .env.example .env && npm install && npm run migrate && npm run dev
+npm run seed        # opsiyonel: 100 kullanıcı + 200 hayvanlık demo verisi
+
+# Mobil
+cd mobile && npm install
+cd ios && bundle exec pod install && cd ..   # native bağımlılık eklendiyse şart
+npm run ios         # veya npm run android
+```
+
+Demo hesapları: `test1@stray.test` … `test100@stray.test`, şifre `password123`.
