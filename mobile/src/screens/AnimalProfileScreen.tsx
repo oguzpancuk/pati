@@ -78,8 +78,10 @@ function formatDate(iso: string) {
   });
 }
 
-// Sohbetin son N yorumu profille geliyor; "önceki yorumları yükle" dedikçe
-// aynı boyutta sayfalar ekleniyor.
+// Sohbet profilde bir özet: açılışta yalnızca son 3 yorum (profil uzamasın,
+// sağlık/aşı bölümleri gömülmesin); "önceki yorumları yükle" dedikçe 20'lik
+// sayfalar üste ekleniyor.
+const COMMENT_PREVIEW = 3;
 const COMMENT_PAGE = 20;
 
 export default function AnimalProfileScreen({ route }: any) {
@@ -115,7 +117,7 @@ export default function AnimalProfileScreen({ route }: any) {
     try {
       const [detail, commentPage] = await Promise.all([
         fetchAnimal(animalId),
-        fetchAnimalComments(animalId, { limit: COMMENT_PAGE }),
+        fetchAnimalComments(animalId, { limit: COMMENT_PREVIEW }),
       ]);
       setAnimal(detail);
       setComments(commentPage.comments);

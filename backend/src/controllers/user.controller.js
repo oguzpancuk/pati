@@ -183,10 +183,11 @@ const CARED_ANIMALS_SQL = `
   ORDER BY uac.created_at DESC
   LIMIT $2::int OFFSET $3::int`;
 
-// Profil ekranı önizleme gösteriyor (ilk birkaç hayvan + toplam); tam liste
-// aynı sorgunun sayfalı hâliyle "daha fazla göster" dedikçe geliyor. Böylece
-// 40 hayvana bakan bir gönüllünün profili kilometrelerce uzamıyor.
-const PROFILE_ANIMAL_PREVIEW = 5;
+// Profil ekranı önizleme gösteriyor (ilk 3 hayvan + toplam; yorumlarla aynı
+// sayı, profil bir özet); tam liste aynı sorgunun sayfalı hâliyle "daha fazla
+// göster" dedikçe geliyor. Böylece 40 hayvana bakan bir gönüllünün profili
+// kilometrelerce uzamıyor.
+const PROFILE_ANIMAL_PREVIEW = 3;
 const MAX_ANIMAL_PAGE = 50;
 
 async function fetchCaredAnimals(userId, limit = PROFILE_ANIMAL_PREVIEW, offset = 0) {

@@ -40,8 +40,9 @@ import {
 import { Icon } from '../components/brand';
 import { makeStyles, radius, spacing, useTheme, useThemeMode, type ThemeMode } from '../theme';
 
-// Profil bir özet ekranı: her bölümden birkaç satır, gerisi "daha fazla göster".
-const PROFILE_PREVIEW = 5;
+// Profil bir özet ekranı: her bölümden 3 satır (yorumlarla aynı), gerisi
+// "daha fazla göster" ile 20'lik sayfalar.
+const PROFILE_PREVIEW = 3;
 const PROFILE_PAGE = 20;
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [

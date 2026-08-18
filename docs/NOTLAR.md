@@ -203,7 +203,9 @@ uygulamada tek bir tanımı olsun diye. Genişletmek gerekirse tek sabit.
 ### Sayfalama: profil önizleme + "daha fazla göster", listeler kaydırdıkça
 Profil ekranları ScrollView; orada sonsuz kaydırma yerine açık bir düğme
 (`ui/LoadMoreButton`, "Daha fazla göster (12)") var — kullanıcı nerede
-bittiğini ve kaç tane daha olduğunu görsün. Tam liste ekranları (Yakındakiler,
+bittiğini ve kaç tane daha olduğunu görsün. Özet sayısı her bölümde **3**
+(hayvanlar, arkadaşlar, yorumlar, hayvan sohbeti); "daha fazla" 20'lik sayfa
+getirir. Yalnızca "Yakındakiler" tam liste: 20'şer, kaydırdıkça. Tam liste ekranları (Yakındakiler,
 Yorumlar) FlatList `onEndReached` ile yüklüyor. Sunucu tarafı `limit/offset`;
 `limit` verilmezse eski geniş varsayılan korunuyor ki harita tek istekte
 çevreyi çeksin. Yorum sohbeti en yeniden geriye sayfalanır ve sayfa kronolojik
