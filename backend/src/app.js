@@ -23,7 +23,21 @@ const app = express();
 // site produced http:// photo links that browsers blocked.
 app.set('trust proxy', 1);
 
-app.use(cors());
+// CORS: in production only our own origins may make browser calls. Requests
+// WITHOUT an Origin header (the native app, curl, server-to-server) always
+// pass — CORS only governs browsers. With CORS_ORIGINS unset (development,
+// LAN testing via http://<ip>:5175) everything is allowed, as before.
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+app.use(
+  cors(
+    corsOrigins.length
+      ? { origin: (origin, cb) => cb(null, !origin || corsOrigins.includes(origin)) }
+      : {}
+  )
+);
 app.use(express.json());
 app.use('/uploads', express.static(UPLOADS_DIR));
 

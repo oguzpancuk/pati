@@ -381,15 +381,51 @@ These are not features; they are "become shippable" work. Rationale lives in
       target), "şikayet et" on animals and comments in web+mobile, admin
       "Şikayetler" screen with resolve/dismiss + audit log (Aug 19)
 - [x] User suspension + JWT rejection on every request
-- [ ] Restrict CORS
+- [x] Restrict CORS — `CORS_ORIGINS` allowlist (env, set in fly.toml to the
+      three pati hosts); requests without an Origin header (the native app)
+      always pass, unset env keeps dev fully open (Aug 19)
+
+**Pilot go/no-go — the single list (Aug 19):**
+
+Developer side, done and verified in this repo:
+- [x] Deploy pipeline, CI gate, DB backups, admin panel + roles
+- [x] Auth per-IP brake + per-user write ceilings on every content endpoint
+- [x] Moderation: user reports, admin queue, suspension
+- [x] KVKK notice + terms at /gizlilik, named data controller, in-app
+      account deletion
+- [x] CORS allowlist (fly.toml ships the env)
+- [x] Guide (tutorial) data live with hourly refresh
+
+Ops/owner side, still open — the actual go/no-go gates:
+- [ ] `git pull` + `deploy` (ships everything above), then smoke-test
+      /gizlilik, a report, and an account deletion against production
+- [ ] iletisim@pati-app.com mailbox or forward (KVKK requests must land)
+- [ ] Check Fly volume snapshots are enabled (photo files' only backup
+      until object storage)
+- [ ] TestFlight/internal-testing build from current main (fonts changed:
+      needs `npx react-native-asset` + a native build)
+- [ ] Store metadata when going past TestFlight: screenshots, privacy
+      declaration, and the StrayMobile→PatiMobile internal rename (needs
+      Xcode on the Mac — exact steps below under "Rename internals")
+
+Deliberately deferred, with reasons:
+- Object storage for photos: Fly volume snapshots cover the pilot's data
+  risk; move before user count grows (the migration is cheap while the
+  uploads folder is small)
+- Incremental migrations: revisit when schema churn slows
+- pgvector/AI matching: measured, blocked on accuracy testing (spikes/)
 
 **Legal / stores:**
 - [x] KVKK: privacy notice + short terms live at `/gizlilik` (source:
       `web/src/legal.ts`), linked from register screens, profile pages and
       the landing page (Aug 19). Veri sorumlusu filled in (Oğuz Pançuk).
       Remaining: create/forward the iletisim@pati-app.com mailbox (Ops —
-      KVKK requests must actually arrive somewhere); a self-service
-      data-deletion flow is still manual (e-mail request)
+      KVKK requests must actually arrive somewhere)
+- [x] In-app account deletion (App Store 5.1.1(v) + the KVKK promise):
+      DELETE /users/me re-authenticates with the password, anonymizes the
+      row in place (community content survives as "Silinmiş Üye"), deletes
+      friendships/follows/badge history/avatar file; "hesabı sil" in both
+      web and mobile profiles (Aug 19)
 - [ ] Store prep: icon, screenshots, privacy declaration
 - [ ] **Rename internals to pati (REQUIRED before stores):** iOS
       project/target `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace,

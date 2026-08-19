@@ -2,10 +2,10 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 
-// Web istemcisi mobil taraftaki sözlüğü ve avatar tanımlarını DOĞRUDAN import
-// ediyor (kopya değil): taxonomy.ts ve avatars.ts saf TypeScript, react-native
-// bağımlılıkları yok. SVG üreticileri de repo kökündeki shared/ altından
-// geliyor ve admin ile ortak. Bu yüzden fs.allow repo köküne açık.
+// The web client imports the mobile side's vocabulary and avatar definitions
+// DIRECTLY (no copies): taxonomy.ts, avatars.ts etc. are pure TypeScript with
+// no react-native dependencies. The SVG generators come from shared/ at the
+// repo root and are shared with admin. Hence fs.allow opens to the repo root.
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -14,14 +14,24 @@ export default defineConfig({
       '@mobile': fileURLToPath(new URL('../mobile/src', import.meta.url)),
     },
   },
+  // esbuild normally looks up the nearest tsconfig for every file it
+  // transforms; for @mobile/* files that finds mobile/tsconfig.json, whose
+  // "extends" only resolves when mobile's node_modules are installed. CI's
+  // web job (and any fresh clone) doesn't install them, so the build died
+  // there while passing locally. A fixed inline tsconfig removes the lookup:
+  // these are the only two options esbuild actually needs from it.
+  esbuild: {
+    tsconfigRaw: '{"compilerOptions":{"jsx":"react-jsx","useDefineForClassFields":true}}',
+  },
   server: {
     port: 5175,
-    // Telefondan bakmak için: host=true dış arayüzlerde de dinler (aynı Wi‑Fi,
-    // http://<mac-ip>:5175). iOS Safari http üzerinden konum izni vermediği ve
-    // service worker çalışmadığı için gerçek PWA denemesi HTTPS ister — hesap
-    // gerektirmeyen yol Cloudflare quick tunnel:
+    // For checking from a phone: host=true also listens on external
+    // interfaces (same Wi‑Fi, http://<mac-ip>:5175). iOS Safari grants no
+    // location permission over http and runs no service worker, so a real
+    // PWA try needs HTTPS — the no-account path is a Cloudflare quick tunnel:
     //   TUNNEL=1 npm run dev  &&  cloudflared tunnel --url http://localhost:5175
-    // TUNNEL=1 iken HMR istemcisi 443/wss'e bağlanır (tünel 5175'i dışarı açmıyor).
+    // With TUNNEL=1 the HMR client connects to 443/wss (the tunnel doesn't
+    // expose 5175).
     host: true,
     allowedHosts: ['.trycloudflare.com'],
     hmr: process.env.TUNNEL ? { clientPort: 443, protocol: 'wss' } : undefined,

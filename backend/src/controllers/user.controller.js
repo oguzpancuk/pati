@@ -1,5 +1,10 @@
 const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const pool = require('../config/db');
+const { UPLOADS_DIR } = require('../config/upload');
+const { writeAuditLog } = require('../utils/auditLog');
 const { getUserBadges } = require('../utils/badges');
 const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../utils/badgeAwards');
 const { getUserRank } = require('./leaderboard.controller');
@@ -399,6 +404,89 @@ async function getPublicProfile(req, res, next) {
   }
 }
 
+/**
+ * Self-service account deletion (KVKK promise on /gizlilik + App Store
+ * guideline 5.1.1(v), which requires in-app account deletion).
+ *
+ * The user row is anonymized in place, not deleted: animals, care actions,
+ * comments and health records reference it with NOT NULL foreign keys, and
+ * the privacy notice says exactly this — identity data is deleted, community
+ * content survives anonymized (comments now render as "Silinmiş Üye").
+ * Personal-only data (friendships, follow list, badge history, featured
+ * badges, avatar file) is deleted outright. The freed e-mail can register
+ * again; the randomized password hash plus suspension block the old session.
+ */
+async function deleteMyAccount(req, res, next) {
+  let client;
+  try {
+    const { password } = req.body || {};
+    if (!password) {
+      return res.status(400).json({ error: 'Şifre zorunludur' });
+    }
+
+    const result = await pool.query('SELECT password_hash, avatar_url FROM users WHERE id = $1', [
+      req.user.userId,
+    ]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    const valid = await bcrypt.compare(password, result.rows[0].password_hash);
+    if (!valid) {
+      // 403, not 401: both clients treat a 401 as "session expired" and log
+      // the user out globally — a typo in the password must not do that.
+      return res.status(403).json({ error: 'Şifre hatalı' });
+    }
+
+    // A locally uploaded avatar is a personal photo; remove the file itself,
+    // not just the reference.
+    const avatarUrl = result.rows[0].avatar_url || '';
+    const uploadsMatch = avatarUrl.match(/\/uploads\/([\w.-]+)$/);
+
+    const anonymizedHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+
+    // Checked out only now: the validation and bcrypt work above must not
+    // hold a pool connection hostage.
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE users SET
+         name = 'Silinmiş Üye',
+         email = 'silinmis-' || id || '@deleted.pati-app.com',
+         password_hash = $2,
+         avatar_url = NULL,
+         featured_badges = '[]'::jsonb,
+         last_rank = NULL,
+         last_points = 0,
+         suspended_at = now(),
+         suspended_reason = 'Hesap silindi'
+       WHERE id = $1`,
+      [req.user.userId, anonymizedHash]
+    );
+    await client.query(
+      'DELETE FROM friendships WHERE requester_id = $1 OR addressee_id = $1',
+      [req.user.userId]
+    );
+    await client.query('DELETE FROM user_animal_care WHERE user_id = $1', [req.user.userId]);
+    await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [req.user.userId]);
+    await client.query('COMMIT');
+
+    if (uploadsMatch) {
+      fs.unlink(path.join(UPLOADS_DIR, uploadsMatch[1]), () => {});
+    }
+
+    // No PII in the details on purpose — the audit trail must not undo the
+    // deletion it records.
+    await writeAuditLog(req.user.userId, 'user.delete_self', 'user', req.user.userId, {});
+
+    res.json({ deleted: true });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    if (client) client.release();
+  }
+}
+
 module.exports = {
   getMe,
   uploadAvatar,
@@ -411,4 +499,5 @@ module.exports = {
   markMyBadgeAwardsSeen,
   searchUsers,
   getPublicProfile,
+  deleteMyAccount,
 };

@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Geliştirmede API'yi aynı origin üzerinden proxy'liyoruz: böylece CORS ve
-// karışık içerik (mixed content) sorunları geliştirme sırasında hiç çıkmıyor,
-// üretimde de panel API ile aynı alan adı altında sunulabiliyor.
+// In development the API is proxied through the same origin: CORS and mixed-
+// content problems never appear during development, and in production the
+// panel is served under the same domain as the API.
 export default defineConfig({
   plugins: [react()],
   server: {

@@ -14,11 +14,13 @@ const {
   markMyBadgeAwardsSeen,
   searchUsers,
   getPublicProfile,
+  deleteMyAccount,
 } = require('../controllers/user.controller');
 
 const router = express.Router();
 
 router.get('/me', requireAuth, getMe);
+router.delete('/me', requireAuth, limits.accountDelete, deleteMyAccount);
 router.post('/me/avatar', requireAuth, limits.avatar, upload.single('photo'), uploadAvatar);
 router.put('/me/avatar-key', requireAuth, limits.avatar, setAvatarKey);
 router.delete('/me/avatar', requireAuth, clearAvatar);

@@ -6,7 +6,11 @@ const { getBadgesForUsers } = require('../utils/badges');
 // count doesn't grow with the user count. At much larger scale this table
 // will need periodic caching (unnecessary at the current size).
 async function computeLeaderboard() {
-  const users = await pool.query('SELECT id, name, avatar_url FROM users');
+  // Suspended and self-deleted (anonymized) accounts are excluded: a
+  // "Silinmiş Üye" holding a rank pushes living volunteers down the board.
+  const users = await pool.query(
+    'SELECT id, name, avatar_url FROM users WHERE suspended_at IS NULL'
+  );
   const userIds = users.rows.map((u) => u.id);
   const badgeMap = await getBadgesForUsers(userIds);
 

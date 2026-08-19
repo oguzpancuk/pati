@@ -16,6 +16,7 @@ import {
   uploadAvatar,
 } from '../api';
 import { useAuth } from '../auth';
+import { DeleteAccountLink } from '../components/DeleteAccountDialog';
 import { AnimalAvatar, UserAvatar } from '../avatars';
 import { BadgeCatalogModal, BadgeSymbol, LevelBar } from '../badges';
 import { useBadgeAwards } from '../badgeAwards';
@@ -315,6 +316,7 @@ export default function ProfilePage() {
       >
         gizlilik ve kullanım koşulları
       </Link>
+      <DeleteAccountLink />
 
       <BadgeCatalogModal
         open={catalogOpen}

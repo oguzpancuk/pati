@@ -26,6 +26,7 @@ import { AvatarPickerModal } from '../components/avatars';
 import { BadgeSymbol } from '../components/badges';
 import LevelBar from '../components/LevelBar';
 import StatStrip from '../components/StatStrip';
+import DeleteAccountLink from '../components/DeleteAccountModal';
 import RecentComments from '../components/RecentComments';
 import {
   Avatar,
@@ -419,6 +420,7 @@ export default function UserProfileScreen({ navigation }: any) {
           gizlilik ve kullanım koşulları
         </Text>
       </Pressable>
+      <DeleteAccountLink />
     </Screen>
   );
 }

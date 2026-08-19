@@ -51,7 +51,13 @@ export const api = {
   put: <T>(path: string, data?: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(data ?? {}) }),
   postForm: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', body: form }),
-  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  del: <T>(path: string, data?: unknown) =>
+    request<T>(
+      path,
+      data === undefined
+        ? { method: 'DELETE' }
+        : { method: 'DELETE', body: JSON.stringify(data) }
+    ),
 };
 
 // ---------------------------------------------------------------- tipler
@@ -460,6 +466,11 @@ export const createReport = (
   reason: ReportReason,
   details?: string
 ) => api.post<{ id: number }>('/reports', { targetType, targetId, reason, details });
+
+// Account deletion re-authenticates with the password; the server anonymizes
+// the row in place (see the privacy notice's retention section).
+export const deleteAccount = (password: string) =>
+  api.del<{ deleted: boolean }>('/users/me', { password });
 
 // ---------------------------------------------------------------- user / social
 

@@ -22,6 +22,8 @@ primary_region = "fra"
   # data is removed (seed-guides --remove) this line can go too; without the
   # data it is harmless.
   DEMO_GUIDE_REFRESH = "1"
+  # Browser calls only from our own hosts; the native app sends no Origin.
+  CORS_ORIGINS = "https://pati-app.com,https://www.pati-app.com,https://admin.pati-app.com"
 
 [http_service]
   internal_port = 3000

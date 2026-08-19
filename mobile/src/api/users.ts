@@ -168,6 +168,15 @@ export async function fetchMe(): Promise<Me> {
   return data;
 }
 
+// Account deletion re-authenticates with the password; the server anonymizes
+// the row in place (see the privacy notice's retention section).
+export async function deleteMyAccount(password: string): Promise<{ deleted: boolean }> {
+  const { data } = await apiClient.delete<{ deleted: boolean }>('/users/me', {
+    data: { password },
+  });
+  return data;
+}
+
 export async function uploadAvatar(photo: PhotoAsset): Promise<Me> {
   const form = new FormData();
   form.append('photo', {

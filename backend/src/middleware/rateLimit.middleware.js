@@ -51,6 +51,9 @@ const limits = {
   avatar: userRateLimit({ windowMs: HOUR, limit: 15, action: 'avatar değişikliği' }),
   // Friend requests: the classic spam vector; 30/hour is still a busy day.
   friendRequests: userRateLimit({ windowMs: HOUR, limit: 30, action: 'arkadaşlık isteği' }),
+  // Account deletion re-auth: 5 tries covers any honest typo streak and
+  // shuts the endpoint as a password-guessing oracle for a stolen token.
+  accountDelete: userRateLimit({ windowMs: HOUR, limit: 5, action: 'deneme' }),
 };
 
 module.exports = { userRateLimit, limits };
