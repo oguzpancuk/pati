@@ -19,8 +19,8 @@ export default function Layout() {
     <div className="shell">
       <nav className="sidebar">
         <div className="brand">
-          Stray
-          <small>Yönetim</small>
+          pati
+          <small>yönetim</small>
         </div>
 
         {LINKS.map((link) => (

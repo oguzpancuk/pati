@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './auth';
 import 'leaflet/dist/leaflet.css';
+import './nunito.css';
 import './theme.css';
 import { bootTheme } from './theme';
 

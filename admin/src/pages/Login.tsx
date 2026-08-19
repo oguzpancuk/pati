@@ -24,7 +24,7 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>Stray Yönetim</h1>
+        <h1>pati yönetim</h1>
         <p className="muted" style={{ margin: 0 }}>
           Yönetici hesabıyla giriş yapın.
         </p>

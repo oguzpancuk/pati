@@ -10,7 +10,12 @@ import {
   fetchCareActionsInBounds,
   fetchCareStatus,
 } from '../api';
-import { FALLBACK_CENTER, getCurrentLocation, describeLocationError, Coordinates } from '../location';
+import {
+  FALLBACK_CENTER,
+  getCurrentLocation,
+  describeLocationError,
+  Coordinates,
+} from '../location';
 import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { HeartBurst, HEART_BURST_MS } from '../components/HeartBurst';
@@ -95,6 +100,9 @@ export default function MapPage() {
       });
 
     return () => {
+      // Süren pan/zoom animasyonu varken remove() Leaflet'i patlatıyor
+      // (_leaflet_pos): önce animasyonu durdur.
+      map.stop();
       map.remove();
       mapRef.current = null;
     };
@@ -118,28 +126,31 @@ export default function MapPage() {
     }
   }, [viewType]);
 
-  const loadAnimals = useCallback(async (around?: Coordinates) => {
-    const layer = animalsRef.current;
-    if (!layer) return;
-    const center = around ?? myLocation ?? FALLBACK_CENTER;
-    const animals: Animal[] = await fetchAnimals(center.lat, center.lng, ANIMAL_RADIUS_METERS);
-    animalsDataRef.current = animals;
-    layer.clearLayers();
-    for (const animal of animals) {
-      const [lng, lat] = animal.location.coordinates;
-      const icon = L.divIcon({
-        // divIcon ile hayvanın desen avatarı doğrudan marker oluyor —
-        // paylaşılan SVG üreticisinin haritadaki karşılığı.
-        html: `<div class="animal-marker">${animalAvatarSvg(animal.species, animal.breed, 32)}</div>`,
-        className: '',
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-      });
-      L.marker([lat, lng], { icon })
-        .on('click', () => navigate(`/hayvanlar/${animal.id}`))
-        .addTo(layer);
-    }
-  }, [myLocation, navigate]);
+  const loadAnimals = useCallback(
+    async (around?: Coordinates) => {
+      const layer = animalsRef.current;
+      if (!layer) return;
+      const center = around ?? myLocation ?? FALLBACK_CENTER;
+      const animals: Animal[] = await fetchAnimals(center.lat, center.lng, ANIMAL_RADIUS_METERS);
+      animalsDataRef.current = animals;
+      layer.clearLayers();
+      for (const animal of animals) {
+        const [lng, lat] = animal.location.coordinates;
+        const icon = L.divIcon({
+          // divIcon ile hayvanın desen avatarı doğrudan marker oluyor —
+          // paylaşılan SVG üreticisinin haritadaki karşılığı.
+          html: `<div class="animal-marker">${animalAvatarSvg(animal.species, animal.breed, 32)}</div>`,
+          className: '',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        });
+        L.marker([lat, lng], { icon })
+          .on('click', () => navigate(`/hayvanlar/${animal.id}`))
+          .addTo(layer);
+      }
+    },
+    [myLocation, navigate]
+  );
 
   useEffect(() => {
     loadCircles().catch((err) => setError(err.message));
@@ -285,7 +296,10 @@ export default function MapPage() {
               Vazgeç
             </button>
             {/* Mama haritasında mama markası, su haritasında su markası. */}
-            <AdBanner slot={viewType === 'food' ? 'food_popup' : 'water_popup'} visible={confirmOpen} />
+            <AdBanner
+              slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
+              visible={confirmOpen}
+            />
           </div>
         </div>
       )}

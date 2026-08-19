@@ -37,6 +37,7 @@ migrate her deploy'da güvenle koşar; kolon eklemek artımlı migrasyon ister
 - Fotoğraflar tek makinenin diskinde: makine sayısı 1 kalmalı; nesne
   depolamaya (R2/S3) geçiş yol haritasında.
 - `auto_stop_machines`: trafik yokken makine uyur, ilk istek ~1-2 sn gecikir.
-- Yönetim paneli (`admin/`) henüz yayında değil; ayrı bir statik site olarak
-  eklenecek.
+- Yönetim paneli aynı uygulamadan servis ediliyor: `ADMIN_HOST`
+  (admin.pati-app.com) adresinden gelen istekler `admin/dist`'i alır
+  (`fly certs add admin.pati-app.com` ile sertifika eklenmeli).
 - Rate limit yalnızca `/api/auth` (15 dk'da 30 deneme).
