@@ -1,0 +1,62 @@
+{
+  "projectId": "585b7040-db11-4edd-b611-1d45107e41f8",
+  "pkg": "pati-web",
+  "globalName": "PatiDS",
+  "shape": "package",
+  "entry": "./web/src/ds.ts",
+  "cssEntry": "src/theme.css",
+  "extraFonts": [
+    "src/nunito.css"
+  ],
+  "componentSrcMap": {
+    "AnimalAvatar": "src/avatars.tsx",
+    "UserAvatar": "src/avatars.tsx",
+    "BadgeSymbol": "src/badges.tsx",
+    "LevelMark": "src/badges.tsx",
+    "LevelBar": "src/badges.tsx",
+    "BadgeCatalogModal": "src/badges.tsx",
+    "BadgeAwardModal": "src/badges.tsx",
+    "LoadMoreButton": "src/components/LoadMoreButton.tsx",
+    "HeartBurst": "src/components/HeartBurst.tsx",
+    "RecentComments": "src/components/RecentComments.tsx",
+    "PatiRouter": null
+  },
+  "provider": {
+    "component": "PatiRouter"
+  },
+  "dtsPropsFor": {
+    "AnimalAvatar": "species: 'cat' | 'dog'; breed?: string | null; size?: number;",
+    "UserAvatar": "avatarUrl: string | null | undefined; name?: string | null; size?: number;",
+    "BadgeSymbol": "symbol: 'food' | 'water' | 'register' | 'comment' | 'health' | 'vaccine' | 'paw'; tier: 'bronze' | 'silver' | 'gold' | 'diamond' | null; size?: number;",
+    "LevelMark": "level: number; size?: number;",
+    "LevelBar": "level: { level: number; title: string; minPoints: number; nextLevelPoints: number | null; nextTitle: string | null; progress: number }; points: number;",
+    "BadgeCatalogModal": "open: boolean; onClose: () => void; badges: Array<{ key: string; label: string; unit: string; value: number; tier: 'bronze' | 'silver' | 'gold' | 'diamond' | null; points: number; nextThreshold: number | null; symbol: 'food' | 'water' | 'register' | 'comment' | 'health' | 'vaccine' | 'paw' }>; selectable?: boolean; featuredKeys?: string[]; maxFeatured?: number; onSaveFeatured?: (keys: string[]) => Promise<void> | void;",
+    "BadgeAwardModal": "award: { id: number; badgeKey: string; tier: 'bronze' | 'silver' | 'gold' | 'diamond'; label: string; pointsAwarded: number; pointsBefore: number | null; pointsAfter: number | null; rankBefore: number | null; rankAfter: number | null; levelBefore: number | null; levelAfter: number | null; createdAt: string } | null; remaining: number; onDismiss: () => void;",
+    "LoadMoreButton": "remaining: number; loading?: boolean; onClick: () => void; label?: string;",
+    "HeartBurst": "x: number; y: number;",
+    "RecentComments": "comments: Array<{ id: number; body: string; created_at: string; health_record_id: number | null; animal_id: number; animal_species: 'cat' | 'dog'; animal_name: string | null; animal_breed: string | null; animal_photo_url: string | null }>; total: number; title: string; emptyText: string; seeAllTo: string;"
+  },
+  "overrides": {
+    "BadgeCatalogModal": {
+      "cardMode": "single",
+      "primaryStory": "SecimModu"
+    },
+    "BadgeAwardModal": {
+      "cardMode": "single",
+      "primaryStory": "SeviyeAtladi"
+    },
+    "HeartBurst": {
+      "cardMode": "single"
+    },
+    "AnimalAvatar": {
+      "cardMode": "column"
+    },
+    "LevelBar": {
+      "cardMode": "column"
+    },
+    "RecentComments": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

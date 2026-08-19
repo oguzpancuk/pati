@@ -3,3 +3,10 @@ node_modules/
 .DS_Store
 *.log
 web/dist/
+
+# design-sync (Claude Design) — staged scripts, build output, machine state
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
