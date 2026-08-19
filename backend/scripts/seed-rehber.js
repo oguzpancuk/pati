@@ -1,7 +1,9 @@
 // pati REHBER verisi — canlıda (üretimde) çalıştırılmak için tasarlandı.
 //
-// Ne yapar: İstanbul merkez ilçeleri, İzmir merkez ilçeleri ve Antalya/Kaş'ta
-// "rehber" kullanıcılar oluşturur. Her ilçede 10 rehber, uygulamayı ~1 aydır
+// Ne yapar: İstanbul merkez ilçeleri, İzmir merkez ilçeleri, Antalya/Kaş ve
+// Milas/Güllük'te "rehber" kullanıcılar oluşturur. Her bölgede 10 rehber ve
+// bölge, mahalle çapalarıyla tanımlı olduğu için kayıtlar ilçenin tamamına
+// yayılır. Her rehber, uygulamayı ~1 aydır
 // organik ritimde kullanıyormuş gibi görünür: haftada ~3 hayvan kaydı, gün
 // aşırı mama/su, sohbet yorumları, aşı ve sağlık kayıtları, ilçe içi
 // arkadaşlıklar. Amaç çifte: (1) uygulama ilk açılışta boş görünmesin,
