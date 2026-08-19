@@ -25,9 +25,11 @@ PostGIS: `postgres-flex` imajında hazır; `001_init.sql` içindeki
 ## Rehber (demo) verisi
 
 Uygulama boş haritayla açılmasın diye İstanbul merkez ilçeleri, İzmir merkez
-ilçeleri ve Antalya/Kaş'a "rehber" kullanıcılar eklenebilir: her ilçede 10
-hesap, bir aylık organik kullanım geçmişiyle (haftada ~3 hayvan, gün aşırı
-mama/su, sohbet, aşı/sağlık kayıtları). Bot oldukları gizlenmez — adları
+ilçeleri, Antalya/Kaş ve Milas/Güllük'e "rehber" kullanıcılar eklenebilir:
+her bölgede 10 hesap, bir aylık organik kullanım geçmişiyle (haftada ~3
+hayvan, gün aşırı mama/su, sohbet, aşı/sağlık kayıtları). Kayıtlar ilçe
+merkezine yığılmaz: her ilçe mahalle/semt çapalarıyla tanımlı ve her rehber
+kendi "ev mahallesinde" yaşar (bkz. scripts/seed-rehber.js DISTRICTS). Bot oldukları gizlenmez — adları
 "… · pati rehberi", her hayvanın ilk yorumu kaydın örnek olduğunu söyler;
 yorumlar aynı zamanda uygulamanın nasıl kullanıldığını anlatır.
 

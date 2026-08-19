@@ -50,52 +50,350 @@ const DEMO_EMAIL_DOMAIN = 'pati.demo';
 const USERS_PER_DISTRICT = 10;
 const WEEKS = 4;
 const ANIMALS_PER_WEEK = 3;
-const SPREAD_DEG = 0.008; // ilçe merkezi etrafında ~±900 m
+// Bir çapanın (mahalle/semt merkezi) etrafındaki saçılım: ~±650 m. Kıyı
+// çapalarında noktalar denize düşmesin diye çapa bazında daraltılabilir
+// (üçüncü eleman, derece cinsinden).
+const ANCHOR_SPREAD_DEG = 0.006;
 
 // ---------------------------------------------------------------- ilçeler
-// Koordinatlar ilçe merkezlerinin yaklaşık değerleri; listeye ekleme/çıkarma
-// serbest — script her şeyi buradan türetiyor.
+// Her ilçe tek merkez noktası değil, ilçeye yayılmış mahalle/semt ÇAPALARIYLA
+// tanımlı: rehberler ilçe merkezine yığılmasın, ilçenin tamamında otursun.
+// Her rehberin bir "ev mahallesi" (çapası) var; kayıtlarının çoğu orada,
+// arada başka mahallelere de uğruyor — gerçek gönüllü davranışı.
+// Koordinatlar yaklaşık semt merkezleri; ekleme/çıkarma serbest.
 const DISTRICTS = [
   // İstanbul — merkez (Avrupa)
-  { city: 'İstanbul', name: 'Fatih', lat: 41.0186, lng: 28.9497 },
-  { city: 'İstanbul', name: 'Beyoğlu', lat: 41.0286, lng: 28.9744 },
-  { city: 'İstanbul', name: 'Beşiktaş', lat: 41.043, lng: 29.0061 },
-  { city: 'İstanbul', name: 'Şişli', lat: 41.0602, lng: 28.9877 },
-  { city: 'İstanbul', name: 'Kağıthane', lat: 41.085, lng: 28.97 },
-  { city: 'İstanbul', name: 'Sarıyer', lat: 41.1669, lng: 29.057 },
-  { city: 'İstanbul', name: 'Eyüpsultan', lat: 41.048, lng: 28.934 },
-  { city: 'İstanbul', name: 'Gaziosmanpaşa', lat: 41.0577, lng: 28.9123 },
-  { city: 'İstanbul', name: 'Bayrampaşa', lat: 41.0446, lng: 28.9022 },
-  { city: 'İstanbul', name: 'Esenler', lat: 41.0435, lng: 28.876 },
-  { city: 'İstanbul', name: 'Güngören', lat: 41.0225, lng: 28.8874 },
-  { city: 'İstanbul', name: 'Bağcılar', lat: 41.039, lng: 28.8567 },
-  { city: 'İstanbul', name: 'Bahçelievler', lat: 41.0022, lng: 28.8598 },
-  { city: 'İstanbul', name: 'Bakırköy', lat: 40.9819, lng: 28.8772 },
-  { city: 'İstanbul', name: 'Zeytinburnu', lat: 40.9948, lng: 28.9047 },
-  { city: 'İstanbul', name: 'Küçükçekmece', lat: 41.0015, lng: 28.7754 },
-  { city: 'İstanbul', name: 'Avcılar', lat: 40.9793, lng: 28.7216 },
+  {
+    city: 'İstanbul',
+    name: 'Fatih',
+    anchors: [
+      [41.0106, 28.949],
+      [41.0294, 28.9486],
+      [41.0128, 28.9382],
+      [41.0035, 28.9285],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Beyoğlu',
+    anchors: [
+      [41.0329, 28.9832],
+      [41.0256, 28.9744, 0.004],
+      [41.0374, 28.97],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Beşiktaş',
+    anchors: [
+      [41.043, 29.0061, 0.004],
+      [41.08, 29.014],
+      [41.0819, 29.03],
+      [41.0559, 29.004],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Şişli',
+    anchors: [
+      [41.0672, 28.995],
+      [41.048, 28.988],
+      [41.048, 28.972],
+      [41.06, 28.978],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Kağıthane',
+    anchors: [
+      [41.085, 28.97],
+      [41.0765, 28.984],
+      [41.093, 28.966],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Sarıyer',
+    anchors: [
+      [41.1669, 29.057, 0.004],
+      [41.112, 29.055, 0.004],
+      [41.111, 29.021],
+      [41.133, 29.06, 0.004],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Eyüpsultan',
+    anchors: [
+      [41.048, 28.934],
+      [41.069, 28.937],
+      [41.174, 28.889],
+      [41.035, 28.917],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Gaziosmanpaşa',
+    anchors: [
+      [41.0577, 28.9123],
+      [41.0679, 28.897],
+      [41.049, 28.905],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Bayrampaşa',
+    anchors: [
+      [41.0446, 28.9022],
+      [41.053, 28.907],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Esenler',
+    anchors: [
+      [41.0435, 28.876],
+      [41.056, 28.87],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Güngören',
+    anchors: [
+      [41.0225, 28.8874],
+      [41.015, 28.894],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Bağcılar',
+    anchors: [
+      [41.039, 28.8567],
+      [41.025, 28.828],
+      [41.057, 28.828],
+      [41.047, 28.845],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Bahçelievler',
+    anchors: [
+      [41.0022, 28.8598],
+      [40.993, 28.842],
+      [41.0, 28.825],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Bakırköy',
+    anchors: [
+      [40.9819, 28.8772, 0.004],
+      [40.98, 28.856, 0.004],
+      [40.964, 28.825, 0.004],
+      [40.968, 28.789, 0.004],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Zeytinburnu',
+    anchors: [
+      [40.9948, 28.9047],
+      [40.989, 28.911, 0.004],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Küçükçekmece',
+    anchors: [
+      [41.0015, 28.79, 0.004],
+      [41.034, 28.79],
+      [41.048, 28.793],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Avcılar',
+    anchors: [
+      [40.9793, 28.7216, 0.004],
+      [41.0, 28.71],
+      [40.97, 28.697, 0.004],
+    ],
+  },
   // İstanbul — merkez (Anadolu)
-  { city: 'İstanbul', name: 'Kadıköy', lat: 40.9905, lng: 29.0277 },
-  { city: 'İstanbul', name: 'Üsküdar', lat: 41.0226, lng: 29.0154 },
-  { city: 'İstanbul', name: 'Ümraniye', lat: 41.0165, lng: 29.1248 },
-  { city: 'İstanbul', name: 'Ataşehir', lat: 40.9923, lng: 29.1274 },
-  { city: 'İstanbul', name: 'Maltepe', lat: 40.9357, lng: 29.131 },
-  { city: 'İstanbul', name: 'Kartal', lat: 40.8898, lng: 29.1858 },
-  { city: 'İstanbul', name: 'Pendik', lat: 40.8775, lng: 29.2333 },
+  {
+    city: 'İstanbul',
+    name: 'Kadıköy',
+    anchors: [
+      [40.983, 29.027, 0.004],
+      [40.975, 29.06],
+      [40.97, 29.093],
+      [40.997, 29.046],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Üsküdar',
+    anchors: [
+      [41.0226, 29.0154, 0.004],
+      [41.049, 29.051, 0.004],
+      [41.003, 29.035],
+      [41.021, 29.044],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Ümraniye',
+    anchors: [
+      [41.0165, 29.1248],
+      [41.03, 29.135],
+      [41.011, 29.158],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Ataşehir',
+    anchors: [
+      [40.995, 29.115],
+      [40.973, 29.105],
+      [40.988, 29.09],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Maltepe',
+    anchors: [
+      [40.9357, 29.131, 0.004],
+      [40.923, 29.125, 0.004],
+      [40.952, 29.147],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Kartal',
+    anchors: [
+      [40.8898, 29.1858, 0.004],
+      [40.911, 29.165],
+      [40.9, 29.2, 0.004],
+    ],
+  },
+  {
+    city: 'İstanbul',
+    name: 'Pendik',
+    anchors: [
+      [40.8775, 29.2333, 0.004],
+      [40.873, 29.202, 0.004],
+      [40.908, 29.312],
+      [40.89, 29.26],
+    ],
+  },
   // İzmir — merkez
-  { city: 'İzmir', name: 'Konak', lat: 38.4189, lng: 27.1287 },
-  { city: 'İzmir', name: 'Karşıyaka', lat: 38.4557, lng: 27.1113 },
-  { city: 'İzmir', name: 'Bornova', lat: 38.4696, lng: 27.2166 },
-  { city: 'İzmir', name: 'Buca', lat: 38.3854, lng: 27.1571 },
-  { city: 'İzmir', name: 'Bayraklı', lat: 38.4622, lng: 27.1699 },
-  { city: 'İzmir', name: 'Karabağlar', lat: 38.3733, lng: 27.112 },
-  { city: 'İzmir', name: 'Gaziemir', lat: 38.3245, lng: 27.1188 },
-  { city: 'İzmir', name: 'Balçova', lat: 38.39, lng: 27.0455 },
-  { city: 'İzmir', name: 'Narlıdere', lat: 38.3966, lng: 27.0011 },
-  { city: 'İzmir', name: 'Çiğli', lat: 38.4951, lng: 27.0785 },
-  { city: 'İzmir', name: 'Güzelbahçe', lat: 38.3714, lng: 26.8925 },
-  // Antalya — yalnızca Kaş
-  { city: 'Antalya', name: 'Kaş', lat: 36.202, lng: 29.6414 },
+  {
+    city: 'İzmir',
+    name: 'Konak',
+    anchors: [
+      [38.439, 27.142, 0.004],
+      [38.4189, 27.1287, 0.004],
+      [38.407, 27.129],
+      [38.402, 27.112],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Karşıyaka',
+    anchors: [
+      [38.4557, 27.1113, 0.004],
+      [38.464, 27.093, 0.004],
+      [38.475, 27.085],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Bornova',
+    anchors: [
+      [38.4696, 27.2166],
+      [38.452, 27.2],
+      [38.462, 27.24],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Buca',
+    anchors: [
+      [38.3854, 27.1571],
+      [38.398, 27.144],
+      [38.372, 27.17],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Bayraklı',
+    anchors: [
+      [38.4622, 27.1699],
+      [38.456, 27.156, 0.004],
+      [38.452, 27.183],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Karabağlar',
+    anchors: [
+      [38.3733, 27.112],
+      [38.39, 27.123],
+      [38.362, 27.1],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Gaziemir',
+    anchors: [
+      [38.3245, 27.1188],
+      [38.306, 27.117],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Balçova',
+    anchors: [
+      [38.39, 27.0455, 0.004],
+      [38.383, 27.06],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Narlıdere',
+    anchors: [
+      [38.3966, 27.0011, 0.004],
+      [38.4, 27.02, 0.004],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Çiğli',
+    anchors: [
+      [38.4951, 27.0785, 0.004],
+      [38.517, 27.07],
+    ],
+  },
+  {
+    city: 'İzmir',
+    name: 'Güzelbahçe',
+    anchors: [
+      [38.3714, 26.8925, 0.004],
+      [38.354, 26.901],
+    ],
+  },
+  // Antalya — yalnızca Kaş (ilçenin tamamı: merkez, Kalkan, Gömbe yaylası)
+  {
+    city: 'Antalya',
+    name: 'Kaş',
+    anchors: [
+      [36.202, 29.6414, 0.004],
+      [36.2622, 29.4148, 0.004],
+      [36.452, 29.648],
+    ],
+  },
+  // Muğla — Milas'ın Güllük mahallesi
+  { city: 'Muğla', name: 'Güllük', anchors: [[37.2397, 27.6036, 0.004]] },
 ];
 
 const FIRST_NAMES = [
@@ -199,8 +497,13 @@ const VACCINE_NOTES = [
 function randomItem(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
-function offset() {
-  return (Math.random() - 0.5) * 2 * SPREAD_DEG;
+function offset(spread = ANCHOR_SPREAD_DEG) {
+  return (Math.random() - 0.5) * 2 * spread;
+}
+/** Çapanın ([lat, lng, spread?]) saçılımı içinde rastgele bir nokta. */
+function pointNear(anchor) {
+  const spread = anchor[2] ?? ANCHOR_SPREAD_DEG;
+  return { lat: anchor[0] + offset(spread), lng: anchor[1] + offset(spread) };
 }
 // Türkçe karakterli ilçe adından e-posta güvenli kısa ad üretir.
 function slugify(name) {
@@ -353,8 +656,8 @@ async function tazele({ sessiz = false } = {}) {
     const minutesAgo = 5 + Math.floor(Math.random() * 50);
     const when = new Date(Date.now() - minutesAgo * 60 * 1000);
     rows.push([
-      r.lng + offset() / 8, // hayvanın hemen çevresi (~±100 m)
-      r.lat + offset() / 8,
+      r.lng + offset(0.001), // hayvanın hemen çevresi (~±100 m)
+      r.lat + offset(0.001),
       r.user_id,
       Math.random() < 0.6 ? 'food' : 'water',
       randomItem(photoUrls),
@@ -464,6 +767,13 @@ async function olustur() {
     allUserIds.push(...inserted);
     totals.users += inserted.length;
 
+    // Her rehberin ev mahallesi: çapalar sırayla paylaştırılır, böylece
+    // ilçenin her çapasında en az bir rehber oturur.
+    const homeAnchor = new Map();
+    inserted.forEach((userId, i) => {
+      homeAnchor.set(userId, district.anchors[i % district.anchors.length]);
+    });
+
     // --- hayvanlar: kullanıcı başına haftada ~3, son 4 hafta ------------
     const animalRows = [];
     const animalMeta = []; // eklenme sırasına göre {userId, createdAt}
@@ -474,9 +784,14 @@ async function olustur() {
           const daysAgo = w * 7 + Math.floor(Math.random() * 7);
           const createdAt = daytimeStamp(daysAgo);
           const species = Math.random() < 0.6 ? 'cat' : 'dog';
+          // Kayıtların çoğu ev mahallesinde; ~%20'si ilçenin başka bir
+          // köşesinde ("işe giderken gördüm" davranışı).
+          const anchor =
+            Math.random() < 0.8 ? homeAnchor.get(userId) : randomItem(district.anchors);
+          const p = pointNear(anchor);
           animalRows.push([
-            district.lng + offset(),
-            district.lat + offset(),
+            p.lng,
+            p.lat,
             species,
             randomItem(species === 'cat' ? CAT_NAMES : DOG_NAMES),
             randomItem(species === 'cat' ? CAT_COLORS : DOG_COLORS),
@@ -622,9 +937,11 @@ async function olustur() {
       for (let daysAgo = 30; daysAgo >= 0; daysAgo -= 1) {
         // Gün aşırı ritim + kişiye göre kayma; her gün herkes değil.
         if ((daysAgo + ui) % 2 !== 0 && Math.random() < 0.7) continue;
+        // Mama/su hep ev mahallesinde: gönüllü kendi sokağına bakar.
+        const p = pointNear(homeAnchor.get(userId));
         careRows.push([
-          district.lng + offset(),
-          district.lat + offset(),
+          p.lng,
+          p.lat,
           userId,
           Math.random() < 0.6 ? 'food' : 'water',
           randomItem(photoUrls),
