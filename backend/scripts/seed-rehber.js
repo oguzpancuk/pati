@@ -499,6 +499,23 @@ const VACCINE_NOTES = [
 function randomItem(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
+// OSM'den bir kez çekilmiş mahalle merkezleri (data/mahalleler.json,
+// fetch-mahalleler.mjs). Varsa ilçenin elle yazılmış çapalarına ek olarak
+// kullanılıyor: Kadıköy'de 4 çapa yerine 34 mahalle — rehberler ilçenin her
+// köşesine dağılıyor. Mahalle noktaları gerçek yerleşim olduğu için saçılımı
+// dar (±250 m); kıyıya taşma riski çapalardan da düşük.
+let MAHALLELER = {};
+try {
+  MAHALLELER = require('./data/mahalleler.json');
+} catch {
+  /* dosya yoksa yalnızca elle çapalar */
+}
+const MAHALLE_SPREAD_DEG = 0.0023;
+for (const d of DISTRICTS) {
+  const extra = MAHALLELER[`${d.city}/${d.name}`] || [];
+  for (const m of extra) d.anchors.push([m.lat, m.lng, MAHALLE_SPREAD_DEG]);
+}
+
 function offset(spread = ANCHOR_SPREAD_DEG) {
   return (Math.random() - 0.5) * 2 * spread;
 }
@@ -773,7 +790,12 @@ async function olustur() {
     // ilçenin her çapasında en az bir rehber oturur.
     const homeAnchor = new Map();
     inserted.forEach((userId, i) => {
-      homeAnchor.set(userId, district.anchors[i % district.anchors.length]);
+      // Çapa sayısı rehber sayısını aşınca (OSM mahalleleri) evler listeye
+      // eşit aralıkla dağıtılıyor; art arda ilk N çapa değil.
+      homeAnchor.set(
+        userId,
+        district.anchors[Math.floor((i * district.anchors.length) / inserted.length) % district.anchors.length]
+      );
     });
 
     // --- hayvanlar: kullanıcı başına haftada ~3, son 4 hafta ------------
