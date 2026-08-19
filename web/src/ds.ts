@@ -12,6 +12,7 @@
  * kuralları, yosun yeşili palet); pati markasıyla karışmasın diye ayrı bir
  * proje olarak senkronlanabilir.
  */
+export { Logo, Wordmark } from './brand';
 export { AnimalAvatar, UserAvatar } from './avatars';
 export { BadgeSymbol, LevelMark, LevelBar, BadgeCatalogModal, BadgeAwardModal } from './badges';
 export { LoadMoreButton } from './components/LoadMoreButton';

@@ -10,8 +10,10 @@
   `componentSrcMap`'e hem `dtsPropsFor`'a satır ekle.
 - **Sağlayıcı:** `RecentComments` `<Link>` kullanıyor → `cfg.provider = PatiRouter`
   (`react-router-dom` `MemoryRouter`'ın `ds.ts`'ten yeniden dışa aktarımı).
-- **Fontlar:** Nunito `mobile/assets/fonts` altındaki TTF'lerden, `web/src/nunito.css`
-  `@font-face` ile (`extraFonts`). Web uygulamasının kendisi bu CSS'i henüz yüklemiyor.
+- **Fontlar:** stüdyo temasıyla (19 Ağu, 2. senkron) tek aile **Quicksand**:
+  `web/src/quicksand.css` + `web/src/fonts/*.ttf` (`extraFonts`). Eski Nunito
+  dosyaları projede (`fonts/Nunito-*.ttf`) artık referanssız duruyor — diff
+  fontları kapsamadığı için silinmedi, zararsız; el ile temizlenebilir.
 - **Modallar** (`BadgeCatalogModal`, `BadgeAwardModal`) `position: fixed`; önizlemede
   transformlu 420×720 "Phone" sarmalayıcı içinde çiziliyor (transformlu ata fixed için
   containing block olur). `cardMode: single`.
@@ -20,6 +22,17 @@
   doğal olarak boşalır; capture animasyon ortasında.
 - Playwright: `.ds-sync` içine `playwright@1` kuruldu; chromium önbelleği
   `~/Library/Caches/ms-playwright`.
+
+- **Projede bize ait olmayan dosyalar var** (`templates/pati-app/*`,
+  `HANDOFF-tasarim-dili.md`, `github.md`, `uploads/*.png`, `_ds_manifest.json`,
+  `_adherence.oxlintrc.json`): kullanıcının/uygulamanın eklediği tasarım ve
+  el kitabı. Plan `deletes` boş bırakıldı; asla glob'la silme.
+- **2. senkron (stüdyo estetiği):** tema baştan yazıldı ama dereceler
+  önizleme kaynağına bağlı olduğu için 10 bileşen "değişmedi" sayıldı; yine de
+  LevelBar/BadgeCatalogModal/LoadMoreButton/RecentComments spot-check ile
+  gözle doğrulandı. Logo + Wordmark eklendi (`web/src/brand.tsx`).
+  `conventions.md` yeni dile göre güncellendi (degrade kuralı, `.micro`,
+  `.topbar`, `.statstrip`, `.hairline`, `.fab`, token adları).
 
 ## Re-sync riskleri
 - `dtsPropsFor` elle: kaynak prop'ları değişirse burası sessizce eskir — bileşen imzası
