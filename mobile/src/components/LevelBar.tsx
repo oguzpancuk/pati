@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import type { UserLevel } from '../api/users';
 import Text from './ui/Text';
-import { LevelMark } from './badges';
+import Gradient from './brand/Gradient';
 import { makeStyles, radius, spacing } from '../theme';
 
 interface Props {
@@ -11,7 +11,11 @@ interface Props {
 }
 
 /**
- * The level emblem + a bar showing points left to the next level.
+ * The level card (handoff 3d): the title, "in N points: the next title", and
+ * a 4pt gradient progress bar — one of the four places the gradient is
+ * allowed. The medallion and the point total live in the stat strip above,
+ * so this card stays a single quiet line of progress.
+ *
  * Level data comes from the server; thresholds are not repeated here.
  */
 export default function LevelBar({ level, points }: Props) {
@@ -20,51 +24,39 @@ export default function LevelBar({ level, points }: Props) {
 
   const remaining =
     level.nextLevelPoints !== null ? Math.max(0, level.nextLevelPoints - points) : 0;
+  const pct = Math.max(2, Math.round(level.progress * 100));
 
   return (
     <View style={styles.container}>
-      <View style={styles.topRow}>
-        <View style={styles.mark}>
-          <LevelMark level={level.level} size={44} />
-        </View>
-        <View style={styles.titleBox}>
-          <Text variant="micro">SEVİYE {level.level}</Text>
-          <Text variant="subheading">{level.title}</Text>
-        </View>
-        <Text variant="bodyStrong" color="brand">
-          {points} puan
-        </Text>
-      </View>
+      <Text variant="subheading">{level.title}</Text>
+      <Text variant="caption" style={styles.hint}>
+        {level.nextTitle ? `${remaining} puan sonra: ${level.nextTitle}` : 'En üst seviyedesin'}
+      </Text>
 
       <View style={styles.track}>
-        <View style={[styles.fill, { width: `${Math.round(level.progress * 100)}%` }]} />
+        <View style={[styles.fill, { width: `${pct}%` }]}>
+          <Gradient radius={radius.pill} direction="horizontal" />
+        </View>
       </View>
-
-      <Text variant="caption" style={styles.hint}>
-        {level.nextTitle ? `${level.nextTitle} için ${remaining} puan daha` : 'En üst seviyedesin'}
-      </Text>
     </View>
   );
 }
 
 const useStyles = makeStyles(({ colors: c }) => ({
   container: {
-    backgroundColor: c.surfaceAlt,
+    backgroundColor: c.surface,
     borderWidth: 1,
     borderColor: c.border,
     borderRadius: radius.lg,
     padding: spacing.lg,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center' },
-  mark: { marginRight: spacing.md },
-  titleBox: { flex: 1 },
+  hint: { marginTop: 2 },
   track: {
-    height: 8,
+    height: 4,
     borderRadius: radius.pill,
     backgroundColor: c.disabled,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     overflow: 'hidden',
   },
-  fill: { height: 8, borderRadius: radius.pill, backgroundColor: c.brand },
-  hint: { marginTop: spacing.sm },
+  fill: { height: 4, borderRadius: radius.pill, overflow: 'hidden' },
 }));

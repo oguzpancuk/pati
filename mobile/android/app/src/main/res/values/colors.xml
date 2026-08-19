@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Marka renkleri. src/theme/colors.ts ile aynı tutulmalı. -->
+<!-- Brand colors - keep in step with src/theme/colors.ts (studio aesthetic). -->
 <resources>
-    <color name="ic_launcher_background">#F47A4A</color>
-    <!-- Uygulama açılırken (JS yüklenene kadar) görünen zemin: krem. Aksi
-         hâlde bir anlık beyaz flaş oluyor. -->
-    <color name="brand_background">#FFF3E7</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- The ground shown while the app starts (until JS loads): white, same
+         as the screens. Anything else flashes a wrong color for a moment. -->
+    <color name="brand_background">#FFFFFF</color>
 </resources>

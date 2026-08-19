@@ -18,9 +18,9 @@ import HeartBurst, { HEART_BURST_DURATION_MS, heartRiseFor } from '../components
 import UserLocationMarker from '../components/UserLocationMarker';
 import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
-import { Banner, Button, Text } from '../components/ui';
-import { Icon } from '../components/brand';
-import { caredFill, makeStyles, radius, spacing, useTheme } from '../theme';
+import { Button, Text } from '../components/ui';
+import { Gradient, Icon } from '../components/brand';
+import { caredFill, makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 
 // Turkey's approximate geographic bounding box (not an exact administrative
 // border). The map focuses on this area and the user can't pan far outside.
@@ -311,6 +311,8 @@ export default function MapScreen({ navigation }: any) {
     mapRef.current?.animateToRegion(nextRegion, 200);
   }
 
+  const sheetNeedsCare = !status || status.needsAttention;
+
   return (
     <View style={styles.container}>
       <MapView
@@ -321,18 +323,37 @@ export default function MapScreen({ navigation }: any) {
         onMapReady={handleMapReady}
         onRegionChangeComplete={handleRegionChangeComplete}
       >
-        {actions.map((action) => (
-          <Circle
-            key={action.id}
-            center={{
-              latitude: action.location.coordinates[1],
-              longitude: action.location.coordinates[0],
-            }}
-            radius={ACTION_CIRCLE_RADIUS_METERS}
-            fillColor={caredFill(weightToGreenAlpha(Number(action.weight)))}
-            strokeColor="transparent"
-          />
-        ))}
+        {actions.map((action) => {
+          const alpha = weightToGreenAlpha(Number(action.weight));
+          const center = {
+            latitude: action.location.coordinates[1],
+            longitude: action.location.coordinates[0],
+          };
+          return (
+            <React.Fragment key={action.id}>
+              {/* Studio language: a soft fill with a thin outline in the same
+                  tone. Freshness still lives in the fill — newer records are
+                  bolder. */}
+              <Circle
+                center={center}
+                radius={ACTION_CIRCLE_RADIUS_METERS}
+                fillColor={caredFill(alpha)}
+                strokeColor={caredFill(Math.min(alpha + 0.25, 0.75))}
+                strokeWidth={1.5}
+              />
+              {/* The center dot only at street scale: from afar hundreds of
+                  dots would speckle the map for no gain. */}
+              {animalsVisible && (
+                <Circle
+                  center={center}
+                  radius={6}
+                  fillColor={mapColors.cared}
+                  strokeColor="transparent"
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
 
         {myLocation && (
           <Marker
@@ -342,6 +363,19 @@ export default function MapScreen({ navigation }: any) {
           >
             <UserLocationMarker />
           </Marker>
+        )}
+
+        {/* The dashed 200 m ring marks the range where animals are drawn —
+            the depiction in the handoff. */}
+        {myLocation && animalsVisible && (
+          <Circle
+            center={{ latitude: myLocation.lat, longitude: myLocation.lng }}
+            radius={ANIMAL_RADIUS_METERS}
+            fillColor="transparent"
+            strokeColor={mapColors.userRadiusStroke}
+            strokeWidth={1.2}
+            lineDashPattern={[4, 6]}
+          />
         )}
 
         {animalsVisible &&
@@ -356,11 +390,15 @@ export default function MapScreen({ navigation }: any) {
               tracksViewChanges={false}
               anchor={{ x: 0.5, y: 0.5 }}
             >
-              <AnimalAvatar
-                species={animal.species}
-                breed={animal.breed}
-                size={ANIMAL_MARKER_SIZE}
-              />
+              {/* The avatar sits in a 42pt white disc (handoff size) so it
+                  separates from the map ground at any zoom. */}
+              <View style={styles.animalMarker}>
+                <AnimalAvatar
+                  species={animal.species}
+                  breed={animal.breed}
+                  size={ANIMAL_MARKER_SIZE}
+                />
+              </View>
             </Marker>
           ))}
       </MapView>
@@ -389,6 +427,8 @@ export default function MapScreen({ navigation }: any) {
 
       {/* Top layer: the map is fullscreen, controls float above it. */}
       <SafeAreaView style={styles.topLayer} edges={['top']} pointerEvents="box-none">
+        {/* A white pill shell whose selected half carries the gradient — one
+            of the four places the gradient is allowed. */}
         <View style={styles.segment}>
           {(['food', 'water'] as const).map((option) => {
             const selected = viewType === option;
@@ -398,59 +438,30 @@ export default function MapScreen({ navigation }: any) {
                 onPress={() => setViewType(option)}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
-                style={[styles.segmentItem, selected && styles.segmentItemSelected]}
+                style={styles.segmentItem}
               >
+                {selected ? <Gradient radius={radius.pill} /> : null}
                 <Icon
                   name={option === 'food' ? 'food' : 'water'}
-                  size={18}
+                  size={17}
                   color={selected ? colors.textOnBrand : colors.textMuted}
                 />
                 <Text
-                  variant="bodyStrong"
+                  variant="captionStrong"
                   style={[
                     styles.segmentLabel,
                     { color: selected ? colors.textOnBrand : colors.textMuted },
                   ]}
                 >
-                  {option === 'food' ? 'Mama' : 'Su'}
+                  {option === 'food' ? 'mama' : 'su'}
                 </Text>
               </Pressable>
             );
           })}
         </View>
-
-        {status?.needsAttention && (
-          <Banner
-            tone="danger"
-            emoji="⚠️"
-            title={`Buralarda ${typeLabel} yok`}
-            description={`${status.radiusMeters} m çevrede son ${status.windowHours} saatte ${typeLabel} bırakılmamış.`}
-            style={styles.banner}
-          />
-        )}
       </SafeAreaView>
 
-      <View style={styles.zoomControls}>
-        <Pressable
-          style={styles.zoomButton}
-          onPress={() => zoomBy(0.5)}
-          accessibilityLabel="Yakınlaştır"
-        >
-          <Text style={styles.zoomButtonText}>+</Text>
-        </Pressable>
-        <Pressable
-          style={styles.zoomButton}
-          onPress={() => zoomBy(2)}
-          accessibilityLabel="Uzaklaştır"
-        >
-          <Text style={styles.zoomButtonText}>−</Text>
-        </Pressable>
-      </View>
-
-      {/* Bottom layer: the record button. No point is picked from the map;
-          the drop lands where the user stands — hence the button's label
-          says "here". */}
-      <SafeAreaView style={styles.bottomLayer} edges={['bottom']} pointerEvents="box-none">
+      <View style={styles.sideControls} pointerEvents="box-none">
         {!animalsVisible && animals.length > 0 && (
           <View style={styles.hint} pointerEvents="none">
             <Text variant="caption" center>
@@ -458,19 +469,65 @@ export default function MapScreen({ navigation }: any) {
             </Text>
           </View>
         )}
-        <View style={styles.ctaWrap}>
+        <View style={styles.roundStack}>
+          <Pressable
+            style={styles.roundButton}
+            onPress={() => zoomBy(0.5)}
+            accessibilityLabel="Yakınlaştır"
+          >
+            <Text style={styles.roundButtonText}>+</Text>
+          </Pressable>
+          <Pressable
+            style={styles.roundButton}
+            onPress={() => zoomBy(2)}
+            accessibilityLabel="Uzaklaştır"
+          >
+            <Text style={styles.roundButtonText}>−</Text>
+          </Pressable>
+          {/* The handoff's FAB: registering a new animal is always one tap
+              away from the map. */}
+          <Pressable
+            style={[styles.roundButton, styles.fab]}
+            onPress={() => navigation.navigate('AddAnimal')}
+            accessibilityLabel="Yeni hayvan ekle"
+          >
+            <Icon name="plus" size={22} color={colors.brand} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* The bottom sheet carries the area's status and the call to action
+          (handoff 3b). The button stays even when everything is covered —
+          leaving a record is always possible. */}
+      <SafeAreaView style={styles.bottomLayer} edges={['bottom']} pointerEvents="box-none">
+        <View style={styles.sheet}>
+          <View style={styles.sheetHandle} />
+          <Text variant="micro" style={styles.sheetMicro}>
+            {status
+              ? sheetNeedsCare
+                ? `${status.radiusMeters} m çevrede kayıt yok`
+                : `${status.radiusMeters} m çevrede ${status.actionCount} kayıt`
+              : ' '}
+          </Text>
+          <Text variant="heading" style={styles.sheetTitle}>
+            {sheetNeedsCare ? `Buralarda ${typeLabel} yok` : `Bu bölgede ${typeLabel} var`}
+          </Text>
+          <Text variant="body" style={styles.sheetDesc}>
+            {sheetNeedsCare
+              ? 'İlk kaydı sen bırak, bölge yeşile dönsün.'
+              : 'Taze kayıt bölgeyi canlı tutar; sen de ekleyebilirsin.'}
+          </Text>
           <Button
-            title={viewType === 'food' ? 'Buraya mama bıraktım' : 'Buraya su bıraktım'}
+            title={`Buraya ${typeLabel} bıraktım`}
             onPress={() => setConfirmOpen(true)}
             icon={
               <Icon
                 name={viewType === 'food' ? 'food' : 'water'}
-                size={20}
+                size={18}
                 color={colors.textOnBrand}
               />
             }
             fullWidth
-            size="lg"
           />
         </View>
       </SafeAreaView>
@@ -482,12 +539,12 @@ export default function MapScreen({ navigation }: any) {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalIcon}>
-              <Icon name={viewType === 'food' ? 'food' : 'water'} size={28} color={colors.brand} />
+              <Icon name={viewType === 'food' ? 'food' : 'water'} size={26} color={colors.brand} />
             </View>
             <Text variant="heading" center>
               Bulunduğun yere {typeLabel} bıraktın mı?
             </Text>
-            <Text variant="caption" center style={styles.modalDesc}>
+            <Text variant="body" center style={styles.modalDesc}>
               Fotoğrafını çek, haritada herkes görsün. Kayıt şu anki konumuna düşecek.
             </Text>
 
@@ -497,7 +554,6 @@ export default function MapScreen({ navigation }: any) {
               loading={submitting}
               icon={<Icon name="camera" size={18} color={colors.textOnBrand} />}
               fullWidth
-              size="lg"
             />
             <Button
               title="Vazgeç"
@@ -537,53 +593,76 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     padding: 4,
     borderRadius: radius.pill,
     backgroundColor: c.surface,
-    ...shadow.raised,
+    borderWidth: 1,
+    borderColor: c.border,
+    ...shadow.float,
   },
   segmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 1,
     paddingHorizontal: spacing.xl,
     borderRadius: radius.pill,
+    overflow: 'hidden',
   },
-  segmentItemSelected: { backgroundColor: c.brand },
-  segmentLabel: { marginLeft: spacing.sm },
-  banner: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    ...shadow.card,
-  },
-  // The zoom buttons must stay above the record button; otherwise they end
-  // up beneath the big button, untouchable.
-  zoomControls: { position: 'absolute', right: spacing.md, bottom: 140 },
-  zoomButton: {
-    width: 42,
-    height: 42,
+  segmentLabel: { marginLeft: spacing.sm - 2 },
+  animalMarker: {
+    padding: 3,
     borderRadius: radius.pill,
     backgroundColor: c.surface,
+    ...shadow.float,
+  },
+  // The round controls sit above the bottom sheet; otherwise the sheet covers
+  // them and they stop being tappable.
+  sideControls: { position: 'absolute', right: spacing.md, bottom: 250, alignItems: 'flex-end' },
+  hint: {
+    marginBottom: spacing.sm,
+    backgroundColor: c.surface,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: c.border,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    ...shadow.float,
+  },
+  roundStack: { alignItems: 'center' },
+  roundButton: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.sm,
-    ...shadow.card,
   },
-  zoomButtonText: { fontSize: 22, lineHeight: 26, color: c.textMuted },
+  roundButtonText: { fontSize: 20, lineHeight: 24, color: c.textMuted },
+  fab: { width: 46, height: 46, marginBottom: 0, ...shadow.float },
   bottomLayer: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  hint: {
-    alignSelf: 'center',
-    marginBottom: spacing.sm,
+  sheet: {
     backgroundColor: c.surface,
-    borderRadius: radius.pill,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    ...shadow.card,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    ...shadow.float,
   },
-  ctaWrap: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
     borderRadius: radius.pill,
-    ...shadow.raised,
+    backgroundColor: c.borderStrong,
+    marginBottom: spacing.md,
   },
+  sheetMicro: { marginBottom: spacing.xs },
+  sheetTitle: { marginBottom: 2 },
+  sheetDesc: { marginBottom: spacing.md },
   modalBackdrop: {
     flex: 1,
     backgroundColor: c.overlay,
@@ -596,20 +675,22 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     maxWidth: 380,
     backgroundColor: c.surface,
     borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
     padding: spacing.xl,
     alignItems: 'center',
     ...shadow.modal,
   },
   modalIcon: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
     borderRadius: radius.pill,
     backgroundColor: c.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
-  modalDesc: { marginTop: spacing.xs, marginBottom: spacing.xl },
+  modalDesc: { marginTop: spacing.xs, marginBottom: spacing.lg },
   modalCancel: { marginTop: spacing.xs },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -620,6 +701,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     padding: spacing.lg,
     borderRadius: radius.pill,
     backgroundColor: c.surface,
-    ...shadow.raised,
+    borderWidth: 1,
+    borderColor: c.border,
+    ...shadow.float,
   },
 }));

@@ -3,12 +3,13 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-na
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
-import { Button, Card, Input, Screen, Text } from '../components/ui';
+import { Button, Input, Screen, Text } from '../components/ui';
 import { Wordmark } from '../components/brand';
 import { hitSlop, makeStyles, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
+/** Registration — the same language as login: logo, bare fields, one gradient button. */
 export default function RegisterScreen({ navigation }: Props) {
   const styles = useStyles();
   const { register } = useAuth();
@@ -36,54 +37,44 @@ export default function RegisterScreen({ navigation }: Props) {
       >
         <View style={styles.center}>
           <Wordmark size="md" style={styles.brand} />
-          <Text variant="title" center style={styles.heading}>
-            Aramıza katıl
-          </Text>
-          <Text variant="caption" center style={styles.sub}>
-            Mahallendeki hayvanlara birlikte bakalım.
-          </Text>
 
-          <Card style={styles.card}>
-            <Input label="AD SOYAD" placeholder="Adın" value={name} onChangeText={setName} />
-            <Input
-              label="E-POSTA"
-              placeholder="ornek@eposta.com"
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Input
-              label="ŞİFRE"
-              placeholder="••••••••"
-              hint="En az 8 karakter"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              containerStyle={styles.lastField}
-            />
-            <Button
-              title="Kayıt ol"
-              onPress={handleRegister}
-              loading={submitting}
-              fullWidth
-              size="lg"
-            />
-          </Card>
+          <Input label="isim" placeholder="Adın" value={name} onChangeText={setName} />
+          <Input
+            label="e-posta"
+            placeholder="ornek@eposta.com"
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <Input
+            label="şifre"
+            placeholder="••••••••"
+            hint="En az 8 karakter"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            containerStyle={styles.lastField}
+          />
+          <Button title="Kayıt ol" onPress={handleRegister} loading={submitting} fullWidth />
 
           <Pressable
             onPress={() => navigation.navigate('Login')}
             hitSlop={hitSlop}
             style={styles.link}
           >
-            <Text variant="caption" center>
-              Zaten hesabın var mı?{' '}
-              <Text variant="captionStrong" color="brand">
+            <Text variant="bodyStrong" center>
+              Zaten üye misin?{' '}
+              <Text variant="bodyStrong" color="brand">
                 Giriş yap
               </Text>
             </Text>
           </Pressable>
+
+          <Text variant="caption" color="textSubtle" center style={styles.note}>
+            Kayıt olursan sana rastgele bir avatar atanır, profilden değiştirebilirsin.
+          </Text>
         </View>
       </KeyboardAvoidingView>
     </Screen>
@@ -92,11 +83,9 @@ export default function RegisterScreen({ navigation }: Props) {
 
 const useStyles = makeStyles(() => ({
   flex: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl },
-  brand: { marginBottom: spacing.xl },
-  heading: { marginBottom: spacing.xs },
-  sub: { marginBottom: spacing.xl },
-  card: { paddingTop: spacing.xl },
-  lastField: { marginBottom: spacing.xl },
-  link: { marginTop: spacing.xl },
+  center: { flex: 1, justifyContent: 'center', paddingHorizontal: 34, paddingVertical: spacing.xl },
+  brand: { marginBottom: spacing.xxl },
+  lastField: { marginBottom: spacing.lg },
+  link: { marginTop: spacing.lg },
+  note: { marginTop: spacing.xl, paddingHorizontal: spacing.sm, lineHeight: 19 },
 }));

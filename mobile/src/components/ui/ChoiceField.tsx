@@ -60,8 +60,8 @@ export default function ChoiceField({
 
   return (
     <View style={styles.container}>
-      <Text variant="label" style={styles.label}>
-        {label}
+      <Text variant="micro" style={styles.label}>
+        {label.toLocaleLowerCase('tr-TR')}
       </Text>
       <View style={styles.chipRow}>
         {options.map((option) => (

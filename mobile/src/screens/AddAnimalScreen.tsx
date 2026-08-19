@@ -286,8 +286,8 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         </Text>
       </View>
 
-      <Text variant="label" style={styles.label}>
-        TÜR
+      <Text variant="micro" style={styles.label}>
+        tür
       </Text>
       <View style={styles.chipRow}>
         <Chip
@@ -308,7 +308,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
           tekir/sarman describe coat patterns; dogs are mixed too (see
           taxonomy.ts). */}
       <ChoiceField
-        label="TÜR / DESEN"
+        label="tür / desen"
         options={patternsFor(species)}
         value={breed}
         onChange={setBreed}
@@ -316,7 +316,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       />
 
       <ChoiceField
-        label="RENK"
+        label="renk"
         options={colorsFor(species)}
         value={color}
         onChange={setColor}
@@ -324,14 +324,14 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       />
 
       <Input
-        label="İSİM (İSTEĞE BAĞLI)"
+        label="isim (isteğe bağlı)"
         value={name}
         onChangeText={setName}
         placeholder="Örn. Pamuk"
         containerStyle={styles.field}
       />
       <Input
-        label="İŞARETLER / NOTLAR"
+        label="işaretler / notlar"
         value={markings}
         onChangeText={setMarkings}
         placeholder="Örn. Sol kulakta çentik"
@@ -339,8 +339,8 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         containerStyle={styles.field}
       />
 
-      <Text variant="label" style={styles.label}>
-        FOTOĞRAFLAR (EN AZ {MIN_PHOTOS})
+      <Text variant="micro" style={styles.label}>
+        fotoğraflar (en az {MIN_PHOTOS})
       </Text>
       <View style={styles.photoRow}>
         {photos.map((photo, index) => (

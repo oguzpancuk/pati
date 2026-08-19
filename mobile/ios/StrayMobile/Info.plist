@@ -73,6 +73,10 @@
 		<string>Nunito-Bold.ttf</string>
 		<string>Nunito-Regular.ttf</string>
 		<string>Nunito-ExtraBold.ttf</string>
+		<string>Quicksand-Bold.ttf</string>
+		<string>Quicksand-Regular.ttf</string>
+		<string>Quicksand-Medium.ttf</string>
+		<string>Quicksand-SemiBold.ttf</string>
 	</array>
 </dict>
 </plist>

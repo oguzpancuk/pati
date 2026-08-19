@@ -25,6 +25,7 @@ import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { AvatarPickerModal } from '../components/avatars';
 import { BadgeSymbol } from '../components/badges';
 import LevelBar from '../components/LevelBar';
+import StatStrip from '../components/StatStrip';
 import RecentComments from '../components/RecentComments';
 import {
   Avatar,
@@ -47,9 +48,9 @@ const PROFILE_PREVIEW = 3;
 const PROFILE_PAGE = 20;
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
-  { key: 'system', label: 'Sistem' },
-  { key: 'light', label: 'Açık' },
-  { key: 'dark', label: 'Koyu' },
+  { key: 'system', label: 'sistem' },
+  { key: 'light', label: 'açık' },
+  { key: 'dark', label: 'koyu' },
 ];
 
 export default function UserProfileScreen({ navigation }: any) {
@@ -199,56 +200,48 @@ export default function UserProfileScreen({ navigation }: any) {
 
   return (
     <Screen edges={['top']} scroll>
-      {/* The header card: avatar, name and level bar together */}
-      <Card style={styles.headerCard}>
-        <View style={styles.headerRow}>
+      {/* Header (handoff 3d): avatar + name + email + the orange micro label
+          that opens the avatar picker. No card — it sits on white. */}
+      <View style={styles.header}>
+        <Pressable onPress={() => setAvatarPickerVisible(true)} disabled={uploading}>
+          <Avatar uri={me.avatar_url} name={me.name} size={60} />
+        </Pressable>
+        <View style={styles.headerText}>
+          <Text variant="title" numberOfLines={1}>
+            {me.name}
+          </Text>
+          <Text variant="caption" numberOfLines={1}>
+            {me.email}
+          </Text>
           <Pressable onPress={() => setAvatarPickerVisible(true)} disabled={uploading}>
-            <Avatar uri={me.avatar_url} name={me.name} size={72} />
-            <View style={styles.avatarBadge}>
-              <Icon name="camera" size={13} color={colors.textOnBrand} />
-            </View>
-          </Pressable>
-          <View style={styles.headerText}>
-            <Text variant="title" numberOfLines={1}>
-              {me.name}
-            </Text>
-            <Text variant="caption" numberOfLines={1}>
-              {me.email}
-            </Text>
             <Text variant="micro" color="brand" style={styles.avatarHint}>
-              {uploading ? 'KAYDEDİLİYOR…' : 'DOKUN, AVATARINI SEÇ'}
+              {uploading ? 'kaydediliyor…' : 'dokun, avatarını seç'}
             </Text>
-          </View>
+          </Pressable>
         </View>
+      </View>
 
+      {/* Stat strip: points / rank / level — the rank cell opens the board. */}
+      <StatStrip
+        style={styles.statStrip}
+        stats={[
+          { value: String(me.points?.total ?? 0), label: 'puan' },
+          {
+            value: me.rank ? `${me.rank.rank}. / ${me.rank.totalUsers}` : '—',
+            label: 'sıra',
+            onPress: () => navigation.navigate('Leaderboard'),
+          },
+          { value: String(me.level?.level ?? 1), label: 'seviye' },
+        ]}
+      />
+
+      <View style={styles.levelCard}>
         <LevelBar level={me.level} points={me.points?.total ?? 0} />
-      </Card>
-
-      <Card
-        variant="tinted"
-        style={styles.rankCard}
-        onPress={() => navigation.navigate('Leaderboard')}
-      >
-        <View style={styles.rankIcon}>
-          <Icon name="trophy" size={22} color={colors.brand} />
-        </View>
-        <View style={styles.rankText}>
-          <Text variant="label">SIRALAMAN</Text>
-          <Text variant="heading" numberOfLines={1}>
-            {me.rank ? `${me.rank.rank}. / ${me.rank.totalUsers}` : '—'}
-          </Text>
-        </View>
-        <View style={styles.rankRight}>
-          <Text variant="bodyStrong" color="brand" numberOfLines={1}>
-            {me.points?.total ?? 0} puan
-          </Text>
-          <Icon name="chevronRight" size={18} color={colors.textSubtle} />
-        </View>
-      </Card>
+      </View>
 
       <SectionHeader
         title="Öne çıkan rozetlerim"
-        actionLabel="Seç / tümü"
+        actionLabel="seç / tümü"
         onAction={() => setCatalogVisible(true)}
       />
       {featured.length === 0 ? (
@@ -345,15 +338,15 @@ export default function UserProfileScreen({ navigation }: any) {
 
       <SectionHeader
         title="Arkadaşlarım"
-        actionLabel="Arkadaş bul"
+        actionLabel="arkadaş bul"
         onAction={() => navigation.navigate('FindFriends')}
         style={styles.sectionTop}
       />
 
       {incoming.length > 0 && (
         <>
-          <Text variant="label" style={styles.subLabel}>
-            GELEN İSTEKLER
+          <Text variant="micro" style={styles.subLabel}>
+            gelen istekler
           </Text>
           {incoming.map((entry) => (
             <Card key={entry.friendship_id} variant="flat" padding="md" style={styles.block}>
@@ -412,56 +405,21 @@ export default function UserProfileScreen({ navigation }: any) {
         ))}
       </View>
 
-      <Button
-        title="Çıkış yap"
-        variant="ghost"
-        onPress={logout}
-        fullWidth
-        icon={<Icon name="logout" size={18} color={colors.brand} />}
-        style={styles.logout}
-      />
+      <Pressable onPress={logout} style={styles.logout} accessibilityRole="button">
+        <Text variant="captionStrong" color="textSubtle" center>
+          çıkış yap
+        </Text>
+      </Pressable>
     </Screen>
   );
 }
 
 const useStyles = makeStyles(({ colors: c }) => ({
-  headerCard: { marginBottom: spacing.md },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
   headerText: { flex: 1, marginLeft: spacing.lg },
-  avatarHint: { marginTop: spacing.xs },
-  avatarBadge: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: 26,
-    height: 26,
-    borderRadius: radius.pill,
-    backgroundColor: c.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: c.surface,
-  },
-  rankCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  rankIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.pill,
-    backgroundColor: c.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  rankText: { flex: 1 },
-  rankRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  avatarHint: { marginTop: spacing.sm - 2 },
+  statStrip: { marginBottom: spacing.md },
+  levelCard: { marginBottom: spacing.xl },
   sectionTop: { marginTop: spacing.xl },
   block: { marginBottom: spacing.sm },
   badgeRow: { flexDirection: 'row', gap: spacing.sm },
@@ -487,5 +445,5 @@ const useStyles = makeStyles(({ colors: c }) => ({
   },
   friendName: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
   themeRow: { flexDirection: 'row', gap: spacing.sm },
-  logout: { marginTop: spacing.xxl },
+  logout: { marginTop: spacing.xxl, marginBottom: spacing.lg, alignSelf: 'center' },
 }));

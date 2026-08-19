@@ -8,8 +8,8 @@
  * with the background color (`accent`) — a CSS variable works too, e.g.
  * `var(--background)`.
  *
- * Note: the mobile Logo.tsx still has the old geometry; use this file as
- * the reference when mobile moves to the studio aesthetic.
+ * The mobile counterpart is `mobile/src/components/brand/Logo.tsx` — same
+ * geometry; if one changes, so does the other.
  */
 export function logoSvg(size = 64, color?: string, accent = 'var(--background)'): string {
   const height = Math.round((size * 130) / 120);

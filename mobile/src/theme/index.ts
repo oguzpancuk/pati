@@ -10,7 +10,7 @@ export { mapColors, caredFill, tierColors, lightPalette, darkPalette, palettes }
 export type { ColorName, Palette, ThemeName, TierColorName } from './colors';
 export { fonts, type, VARIANT_COLOR } from './typography';
 export type { TypeVariant } from './typography';
-export { spacing, radius, makeShadows, hitSlop, minTouch } from './layout';
+export { spacing, radius, makeShadows, hitSlop, minTouch, hairline } from './layout';
 export type { Shadows } from './layout';
 export { ThemeProvider, useTheme, useThemeMode } from './ThemeContext';
 export type { Theme, ThemeMode } from './ThemeContext';

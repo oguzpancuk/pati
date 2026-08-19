@@ -16,6 +16,22 @@
     {
       "path": "assets/fonts/Nunito-SemiBold.ttf",
       "sha1": "876165d70aa2e00f66737c7dd87039e2619bf2c2"
+    },
+    {
+      "path": "assets/fonts/Quicksand-Bold.ttf",
+      "sha1": "b0fe4cb171ca5c53f3a685f9e333ec7160833d23"
+    },
+    {
+      "path": "assets/fonts/Quicksand-Medium.ttf",
+      "sha1": "6dc4e319aa6095c7a58be53e2c46ea23ab3a439e"
+    },
+    {
+      "path": "assets/fonts/Quicksand-Regular.ttf",
+      "sha1": "14be1241b8121411c912577f25fb12bb874491d8"
+    },
+    {
+      "path": "assets/fonts/Quicksand-SemiBold.ttf",
+      "sha1": "03cf255e61281ff0ba85aac1ea612ca1ca3a7c6b"
     }
   ]
 }

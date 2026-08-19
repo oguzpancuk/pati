@@ -6,35 +6,40 @@ document explains how the UI is built and what to follow when adding screens.
 Short rule: **no hard-coded colors, fonts, or arbitrary spacing values in
 screen files.** Everything comes from `mobile/src/theme/`.
 
-> The web PWA follows the newer **studio aesthetic** (white surfaces, hairline
-> borders, Quicksand, gradient discipline) — see
-> `docs/design/studio-aesthetic-handoff.md`. This document describes the
-> mobile theme system, which still uses the original pati palette until the
-> studio aesthetic is ported to mobile.
+> All three clients (mobile, web PWA, admin excepted) follow the **studio
+> aesthetic**: pure-white surfaces, hairline borders, Quicksand, and the
+> gradient reserved for four uses (logo, primary button, progress bar,
+> selected chip). The source of truth is
+> `docs/design/studio-aesthetic-handoff.md`; this document describes how the
+> mobile theme system implements it.
 
 ---
 
 ## 1. Colors — `mobile/src/theme/colors.ts`
 
-Five colors come fixed from the brand identity; the rest are derived. **There
-are two palettes** (`lightPalette` / `darkPalette`) with identical token names.
+The palette matches the web client's tokens (`web/src/theme.css`) one to one.
+**There are two palettes** (`lightPalette` / `darkPalette`) with identical
+token names.
 
 | Token | Light | Dark | Where |
 | --- | --- | --- | --- |
-| `brand` | `#F47A4A` | `#FF8F5E` | Primary button, selected tab, links |
-| `brandDark` | `#D9633A` | `#E0714A` | Pressed button |
-| `brandSoft` / `brandTint` | `#FDE7DB` / `#FFF0E7` | `#4A2E22` / `#37241C` | Brand color as light/dark surface |
-| `background` | `#FFF3E7` | `#1C1714` | Screen background |
-| `surface` / `surfaceAlt` | `#FFFFFF` / `#FFF9F2` | `#262019` / `#2F2721` | Card / secondary block inside a card |
-| `text` / `textMuted` / `textSubtle` | `#2B2B2B` / `#7A6E66` / `#A2948A` | `#F5EDE4` / `#B8A99C` / `#8C7D71` | Primary / secondary / timestamp |
-| `border` | `#F0DCC8` | `#3A3029` | Warm divider |
+| `gradStart` → `gradEnd` | `#F4581C` → `#F9A052` | same | The gradient — ONLY logo, primary button, progress bar, selected chip |
+| `brand` | `#E05E2B` | `#F9824E` | Flat accent: links, active icons, micro labels |
+| `brandDark` | `#C94F20` | `#E0693A` | Pressed states |
+| `brandSoft` / `brandTint` | `#FFE9DA` / `#FFF3EA` | `#47301F` / `#33241A` | Accent as light/dark surface |
+| `background` / `surface` | `#FFFFFF` | `#161412` | Screens are pure white / warm charcoal |
+| `surfaceAlt` / `cream` | `#FFF6EC` / `#FFF3E7` | `#241F19` / `#2A231B` | Comment input / photo placeholder fills |
+| `text` / `textBody` / `textMuted` / `textSubtle` | `#21201E` / `#4A4744` / `#8A8580` / `#B5AFA8` | `#F3EEE8` / `#CFC8C0` / `#9B948C` / `#6E675F` | Charcoal text tiers |
+| `border` / `borderStrong` / `borderDashed` | `#F6E8DA` / `#F3E4D4` / `#EFD9C4` | `#2B2620` / `#363028` / `#453B30` | Hairlines: card / input / dashed photo frame |
 | `success` | `#34A853` | `#4CC46B` | "cared" on the map, recovered |
-| `danger` | `#FF5C5C` | `#FF7B7B` | "needs care", errors |
-| `warning` | `#F2A83B` | `#F5B855` | In treatment, duplicate warnings |
+| `danger` | `#E24C4C` | `#FF7B6B` | "needs care", errors |
+| `warning` | `#F5B841` | `#F5B841` | In treatment |
 
-The dark theme uses **warm coffee** tones, not neutral gray: the brand cream
-is warm, so a cold gray dark theme doesn't read as the same app. Status colors
-are lifted a notch — the same green/red goes dull on dark ground.
+The dark theme is not in the handoff; it is derived as a **warm charcoal**
+variant of the same discipline (a cold gray dark theme doesn't read as the
+same app). Status colors are lifted a notch — the same green/red goes dull on
+dark ground. Status is displayed as **dot tags** (`ui/Tag`: colored dot +
+lowercase colored text), not filled pills.
 
 Every status color has three variants: the main tone (`danger`), a soft
 surface (`dangerSoft`), and text readable on that surface (`onDanger`). Never
@@ -77,38 +82,43 @@ App.tsx
 
 ## 2. Typography — `mobile/src/theme/typography.ts`
 
-**Nunito** (SIL OFL). Matches the brand's "round, warm, trustworthy" brief and
-covers the full Turkish alphabet (ı İ ğ Ğ ş Ş ç Ç ö Ö ü Ü — 938 glyphs).
-Files in `mobile/assets/fonts/`, license in `mobile/assets/OFL-Nunito.txt`.
+**Quicksand** (SIL OFL), the studio aesthetic's single family. Covers the full
+Turkish alphabet (verified against the font's cmap). Files in
+`mobile/assets/fonts/`, license in `mobile/assets/OFL-Quicksand.txt`. The old
+Nunito files remain linked but unreferenced.
 
-Four embedded weights: Regular 400, SemiBold 600, Bold 700, ExtraBold 800
-(~520 KB total).
+Four embedded weights: Regular 400, Medium 500, SemiBold 600, Bold 700.
+
+The discipline: **headings are medium weight with air, never bold**, and there
+is **no uppercase** — emphasis comes from letter spacing + color (the `micro`
+variant is the replacement for uppercase section headings).
 
 **Never use `fontWeight`.** Weight comes from file selection
-(`fontFamily: 'Nunito-Bold'`); combining both makes Android synthesize a faux
-bold and the text breaks. Use `<Text variant="...">` instead:
+(`fontFamily: 'Quicksand-Medium'`); combining both makes Android synthesize a
+faux bold and the text breaks. Use `<Text variant="...">` instead:
 
 | Variant | Size/line | Where |
 | --- | --- | --- |
-| `display` | 30/37 ExtraBold | Celebration popup, single-line hero |
-| `title` | 24/31 Bold | Screen title |
-| `heading` | 19/25 Bold | Card / section heading |
-| `subheading` | 16/22 SemiBold | List-row title |
-| `body` / `bodyStrong` | 15/22 | Body copy |
-| `caption` / `captionStrong` | 13/18 | Secondary line |
-| `label` | 12/16 SemiBold | Form label |
-| `micro` | 11/14 Bold, letter-spaced | Under badges, the "REKLAM" tag |
+| `display` | 28/35 Medium | Celebration popup, single-line hero |
+| `title` | 25/32 Medium | Screen title, names |
+| `heading` | 21/27 Medium | Bottom-sheet / card heading |
+| `subheading` | 16/21 SemiBold | List-row title |
+| `body` / `bodyStrong` | 14/20 Medium/SemiBold | Body copy |
+| `caption` / `captionStrong` | 12.5/17 | Secondary line |
+| `label` / `micro` | 10.5/14 SemiBold, .24em spacing, lowercase | In-box input label / section micro label |
+| `stat` | 26/32 Regular | Large numerals in the stat strip |
+| `tab` | 10/13 SemiBold, spaced | Bottom tab labels |
 
 ### Why are the font files in the repo?
 
 React Native wants `.ttf`; `@fontsource` packages ship only `.woff2`, split by
 alphabet (Turkish characters live in `latin-ext`, so single files were
-incomplete). `@expo-google-fonts/nunito` contains complete `.ttf` files, so
-they were taken from there; the package itself is not a dependency.
+incomplete). The Quicksand `.ttf`s are the same complete files the web client
+embeds (`web/src/fonts/`), renamed to their PostScript names.
 
 Fonts are linked via `react-native.config.js` + `npx react-native-asset`:
 Android `assets/fonts/`, iOS `UIAppFonts` in `Info.plist` + the Xcode project.
-Filenames match PostScript names exactly (`Nunito-Bold.ttf` → `Nunito-Bold`)
+Filenames match PostScript names exactly (`Quicksand-Bold.ttf` → `Quicksand-Bold`)
 because Android reads the family from the filename and iOS from the PostScript
 name; when they match, a single `fontFamily` value works on both platforms.
 
@@ -125,11 +135,13 @@ two copies will drift.
 ## 3. Spacing, radius, shadow — `mobile/src/theme/layout.ts`
 
 - `spacing`: 4 / 8 / 12 / 16 / 24 / 32 / 48 (`xs`…`xxxl`). No in-between values.
-- `radius`: 8 / 12 / 16 / 22 / 999 (`pill`). The brand is round; corners are generous.
-- `shadow`: `card` / `raised` / `modal` — arrives as the second field inside
-  `makeStyles`. iOS `shadow*` and Android `elevation` are set together; with
-  only one, cards go flat on the other platform. Shadow color is warm coffee
-  in light (gray shadows look dirty on cream) and black, more opaque, in dark.
+- `radius`: 8 / 12 / 16 (`input`) / 18 (`lg`) / 22 / 999 (`pill`) — the
+  handoff's numbers: cards 18, inputs 16, pills round.
+- `shadow`: `card` (deliberately **empty** — structure comes from hairlines) /
+  `button` (only under the gradient primary button, tinted by it) / `float`
+  (elements floating over the map) / `modal`. iOS `shadow*` and Android
+  `elevation` are set together; with only one, the element goes flat on the
+  other platform.
 - `minTouch`: 44 — the floor for touch targets.
 
 ## 4. Core components — `mobile/src/components/ui/`
@@ -139,11 +151,12 @@ Screens import these via `import { ... } from '../components/ui'`.
 | Component | Purpose |
 | --- | --- |
 | `Text` | All text goes through here; takes `variant` + `color` |
-| `Button` | `primary` / `secondary` / `ghost` / `danger` / `success`, `sm/md/lg`, `loading`, `icon` |
-| `Card` | `raised` (shadow) / `flat` (border) / `tinted`; pressable when `onPress` given |
+| `Button` | `primary` (the app's only gradient fill) / `secondary` / `ghost` / `danger` / `success` (outline), `sm/md/lg`, `loading`, `icon` |
+| `Card` | `flat` (default: white + hairline) / `tinted` (cream); `raised` is an alias of flat — nothing casts a card shadow |
 | `Screen` | Theme background + safe area + optional scroll/refresh |
-| `Input` | Labeled text field; border turns brand on focus, takes `error`/`hint` |
-| `Chip` | Filter button and read-only tag; status colors via `tone` |
+| `Input` | The label lives **inside** the box (10.5pt lowercase micro label over the value); border turns accent on focus |
+| `Chip` | Filter pill; the selected state carries the gradient |
+| `Tag` | Status as a colored dot + lowercase text — no filled pills |
 | `Banner` | In-screen status box (colored strip on the left edge) |
 | `Avatar` | Round profile image; initials when there is no photo |
 | `SectionHeader` | Section title + "see all" link on the right |
@@ -152,12 +165,15 @@ Screens import these via `import { ... } from '../components/ui'`.
 
 ## 5. Brand components — `mobile/src/components/brand/`
 
-- **`Logo`** — four toe pads + a map pin with a heart cutout. Drawn as SVG so
-  it stays crisp from a 24 px tab icon to a 160 px launch screen, and color
-  changes with a single prop. Without a color it follows the theme (in dark
-  mode the heart sits on the dark background); on orange ground use
-  `<Logo color="#fff" accent={colors.brand} />`.
-- **`Wordmark`** — logo + "pati" text, optional tagline. Tops the auth screens.
+- **`Logo`** — four toe pads + a map pin with a heart cutout, in the
+  handoff's exact geometry (viewBox 0 0 120 130 — identical to
+  `shared/logoSvg.ts`; if one changes, so does the other). Fill defaults to
+  the vertical brand gradient; pass `color` for a flat mark. The heart cutout
+  always takes the background color.
+- **`Wordmark`** — gradient logo stacked over the "pati" text (charcoal,
+  .14em spacing, slight overlap). Tops the auth screens; no tagline.
+- **`Gradient`** — the brand gradient as an absolutely positioned SVG layer
+  (no extra native dependency). Use it only in the four allowed places.
 - **`Icon`** — a 20-icon set with thin strokes and round caps (`pin`, `paw`,
   `user`, `users`, `plus`, `trophy`, `food`, `water`, `heart`, `chat`,
   `camera`, `health`, `bell`, `chevronRight`, `close`, `check`, `crosshair`,
@@ -187,7 +203,7 @@ cd mobile && npm run icons     # requires Chromium (Playwright)
 
 | Output | What |
 | --- | --- |
-| `ios/.../AppIcon.appiconset/icon-*.png` | 40–1024 px, orange ground, **no alpha** (the App Store rejects transparency) |
+| `ios/.../AppIcon.appiconset/icon-*.png` | 40–1024 px, gradient logo on white, **no alpha** (the App Store rejects transparency) |
 | `ios/.../LaunchLogo.imageset/*` | Launch-screen logo, transparent ground |
 | `android/.../mipmap-*/ic_launcher.png` | Classic icon (Android ≤ 7) |
 | `android/.../mipmap-*/ic_launcher_round.png` | Round variant, transparent corners |
@@ -199,11 +215,12 @@ Launchers crop the foreground with their own mask, so the logo is drawn small
 enough to fit the 66 dp safe zone of the 108 dp canvas.
 
 Launch screens:
-- **iOS:** `LaunchScreen.storyboard` — cream ground, logo, "pati" + tagline.
-  Drawn natively, so colors can't read tokens and are hard-coded; if the
-  palette changes, update the storyboard too.
+- **iOS:** `LaunchScreen.storyboard` — white ground, centered gradient logo,
+  no text (launch storyboards render before custom fonts register, so any
+  text would fall back to the system font). Drawn natively, so colors can't
+  read tokens and are hard-coded.
 - **Android:** no separate splash; `android:windowBackground` in `styles.xml`
-  is cream so cold start doesn't flash white.
+  is white, same as the screens.
 
 ---
 
@@ -225,11 +242,10 @@ or the typeface changes, one file changes.
 
 ## Known gaps
 
-- **White on orange fails WCAG AA.** White on `#F47A4A` has a contrast ratio
-  of **2.7:1** (4.5:1 required for body text). Kept because the brand identity
-  shows this combination. Two fixes exist: darken the button fill
-  (~`#C2551F` gives 4.6:1) or use dark text on orange (`#2B2B2B` gives 5.3:1).
-  The brand owner decides.
+- **White on the gradient hovers around WCAG AA.** White on `#F4581C` passes
+  for large text (4.0:1) but the light end `#F9A052` drops to ~2.1:1. Kept
+  because the handoff specifies this combination and button text is short and
+  semibold; a darker gradient end would fix it. The brand owner decides.
 - **The accessibility audit is incomplete.** Touch targets were raised to
   44 pt and buttons have `accessibilityRole`, but screen-reader labels are not
   tested end to end.

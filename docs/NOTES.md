@@ -420,6 +420,16 @@ switch to a paid/own tile server before launch (on the roadmap).
 
 ---
 
+### The studio aesthetic reached mobile without a new native dependency
+When the mobile UI moved to the studio aesthetic (Quicksand, white +
+hairlines, gradient discipline), the gradient was implemented as an
+absolutely positioned `react-native-svg` rectangle (`brand/Gradient`) rather
+than adding `react-native-linear-gradient`: svg was already linked, so no new
+pod install for anyone. The launch screen dropped its text on purpose —
+launch storyboards render before custom fonts register, and the wordmark in a
+system font looked broken. The old Nunito files stay linked (removing them
+means touching the Xcode project for no gain) but nothing references them.
+
 ## 3. Known limits and technical debt
 
 To close before production, in rough priority order:

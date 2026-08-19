@@ -124,9 +124,9 @@ function MainTabs() {
         ),
       })}
     >
-      <Tab.Screen name="Map" component={MapScreen} options={{ title: 'Harita' }} />
-      <Tab.Screen name="Animals" component={AnimalsScreen} options={{ title: 'Hayvanlar' }} />
-      <Tab.Screen name="Profile" component={UserProfileScreen} options={{ title: 'Profilim' }} />
+      <Tab.Screen name="Map" component={MapScreen} options={{ title: 'harita' }} />
+      <Tab.Screen name="Animals" component={AnimalsScreen} options={{ title: 'hayvanlar' }} />
+      <Tab.Screen name="Profile" component={UserProfileScreen} options={{ title: 'profilim' }} />
     </Tab.Navigator>
   );
 }
@@ -139,32 +139,32 @@ function MainNavigator() {
       <MainStack.Screen
         name="AddAnimal"
         component={AddAnimalScreen}
-        options={{ title: 'Yeni Hayvan Ekle' }}
+        options={{ title: 'yeni hayvan' }}
       />
       <MainStack.Screen
         name="AnimalProfile"
         component={AnimalProfileScreen}
-        options={{ title: 'Hayvan Profili' }}
+        options={{ title: 'hayvan detay' }}
       />
       <MainStack.Screen
         name="PublicProfile"
         component={PublicProfileScreen}
-        options={{ title: 'Kullanıcı Profili' }}
+        options={{ title: 'profil' }}
       />
       <MainStack.Screen
         name="FindFriends"
         component={FindFriendsScreen}
-        options={{ title: 'Arkadaş Bul' }}
+        options={{ title: 'arkadaş bul' }}
       />
       <MainStack.Screen
         name="Leaderboard"
         component={LeaderboardScreen}
-        options={{ title: 'Sıralama' }}
+        options={{ title: 'sıralama' }}
       />
       <MainStack.Screen
         name="UserComments"
         component={UserCommentsScreen}
-        options={{ title: 'Yorumlar' }}
+        options={{ title: 'yorumlar' }}
       />
     </MainStack.Navigator>
   );

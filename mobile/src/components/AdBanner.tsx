@@ -75,7 +75,7 @@ export default function AdBanner({ slot, visible = true }: Props) {
           content from ads. Kept in a neutral tone away from the brand color
           so it doesn't blend with the app's own actions. */}
       <Text variant="micro" style={styles.label}>
-        REKLAM
+        reklam
       </Text>
       <View style={styles.row}>
         {ad.image_url ? (
@@ -107,7 +107,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
   container: {
     borderWidth: 1,
     borderColor: c.border,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     backgroundColor: c.surfaceAlt,
     padding: spacing.md,
     marginTop: spacing.lg,

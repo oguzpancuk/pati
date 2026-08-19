@@ -16,12 +16,12 @@ import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { BadgeSymbol } from '../components/badges';
 import LevelBar from '../components/LevelBar';
+import StatStrip from '../components/StatStrip';
 import RecentComments from '../components/RecentComments';
 import {
   Avatar,
   Button,
   Card,
-  Divider,
   LoadingState,
   LoadMoreButton,
   Screen,
@@ -115,35 +115,42 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 
   return (
     <Screen scroll>
-      <Card style={styles.headerCard}>
-        <View style={styles.headerTop}>
-          <Avatar uri={profile.avatar_url} name={profile.name} size={88} />
-          <Text variant="title" center style={styles.name}>
+      {/* Same header language as your own profile (handoff 3d), minus the
+          avatar picker: portrait, name, join date, then the numbers. */}
+      <View style={styles.header}>
+        <Avatar uri={profile.avatar_url} name={profile.name} size={60} />
+        <View style={styles.headerText}>
+          <Text variant="title" numberOfLines={1}>
             {profile.name}
           </Text>
-          <Text variant="caption" center>
-            {formatDate(profile.created_at)} tarihinde katıldı
-          </Text>
-          {profile.rank && (
-            <Text variant="captionStrong" color="brand" center style={styles.rankLine}>
-              {profile.rank.rank}. / {profile.rank.totalUsers} · {profile.points.total} puan
-            </Text>
-          )}
+          <Text variant="caption">{formatDate(profile.created_at)} tarihinde katıldı</Text>
         </View>
+      </View>
 
+      <StatStrip
+        style={styles.statStrip}
+        stats={[
+          { value: String(profile.points?.total ?? 0), label: 'puan' },
+          {
+            value: profile.rank ? `${profile.rank.rank}. / ${profile.rank.totalUsers}` : '—',
+            label: 'sıra',
+          },
+          { value: String(profile.level?.level ?? 1), label: 'seviye' },
+        ]}
+      />
+
+      <View style={styles.levelCard}>
         <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
+      </View>
 
-        <Divider />
-
-        <View style={styles.statsRow}>
-          {stats.map((stat) => (
-            <View key={stat.label} style={styles.statBox}>
-              <Text variant="heading">{stat.value}</Text>
-              <Text variant="micro">{stat.label.toLocaleUpperCase('tr-TR')}</Text>
-            </View>
-          ))}
-        </View>
-      </Card>
+      <View style={styles.statsRow}>
+        {stats.map((stat) => (
+          <View key={stat.label} style={styles.statBox}>
+            <Text variant="subheading">{stat.value}</Text>
+            <Text variant="micro">{stat.label.toLocaleLowerCase('tr-TR')}</Text>
+          </View>
+        ))}
+      </View>
 
       {profile.friendshipStatus === 'none' && (
         <Button
@@ -280,11 +287,11 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 }
 
 const useStyles = makeStyles(() => ({
-  headerCard: { marginBottom: spacing.lg },
-  headerTop: { alignItems: 'center', marginBottom: spacing.lg },
-  name: { marginTop: spacing.md },
-  rankLine: { marginTop: spacing.xs },
-  statsRow: { flexDirection: 'row' },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
+  headerText: { flex: 1, marginLeft: spacing.lg },
+  statStrip: { marginBottom: spacing.md },
+  levelCard: { marginBottom: spacing.lg },
+  statsRow: { flexDirection: 'row', marginBottom: spacing.xl },
   statBox: { flex: 1, alignItems: 'center' },
   action: { marginBottom: spacing.xl },
   block: { marginBottom: spacing.sm },

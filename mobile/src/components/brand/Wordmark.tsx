@@ -6,35 +6,50 @@ import { brand, fonts, makeStyles, spacing, useTheme } from '../../theme';
 
 export type WordmarkProps = {
   size?: 'sm' | 'md' | 'lg';
-  /** Show the tagline too. */
+  /** Show the tagline too. Off by default — the handoff's login screen has none. */
   tagline?: boolean;
+  /** Flat color for the mark. Omit it for the gradient logo + charcoal text. */
   color?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-// `line` is set on purpose: with `fontSize` but no `lineHeight` the text
-// would squeeze into the variant's line height and clip. Ratio 1.2 — so
-// Nunito ExtraBold's protruding letters (p, t, the dot on i) fit easily.
+// The logo sits above the text with a slight overlap (handoff: −8px at the
+// large size). `line` is written explicitly: with `fontSize` but no
+// `lineHeight` the text squeezes into the variant's line height and iOS clips
+// the descenders.
 const SIZES = {
-  sm: { logo: 28, name: 22, line: 27 },
-  md: { logo: 44, name: 32, line: 39 },
-  lg: { logo: 72, name: 46, line: 56 },
+  sm: { logo: 40, name: 22, line: 28, overlap: -3 },
+  md: { logo: 74, name: 32, line: 40, overlap: -5 },
+  lg: { logo: 118, name: 44, line: 54, overlap: -8 },
 } as const;
 
-/** Logo + the "pati" text. Used at the top of the login/register screens. */
+/**
+ * Logo + the "pati" wordmark, stacked vertically (handoff 3a). The text is
+ * medium-weight charcoal with wide letter spacing — the gradient belongs to
+ * the logo alone, so the two never compete.
+ */
 export default function Wordmark({ size = 'md', tagline = false, color, style }: WordmarkProps) {
   const styles = useStyles();
   const { colors } = useTheme();
   const s = SIZES[size];
-  const tint = color ?? colors.brand;
+
   return (
     <View style={[styles.wrap, style]}>
-      <View style={styles.row}>
-        <Logo size={s.logo} color={tint} />
-        <Text style={[styles.name, { fontSize: s.name, lineHeight: s.line, color: tint }]}>
-          {brand.name}
-        </Text>
-      </View>
+      <Logo size={s.logo} color={color} />
+      <Text
+        style={[
+          styles.name,
+          {
+            fontSize: s.name,
+            lineHeight: s.line,
+            marginTop: s.overlap,
+            letterSpacing: s.name * 0.14,
+            color: color ?? colors.text,
+          },
+        ]}
+      >
+        {brand.name}
+      </Text>
       {tagline ? (
         <Text variant="caption" style={styles.tagline}>
           {brand.tagline}
@@ -46,11 +61,6 @@ export default function Wordmark({ size = 'md', tagline = false, color, style }:
 
 const useStyles = makeStyles(() => ({
   wrap: { alignItems: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  name: {
-    fontFamily: fonts.extrabold,
-    marginLeft: spacing.md,
-    letterSpacing: -0.5,
-  },
-  tagline: { marginTop: spacing.xs },
+  name: { fontFamily: fonts.semibold },
+  tagline: { marginTop: spacing.sm },
 }));

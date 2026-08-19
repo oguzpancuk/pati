@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleProp, View, ViewStyle } from 'react-native';
 import Text from './Text';
+import Gradient from '../brand/Gradient';
 import { makeStyles, minTouch, radius, spacing, useTheme, type Palette } from '../../theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
@@ -19,43 +20,23 @@ export type ButtonProps = {
   style?: StyleProp<ViewStyle>;
 };
 
+/**
+ * `primary` is the only gradient-filled button in the app (handoff rule);
+ * every other variant is an outline or plain text. `danger`/`success` keep
+ * flat status colors — they carry meaning, not brand.
+ */
 function variantColors(c: Palette, variant: Variant) {
   switch (variant) {
     case 'secondary':
-      return {
-        bg: c.surface,
-        pressedBg: c.brandTint,
-        fg: c.brand,
-        border: c.brand,
-      };
+      return { bg: c.surface, pressedBg: c.brandTint, fg: c.brand, border: c.borderStrong };
     case 'ghost':
-      return {
-        bg: 'transparent',
-        pressedBg: c.brandTint,
-        fg: c.brand,
-        border: undefined,
-      };
+      return { bg: 'transparent', pressedBg: c.brandTint, fg: c.brand, border: undefined };
     case 'danger':
-      return {
-        bg: c.danger,
-        pressedBg: c.dangerDark,
-        fg: c.textOnBrand,
-        border: undefined,
-      };
+      return { bg: c.surface, pressedBg: c.dangerSoft, fg: c.onDanger, border: c.danger };
     case 'success':
-      return {
-        bg: c.success,
-        pressedBg: c.successDark,
-        fg: c.textOnBrand,
-        border: undefined,
-      };
+      return { bg: c.surface, pressedBg: c.successSoft, fg: c.onSuccess, border: c.success };
     default:
-      return {
-        bg: c.brand,
-        pressedBg: c.brandDark,
-        fg: c.textOnBrand,
-        border: undefined,
-      };
+      return { bg: 'transparent', pressedBg: 'transparent', fg: c.textOnBrand, border: undefined };
   }
 }
 
@@ -67,7 +48,7 @@ const SIZES: Record<
   { paddingV: number; paddingH: number; fontSize: number; lineHeight: number }
 > = {
   sm: { paddingV: spacing.sm, paddingH: spacing.md, fontSize: 13, lineHeight: 18 },
-  md: { paddingV: spacing.md, paddingH: spacing.lg, fontSize: 15, lineHeight: 20 },
+  md: { paddingV: 14, paddingH: spacing.lg, fontSize: 15, lineHeight: 20 },
   lg: { paddingV: spacing.lg, paddingH: spacing.xl, fontSize: 16, lineHeight: 22 },
 };
 
@@ -82,11 +63,15 @@ export default function Button({
   fullWidth = false,
   style,
 }: ButtonProps) {
-  const { colors } = useTheme();
+  const { colors, shadow } = useTheme();
   const styles = useStyles();
   const v = variantColors(colors, variant);
   const s = SIZES[size];
   const isOff = disabled || loading;
+  // Small buttons stay pills (filter rows, "✓ recovered"); the full-size
+  // primary action uses the handoff's 18pt radius.
+  const r = size === 'sm' ? radius.pill : radius.lg;
+  const gradient = variant === 'primary' && !isOff;
 
   return (
     <Pressable
@@ -96,17 +81,21 @@ export default function Button({
       accessibilityState={{ disabled: isOff, busy: loading }}
       style={({ pressed }) => [
         styles.base,
+        gradient ? shadow.button : null,
         {
+          borderRadius: r,
           backgroundColor: isOff ? colors.disabled : pressed ? v.pressedBg : v.bg,
           paddingVertical: s.paddingV,
           paddingHorizontal: s.paddingH,
-          borderWidth: v.border ? 1.5 : 0,
+          borderWidth: v.border ? 1 : 0,
           borderColor: isOff ? colors.disabled : v.border,
           alignSelf: fullWidth ? 'stretch' : 'flex-start',
+          opacity: pressed && gradient ? 0.9 : 1,
         },
         style,
       ]}
     >
+      {gradient ? <Gradient radius={r} /> : null}
       {loading ? (
         <ActivityIndicator size="small" color={isOff ? colors.disabledText : v.fg} />
       ) : (
@@ -130,10 +119,10 @@ export default function Button({
 
 const useStyles = makeStyles(() => ({
   base: {
-    borderRadius: radius.pill,
     minHeight: minTouch,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   row: { flexDirection: 'row', alignItems: 'center' },
   icon: { marginRight: spacing.sm },

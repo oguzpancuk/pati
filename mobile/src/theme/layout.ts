@@ -12,50 +12,59 @@ export const spacing = {
   xxxl: 48,
 } as const;
 
-/** The brand is round-edged; corners are generous. */
+/**
+ * Corner radii from the handoff: cards 18, inputs/buttons 16-18, pills 999.
+ * `sm`/`md` remain for small inner elements (tags, thumbnails).
+ */
 export const radius = {
   sm: 8,
   md: 12,
-  lg: 16,
+  input: 16,
+  lg: 18,
   xl: 22,
   pill: 999,
 } as const;
 
-export type Shadows = Record<'card' | 'raised' | 'modal', ViewStyle>;
+export type Shadows = Record<'card' | 'button' | 'float' | 'modal', ViewStyle>;
 
 /**
- * Shadows. iOS shadow* + Android elevation set together; without both, the
- * card stays flat on Android.
+ * Shadows. In the studio aesthetic almost nothing casts one: structure comes
+ * from hairlines. Only two survive — under the primary (gradient) button, and
+ * under elements floating over the map. `card` is deliberately empty so the
+ * old call sites stay valid while rendering flat.
  *
- * A function because it depends on color: the shadow is black in the dark
- * theme, warm coffee in the light one.
+ * iOS shadow* + Android elevation are set together; without both, the element
+ * stays flat on Android.
  */
 export function makeShadows(colors: Palette): Shadows {
-  const dark = colors.shadow === '#000000';
+  const dark = colors.background === '#161412';
   return {
-    card: Platform.select({
+    // Cards are flat now: a hairline border carries the separation.
+    card: {},
+    button: Platform.select({
       ios: {
-        shadowColor: colors.shadow,
-        // Shadows are nearly invisible on a dark ground; strengthened a bit.
-        shadowOpacity: dark ? 0.35 : 0.08,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 2 },
-      },
-      default: { elevation: 2 },
-    }) as ViewStyle,
-    raised: Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOpacity: dark ? 0.5 : 0.14,
+        // The handoff's 0 14px 28px -14px rgba(224,94,43,.6): a warm shadow
+        // tinted by the button itself, not a neutral gray.
+        shadowColor: dark ? '#000000' : '#E05E2B',
+        shadowOpacity: dark ? 0.5 : 0.35,
         shadowRadius: 14,
-        shadowOffset: { width: 0, height: 6 },
+        shadowOffset: { width: 0, height: 8 },
       },
-      default: { elevation: 6 },
+      default: { elevation: 4 },
+    }) as ViewStyle,
+    float: Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOpacity: dark ? 0.6 : 0.16,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      },
+      default: { elevation: 5 },
     }) as ViewStyle,
     modal: Platform.select({
       ios: {
         shadowColor: colors.shadow,
-        shadowOpacity: dark ? 0.65 : 0.22,
+        shadowOpacity: dark ? 0.65 : 0.18,
         shadowRadius: 24,
         shadowOffset: { width: 0, height: 12 },
       },
@@ -67,3 +76,6 @@ export function makeShadows(colors: Palette): Shadows {
 /** Touch target at least 44pt (the shared floor of Apple HIG / Material). */
 export const hitSlop = { top: 8, bottom: 8, left: 8, right: 8 } as const;
 export const minTouch = 44;
+
+/** The one hairline width used everywhere (StyleSheet.hairlineWidth is too thin on 3x). */
+export const hairline = 1;

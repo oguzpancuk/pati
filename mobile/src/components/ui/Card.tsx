@@ -5,26 +5,29 @@ import { makeStyles, radius, spacing } from '../../theme';
 export type CardProps = {
   children: React.ReactNode;
   onPress?: () => void;
-  /** flat: no shadow, just a thin border (for dense in-list use). */
+  /**
+   * `flat` (default) is the studio card: white with a hairline border and no
+   * shadow. `tinted` fills with the cream tone (comment input, inner blocks).
+   * `raised` is kept as an alias of flat so older call sites still read well —
+   * nothing in the app casts a card shadow any more.
+   */
   variant?: 'raised' | 'flat' | 'tinted';
   padding?: keyof typeof spacing | 'none';
   style?: StyleProp<ViewStyle>;
 };
 
-/** A raised surface over the background. The app's basic grouping container. */
+/** A grouping container: white surface, hairline border, generous radius. */
 export default function Card({
   children,
   onPress,
-  variant = 'raised',
+  variant = 'flat',
   padding = 'lg',
   style,
 }: CardProps) {
   const styles = useStyles();
   const boxStyle: StyleProp<ViewStyle> = [
     styles.base,
-    variant === 'raised' && styles.raised,
-    variant === 'flat' && styles.flat,
-    variant === 'tinted' && styles.tinted,
+    variant === 'tinted' ? styles.tinted : styles.flat,
     padding !== 'none' && { padding: spacing[padding] },
     style,
   ];
@@ -43,12 +46,11 @@ export default function Card({
   );
 }
 
-const useStyles = makeStyles(({ colors: c, shadow }) => ({
+const useStyles = makeStyles(({ colors: c }) => ({
   base: {
     backgroundColor: c.surface,
     borderRadius: radius.lg,
   },
-  raised: shadow.card,
   flat: {
     borderWidth: 1,
     borderColor: c.border,
@@ -58,5 +60,5 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderWidth: 1,
     borderColor: c.border,
   },
-  pressed: { opacity: 0.85, transform: [{ scale: 0.995 }] },
+  pressed: { opacity: 0.9 },
 }));

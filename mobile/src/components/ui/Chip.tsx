@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleProp, View, ViewStyle } from 'react-native';
 import Text from './Text';
+import Gradient from '../brand/Gradient';
 import { makeStyles, radius, spacing, useTheme, type Palette } from '../../theme';
 
 type Tone = 'neutral' | 'brand' | 'success' | 'danger' | 'warning' | 'info';
@@ -18,7 +19,7 @@ export type ChipProps = {
 function toneColors(c: Palette, tone: Tone) {
   switch (tone) {
     case 'brand':
-      return { bg: c.brandSoft, fg: c.brandDark, border: c.brandSoft };
+      return { bg: c.brandTint, fg: c.brand, border: c.brandSoft };
     case 'success':
       return { bg: c.successSoft, fg: c.onSuccess, border: c.successSoft };
     case 'danger':
@@ -28,13 +29,14 @@ function toneColors(c: Palette, tone: Tone) {
     case 'info':
       return { bg: c.infoSoft, fg: c.onInfo, border: c.infoSoft };
     default:
-      return { bg: c.surface, fg: c.textMuted, border: c.border };
+      return { bg: c.surface, fg: c.textMuted, border: c.borderStrong };
   }
 }
 
 /**
  * Used both as a filter button (onPress + selected) and a read-only label.
- * Filled orange when selected, card color otherwise.
+ * The selected state is one of the four places the gradient is allowed;
+ * unselected chips are white with a hairline.
  */
 export default function Chip({
   label,
@@ -50,11 +52,12 @@ export default function Chip({
   const box: StyleProp<ViewStyle> = [
     styles.base,
     { backgroundColor: t.bg, borderColor: t.border },
-    selected && { backgroundColor: colors.brand, borderColor: colors.brand },
+    selected && { backgroundColor: 'transparent', borderColor: 'transparent' },
     style,
   ];
   const content = (
     <>
+      {selected ? <Gradient radius={radius.pill} /> : null}
       {leading ? <View style={styles.leading}>{leading}</View> : null}
       <Text
         variant="captionStrong"
@@ -87,8 +90,9 @@ const useStyles = makeStyles(() => ({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: radius.pill,
-    paddingVertical: spacing.sm - 2,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md + 2,
+    overflow: 'hidden',
   },
   leading: { marginRight: spacing.xs + 1 },
   pressed: { opacity: 0.75 },

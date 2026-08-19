@@ -68,7 +68,7 @@ export default function LeaderboardScreen({ navigation }: any) {
           <Text variant="subheading" color="brand">
             {entry.points}
           </Text>
-          <Text variant="micro">PUAN</Text>
+          <Text variant="micro">puan</Text>
         </View>
       </Card>
     );
@@ -85,7 +85,7 @@ export default function LeaderboardScreen({ navigation }: any) {
         ListHeaderComponent={
           data?.me ? (
             <Card style={styles.myCard}>
-              <Text variant="label">SIRALAMAN</Text>
+              <Text variant="micro">sıralaman</Text>
               <Text variant="display" style={styles.myRank}>
                 {data.me.rank}
                 <Text variant="heading" color="textMuted">

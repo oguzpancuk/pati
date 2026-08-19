@@ -62,8 +62,8 @@ export default function UserCommentsScreen({ route, navigation }: any) {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           total > 0 ? (
-            <Text variant="label" style={styles.header}>
-              TOPLAM {total} YORUM
+            <Text variant="micro" style={styles.header}>
+              toplam {total} yorum
             </Text>
           ) : null
         }

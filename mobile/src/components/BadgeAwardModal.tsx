@@ -62,7 +62,7 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
-              <Text variant="micro">SIRALAMA</Text>
+              <Text variant="micro">sıralama</Text>
               <Text
                 variant="captionStrong"
                 center
@@ -74,7 +74,7 @@ export default function BadgeAwardModal({ award, remaining, onDismiss }: Props) 
             </View>
             <View style={styles.divider} />
             <View style={styles.statBox}>
-              <Text variant="micro">TOPLAM PUAN</Text>
+              <Text variant="micro">toplam puan</Text>
               <Text variant="captionStrong" center color="text" style={styles.statValue}>
                 {award.pointsBefore !== null && award.pointsBefore !== award.pointsAfter
                   ? `${award.pointsBefore} → ${award.pointsAfter}`

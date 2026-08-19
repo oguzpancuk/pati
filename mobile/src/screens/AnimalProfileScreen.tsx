@@ -40,6 +40,7 @@ import {
   LoadMoreButton,
   Screen,
   SectionHeader,
+  Tag,
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
@@ -287,25 +288,43 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       keyboardVerticalOffset={90}
     >
       <Screen scroll>
-        <Card style={styles.headerCard}>
-          <Text variant="title">{displayName}</Text>
-          <Text variant="caption">
-            {animal.color ?? 'Rengi belirtilmemiş'} · {animal.breed ?? 'Türü belirtilmemiş'}
-          </Text>
-          {animal.markings ? (
-            <Text variant="caption" style={styles.markings}>
-              İşaretler: {animal.markings}
+        {/* Header (handoff 3c): the animal's avatar, its name, and one
+            descriptive line — pattern, color and markings read as a sentence
+            instead of a stack of labeled fields. */}
+        <View style={styles.header}>
+          <AnimalAvatar species={animal.species} breed={animal.breed} size={64} />
+          <View style={styles.headerText}>
+            <Text variant="title" numberOfLines={1}>
+              {displayName}
             </Text>
-          ) : null}
+            <Text variant="caption">
+              {[
+                animal.color ?? 'Rengi belirtilmemiş',
+                animal.breed ?? 'Türü belirtilmemiş',
+                animal.markings,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+          </View>
+        </View>
 
-          {animal.photos.length > 0 && (
-            <ScrollView horizontal style={styles.photoList} showsHorizontalScrollIndicator={false}>
-              {animal.photos.map((photo) => (
-                <Image key={photo.id} source={{ uri: photo.url }} style={styles.photo} />
-              ))}
-            </ScrollView>
-          )}
-        </Card>
+        {/* The photo row always fills to a multiple of 3: real frames plus
+            dashed "fotoğraf" placeholders — even an empty profile invites. */}
+        <ScrollView horizontal style={styles.photoList} showsHorizontalScrollIndicator={false}>
+          {animal.photos.map((photo) => (
+            <Image key={photo.id} source={{ uri: photo.url }} style={styles.photo} />
+          ))}
+          {Array.from({
+            length: (3 - (animal.photos.length % 3)) % 3 || (animal.photos.length ? 0 : 3),
+          }).map((_, i) => (
+            <View key={`ph-${i}`} style={[styles.photo, styles.photoPlaceholder]}>
+              <Text variant="micro" color="textSubtle">
+                fotoğraf
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
 
         <SectionHeader title="En son görüldüğü yer" style={styles.sectionTop} />
         <Text variant="caption" style={styles.seenAt}>
@@ -337,7 +356,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             chat, being one-off, verifiable events. */}
         <SectionHeader
           title="Aşı kayıtları"
-          actionLabel={animal.isCarer ? '+ Aşı ekle' : undefined}
+          actionLabel={animal.isCarer ? '+ aşı ekle' : undefined}
           onAction={animal.isCarer ? () => setVaccineModalVisible(true) : undefined}
           style={styles.sectionTop}
         />
@@ -352,7 +371,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 <Text variant="bodyStrong" style={styles.recordType} numberOfLines={2}>
                   {vaccination.vaccine_type}
                 </Text>
-                {vaccination.vet_verified && <Chip label="Veteriner onaylı" tone="success" />}
+                {vaccination.vet_verified && <Tag label="veteriner onaylı" tone="success" />}
               </View>
               {vaccination.note ? (
                 <Text variant="body" style={styles.recordDesc}>
@@ -376,7 +395,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
 
         <SectionHeader
           title="Sağlık kayıtları"
-          actionLabel={animal.isCarer ? '+ Kayıt ekle' : undefined}
+          actionLabel={animal.isCarer ? '+ kayıt ekle' : undefined}
           onAction={animal.isCarer ? () => setRecordModalVisible(true) : undefined}
           style={styles.sectionTop}
         />
@@ -405,7 +424,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                     {RECORD_TYPE_LABELS[record.record_type]}
                     {record.vet_verified ? ' · Veteriner onaylı' : ''}
                   </Text>
-                  <Chip label={status.label} tone={status.tone} />
+                  <Tag label={status.label} tone={status.tone} />
                 </View>
                 <Text variant="body" style={styles.recordDesc}>
                   {record.description}
@@ -421,11 +440,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 )}
                 {animal.isCarer && record.status !== 'recovered' && (
                   <Button
-                    title="İyileşti"
+                    title="iyileşti"
                     size="sm"
                     variant="success"
                     onPress={() => handleMarkRecovered(record)}
-                    icon={<Icon name="check" size={15} color={colors.textOnBrand} />}
+                    icon={<Icon name="check" size={15} color={colors.onSuccess} />}
                     style={styles.recoverButton}
                   />
                 )}
@@ -504,7 +523,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               contentContainerStyle={styles.tagRowContent}
               showsHorizontalScrollIndicator={false}
             >
-              <Chip label="Genel" selected={!linkedRecord} onPress={() => setLinkedRecord(null)} />
+              <Chip label="genel" selected={!linkedRecord} onPress={() => setLinkedRecord(null)} />
               {openRecords.map((record) => (
                 <Chip
                   key={record.id}
@@ -602,14 +621,14 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             </Text>
             <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
               <ChoiceField
-                label="AŞI TÜRÜ"
+                label="aşı türü"
                 options={VACCINE_TYPES}
                 value={vaccineType}
                 onChange={setVaccineType}
                 otherPlaceholder="Örn. Lösemi aşısı"
               />
               <Input
-                label="NOT (İSTEĞE BAĞLI)"
+                label="not (isteğe bağlı)"
                 value={vaccineNote}
                 onChangeText={setVaccineNote}
                 placeholder="Örn. Belediye ekibi yaptı, kulak küpesi takıldı"
@@ -676,15 +695,22 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
   olderComments: { marginBottom: spacing.sm },
   flex: { flex: 1, backgroundColor: c.background },
-  headerCard: { marginBottom: spacing.sm },
-  markings: { marginTop: spacing.xs },
-  photoList: { marginTop: spacing.lg },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  headerText: { flex: 1, marginLeft: spacing.lg },
+  photoList: { marginBottom: spacing.xs },
   photo: {
-    width: 124,
-    height: 124,
+    width: 84,
+    height: 84,
     borderRadius: radius.md,
     marginRight: spacing.sm,
-    backgroundColor: c.skeleton,
+    backgroundColor: c.cream,
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: c.borderDashed,
   },
   sectionTop: { marginTop: spacing.xl },
   seenAt: { marginTop: -spacing.sm, marginBottom: spacing.sm },
@@ -693,7 +719,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     height: 168,
     borderRadius: radius.lg,
     overflow: 'hidden',
-    ...shadow.card,
+    borderWidth: 1,
+    borderColor: c.border,
   },
   miniMap: { flex: 1 },
   block: { marginBottom: spacing.sm },
@@ -737,16 +764,19 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     alignItems: 'flex-end',
     gap: spacing.sm,
   },
+  // The fixed comment row (handoff): a cream input next to the gradient
+  // send button.
   composerInput: {
     flex: 1,
-    borderWidth: 1.5,
+    backgroundColor: c.surfaceAlt,
+    borderWidth: 1,
     borderColor: c.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.lg - 2,
+    paddingVertical: spacing.md - 2,
     maxHeight: 100,
-    fontFamily: fonts.regular,
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: 14.5,
     color: c.text,
   },
   modalBackdrop: {
@@ -762,21 +792,24 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     maxHeight: '82%',
     backgroundColor: c.surface,
     borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
     padding: spacing.xl,
     ...shadow.modal,
   },
   modalTitle: { marginBottom: spacing.lg },
   modalScroll: { flexGrow: 0 },
   modalInput: {
-    borderWidth: 1.5,
-    borderColor: c.border,
-    borderRadius: radius.md,
+    backgroundColor: c.surfaceAlt,
+    borderWidth: 1,
+    borderColor: c.borderStrong,
+    borderRadius: radius.input,
     padding: spacing.md,
     minHeight: 84,
     textAlignVertical: 'top',
     marginBottom: spacing.md,
-    fontFamily: fonts.regular,
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: 14.5,
     color: c.text,
   },
   modalPrimary: { marginTop: spacing.lg },

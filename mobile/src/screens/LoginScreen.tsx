@@ -3,12 +3,17 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-na
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
-import { Button, Card, Input, Screen, Text } from '../components/ui';
+import { Button, Input, Screen, Text } from '../components/ui';
 import { Wordmark } from '../components/brand';
 import { hitSlop, makeStyles, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
+/**
+ * Login (handoff 3a): a vertically centered logo + wordmark, no tagline, and
+ * fields sitting directly on white — no card. The faint note at the bottom
+ * tells new users the server assigns them a random avatar.
+ */
 export default function LoginScreen({ navigation }: Props) {
   const styles = useStyles();
   const { login } = useAuth();
@@ -34,47 +39,43 @@ export default function LoginScreen({ navigation }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.center}>
-          <Wordmark size="lg" tagline style={styles.brand} />
+          <Wordmark size="lg" style={styles.brand} />
 
-          <Card style={styles.card}>
-            <Input
-              label="E-POSTA"
-              placeholder="ornek@eposta.com"
-              autoCapitalize="none"
-              autoComplete="email"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Input
-              label="ŞİFRE"
-              placeholder="••••••••"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              containerStyle={styles.lastField}
-            />
-            <Button
-              title="Giriş yap"
-              onPress={handleLogin}
-              loading={submitting}
-              fullWidth
-              size="lg"
-            />
-          </Card>
+          <Input
+            label="e-posta"
+            placeholder="ornek@eposta.com"
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <Input
+            label="şifre"
+            placeholder="••••••••"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            containerStyle={styles.lastField}
+          />
+          <Button title="Giriş yap" onPress={handleLogin} loading={submitting} fullWidth />
 
           <Pressable
             onPress={() => navigation.navigate('Register')}
             hitSlop={hitSlop}
             style={styles.link}
           >
-            <Text variant="caption" center>
+            <Text variant="bodyStrong" center>
               Hesabın yok mu?{' '}
-              <Text variant="captionStrong" color="brand">
+              <Text variant="bodyStrong" color="brand">
                 Kayıt ol
               </Text>
             </Text>
           </Pressable>
+
+          <Text variant="caption" color="textSubtle" center style={styles.note}>
+            Kayıt olursan sana rastgele bir avatar atanır, profilden değiştirebilirsin.
+          </Text>
         </View>
       </KeyboardAvoidingView>
     </Screen>
@@ -83,9 +84,10 @@ export default function LoginScreen({ navigation }: Props) {
 
 const useStyles = makeStyles(() => ({
   flex: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.xl },
-  brand: { marginBottom: spacing.xxl },
-  card: { paddingTop: spacing.xl },
-  lastField: { marginBottom: spacing.xl },
-  link: { marginTop: spacing.xl },
+  // 34pt horizontal padding comes from the handoff's 390pt canvas.
+  center: { flex: 1, justifyContent: 'center', paddingHorizontal: 34 },
+  brand: { marginBottom: spacing.xxl + 2 },
+  lastField: { marginBottom: spacing.lg },
+  link: { marginTop: spacing.lg },
+  note: { marginTop: spacing.xxl + 8, paddingHorizontal: spacing.sm, lineHeight: 19 },
 }));
