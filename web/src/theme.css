@@ -348,7 +348,7 @@ select {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  z-index: 1000;
+  z-index: 3000; /* Leaflet kontrolleri (1000) ve harita katmanlarının üstünde */
 }
 
 .sheet {
@@ -719,4 +719,34 @@ select {
     opacity: 0;
     transform: translate(var(--dx), -58px) scale(calc(var(--s) * 0.9));
   }
+}
+
+/* ---- ana ekrana ekle ---- */
+.install {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+}
+.install.compact {
+  padding: 8px 10px;
+  margin: 8px 16px 0;
+}
+.install.compact strong {
+  font-size: 14px;
+}
+.steps {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 22px;
+}
+.steps b {
+  color: var(--text);
 }

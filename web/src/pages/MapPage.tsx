@@ -19,6 +19,7 @@ import {
 import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { HeartBurst, HEART_BURST_MS } from '../components/HeartBurst';
+import { InstallBanner } from '../install';
 
 // Mobil MapScreen ile aynı kurallar: Türkiye sınır kutusu, 100 m daireler,
 // ağırlığa göre solan yeşil, sokak ölçeğinde görünen hayvanlar. Kırmızı taban
@@ -258,6 +259,9 @@ export default function MapPage() {
           </div>
         )}
         {error && <div className="banner">{error}</div>}
+        {/* Ana ekrana ekle daveti: ana ekrandan açıldıysa ya da "sonra"
+            denildiyse görünmez (install.tsx). */}
+        <InstallBanner compact />
       </div>
 
       <div className="map-bottom">

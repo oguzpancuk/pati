@@ -23,6 +23,7 @@ import { LoadMoreButton } from '../components/LoadMoreButton';
 import { RecentComments } from '../components/RecentComments';
 import { mergeById } from '@mobile/paging';
 import { applyThemeMode, readThemeMode, type ThemeMode } from '../theme';
+import { InstallBanner } from '../install';
 
 // Profil bir özet ekranı: her bölümden 3 satır, gerisi "daha fazla göster".
 const PREVIEW = 3;
@@ -102,6 +103,7 @@ export default function ProfilePage() {
   return (
     <div className="page">
       {error && <div className="error">{error}</div>}
+      <InstallBanner />
 
       {/* Başlık kartı: avatar, isim, seviye çubuğu bir arada */}
       <div className="card">
