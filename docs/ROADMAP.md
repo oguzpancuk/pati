@@ -386,7 +386,7 @@ These are not features; they are "become shippable" work. Rationale lives in
 **Legal / stores:**
 - [x] KVKK: privacy notice + short terms live at `/gizlilik` (source:
       `web/src/legal.ts`), linked from register screens, profile pages and
-      the landing page (Aug 19). Veri sorumlusu filled in (Oğuz Pancuk).
+      the landing page (Aug 19). Veri sorumlusu filled in (Oğuz Pançuk).
       Remaining: create/forward the iletisim@pati-app.com mailbox (Ops —
       KVKK requests must actually arrive somewhere); a self-service
       data-deletion flow is still manual (e-mail request)
