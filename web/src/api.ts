@@ -237,6 +237,8 @@ export interface CareAction {
 
 export interface CareStatus {
   needsAttention: boolean;
+  actionCount: number;
+  lastActionAt: string | null;
   radiusMeters: number;
   windowHours: number | Record<string, number>;
 }
@@ -400,13 +402,20 @@ export const fetchComments = (
 };
 
 export const addComment = (animalId: number, body: string, healthRecordId?: number) =>
-  api.post<AnimalComment & WithNewBadges>(`/animals/${animalId}/comments`, { body, healthRecordId });
+  api.post<AnimalComment & WithNewBadges>(`/animals/${animalId}/comments`, {
+    body,
+    healthRecordId,
+  });
 
 export const addHealthRecord = (
   animalId: number,
   recordType: 'illness' | 'injury',
   description: string
-) => api.post<HealthRecord & WithNewBadges>(`/animals/${animalId}/health-records`, { recordType, description });
+) =>
+  api.post<HealthRecord & WithNewBadges>(`/animals/${animalId}/health-records`, {
+    recordType,
+    description,
+  });
 
 export const addVaccination = (animalId: number, vaccineType: string, note?: string) =>
   api.post<Vaccination & WithNewBadges>(`/animals/${animalId}/vaccinations`, { vaccineType, note });
@@ -492,6 +501,4 @@ export const recordAdClick = (adId: number) => api.post<void>(`/ads/${adId}/clic
 // ---------------------------------------------------------------- sağlık kaydı
 
 export const markHealthRecordRecovered = (animalId: number, recordId: number) =>
-  api.post<HealthRecord & WithNewBadges>(
-    `/animals/${animalId}/health-records/${recordId}/recover`
-  );
+  api.post<HealthRecord & WithNewBadges>(`/animals/${animalId}/health-records/${recordId}/recover`);

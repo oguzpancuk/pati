@@ -20,7 +20,11 @@ import { mergeById } from '@mobile/paging';
 const ANIMAL_PAGE = 20;
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  return new Date(iso).toLocaleDateString('tr-TR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 /** Başkasının profili (mobildeki PublicProfileScreen). */
@@ -127,7 +131,11 @@ export default function UserProfilePage() {
       </div>
 
       {profile.friendshipStatus === 'none' && (
-        <button className="btn full" disabled={busy} onClick={() => run(() => sendFriendRequest(userId), 'Gönderilemedi')}>
+        <button
+          className="btn full"
+          disabled={busy}
+          onClick={() => run(() => sendFriendRequest(userId), 'Gönderilemedi')}
+        >
           👥 Arkadaş ekle
         </button>
       )}
@@ -137,12 +145,20 @@ export default function UserProfilePage() {
         </div>
       )}
       {profile.friendshipStatus === 'pending_received' && profile.friendshipId && (
-        <button className="btn full" disabled={busy} onClick={() => run(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')}>
+        <button
+          className="btn full"
+          disabled={busy}
+          onClick={() => run(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')}
+        >
           Arkadaşlık isteğini kabul et
         </button>
       )}
       {profile.friendshipStatus === 'friends' && profile.friendshipId && (
-        <button className="btn secondary full" disabled={busy} onClick={() => run(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')}>
+        <button
+          className="btn secondary full"
+          disabled={busy}
+          onClick={() => run(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')}
+        >
           Arkadaşlıktan çık
         </button>
       )}
@@ -160,7 +176,12 @@ export default function UserProfilePage() {
       ) : (
         <div className="badge-grid">
           {displayBadges.map((b) => (
-            <div key={b.key} className="card flat" role="button" onClick={() => setCatalogOpen(true)}>
+            <div
+              key={b.key}
+              className="card flat"
+              role="button"
+              onClick={() => setCatalogOpen(true)}
+            >
               <BadgeSymbol symbol={b.symbol} tier={b.tier} size={40} />
               <div style={{ fontSize: 13, fontWeight: 800, marginTop: 4 }}>{badgeTitle(b)}</div>
               <div className="subtle">{badgeProgressText(b)}</div>
@@ -176,7 +197,12 @@ export default function UserProfilePage() {
         </div>
       ) : (
         animals.map((a) => (
-          <Link key={a.id} to={`/hayvanlar/${a.id}`} className="card flat row" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link
+            key={a.id}
+            to={`/hayvanlar/${a.id}`}
+            className="card flat row"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
             <AnimalAvatar species={a.species} breed={a.breed} size={44} />
             <div className="grow">
               <strong>{a.name ?? (a.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
@@ -186,7 +212,11 @@ export default function UserProfilePage() {
           </Link>
         ))
       )}
-      <LoadMoreButton remaining={(profile.animalCount ?? animals.length) - animals.length} loading={loadingMore} onClick={loadMoreAnimals} />
+      <LoadMoreButton
+        remaining={(profile.animalCount ?? animals.length) - animals.length}
+        loading={loadingMore}
+        onClick={loadMoreAnimals}
+      />
 
       <RecentComments
         comments={profile.recentComments ?? []}
@@ -196,7 +226,11 @@ export default function UserProfilePage() {
         seeAllTo={`/kullanici/${profile.id}/yorumlar`}
       />
 
-      <BadgeCatalogModal open={catalogOpen} onClose={() => setCatalogOpen(false)} badges={profile.badges} />
+      <BadgeCatalogModal
+        open={catalogOpen}
+        onClose={() => setCatalogOpen(false)}
+        badges={profile.badges}
+      />
     </div>
   );
 }

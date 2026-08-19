@@ -31,7 +31,14 @@ export default function AnimalsPage() {
     setLoadingMore(true);
     try {
       const loc = locationRef.current;
-      const data = await fetchAnimals(loc.lat, loc.lng, NEARBY_RADIUS_METERS, filter || undefined, PAGE_SIZE, animals.length);
+      const data = await fetchAnimals(
+        loc.lat,
+        loc.lng,
+        NEARBY_RADIUS_METERS,
+        filter || undefined,
+        PAGE_SIZE,
+        animals.length
+      );
       setAnimals((prev) => mergeById(prev, data));
       setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
@@ -48,7 +55,14 @@ export default function AnimalsPage() {
       .catch(() => FALLBACK_CENTER)
       .then((loc) => {
         locationRef.current = loc;
-        return fetchAnimals(loc.lat, loc.lng, NEARBY_RADIUS_METERS, filter || undefined, PAGE_SIZE, 0);
+        return fetchAnimals(
+          loc.lat,
+          loc.lng,
+          NEARBY_RADIUS_METERS,
+          filter || undefined,
+          PAGE_SIZE,
+          0
+        );
       })
       .then((data) => {
         if (!alive) return;
@@ -121,7 +135,12 @@ export default function AnimalsPage() {
         </Link>
       ))}
       {hasMore && (
-        <LoadMoreButton remaining={PAGE_SIZE} loading={loadingMore} onClick={loadMore} label="Daha fazla yükle" />
+        <LoadMoreButton
+          remaining={PAGE_SIZE}
+          loading={loadingMore}
+          onClick={loadMore}
+          label="Daha fazla yükle"
+        />
       )}
     </div>
   );

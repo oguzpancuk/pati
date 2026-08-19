@@ -70,23 +70,18 @@ export function LevelMark({ level, size = 44 }: { level: number; size?: number }
 export function LevelBar({ level, points }: { level: UserLevel; points: number }) {
   const remaining =
     level.nextLevelPoints !== null ? Math.max(0, level.nextLevelPoints - points) : 0;
+  // Handoff 3d: seviye kartı = unvan + "N puan sonra: sonraki unvan" +
+  // 4px degrade ilerleme çubuğu. Madalyon ve puan, istatistik şeridinde.
   return (
     <div className="levelbar">
-      <div className="row">
-        <LevelMark level={level.level} size={44} />
-        <div className="grow">
-          <div className="subtle" style={{ fontWeight: 800, letterSpacing: '0.04em' }}>
-            SEVİYE {level.level}
-          </div>
-          <strong style={{ fontSize: 17 }}>{level.title}</strong>
-        </div>
-        <strong style={{ color: 'var(--brand)' }}>{points} puan</strong>
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <strong style={{ fontSize: 15 }}>{level.title}</strong>
+        <span className="muted" style={{ fontSize: 12 }}>
+          {level.nextTitle ? `${remaining} puan sonra: ${level.nextTitle}` : 'En üst seviyedesin'}
+        </span>
       </div>
-      <div className="track">
+      <div className="track" style={{ marginBottom: 2 }}>
         <div className="fill" style={{ width: `${Math.round(level.progress * 100)}%` }} />
-      </div>
-      <div className="muted">
-        {level.nextTitle ? `${level.nextTitle} için ${remaining} puan daha` : 'En üst seviyedesin'}
       </div>
     </div>
   );
@@ -176,8 +171,7 @@ export function BadgeCatalogModal({
               grouped[group].map((badge) => {
                 const selected = selection.includes(badge.key);
                 const disabled =
-                  selectable &&
-                  (!badge.tier || (!selected && selection.length >= maxFeatured));
+                  selectable && (!badge.tier || (!selected && selection.length >= maxFeatured));
                 return (
                   <button
                     key={badge.key}
@@ -266,13 +260,17 @@ export function BadgeAwardModal({
         )}
         <div className="row" style={{ marginTop: 14, width: '100%' }}>
           <div className="grow">
-            <div className="subtle">SIRALAMA</div>
+            <div className="micro" style={{ margin: 0 }}>
+              sıralama
+            </div>
             <strong style={{ color: climbed ? 'var(--success)' : 'inherit', fontSize: 13 }}>
               {rankLine(award)}
             </strong>
           </div>
           <div className="grow">
-            <div className="subtle">TOPLAM PUAN</div>
+            <div className="micro" style={{ margin: 0 }}>
+              toplam puan
+            </div>
             <strong style={{ fontSize: 13 }}>
               {award.pointsBefore !== null && award.pointsBefore !== award.pointsAfter
                 ? `${award.pointsBefore} → ${award.pointsAfter}`

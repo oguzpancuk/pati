@@ -42,7 +42,7 @@ export function AdBanner({ slot, visible = true }: { slot: AdSlot; visible?: boo
     >
       {/* "REKLAM" etiketi zorunlu: içerik ile reklam ayırt edilebilmeli. */}
       <span className="subtle" style={{ letterSpacing: '0.08em' }}>
-        REKLAM
+        reklam
       </span>
       <span className="row">
         {ad.image_url ? (

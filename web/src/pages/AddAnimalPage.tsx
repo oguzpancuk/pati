@@ -354,7 +354,7 @@ export default function AddAnimalPage() {
         </div>
       )}
 
-      <div className="label">TÜR</div>
+      <div className="label">tür</div>
       <div className="chiprow">
         {(
           [
@@ -372,7 +372,7 @@ export default function AddAnimalPage() {
         ))}
       </div>
 
-      <div className="label">TÜR / DESEN</div>
+      <div className="label">tür / desen</div>
       <Chips
         key={`b-${species}`}
         options={patternsFor(species)}
@@ -380,15 +380,15 @@ export default function AddAnimalPage() {
         onChange={setBreed}
       />
 
-      <div className="label">RENK</div>
+      <div className="label">renk</div>
       <Chips key={`c-${species}`} options={colorsFor(species)} value={color} onChange={setColor} />
 
       <label className="field">
-        <span>İSİM (İSTEĞE BAĞLI)</span>
+        <span>isim (isteğe bağlı)</span>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn. Pamuk" />
       </label>
       <label className="field">
-        <span>İŞARETLER / NOTLAR</span>
+        <span>işaretler / notlar</span>
         <input
           value={markings}
           onChange={(e) => setMarkings(e.target.value)}
@@ -396,7 +396,7 @@ export default function AddAnimalPage() {
         />
       </label>
 
-      <div className="label">FOTOĞRAFLAR (EN AZ {MIN_PHOTOS})</div>
+      <div className="label">fotoğraflar (en az {MIN_PHOTOS})</div>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         {photos.map((p, i) => (
           <span key={i} className="round" style={{ width: 64, height: 64, position: 'relative' }}>

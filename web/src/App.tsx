@@ -19,7 +19,7 @@ function TabIcon({ d }: { d: string }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
@@ -42,15 +42,15 @@ function Shell() {
       <nav className="tabbar">
         <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
           <TabIcon d={ICONS.map} />
-          Harita
+          harita
         </NavLink>
         <NavLink to="/hayvanlar" className={({ isActive }) => (isActive ? 'active' : '')}>
           <TabIcon d={ICONS.paw} />
-          Hayvanlar
+          hayvanlar
         </NavLink>
         <NavLink to="/profil" className={({ isActive }) => (isActive ? 'active' : '')}>
           <TabIcon d={ICONS.user} />
-          Profilim
+          profilim
         </NavLink>
       </nav>
     </div>
@@ -82,21 +82,21 @@ export default function App() {
     // Rozet kutlaması navigasyonun üstünde: hangi sayfada kazanılırsa
     // kazanılsın aynı yerden gösterilir.
     <BadgeAwardProvider>
-    <Routes>
-      <Route path="/" element={<Shell />}>
-        <Route index element={<MapPage />} />
-        <Route path="hayvanlar" element={<AnimalsPage />} />
-        <Route path="hayvanlar/yeni" element={<AddAnimalPage />} />
-        <Route path="hayvanlar/:id" element={<AnimalPage />} />
-        <Route path="profil" element={<ProfilePage />} />
-        <Route path="kullanici/:id" element={<UserProfilePage />} />
-        <Route path="kullanici/:id/yorumlar" element={<UserCommentsPage />} />
-        <Route path="yorumlarim" element={<UserCommentsPage />} />
-        <Route path="arkadas-bul" element={<FindFriendsPage />} />
-        <Route path="siralama" element={<LeaderboardPage />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      <Routes>
+        <Route path="/" element={<Shell />}>
+          <Route index element={<MapPage />} />
+          <Route path="hayvanlar" element={<AnimalsPage />} />
+          <Route path="hayvanlar/yeni" element={<AddAnimalPage />} />
+          <Route path="hayvanlar/:id" element={<AnimalPage />} />
+          <Route path="profil" element={<ProfilePage />} />
+          <Route path="kullanici/:id" element={<UserProfilePage />} />
+          <Route path="kullanici/:id/yorumlar" element={<UserCommentsPage />} />
+          <Route path="yorumlarim" element={<UserCommentsPage />} />
+          <Route path="arkadas-bul" element={<FindFriendsPage />} />
+          <Route path="siralama" element={<LeaderboardPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BadgeAwardProvider>
   );
 }

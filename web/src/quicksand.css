@@ -1,0 +1,33 @@
+/*
+ * Stüdyo estetiğinin tek yazı ailesi: Quicksand (SIL OFL, Google Fonts'tan
+ * indirilip gömüldü — src/fonts/). Kendi dosyamızdan servis ediyoruz ki PWA
+ * çevrimdışı da marka tipografisiyle açılsın, üçüncü tarafa istek gitmesin.
+ */
+@font-face {
+  font-family: 'Quicksand';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('./fonts/Quicksand-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Quicksand';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('./fonts/Quicksand-500.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Quicksand';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('./fonts/Quicksand-600.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Quicksand';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('./fonts/Quicksand-700.ttf') format('truetype');
+}

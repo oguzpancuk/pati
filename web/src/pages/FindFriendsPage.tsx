@@ -30,7 +30,13 @@ export default function FindFriendsPage() {
       </button>
       <h1 style={{ margin: '0 0 10px', fontSize: 22 }}>Arkadaş bul</h1>
       <label className="field">
-        <input placeholder="İsimle ara…" value={query} onChange={(e) => search(e.target.value)} autoFocus autoCorrect="off" />
+        <input
+          placeholder="İsimle ara…"
+          value={query}
+          onChange={(e) => search(e.target.value)}
+          autoFocus
+          autoCorrect="off"
+        />
       </label>
       {loading && <p className="muted">Aranıyor…</p>}
       {!loading && query.trim() && results.length === 0 && (
@@ -40,7 +46,12 @@ export default function FindFriendsPage() {
         </div>
       )}
       {results.map((u) => (
-        <Link key={u.id} to={`/kullanici/${u.id}`} className="card flat row" style={{ textDecoration: 'none', color: 'inherit' }}>
+        <Link
+          key={u.id}
+          to={`/kullanici/${u.id}`}
+          className="card flat row"
+          style={{ textDecoration: 'none', color: 'inherit' }}
+        >
           <UserAvatar avatarUrl={u.avatar_url} name={u.name} size={40} />
           <strong className="grow">{u.name}</strong>
           <span className="subtle">›</span>

@@ -30,9 +30,9 @@ const PREVIEW = 3;
 const PAGE = 20;
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
-  { key: 'system', label: 'Sistem' },
-  { key: 'light', label: 'Açık' },
-  { key: 'dark', label: 'Koyu' },
+  { key: 'system', label: 'sistem' },
+  { key: 'light', label: 'açık' },
+  { key: 'dark', label: 'koyu' },
 ];
 
 export default function ProfilePage() {
@@ -105,47 +105,73 @@ export default function ProfilePage() {
       {error && <div className="error">{error}</div>}
       <InstallBanner />
 
-      {/* Başlık kartı: avatar, isim, seviye çubuğu bir arada */}
-      <div className="card">
-        <div className="row" role="button" style={{ cursor: 'pointer' }} onClick={() => setPickerOpen(true)}>
-          <UserAvatar avatarUrl={me.avatar_url} name={me.name} size={64} />
-          <div className="grow">
-            <h1 style={{ margin: 0, fontSize: 22 }}>{me.name}</h1>
-            <div className="muted">{me.email}</div>
-            <div className="subtle" style={{ color: 'var(--brand)', fontWeight: 800 }}>
-              {busy ? 'KAYDEDİLİYOR…' : 'DOKUN, AVATARINI SEÇ'}
-            </div>
+      {/* Başlık (handoff 3d): avatar + isim + e-posta + turuncu mikro etiket */}
+      <div
+        className="row"
+        role="button"
+        style={{ cursor: 'pointer', alignItems: 'flex-start' }}
+        onClick={() => setPickerOpen(true)}
+      >
+        <UserAvatar avatarUrl={me.avatar_url} name={me.name} size={60} />
+        <div className="grow">
+          <h1 style={{ margin: '2px 0 0', fontSize: 24 }}>{me.name}</h1>
+          <div className="muted">{me.email}</div>
+          <div className="micro" style={{ color: 'var(--brand)', margin: '4px 0 0' }}>
+            {busy ? 'kaydediliyor…' : 'dokun, avatarını seç'}
           </div>
         </div>
-        <LevelBar level={me.level} points={me.points?.total ?? 0} />
       </div>
 
-      <Link to="/siralama" className="card row" style={{ textDecoration: 'none', color: 'inherit', background: 'var(--brand-tint)' }}>
-        <span style={{ fontSize: 22 }}>🏆</span>
-        <div className="grow">
-          <div className="subtle" style={{ fontWeight: 800 }}>SIRALAMAN</div>
-          <strong style={{ fontSize: 18 }}>
-            {me.rank ? `${me.rank.rank}. / ${me.rank.totalUsers}` : '—'}
-          </strong>
+      {/* İstatistik şeridi: puan / sıra / seviye — sıralamaya götürür. */}
+      <Link
+        to="/siralama"
+        className="statstrip"
+        style={{ textDecoration: 'none', color: 'inherit' }}
+      >
+        <div>
+          <strong>{me.points?.total ?? 0}</strong>
+          <div className="micro">puan</div>
         </div>
-        <strong style={{ color: 'var(--brand)' }}>{me.points?.total ?? 0} puan</strong>
-        <span className="subtle">›</span>
+        <div>
+          <strong>{me.rank ? `${me.rank.rank}.` : '—'}</strong>
+          <div className="micro">
+            {me.rank ? `sıra / ${me.rank.totalUsers.toLocaleString('tr-TR')}` : 'sıra'}
+          </div>
+        </div>
+        <div>
+          <strong>{me.level.level}</strong>
+          <div className="micro">seviye</div>
+        </div>
       </Link>
 
+      <LevelBar level={me.level} points={me.points?.total ?? 0} />
+
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2 className="section">Öne çıkan rozetlerim</h2>
+        <h2 className="section">öne çıkan rozetlerim</h2>
         <button className="link" onClick={() => setCatalogOpen(true)}>
-          Seç / tümü
+          seç / tümü
         </button>
       </div>
       {featured.length === 0 ? (
-        <div className="card flat" role="button" style={{ cursor: 'pointer' }} onClick={() => setCatalogOpen(true)}>
-          <span className="muted">Henüz rozet seçmedin. Profilinde gösterilecek 3 rozeti seçmek için dokun.</span>
+        <div
+          className="card flat"
+          role="button"
+          style={{ cursor: 'pointer' }}
+          onClick={() => setCatalogOpen(true)}
+        >
+          <span className="muted">
+            Henüz rozet seçmedin. Profilinde gösterilecek 3 rozeti seçmek için dokun.
+          </span>
         </div>
       ) : (
         <div className="badge-grid">
           {featured.map((b) => (
-            <div key={b.key} className="card flat" role="button" onClick={() => setCatalogOpen(true)}>
+            <div
+              key={b.key}
+              className="card flat"
+              role="button"
+              onClick={() => setCatalogOpen(true)}
+            >
               <BadgeSymbol symbol={b.symbol} tier={b.tier} size={40} />
               <div style={{ fontSize: 13, fontWeight: 800, marginTop: 4 }}>{badgeTitle(b)}</div>
               <div className="subtle">{badgeProgressText(b)}</div>
@@ -154,14 +180,19 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <h2 className="section">Bakım verdiğim hayvanlar</h2>
+      <h2 className="section">bakım verdiğim hayvanlar</h2>
       {animals.length === 0 ? (
         <div className="card flat">
           <span className="muted">Henüz bir hayvana bakım vermiyorsun.</span>
         </div>
       ) : (
         animals.map((a) => (
-          <Link key={a.id} to={`/hayvanlar/${a.id}`} className="card flat row" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link
+            key={a.id}
+            to={`/hayvanlar/${a.id}`}
+            className="card flat row"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
             <AnimalAvatar species={a.species} breed={a.breed} size={44} />
             <div className="grow">
               <strong>{a.name ?? (a.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
@@ -171,36 +202,62 @@ export default function ProfilePage() {
           </Link>
         ))
       )}
-      <LoadMoreButton remaining={animalTotal - animals.length} loading={loadingMore} onClick={loadMoreAnimals} />
+      <LoadMoreButton
+        remaining={animalTotal - animals.length}
+        loading={loadingMore}
+        onClick={loadMoreAnimals}
+      />
 
       <RecentComments
         comments={me.recentComments ?? []}
         total={me.commentCount ?? 0}
-        title="Son yorumlarım"
+        title="son yorumlarım"
         emptyText="Henüz yorum yapmadın."
         seeAllTo="/yorumlarim"
       />
 
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2 className="section">Arkadaşlarım</h2>
+        <h2 className="section">arkadaşlarım</h2>
         <Link to="/arkadas-bul" className="link">
-          Arkadaş bul
+          arkadaş bul
         </Link>
       </div>
       {incoming.length > 0 && (
         <>
-          <div className="label">GELEN İSTEKLER</div>
+          <div className="label">gelen istekler</div>
           {incoming.map((entry: FriendshipEntry) => (
             <div key={entry.friendship_id} className="card flat">
-              <Link to={`/kullanici/${entry.id}`} className="row" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <Link
+                to={`/kullanici/${entry.id}`}
+                className="row"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
                 <UserAvatar avatarUrl={entry.avatar_url} name={entry.name} size={36} />
                 <strong className="grow">{entry.name}</strong>
               </Link>
               <div className="row" style={{ marginTop: 8 }}>
-                <button className="btn small" disabled={busy} onClick={() => run(async () => { await acceptFriendRequest(entry.friendship_id); await load(); }, 'Kabul edilemedi')}>
+                <button
+                  className="btn small"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await acceptFriendRequest(entry.friendship_id);
+                      await load();
+                    }, 'Kabul edilemedi')
+                  }
+                >
                   Kabul et
                 </button>
-                <button className="btn small ghost" disabled={busy} onClick={() => run(async () => { await removeFriendship(entry.friendship_id); await load(); }, 'Reddedilemedi')}>
+                <button
+                  className="btn small ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      await removeFriendship(entry.friendship_id);
+                      await load();
+                    }, 'Reddedilemedi')
+                  }
+                >
                   Reddet
                 </button>
               </div>
@@ -214,16 +271,24 @@ export default function ProfilePage() {
         </div>
       ) : (
         friends.slice(0, visibleFriends).map((f) => (
-          <Link key={f.friendship_id} to={`/kullanici/${f.id}`} className="card flat row" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link
+            key={f.friendship_id}
+            to={`/kullanici/${f.id}`}
+            className="card flat row"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
             <UserAvatar avatarUrl={f.avatar_url} name={f.name} size={36} />
             <strong className="grow">{f.name}</strong>
             <span className="subtle">›</span>
           </Link>
         ))
       )}
-      <LoadMoreButton remaining={friends.length - visibleFriends} onClick={() => setVisibleFriends((n) => n + PAGE)} />
+      <LoadMoreButton
+        remaining={friends.length - visibleFriends}
+        onClick={() => setVisibleFriends((n) => n + PAGE)}
+      />
 
-      <h2 className="section">Görünüm</h2>
+      <h2 className="section">görünüm</h2>
       <div className="segmented" style={{ marginBottom: 18 }}>
         {THEME_OPTIONS.map((o) => (
           <button
@@ -239,8 +304,8 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      <button className="btn secondary full" onClick={logout}>
-        Çıkış yap
+      <button className="textlink" onClick={logout}>
+        çıkış yap
       </button>
 
       <BadgeCatalogModal
@@ -261,8 +326,17 @@ export default function ProfilePage() {
             <h2>Avatarını seç</h2>
             <p className="muted">İstersen kendi fotoğrafını da yükleyebilirsin.</p>
             <div className="chiprow" style={{ justifyContent: 'center' }}>
-              {([['female', 'Kadın'], ['male', 'Erkek']] as const).map(([value, label]) => (
-                <button key={value} className={`chip ${group === value ? 'selected' : ''}`} onClick={() => setGroup(value)}>
+              {(
+                [
+                  ['female', 'Kadın'],
+                  ['male', 'Erkek'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  className={`chip ${group === value ? 'selected' : ''}`}
+                  onClick={() => setGroup(value)}
+                >
                   {label}
                 </button>
               ))}
@@ -275,8 +349,15 @@ export default function ProfilePage() {
                     key={v.key}
                     className={selected ? 'selected' : ''}
                     disabled={busy}
-                    onClick={() => run(async () => { applyMe(await setAvatarKey(v.key)); setPickerOpen(false); }, 'Kaydedilemedi')}
-                    dangerouslySetInnerHTML={{ __html: patiAvatarSvg(`pati-avatar:${v.key}`, 58) ?? '' }}
+                    onClick={() =>
+                      run(async () => {
+                        applyMe(await setAvatarKey(v.key));
+                        setPickerOpen(false);
+                      }, 'Kaydedilemedi')
+                    }
+                    dangerouslySetInnerHTML={{
+                      __html: patiAvatarSvg(`pati-avatar:${v.key}`, 58) ?? '',
+                    }}
                   />
                 );
               })}
@@ -288,11 +369,20 @@ export default function ProfilePage() {
               hidden
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) run(async () => { applyMe(await uploadAvatar(file)); setPickerOpen(false); await refresh(); }, 'Yüklenemedi');
+                if (file)
+                  run(async () => {
+                    applyMe(await uploadAvatar(file));
+                    setPickerOpen(false);
+                    await refresh();
+                  }, 'Yüklenemedi');
                 e.target.value = '';
               }}
             />
-            <button className="btn secondary full" disabled={busy} onClick={() => fileRef.current?.click()}>
+            <button
+              className="btn secondary full"
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
               Kendi fotoğrafımı yükle
             </button>
             <button className="btn ghost full" disabled={busy} onClick={() => setPickerOpen(false)}>

@@ -22,8 +22,9 @@ export function applyThemeMode(mode: ThemeMode) {
   // theme-color meta'sı da uysun (tarayıcı çubuğu).
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-    meta.setAttribute('content', dark ? '#1c1714' : '#f47a4a');
+    const dark =
+      mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+    meta.setAttribute('content', dark ? '#161412' : '#ffffff');
   }
 }
 

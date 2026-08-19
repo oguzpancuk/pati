@@ -3,8 +3,9 @@ import { useAuth } from '../auth';
 import { Wordmark } from '../brand';
 
 /**
- * Giriş + kayıt tek ekranda. Mobil uygulamadaki akışla aynı: kayıt olan
- * kullanıcıya sunucu rastgele bir avatar atar, profilden değiştirilebilir.
+ * Giriş + kayıt tek ekranda (handoff 3a): dikey ortalanmış logo + kelime
+ * işareti, slogan yok; alanların etiketi kutunun içinde. Kayıt olan
+ * kullanıcıya sunucu rastgele bir avatar atar — alttaki soluk not bunu söyler.
  */
 export default function LoginPage() {
   const { login, register } = useAuth();
@@ -30,10 +31,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="app" style={{ justifyContent: 'center', padding: 24 }}>
+    <div className="app" style={{ justifyContent: 'center', padding: '24px 34px' }}>
       <div style={{ maxWidth: 380, width: '100%', margin: '0 auto' }}>
-        <div style={{ marginBottom: 28 }}>
-          <Wordmark size="lg" tagline />
+        <div style={{ marginBottom: 34 }}>
+          <Wordmark size="lg" />
         </div>
 
         {error && <div className="error">{error}</div>}
@@ -41,7 +42,7 @@ export default function LoginPage() {
         <form onSubmit={submit}>
           {mode === 'register' && (
             <label className="field">
-              <span>İSİM</span>
+              <span>isim</span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -51,7 +52,7 @@ export default function LoginPage() {
             </label>
           )}
           <label className="field">
-            <span>E-POSTA</span>
+            <span>e-posta</span>
             <input
               type="email"
               value={email}
@@ -61,7 +62,7 @@ export default function LoginPage() {
             />
           </label>
           <label className="field">
-            <span>ŞİFRE</span>
+            <span>şifre</span>
             <input
               type="password"
               value={password}
@@ -71,21 +72,45 @@ export default function LoginPage() {
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
           </label>
-          <button className="btn full" disabled={busy}>
+          <button className="btn full" style={{ marginTop: 6 }} disabled={busy}>
             {busy ? 'Bekleyin…' : mode === 'login' ? 'Giriş yap' : 'Kayıt ol'}
           </button>
         </form>
 
         <button
-          className="btn ghost full"
-          style={{ marginTop: 8 }}
+          type="button"
+          style={{
+            display: 'block',
+            margin: '16px auto 0',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 14,
+            fontWeight: 600,
+            color: 'var(--text-body)',
+          }}
           onClick={() => {
             setMode(mode === 'login' ? 'register' : 'login');
             setError(null);
           }}
         >
-          {mode === 'login' ? 'Hesabın yok mu? Kayıt ol' : 'Zaten üye misin? Giriş yap'}
+          {mode === 'login' ? (
+            <>
+              Hesabın yok mu? <span style={{ color: 'var(--brand)' }}>Kayıt ol</span>
+            </>
+          ) : (
+            <>
+              Zaten üye misin? <span style={{ color: 'var(--brand)' }}>Giriş yap</span>
+            </>
+          )}
         </button>
+
+        <p
+          className="subtle"
+          style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.5, padding: '0 8px' }}
+        >
+          Kayıt olursan sana rastgele bir avatar atanır, profilden değiştirebilirsin.
+        </p>
       </div>
     </div>
   );

@@ -58,7 +58,11 @@ export function BadgeAwardProvider({ children }: { children: React.ReactNode }) 
   return (
     <Ctx.Provider value={value}>
       {children}
-      <BadgeAwardModal award={queue[0] ?? null} remaining={Math.max(0, queue.length - 1)} onDismiss={dismiss} />
+      <BadgeAwardModal
+        award={queue[0] ?? null}
+        remaining={Math.max(0, queue.length - 1)}
+        onDismiss={dismiss}
+      />
     </Ctx.Provider>
   );
 }

@@ -1,20 +1,37 @@
 /**
- * pati logosunun web (düz SVG) üreticisi: dört parmak yastığı + içinde kalp
- * olan harita-pini ana yastık. Kaynak çizim `mobile/src/components/brand/Logo.tsx`
- * — yol değişirse iki dosya birlikte güncellenmeli (uygulama ikonu da aynı
- * yollardan üretiliyor: `mobile/scripts/generate-icons.mjs`).
+ * pati logosu (stüdyo estetiği): dört parmak yastığı + kalp boşluklu harita
+ * iğnesi. Geometri, tasarım handoff'undan birebir
+ * (docs/tasarim/studyo-estetigi-handoff.md — viewBox 0 0 120 130).
+ *
+ * Dolgu varsayılan olarak dikey turuncu degrade (#F4581C→#F9A052); tek renk
+ * gereken yerlerde `color` verilebilir. Kalp boşluğu HER ZAMAN zeminin
+ * rengiyle dolar (`accent`) — CSS değişkeni de geçirilebilir, ör.
+ * `var(--background)`.
+ *
+ * Not: mobil Logo.tsx henüz eski geometride; mobil stüdyo estetiğine
+ * geçerken bu dosya referans alınmalı.
  */
-export function logoSvg(size = 64, color = '#F47A4A', accent = '#FFF3E7'): string {
+export function logoSvg(size = 64, color?: string, accent = 'var(--background)'): string {
+  const height = Math.round((size * 130) / 120);
+  const fill = color ?? 'url(#patiLogoGrad)';
+  // Aynı sayfada birden çok logo olursa <defs> id'si çakışır ama içerik özdeş
+  // olduğu için tarayıcı ilkini kullanır; görsel sonuç değişmez.
+  const defs = color
+    ? ''
+    : '<defs><linearGradient id="patiLogoGrad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#F4581C"/><stop offset="1" stop-color="#F9A052"/>' +
+      '</linearGradient></defs>';
   return (
-    `<svg width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true">` +
-    `<g fill="${color}">` +
-    '<ellipse cx="16" cy="42" rx="9" ry="12" transform="rotate(-22 16 42)"/>' +
-    '<ellipse cx="37" cy="26" rx="9.5" ry="13" transform="rotate(-8 37 26)"/>' +
-    '<ellipse cx="63" cy="26" rx="9.5" ry="13" transform="rotate(8 63 26)"/>' +
-    '<ellipse cx="84" cy="42" rx="9" ry="12" transform="rotate(22 84 42)"/>' +
+    `<svg width="${size}" height="${height}" viewBox="0 0 120 130" aria-hidden="true">` +
+    defs +
+    `<g fill="${fill}">` +
+    '<ellipse cx="18" cy="47" rx="12.5" ry="16.5" transform="rotate(-24 18 47)"/>' +
+    '<ellipse cx="44" cy="25" rx="12.5" ry="17.5" transform="rotate(-9 44 25)"/>' +
+    '<ellipse cx="76" cy="25" rx="12.5" ry="17.5" transform="rotate(9 76 25)"/>' +
+    '<ellipse cx="102" cy="47" rx="12.5" ry="16.5" transform="rotate(24 102 47)"/>' +
+    '<path d="M60 48C76.6 48 90 61.4 90 78c0 18-22 38-30 44-8-6-30-26-30-44 0-16.6 13.4-30 30-30z"/>' +
     '</g>' +
-    `<path d="M50 97 C40 81 29 75 29 66 A21 21 0 1 1 71 66 C71 75 60 81 50 97 Z" fill="${color}"/>` +
-    `<path d="M50 73 C50 73 38.5 65.5 38.5 58.6 C38.5 54.4 41.6 51.6 45.2 51.6 C47.5 51.6 49.2 52.9 50 54.2 C50.8 52.9 52.5 51.6 54.8 51.6 C58.4 51.6 61.5 54.4 61.5 58.6 C61.5 65.5 50 73 50 73 Z" fill="${accent}"/>` +
+    `<path d="M60 90c-13-9-17-15.5-17-21 0-5.2 3.8-9 8.6-9 3.4 0 6.6 2 8.4 5 1.8-3 5-5 8.4-5 4.8 0 8.6 3.8 8.6 9 0 5.5-4 12-17 21z" fill="${accent}"/>` +
     '</svg>'
   );
 }

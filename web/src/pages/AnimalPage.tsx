@@ -19,9 +19,9 @@ import { AdBanner } from '../components/AdBanner';
 
 const RECORD_TYPE_LABELS = { illness: 'Hastalık', injury: 'Yaralanma' } as const;
 const STATUS_META = {
-  not_started: { label: 'Tedaviye başlanmadı', cls: 'danger' },
-  in_treatment: { label: 'Tedavi sürüyor', cls: 'warning' },
-  recovered: { label: 'İyileşti', cls: 'success' },
+  not_started: { label: 'tedaviye başlanmadı', cls: 'danger' },
+  in_treatment: { label: 'tedavi sürüyor', cls: 'warning' },
+  recovered: { label: 'iyileşti', cls: 'success' },
 } as const;
 
 // Mobil AnimalProfileScreen ile aynı sayılar: sohbet açılışta son 3 yorum,
@@ -206,7 +206,11 @@ export default function AnimalPage() {
     if (!vaccineType?.trim()) return;
     setSaving(true);
     try {
-      const created = await addVaccination(animalId, vaccineType.trim(), vaccineNote.trim() || undefined);
+      const created = await addVaccination(
+        animalId,
+        vaccineType.trim(),
+        vaccineNote.trim() || undefined
+      );
       setVaccineOpen(false);
       setVaccineType(null);
       setVaccineNote('');
@@ -231,7 +235,12 @@ export default function AnimalPage() {
   }
 
   async function markRecovered(record: HealthRecord) {
-    if (!window.confirm(`"${record.description}" kaydı kapanacak ve bu kayda artık yorum eklenemeyecek. Emin misin?`)) return;
+    if (
+      !window.confirm(
+        `"${record.description}" kaydı kapanacak ve bu kayda artık yorum eklenemeyecek. Emin misin?`
+      )
+    )
+      return;
     try {
       const updated = await markHealthRecordRecovered(animalId, record.id);
       // Yoruma bağlanmak için seçiliyse seçimi kaldır: kapanmış kayda yorum gönderilemez.
@@ -254,37 +263,70 @@ export default function AnimalPage() {
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
 
+  // Fotoğraf sırası hep 3'ün katına tamamlanır: gerçek kareler + kesikli
+  // "fotoğraf" placeholder'ları (handoff 3c) — boş profil bile davet eder.
+  const photoSlots = Math.max(3, Math.ceil(animal.photos.length / 3) * 3);
+
   return (
     <div className="page">
+      <div className="topbar">
+        <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
+          ←
+        </button>
+        <div className="micro">hayvan detay</div>
+        <span />
+      </div>
+
       {error && <div className="error">{error}</div>}
 
-      <div className="card row">
-        <AnimalAvatar species={animal.species} breed={animal.breed} size={56} />
+      <div className="row" style={{ alignItems: 'flex-start' }}>
+        <AnimalAvatar species={animal.species} breed={animal.breed} size={64} />
         <div className="grow">
-          <h1 style={{ margin: 0, fontSize: 22 }}>{displayName}</h1>
-          <div className="muted">
-            {animal.color ?? 'Rengi belirtilmemiş'} · {animal.breed ?? 'Türü belirtilmemiş'}
+          <h1 style={{ margin: '4px 0 2px', fontSize: 25 }}>{displayName}</h1>
+          <div className="muted" style={{ fontSize: 13.5 }}>
+            {[
+              animal.color ?? 'Rengi belirtilmemiş',
+              animal.breed ?? 'Türü belirtilmemiş',
+              animal.markings,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </div>
-          {animal.markings && <div className="subtle">İşaretler: {animal.markings}</div>}
         </div>
       </div>
 
-      {animal.photos.length > 0 && (
-        <div className="photo-strip">
-          {animal.photos.map((p) => (
-            <img key={p.id} src={p.url} alt="" />
-          ))}
-        </div>
-      )}
+      <div className="row" style={{ marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
+        {Array.from({ length: photoSlots }).map((_, i) => {
+          const p = animal.photos[i];
+          return p ? (
+            <img
+              key={p.id}
+              src={p.url}
+              alt=""
+              style={{
+                flex: 1,
+                minWidth: 0,
+                height: 58,
+                borderRadius: 14,
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <div key={`ph-${i}`} className="photo-ph">
+              fotoğraf
+            </div>
+          );
+        })}
+      </div>
 
       {/* Aşı sağlık kaydının üstünde: sokakta ilk soru "aşılı mı". */}
-      <div className="row" style={{ justifyContent: 'space-between', marginTop: 18 }}>
+      <div className="hairline row" style={{ justifyContent: 'space-between' }}>
         <div className="label" style={{ margin: 0 }}>
-          AŞI KAYITLARI
+          aşı kayıtları
         </div>
         {animal.isCarer && !matchReview && (
-          <button className="btn ghost small" onClick={() => setVaccineOpen(true)}>
-            + Aşı ekle
+          <button className="link" onClick={() => setVaccineOpen(true)}>
+            + aşı ekle
           </button>
         )}
       </div>
@@ -295,9 +337,13 @@ export default function AnimalPage() {
           <div key={v.id} className="card flat">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <strong>{v.vaccine_type}</strong>
-              {v.vet_verified && <span className="tag success">Veteriner onaylı</span>}
+              {v.vet_verified && <span className="tag success">veteriner onaylı</span>}
             </div>
-            {v.note && <div style={{ marginTop: 4 }}>{v.note}</div>}
+            {v.note && (
+              <div style={{ marginTop: 4, fontSize: 13.5, color: 'var(--text-body)' }}>
+                {v.note}
+              </div>
+            )}
             <div className="subtle" style={{ marginTop: 4 }}>
               {formatDate(v.administered_at)} · {v.recorded_by_name ?? ''}
               {v.next_due_at ? ` · Sonraki doz: ${formatDate(v.next_due_at)}` : ''}
@@ -314,13 +360,13 @@ export default function AnimalPage() {
         </button>
       )}
 
-      <div className="row" style={{ justifyContent: 'space-between', marginTop: 18 }}>
+      <div className="hairline row" style={{ justifyContent: 'space-between' }}>
         <div className="label" style={{ margin: 0 }}>
-          SAĞLIK KAYITLARI
+          sağlık kayıtları
         </div>
         {animal.isCarer && (
-          <button className="btn ghost small" onClick={() => setRecordOpen(true)}>
-            + Kayıt ekle
+          <button className="link" onClick={() => setRecordOpen(true)}>
+            + kayıt ekle
           </button>
         )}
       </div>
@@ -333,31 +379,35 @@ export default function AnimalPage() {
         animal.healthRecords.slice(0, visibleRecords).map((r) => {
           const st = STATUS_META[r.status];
           return (
-            <div key={r.id} className="card flat" role="button" style={{ cursor: 'pointer' }} onClick={() => openLog(r)}>
+            <div
+              key={r.id}
+              className="card flat"
+              role="button"
+              style={{ cursor: 'pointer' }}
+              onClick={() => openLog(r)}
+            >
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <strong>
-                  {RECORD_TYPE_LABELS[r.record_type]}
-                  {r.vet_verified ? ' · Veteriner onaylı' : ''}
-                </strong>
+                <strong>{r.description}</strong>
                 <span className={`tag ${st.cls}`}>{st.label}</span>
               </div>
-              <div style={{ marginTop: 4 }}>{r.description}</div>
               <div className="subtle" style={{ marginTop: 4 }}>
-                {r.recorded_by_name ?? ''} · {r.comment_count} yorum · dokunarak kayıtları gör
+                {RECORD_TYPE_LABELS[r.record_type]}
+                {r.vet_verified ? ' · veteriner onaylı' : ''} · {r.recorded_by_name ?? ''} ·{' '}
+                {r.comment_count} yorum · dokunarak kayıtları gör
                 {r.status === 'recovered' && r.recovered_by_name
                   ? ` · ${r.recovered_by_name} iyileşti olarak işaretledi`
                   : ''}
               </div>
               {animal.isCarer && r.status !== 'recovered' && (
                 <button
-                  className="btn small"
-                  style={{ marginTop: 8, background: 'var(--success)' }}
+                  className="btn outline-success"
+                  style={{ marginTop: 8 }}
                   onClick={(e) => {
                     e.stopPropagation();
                     markRecovered(r);
                   }}
                 >
-                  ✓ İyileşti
+                  ✓ iyileşti
                 </button>
               )}
             </div>
@@ -373,7 +423,11 @@ export default function AnimalPage() {
         </button>
       )}
 
-      <div className="label">SOHBET</div>
+      <div className="hairline">
+        <div className="label" style={{ margin: 0 }}>
+          sohbet
+        </div>
+      </div>
       {commentTotal > comments.length && (
         <button
           className="btn ghost small full"
@@ -428,9 +482,19 @@ export default function AnimalPage() {
           </div>
         </div>
       ) : (
-        <form onSubmit={sendComment} className="card" style={{ position: 'sticky', bottom: 0 }}>
+        /* Sabit yorum satırı (handoff): krem giriş + degrade "Gönder". */
+        <form
+          onSubmit={sendComment}
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            background: 'var(--background)',
+            padding: '10px 0 4px',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
           {openRecords.length > 0 && (
-            <div className="chiprow scroll">
+            <div className="chiprow scroll" style={{ margin: '0 0 8px' }}>
               <button
                 type="button"
                 className={`chip ${!linkedRecord ? 'selected' : ''}`}
@@ -454,10 +518,11 @@ export default function AnimalPage() {
             <input
               className="grow"
               style={{
-                border: '1.5px solid var(--border)',
-                borderRadius: 10,
-                padding: 10,
-                background: 'var(--surface)',
+                border: 'none',
+                borderRadius: 16,
+                padding: '13px 14px',
+                background: 'var(--surface-alt)',
+                fontSize: 14,
               }}
               placeholder="Yorum yaz…"
               value={draft}
@@ -488,7 +553,7 @@ export default function AnimalPage() {
                 </button>
               ))}
             </div>
-            <div className="label">{recordType === 'illness' ? 'HASTALIK' : 'YARALANMA'}</div>
+            <div className="label">{recordType === 'illness' ? 'hastalık' : 'yaralanma'}</div>
             <ChoiceChips
               options={conditionsFor(recordType)}
               value={recordDesc}
@@ -514,10 +579,10 @@ export default function AnimalPage() {
         <div className="backdrop" onClick={() => !saving && setVaccineOpen(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Aşı kaydı ekle</h2>
-            <div className="label">AŞI TÜRÜ</div>
+            <div className="label">aşı türü</div>
             <ChoiceChips options={VACCINE_TYPES} value={vaccineType} onChange={setVaccineType} />
             <label className="field">
-              <span>NOT (İSTEĞE BAĞLI)</span>
+              <span>not (isteğe bağlı)</span>
               <input
                 value={vaccineNote}
                 onChange={(e) => setVaccineNote(e.target.value)}
@@ -542,13 +607,19 @@ export default function AnimalPage() {
       {logRecord && (
         <div className="backdrop" onClick={() => setLogRecord(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>{RECORD_TYPE_LABELS[logRecord.record_type]}: {logRecord.description}</h2>
+            <h2>
+              {RECORD_TYPE_LABELS[logRecord.record_type]}: {logRecord.description}
+            </h2>
             <p className="muted">Bu kayda bağlı yorumlar</p>
             {logComments.length === 0 ? (
               <div className="card flat muted">Henüz yorum yok.</div>
             ) : (
               logComments.map((c) => (
-                <div key={c.id} className="row" style={{ alignItems: 'flex-start', marginBottom: 10 }}>
+                <div
+                  key={c.id}
+                  className="row"
+                  style={{ alignItems: 'flex-start', marginBottom: 10 }}
+                >
                   <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={30} />
                   <div className="grow">
                     <div className="row" style={{ justifyContent: 'space-between' }}>

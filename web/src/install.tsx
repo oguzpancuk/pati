@@ -81,7 +81,8 @@ export function InstallSheet({ mode, onClose }: { mode: 'ios' | 'manual'; onClos
         {mode === 'ios' ? (
           <ol className="steps">
             <li>
-              Safari'de <b>Paylaş</b> düğmesine dokun (adres çubuğunun yanındaki <b>⋯</b> menüsünde ya da alttaki ok simgesi).
+              Safari'de <b>Paylaş</b> düğmesine dokun (adres çubuğunun yanındaki <b>⋯</b> menüsünde
+              ya da alttaki ok simgesi).
             </li>
             <li>
               Listeden <b>Ana Ekrana Ekle</b>'yi seç.
@@ -125,7 +126,11 @@ export function InstallBanner({ compact = false }: { compact?: boolean }) {
         <Logo size={compact ? 28 : 40} />
         <div className="grow">
           <strong>{compact ? 'pati’yi ana ekrana ekle' : 'Uygulama gibi kullan'}</strong>
-          {!compact && <div className="muted">Ana ekrana ekle: tam ekran açılır, konum ve bildirimler daha iyi çalışır.</div>}
+          {!compact && (
+            <div className="muted">
+              Ana ekrana ekle: tam ekran açılır, konum ve bildirimler daha iyi çalışır.
+            </div>
+          )}
         </div>
         <button className="btn small" onClick={onInstall}>
           Ekle

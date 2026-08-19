@@ -30,9 +30,21 @@ export default function LeaderboardPage() {
         key={entry.id}
         to={`/kullanici/${entry.id}`}
         className="card flat row"
-        style={{ textDecoration: 'none', color: 'inherit', ...(highlight ? { borderColor: 'var(--brand)', background: 'var(--brand-tint)' } : {}) }}
+        style={{
+          textDecoration: 'none',
+          color: 'inherit',
+          ...(highlight ? { borderColor: 'var(--brand)', background: 'var(--brand-tint)' } : {}),
+        }}
       >
-        <span style={{ width: 34, textAlign: 'center', fontWeight: 800, color: highlight ? 'var(--brand)' : 'var(--text-muted)', fontSize: medal ? 20 : 15 }}>
+        <span
+          style={{
+            width: 34,
+            textAlign: 'center',
+            fontWeight: 800,
+            color: highlight ? 'var(--brand)' : 'var(--text-muted)',
+            fontSize: medal ? 20 : 15,
+          }}
+        >
           {medal ?? entry.rank}
         </span>
         <UserAvatar avatarUrl={entry.avatar_url} name={entry.name} size={40} />
@@ -46,7 +58,9 @@ export default function LeaderboardPage() {
         </div>
         <div style={{ textAlign: 'right' }}>
           <strong style={{ color: 'var(--brand)', fontSize: 17 }}>{entry.points}</strong>
-          <div className="subtle">PUAN</div>
+          <div className="micro" style={{ margin: 0 }}>
+            puan
+          </div>
         </div>
       </Link>
     );
@@ -61,13 +75,19 @@ export default function LeaderboardPage() {
       {error && <div className="error">{error}</div>}
       {data?.me && (
         <div className="card">
-          <div className="subtle" style={{ fontWeight: 800 }}>SIRALAMAN</div>
+          <div className="micro" style={{ margin: 0 }}>
+            sıralaman
+          </div>
           <div style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.1 }}>
             {data.me.rank}
-            <span className="muted" style={{ fontSize: 18 }}> / {data.totalUsers}</span>
+            <span className="muted" style={{ fontSize: 18 }}>
+              {' '}
+              / {data.totalUsers}
+            </span>
           </div>
           <div className="muted">
-            {data.me.points} puan · rozetlerden {data.me.badgePoints}, yorumlardan {data.me.commentPoints}
+            {data.me.points} puan · rozetlerden {data.me.badgePoints}, yorumlardan{' '}
+            {data.me.commentPoints}
           </div>
           {data.me.level && (
             <div className="row" style={{ marginTop: 8, gap: 6 }}>

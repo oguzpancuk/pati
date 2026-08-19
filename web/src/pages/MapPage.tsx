@@ -32,7 +32,6 @@ const ACTION_CIRCLE_RADIUS_METERS = 100;
 // haritayı kapatıyordu, kullanıcının işi zaten bulunduğu sokaktaki hayvanlarla.
 const ANIMAL_RADIUS_METERS = 200;
 const ANIMAL_VISIBLE_MIN_ZOOM = 17;
-const MAX_GREEN_ALPHA = 0.5;
 // Mama/su bırakılınca haritanın odaklandığı ölçek: 100 m'lik daire ve içindeki
 // hayvanlar görünsün.
 const CELEBRATE_ZOOM = 18;
@@ -73,7 +72,7 @@ export default function MapPage() {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap',
     }).addTo(map);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    // Zoom kontrolü yok (handoff): dokunmatik sıkıştırma ve çift dokunma yetiyor.
 
     circlesRef.current = L.layerGroup().addTo(map);
     animalsRef.current = L.layerGroup().addTo(map);
@@ -88,12 +87,23 @@ export default function MapPage() {
         if (mapRef.current !== map) return;
         setMyLocation(loc);
         map.setView([loc.lat, loc.lng], 16);
+        // Kullanıcı konumu: kömür nokta + beyaz halka + 200 m'lik kesikli
+        // daire (hayvanların çizildiği yakın çevre — handoff'taki gösterim).
         L.circleMarker([loc.lat, loc.lng], {
-          radius: 8,
+          radius: 7,
           color: '#fff',
-          weight: 2,
-          fillColor: '#4A8FF4',
+          weight: 3,
+          fillColor: '#21201E',
           fillOpacity: 1,
+        }).addTo(map);
+        L.circle([loc.lat, loc.lng], {
+          radius: ANIMAL_RADIUS_METERS,
+          color: '#21201E',
+          weight: 1.2,
+          opacity: 0.35,
+          dashArray: '3 7',
+          fill: false,
+          interactive: false,
         }).addTo(map);
       })
       .catch(() => {
@@ -114,17 +124,32 @@ export default function MapPage() {
     if (!layer) return;
     const actions = await fetchCareActionsInBounds(TURKEY_BOUNDS, viewType);
     layer.clearLayers();
-    for (const action of actions) {
+    actions.forEach((action, i) => {
       const [lng, lat] = action.location.coordinates;
-      const alpha = Math.min(Math.max(Number(action.weight), 0), 1) * MAX_GREEN_ALPHA;
-      L.circle([lat, lng], {
+      // Stüdyo dili: yumuşak dolgu + aynı tonda 1.5px kontur + merkez noktası.
+      // Tazelik yine dolguda: yeni kayıt daha tok (0.09-0.22 aralığı).
+      const weight = Math.min(Math.max(Number(action.weight), 0), 1);
+      const circle = L.circle([lat, lng], {
         radius: ACTION_CIRCLE_RADIUS_METERS,
+        color: '#34A853',
+        weight: 1.5,
+        opacity: 0.45,
+        fillColor: '#34A853',
+        fillOpacity: 0.09 + weight * 0.13,
+        interactive: false,
+        className: 'nefes',
+      }).addTo(layer);
+      // "Nefes" hep birlikte alınmasın: üç grupta kademeli gecikme (handoff).
+      const el = circle.getElement() as HTMLElement | null;
+      if (el) el.style.animationDelay = `${(i % 3) * 1.5}s`;
+      L.circleMarker([lat, lng], {
+        radius: 3,
         color: 'transparent',
         fillColor: '#34A853',
-        fillOpacity: alpha,
+        fillOpacity: 0.9,
         interactive: false,
       }).addTo(layer);
-    }
+    });
   }, [viewType]);
 
   const loadAnimals = useCallback(
@@ -139,11 +164,11 @@ export default function MapPage() {
         const [lng, lat] = animal.location.coordinates;
         const icon = L.divIcon({
           // divIcon ile hayvanın desen avatarı doğrudan marker oluyor —
-          // paylaşılan SVG üreticisinin haritadaki karşılığı.
-          html: `<div class="animal-marker">${animalAvatarSvg(animal.species, animal.breed, 32)}</div>`,
+          // 42px beyaz daire içinde avatar (handoff ölçüsü).
+          html: `<div class="animal-marker">${animalAvatarSvg(animal.species, animal.breed, 30)}</div>`,
           className: '',
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
         });
         L.marker([lat, lng], { icon })
           .on('click', () => navigate(`/hayvanlar/${animal.id}`))
@@ -249,25 +274,64 @@ export default function MapPage() {
               className={viewType === t ? 'selected' : ''}
               onClick={() => setViewType(t)}
             >
-              {t === 'food' ? 'Mama' : 'Su'}
+              {t === 'food' ? 'mama' : 'su'}
             </button>
           ))}
         </div>
-        {status?.needsAttention && (
-          <div className="banner">
-            Buralarda {typeLabel} yok — {status.radiusMeters} m çevrede kayıt bulunmuyor.
-          </div>
-        )}
         {error && <div className="banner">{error}</div>}
         {/* Ana ekrana ekle daveti: ana ekrandan açıldıysa ya da "sonra"
             denildiyse görünmez (install.tsx). */}
         <InstallBanner compact />
       </div>
 
+      {/* Sağ altta yeni hayvan kaydı FAB'ı (alt sayfanın üstünde durur). */}
+      <button
+        className="fab"
+        aria-label="Yeni hayvan ekle"
+        style={{ bottom: 'calc(196px + env(safe-area-inset-bottom))' }}
+        onClick={() => navigate('/hayvanlar/yeni')}
+      >
+        +
+      </button>
+
+      {/* Alt sayfa: bölge durumu + eyleme çağrı (handoff 3b). Durum yokken de
+          düğme durur — kayıt bırakmak her zaman mümkün. */}
       <div className="map-bottom">
-        <button className="btn full" onClick={() => setConfirmOpen(true)}>
-          Buraya {typeLabel} bıraktım
-        </button>
+        <div className="map-sheet">
+          <div className="sheet-handle" />
+          <div className="micro">
+            {status
+              ? status.needsAttention
+                ? `${status.radiusMeters} m çevrede kayıt yok`
+                : `${status.radiusMeters} m çevrede ${status.actionCount} kayıt`
+              : ' '}
+          </div>
+          <h2>
+            {status && !status.needsAttention
+              ? `Bu bölgede ${typeLabel} var`
+              : `Buralarda ${typeLabel} yok`}
+          </h2>
+          <p className="muted" style={{ margin: '2px 0 12px' }}>
+            {status && !status.needsAttention
+              ? 'Taze kayıt bölgeyi canlı tutar; sen de ekleyebilirsin.'
+              : 'İlk kaydı sen bırak, bölge yeşile dönsün.'}
+          </p>
+          <button className="btn full" onClick={() => setConfirmOpen(true)}>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            >
+              <path d="M4 12h16a8 8 0 0 1-16 0Z" />
+              <path d="M9 9v3M15 8v4" />
+            </svg>
+            Buraya {typeLabel} bıraktım
+          </button>
+        </div>
       </div>
 
       {confirmOpen && (
