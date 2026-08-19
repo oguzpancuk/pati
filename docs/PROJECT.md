@@ -1,261 +1,251 @@
-# pati — Proje Dokümanı
+# pati — Project Document
 
-**Son güncelleme:** 18 Ağustos 2026
-**Depo:** https://github.com/oguzpancuk/Pati
+**Last updated:** August 2026
+**Repo:** https://github.com/oguzpancuk/Pati
 
-Bu doküman projenin bütününü tek yerde anlatır: ne yaptığı, nasıl çalıştığı,
-şu an nerede olduğu ve sırada ne olduğu. Ayrıntılar için:
+This document describes the whole project in one place: what it does, how it
+works, where it stands, and what comes next. For details:
 
-| Doküman | İçerik |
+| Document | Contents |
 | --- | --- |
-| [PRD.md](PRD.md) | Orijinal ürün gereksinimleri |
-| [YOL_HARITASI.md](YOL_HARITASI.md) | Kalan işler, önerilen sıra ve yaklaşımlar |
-| [TASARIM.md](TASARIM.md) | Tasarım sistemi — token'lar, bileşenler, ekran kuralları |
-| [NOTLAR.md](NOTLAR.md) | Teknik kararların gerekçeleri, bilinen sınırlar, ortam tuzakları |
-| [../README.md](../README.md) | Kurulum ve çalıştırma adımları |
+| [PRD.md](PRD.md) | Original product requirements |
+| [ROADMAP.md](ROADMAP.md) | Remaining work, suggested order, approaches |
+| [DESIGN.md](DESIGN.md) | Design system — tokens, components, screen rules |
+| [NOTES.md](NOTES.md) | Rationale for technical decisions, known limits, environment pitfalls |
+| [../README.md](../README.md) | Setup and run instructions |
 
 ---
 
-## 1. Proje nedir?
+## 1. What is the project?
 
-Stray, Türkiye'deki sokak hayvanlarının bakımını **koordine eden** bir mobil
-uygulama. Temel fikir şu: bir mahallede sokak hayvanlarıyla ilgilenen çok
-sayıda insan var, ama birbirlerinden habersizler. Aynı köşeye üç kişi mama
-bırakırken iki sokak ötede hiç kimse bırakmıyor olabilir. Uygulama bu görünmez
-koordinasyon boşluğunu kapatıyor.
+pati is a mobile app that **coordinates** the care of street animals in
+Türkiye. The core idea: a neighborhood has many people who care for street
+animals, but they don't know about each other. Three people may drop food at
+the same corner while two streets over nobody does. The app closes this
+invisible coordination gap.
 
-Çözüm üç ayağa dayanıyor:
+The solution rests on three legs:
 
-**Harita gerçeği gösteriyor.** Kullanıcı mama veya su bıraktığında haritada o
-noktayı işaretliyor — fotoğraf çekmek zorunlu ve o an fiziksel olarak orada
-olması gerekiyor (20 metre toleransla konum doğrulaması). Bırakılan bakımın
-etrafındaki 100 metrelik alan yeşile dönüyor ve zamanla soluyor: mama 4 saatte,
-su 6 saatte. Yani harita "buralara bakılıyor mu?" sorusunun canlı cevabı.
-Kırmızı kalan bölgeler ihmal edilen bölgeler.
+**The map shows reality.** When a user leaves food or water they mark the
+spot — a photo is mandatory and they must physically be there (location
+verification with a 20 m tolerance). A 100 m area around the drop turns green
+and fades over time: food in 4 hours, water in 6. The map is the live answer
+to "is this area being cared for?" — areas that stay uncovered are the
+neglected ones.
 
-**Hayvanların kimliği var.** Kullanıcılar tek tek hayvanların profilini
-oluşturuyor: fotoğraflar, tür, cins, konum. Her hayvanın profilinde o hayvanla
-ilgilenenlerin yazdığı bir sohbet ve bir sağlık geçmişi var — hangi hastalık,
-hangi tedavi, iyileşti mi. Böylece "bu kediye kim baktı, ilacını verdi mi"
-bilgisi tek bir kişinin aklında kalmıyor.
+**Animals have identities.** Users create profiles for individual animals:
+photos, species, breed, location. Each profile carries a chat among the
+people involved and a health history — which illness, which treatment,
+recovered or not. "Who fed this cat, did it get its medication" no longer
+lives in one person's head.
 
-**Oyunlaştırma sürdürülebilirliği sağlıyor.** Rozetler, puanlar ve liderlik
-tablosu, düzenli bakımı ödüllendiriyor. Arkadaşlık sistemiyle insanlar
-birbirlerinin katkısını görüyor.
+**Gamification sustains it.** Badges, points, and a leaderboard reward
+regular care. The friendship system makes contributions visible.
 
-### Kimler için
-Hayvanseverler, mahalle sakinleri, veterinerler, hayvan hakları aktivistleri ve
-belediye görevlileri.
+### For whom
+Animal lovers, neighborhood residents, veterinarians, animal-rights
+activists, and municipal workers.
 
 ---
 
-## 2. Bugün ne çalışıyor?
+## 2. What works today?
 
-MVP tamamlandı ve uçtan uca test edildi. Aşağıdakilerin hepsi çalışır durumda:
+The MVP is complete and tested end to end. All of the following works:
 
-### Harita ve bakım işaretleme
-- Türkiye'ye odaklı harita; uygulama açılınca kullanıcının konumuna yakınlaşıyor
-- Haritaya dokunarak pin bırakılıyor, "Mama Bıraktım" / "Su Bıraktım" seçiliyor
-- **Fotoğraf zorunlu** — kamera açılıyor, fotoğraf çekilmeden işlem tamamlanmıyor
-- **Konum doğrulaması** — pin ile kullanıcının anlık konumu arasındaki mesafe
-  20 metreyi geçerse işlem reddediliyor ve kullanıcıya kaç metre uzakta olduğu
-  söyleniyor
-- Mama ve su haritaları ayrı ayrı görüntüleniyor; birinde diğerinin seçeneği
-  çıkmıyor
-- İşaretlenen noktanın 100 metre çevresi yeşile boyanıyor; mama 4, su 6 saatte
-  kademeli olarak soluyor. Aynı noktaya ne kadar çok kişi bıraktıysa renk o
-  kadar belirgin
-- Kullanıcının 100 metre çevresinde (yeşil dairenin yarıçapıyla aynı) bakım
-  yoksa haritanın üstünde uyarı bandı çıkıyor — yani yeşil dairenin dışındaysanız
-  uyarılırsınız, içindeyseniz uyarılmazsınız (harita zemini boyanmıyor; bakım
-  olmayan yer sade harita, uyarıyı banner veriyor)
+### Map and care marking
+- Türkiye-focused map; opens near the user's location
+- "Left food" / "left water" actions with a **mandatory photo** — the camera
+  opens and the action can't complete without a shot
+- **Location verification** — if the user's live position is more than 20 m
+  from the marked point, the action is rejected and the distance is shown
+- Food and water maps are separate views
+- A 100 m halo around each drop turns green and fades (food 4 h, water 6 h);
+  the more drops at a spot, the stronger the green
+- If there is no care within 100 m of the user (the same radius as the halo),
+  the app warns — i.e. you are warned exactly when outside a green circle
+  (the base map is never painted; absence of care is plain map + a banner)
 
-### Hayvan profilleri
-- Manuel kayıt: en az 2 fotoğraf zorunlu, kedi/köpek için çoktan seçmeli
-  cins/desen listesi
-- Yeni hayvan eklerken önce form dolduruluyor; "kaydet" denince kısa bir
-  "yapay zekâ eşleştiriyor" ekranından sonra 1 km içindeki aynı türden
-  hayvanlar benzerlik kademesiyle (yüksek/orta/düşük) listeleniyor. "Bu o"
-  denirse hayvanın güncel konumu oraya taşınıyor ve kullanıcı bakım listesine
-  ekleniyor; "hiçbiri" denirse yeni kayıt açılıyor (mükerrer kaydı azaltmak
-  için — bkz. YOL_HARITASI §1)
-- Formda seçilen tür/desene göre hayvanın avatarı anında önizleniyor
-- Hayvanlar sokak ölçeğinde yakınlaştırıldığında haritada profil fotoğraflarıyla
-  yuvarlak olarak görünüyor; dokununca profile gidiliyor
-- Hayvanlar sekmesinde 1 km içindekiler mesafeye göre sıralı ve sayfalı
-  (kaydırdıkça yüklenir), tür (kedi/köpek) filtresi
-- Mama/su bırakılınca 100 m'lik etki alanındaki hayvanların avatarından kalpler
-  uçuyor; harita o alana yakınlaşıyor
-- Profilde mini harita, fotoğraf galerisi ve son görülme bilgisi
+### Animal profiles
+- Manual registration: at least 2 photos, multiple-choice breed/pattern lists
+  per species
+- Adding an animal runs the match flow first: after the form, a short
+  "AI matching" screen, then same-species animals within 1 km listed with a
+  similarity level (high/medium/low). "It's this one" moves the animal's
+  current location there and adds the user as a carer; "none" creates a new
+  record (duplicate reduction — see ROADMAP §1)
+- The avatar previews live in the form as species/pattern are picked
+- At street-level zoom animals appear as round avatar markers; tap to open
+- The animals tab lists those within 1 km sorted by distance, paginated, with
+  a species filter
+- Dropping food/water makes hearts fly from the avatars of animals within the
+  100 m effect area; the map zooms to the area
+- Profiles show a mini map, photo gallery, and last-seen info
 
-### Sohbet ve sağlık takibi
-- Her hayvan profilinde sohbet; bakım verenler ve o hayvanı kaydetmeye
-  çalışanlar yorum yapabiliyor (yorum yapan otomatik olarak bakım listesine
-  ekleniyor)
-- Sağlık kaydı: hastalık ve tedavi girilebiliyor
-- Sohbetteki bir yorum ilgili sağlık kaydına bağlanabiliyor ("şu hastalık için
-  ilacını verdim"); sağlık kaydına dokununca o kayda ait tüm yorumlar listeleniyor
-- **Üç durumlu takip:** Tedaviye başlanmadı (hiç yorum yok) → Tedavi sürüyor
-  (en az bir yorum var) → İyileşti (bakım veren "İyileşti" ile işaretledi).
-  İyileşmiş bir kayda yeni yorum eklenemiyor
+### Chat and health tracking
+- Every profile has a chat; carers and registrars can comment (commenting
+  adds you to the carer list)
+- Health records for illness and treatment
+- A comment can be linked to a health record ("gave the medication for this
+  illness"); tapping a record lists all its comments
+- **Three-state tracking:** not started (no comments) → in treatment (at
+  least one comment) → recovered (marked by a carer). Recovered records
+  accept no new comments
 
-### Rozetler, puanlar, liderlik tablosu
-Üç rozet grubu, hepsi bronz / gümüş / altın / elmas kademelerinde:
+### Badges, points, leaderboard
+Three badge groups, each in bronze / silver / gold / diamond tiers:
 
-| Grup | Rozetler | Eşikler |
+| Group | Badges | Thresholds |
 | --- | --- | --- |
-| Seri | Mama Perisi, Su Elçisi, Mahalle Muhabiri — en uzun ardışık gün serisi | 1 / 7 / 30 / 365 gün |
-| Cins | Her kedi/köpek cinsi için ayrı: Tekir Ahbabı, Sarman Sırdaşı, Kara Kedi Kankası, Kangal Yoldaşı… | 1 / 5 / 20 / 100 kayıt |
-| Sayaç | Mahalle Dedikoducusu (yorum), Pati Şifacısı (sağlık) | Yorum 1/10/50/200 · Sağlık 1/5/20/100 |
+| Streak | Mama Perisi, Su Elçisi, Mahalle Muhabiri — longest consecutive-day streak | 1 / 7 / 30 / 365 days |
+| Breed | One per cat/dog breed: Tekir Ahbabı, Sarman Sırdaşı, Kangal Yoldaşı… | 1 / 5 / 20 / 100 registrations |
+| Counter | Mahalle Dedikoducusu (comments), Pati Şifacısı (health) | Comments 1/10/50/200 · Health 1/5/20/100 |
 
-Rozet adı kademesiyle birlikte okunur: "Altın Tekir Ahbabı". İsimler bilerek sıcak
-ve biraz esprili — "avcı" gibi agresif çağrışımlı kelimelerden kaçınıldı, çünkü
-burada kovalanan bir av değil bakılan bir canlı var.
+A badge reads with its tier: "Altın Tekir Ahbabı". Names are deliberately warm
+and playful — aggressive words like "hunter" were avoided, because what's
+being pursued here is a living creature receiving care, not prey. (Badge
+names are product content and stay Turkish.)
 
-- Puanlar: bronz 10, gümüş 25, altın 60, elmas 150
-- Yorumlar ek puan getiriyor ama **ağırlıklı**: hayvan başına en fazla 5 yorum
-  sayılıyor (yorum başına 1 puan) ve yorum yapılan farklı hayvan başına 3 puan
-  veriliyor. Böylece tek hayvana yığılan yorumlarla puan çiftlemek işe yaramıyor
-- Bir kere kazanılan rozet düşmüyor
-- Kullanıcı en fazla 3 rozeti profilinde öne çıkarabiliyor
-- Liderlik tablosu tüm kullanıcıları puana göre sıralıyor; eşit puanlılar aynı
-  sırayı paylaşıyor (1, 2, 2, 4). Kullanıcı kendi sırasını profilinde ve
-  listenin üstünde görüyor
+- Points: bronze 10, silver 25, gold 60, diamond 150
+- Comments score extra but **weighted**: at most 5 comments per animal count
+  (1 point each) plus 3 points per distinct animal commented on — piling
+  comments on one animal doesn't farm points
+- A badge, once earned, never demotes
+- Users feature up to 3 badges on their profile
+- The leaderboard ranks everyone by points; ties share ranks (1, 2, 2, 4)
 
-**Seviyeler:** Toplam puan 10 kademeli bir seviyeye karşılık geliyor — 🌱 Yeni
-Komşu (0) → 🏘️ Mahalle Sakini (40) → 🤝 Sokak Gönüllüsü (120) → 🍲 Mama Nöbetçisi
-(250) → 🐾 Pati Dostu (450) → 🧭 Sokak Kâşifi (750) → 🎖️ Mahalle Muhtarı (1200) →
+**Levels:** total points map to a 10-step ladder — 🌱 Yeni Komşu (0) →
+🏘️ Mahalle Sakini (40) → 🤝 Sokak Gönüllüsü (120) → 🍲 Mama Nöbetçisi (250) →
+🐾 Pati Dostu (450) → 🧭 Sokak Kâşifi (750) → 🎖️ Mahalle Muhtarı (1200) →
 🦉 Sokak Bilgesi (1800) → 🦸 Pati Kahramanı (2600) → 👑 Sokakların Piri (3600).
-Profilde ilerleme çubuğu ve bir sonraki seviyeye kalan puan gösteriliyor.
+The profile shows a progress bar and the points to the next level.
 
-**Rozet kutlaması:** Yeni rozet kazanıldığında bir kutlama penceresi açılıyor:
-kazanılan rozet, aldığı puan, önceki → yeni sıralama ve seviye atlandıysa yeni
-seviye. Aynı anda birden fazla rozet kazanılırsa sırayla gösteriliyor; uygulama
-kapalıyken kazanılanlar profil ekranı açıldığında yakalanıyor.
+**Celebrations:** a new badge opens a modal with the badge, its points,
+old → new rank, and the new level if any. Multiple badges queue up; badges
+earned while the app was closed are caught when the profile opens.
 
-### Sosyal
-- Profil fotoğrafı, kullanıcı arama, arkadaşlık isteği gönderme/kabul etme
-- Profillerde (hem kendi hem başkasının) seviye çubuğu, öne çıkan rozetler,
-  bakım verilen hayvanlar profil fotoğraflarıyla (dokununca hayvanın profiline
-  gider) ve son yorumlar — "Tümünü gör" ile tam yorum geçmişi
+### Social
+- Avatars, user search, friend requests and acceptance
+- Profiles (own and others') show the level bar, featured badges, cared-for
+  animals with photos, and recent comments with a "see all" history
 
-### Bildirimler
-- Uygulama açıkken 30 dakikada bir (ve öne her geldiğinde) kullanıcının 100
-  metre çevresinde mama/su kalıp kalmadığı kontrol ediliyor; kalmadıysa cihaz
-  üzerinde bildirim gösteriliyor
-- Aynı uyarı 6 saatte birden sık gönderilmiyor
-- Konum sunucuya sürekli gönderilmiyor — kontrol cihazda yapılıyor
+### Notifications
+- While the app runs, every 30 minutes (and on foregrounding) it checks
+  whether food/water remains within 100 m; if not, an on-device notification
+  fires
+- The same alert repeats at most every 6 hours
+- Location is never streamed to the server — the check runs on device
 
-### Yönetim paneli (web)
-Ayrı bir web uygulaması, aynı API üzerinde çalışır. Yalnızca `role = admin` olan
-hesaplar girebilir; her `/api/admin` isteği sunucuda `requireAdmin`'den geçer.
+### Admin panel (web)
+A separate web app on the same API. Only `role = admin` accounts may enter;
+every `/api/admin` request passes `requireAdmin` on the server.
 
-- **Gösterge paneli** — kullanıcı/hayvan/bakım/yorum sayıları, askıya alınan hesap
-  sayısı, tür dağılımı ve son 30 günlük aktivite grafiği
-- **Kullanıcılar** — arama, rol değiştirme (kullanıcı/veteriner/yönetici), askıya
-  alma. Askıya alınan hesap token'ı elinde olsa bile API'ye erişemez
-- **Hayvanlar** — düzenleme, silme ve **mükerrer kayıt birleştirme**: kaynak
-  kaydın fotoğrafları, yorumları, sağlık kayıtları ve bakım verenleri hedefe
-  taşınır, kaynak silinir (tek transaction)
-- **Bakım kayıtları** — kanıt fotoğraflarının moderasyonu
-- **Yorumlar** — uygunsuz yorumları silme
-- **Reklamlar** — marka ekleme/düzenleme, yerleşim, görsel, kampanya tarihleri,
-  yayına alma/durdurma ve gösterim/tık/CTR raporu
-- **Denetim kaydı** — panelden yapılan her işlem; kim, ne zaman, neyi, hangi
-  sebeple değiştirdi
+- **Dashboard** — user/animal/care/comment counts, suspended accounts,
+  species distribution, a 30-day activity chart
+- **Users** — search, role changes (user/vet/admin), suspension. A suspended
+  account is rejected on every request even with a valid token
+- **Animals** — edit, delete, and **duplicate merge**: the source record's
+  photos, comments, health records, and carers move to the target and the
+  source is deleted (single transaction)
+- **Care records** — moderation of evidence photos
+- **Comments** — removing abusive comments
+- **Ads** — brands, slots, images, campaign windows, activation, and
+  impression/click/CTR reports
+- **Audit log** — every panel action: who, when, what, why
 
-İlk yönetici `npm run make-admin -- eposta@adresi.com` scriptiyle oluşturulur
-(admin uç noktaları zaten yönetici yetkisi istediği için API'den yapılamaz).
+The first admin is created with `npm run make-admin -- email@address` (admin
+endpoints already require admin rights, so it can't be done via the API).
 
-### Reklam
-Hazır bir reklam ağı değil, kendi basit reklam sunucumuz — markalar admin
-panelinden elle giriliyor ve yerleşimler çok spesifik.
+### Ads
+Not an ad network — a small in-house ad server. Brands are entered manually
+in the admin panel and slots are deliberately specific.
 
-- **Üç yerleşim:** mama pop-up'ı, su pop-up'ı, sağlık kaydı ekleme ekranı
-  (veteriner kliniği)
-- **Rotasyon:** aynı yerleşimdeki markalar sırayla gösteriliyor; kullanıcı
-  pop-up'ı her açtığında sıradaki markayı görüyor
-- **Ölçüm:** gösterim ve tıklama ayrı ayrı kaydediliyor, panelde CTR ile birlikte
-  raporlanıyor — bu olmadan markaya "şu kadar gösterim aldınız" denemez
-- Kampanya tarih aralığı ve yayına alma/durdurma; yayında reklam yoksa bant hiç
-  çizilmiyor
-- Bantta zorunlu "Reklam" etiketi: kullanıcı neyin içerik neyin reklam olduğunu
-  ayırt edebilmeli
+- **Three slots:** food popup, water popup, and the health-record screen
+  (vet clinics)
+- **Rotation:** brands in a slot take turns; each popup open shows the next
+- **Measurement:** impressions and clicks are recorded separately and
+  reported with CTR — without this you can't sell to a brand
+- Campaign date windows and activation; with nothing active the banner
+  doesn't render at all
+- A mandatory "Reklam" (ad) label: users must be able to tell content from
+  advertising
 
-### Demo verisi
-`npm run seed` ile 100 kullanıcı, 200 hayvan, Kadıköy çevresine dağılmış
-mama/su kayıtları ve hayvan profillerinde sohbet oluşturuluyor. 20 kullanıcı
-30 gün, 30 kullanıcı 7 gün üst üste bakım vermiş oluyor — böylece tüm rozet
-kademeleri veride görünüyor.
+### Demo data
+`npm run seed` creates 100 users, 200 animals, food/water actions around
+Kadıköy, and chats on animal profiles. 20 users have 30-day streaks and 30
+have 7-day streaks, so every badge tier appears in the data. For
+production-safe demo data (guide accounts across 37 districts) see
+`scripts/seed-rehber.js` and [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
-## 3. Nasıl çalışıyor? (Teknik)
+## 3. How does it work? (Technical)
 
-### Yapı
+### Layout
 ```
-stray/
+pati/
 ├── backend/    Node.js + Express API (PostgreSQL + PostGIS, JWT)
-├── mobile/     React Native uygulaması (iOS + Android)
-├── admin/      Web tabanlı yönetim paneli (React + Vite + TS)
-└── docs/       Dokümantasyon
+├── mobile/     React Native app (iOS + Android)
+├── web/        React + Vite PWA (Leaflet)
+├── admin/      Web admin panel (React + Vite + TS)
+├── shared/     Plain-SVG generators (web + admin)
+└── docs/       Documentation
 ```
 
-### Teknoloji
-| Katman | Seçim |
+### Stack
+| Layer | Choice |
 | --- | --- |
-| Mobil | React Native 0.74.5, React 18.2, TypeScript |
-| Harita | react-native-maps 1.14.0 (iOS'ta Apple Maps, Android'de Google Maps) |
-| Navigasyon | React Navigation 6 (native-stack + bottom-tabs) |
-| Bildirim | @notifee/react-native |
+| Mobile | React Native 0.74.5, React 18.2, TypeScript |
+| Maps | react-native-maps 1.14.0 (Apple Maps on iOS, Google Maps on Android); Leaflet on web |
+| Navigation | React Navigation 6 (native-stack + bottom-tabs) |
+| Notifications | @notifee/react-native |
 | Backend | Node.js 18+, Express 4 |
-| Veritabanı | PostgreSQL 16 + PostGIS 3.4 |
-| Kimlik | JWT (7 gün) + bcrypt |
-| Dosya yükleme | multer → yerel disk (`backend/uploads/`) |
+| Database | PostgreSQL 16 + PostGIS 3.4 |
+| Auth | JWT (7 days) + bcrypt |
+| Uploads | multer → local disk (`backend/uploads/`) |
 
-### Veri modeli
+### Data model
 ```
-users              kullanıcı, avatar_url, featured_badges (JSONB)
-animals            tür, cins, konum (GEOGRAPHY POINT), location_updated_at
-animal_photos      hayvan fotoğrafları
-animal_comments    hayvan profili sohbeti; health_record_id ile sağlık
-                   kaydına bağlanabiliyor
-health_records     hastalık/tedavi; recovered_at + recovered_by ile iyileşme
-user_animal_care   kim hangi hayvana bakıyor (çoka çok)
-care_actions       konum, tür (food/water), photo_url, zaman
+users              user, avatar_url, featured_badges (JSONB)
+animals            species, breed, location (GEOGRAPHY POINT), location_updated_at
+animal_photos      animal photos
+animal_comments    profile chat; can link to a health record via health_record_id
+health_records     illness/treatment; recovery via recovered_at + recovered_by
+vaccinations       vaccine type, vet_verified, next due date
+user_animal_care   who cares for which animal (many-to-many)
+care_actions       location, type (food/water), photo_url, time
 friendships        requester/addressee, pending|accepted
-user_badge_awards  rozetin ilk kazanıldığı an + o andaki puan/sıralama/seviye
-audit_log          panelden yapılan her değişiklik: kim, ne, ne zaman, neden
-advertisers        reklamveren: yerleşim, görsel, hedef adres, kampanya tarihleri
-ad_events          gösterim ve tıklama kayıtları (rotasyon + faturalama)
+user_badge_awards  the moment a badge was first earned + points/rank/level then
+audit_log          every admin-panel change: who, what, when, why
+advertisers        advertiser: slot, image, target URL, campaign window
+ad_events          impression and click records (rotation + billing)
 ```
-Coğrafi kolonlar `GEOGRAPHY(POINT, 4326)` tipinde ve GIST index'li. Yakınlık
-sorguları `ST_DWithin`, harita penceresi `ST_MakeEnvelope`, istemciye dönüş
-`ST_AsGeoJSON` ile yapılıyor.
+Geo columns are `GEOGRAPHY(POINT, 4326)` with GIST indexes. Proximity uses
+`ST_DWithin`, the map viewport `ST_MakeEnvelope`, and responses `ST_AsGeoJSON`.
 
 ### API
 ```
 POST   /api/auth/register | /login
 
-GET    /api/care-actions              (bbox + tür filtresi)
-GET    /api/care-actions/status       (bir konumda bakım eksik mi)
-POST   /api/care-actions              (multipart: fotoğraf + konum doğrulama)
+GET    /api/care-actions              (bbox + type filter)
+GET    /api/care-actions/status       (is care missing at a location)
+POST   /api/care-actions              (multipart: photo + location verification)
 
-GET    /api/animals                   (yakınlık + tür filtresi)
+GET    /api/animals                   (proximity + species filter)
+GET    /api/animals/match             (heuristic duplicate matching)
 GET    /api/animals/:id
 POST   /api/animals
-POST   /api/animals/:id/sightings     (görüldü: konum güncelle + bakıcı ekle)
+POST   /api/animals/:id/sightings     (sighted: move location + add carer)
 POST   /api/animals/:id/photos
-POST   /api/animals/:id/comments      GET .../comments
+POST   /api/animals/:id/comments      GET .../comments (paged)
 POST   /api/animals/:id/health-records
 POST   /api/animals/:id/health-records/:recordId/recover
-POST   /api/animals/:id/follow
+POST   /api/animals/:id/vaccinations  GET .../vaccinations
 
 GET    /api/users/me | /me/animals | /me/comments | /search | /:id
 GET    /api/users/:id/comments
 POST   /api/users/me/avatar
 PUT    /api/users/me/featured-badges
-GET    /api/users/me/badge-awards          # okunmamış rozet kutlamaları
+GET    /api/users/me/badge-awards          # unseen badge celebrations
 POST   /api/users/me/badge-awards/seen
 
 GET    /api/friendships/me
@@ -263,10 +253,10 @@ POST   /api/friendships | /:id/accept    DELETE /api/friendships/:id
 
 GET    /api/leaderboard
 
-GET    /api/ads?slot=...                  # yerleşim için sıradaki reklam
+GET    /api/ads?slot=...                  # next ad for a slot
 POST   /api/ads/:id/impression            POST /api/ads/:id/click
 
-                                          # hepsi requireAuth + requireAdmin
+                                          # all requireAuth + requireAdmin
 GET    /api/admin/stats
 GET    /api/admin/users                   PATCH /api/admin/users/:id
 GET    /api/admin/animals                 PATCH /api/admin/animals/:id
@@ -279,142 +269,105 @@ POST   /api/admin/advertisers/:id/image
 GET    /api/admin/audit-log
 ```
 
-### Dikkate değer birkaç uygulama detayı
-- **Solma ve uyarı penceresi aynı.** Haritadaki yeşilin solma süresi ile "bakım
-  eksik" uyarısının penceresi bilerek eşitlendi; farklı olsalardı harita
-  yeşilken uyarı çıkabiliyordu. Pencere satır bazında (`CASE action_type`)
-  hesaplandığı için mama ve su aynı sorguda listelense bile her biri kendi
-  hızında soluyor.
-- **Hastalık durumu saklanmıyor, türetiliyor.** Yorum var mı ve `recovered_at`
-  dolu mu sorularından SQL içinde çıkarılıyor; böylece gerçekle desenkron
-  olamıyor.
-- **Öne çıkan rozetler yalnızca anahtarı saklıyor**, kademeyi değil — kullanıcı
-  altına yükselince profildeki rozet kendiliğinden güncelleniyor.
-- **Seri hesabı** klasik "gaps and islands" SQL deseniyle, uygulama tarafında
-  döngü kurmadan yapılıyor.
-- **Liderlik tablosu set-based** hesaplanıyor: kullanıcı başına sorgu atmak
-  yerine tüm kullanıcılar tek sorgu setiyle hesaplanıyor.
+### A few implementation details worth knowing
+- **Fade window = warning window.** The green's fade time equals the
+  "care missing" warning window on purpose; if they differed, warnings could
+  fire while the map was still green. The window is computed per row
+  (`CASE action_type`), so food and water fade at their own speeds even in
+  one query.
+- **Illness state is derived, not stored.** It falls out of "any comments?"
+  and "recovered_at set?" in SQL, so it can never desync from reality.
+- **Featured badges store only the key**, not the tier — when the user
+  reaches gold, the profile badge upgrades by itself.
+- **Streaks** use the classic gaps-and-islands SQL pattern, no app-side loops.
+- **The leaderboard is set-based**: one query set for all users, never a
+  query per user.
 
-Bu kararların ayrıntılı gerekçeleri [NOTLAR.md](NOTLAR.md) içinde.
+Detailed rationale for these decisions: [NOTES.md](NOTES.md).
 
 ---
 
-## 4. Bilinen sınırlar
+## 4. Known limits
 
-Bunlar bilinerek kabul edilmiş, üretime çıkmadan kapatılması gereken maddeler.
-Tam liste ve gerekçeler
-[NOTLAR.md → Bilinen Sınırlar](NOTLAR.md#3-bilinen-sınırlar-ve-teknik-borç)
-içinde; en önemlileri:
+Accepted knowingly; to be closed before production. Full list with rationale
+in [NOTES.md](NOTES.md); the most important:
 
-1. **Liderlik tablosu her istekte sıfırdan hesaplanıyor.** 100 kullanıcıda
-   sorunsuz, binlerce kullanıcıda sürdürülemez — puanların periyodik olarak bir
-   tabloya yazılması gerekecek. Ölçek büyüdüğünde ilk bakılacak yer burası.
-2. **Fotoğraflar sunucunun yerel diskinde.** Yedeksiz, çok sunuculu kuruluma
-   uygun değil, görseller yeniden boyutlandırılmıyor. Üretim için nesne
-   depolama (S3/R2) + CDN şart.
-3. **Tek migrasyon dosyası** — şema değişince veritabanı sıfırlanıyor. Gerçek
-   veri girmeden önce artımlı migrasyona geçilmeli.
-4. **Fotoğraf kanıtı doğrulanmıyor, rate limit yok.** Moderasyon ve kötüye
-   kullanım koruması gerekiyor.
-5. **Otomatik test kapsamı çok düşük**, CI yok.
-6. **Bildirimler yalnızca uygulama çalışırken.** Gerçek arka plan bildirimi
-   için sunucu tarafı push (APNs/FCM) veya geofencing gerekiyor.
+1. **The leaderboard recomputes per request.** Fine at hundreds of users,
+   unsustainable at thousands — points will need periodic materialization.
+   First place to look when scale grows.
+2. **Photos on the server's local disk.** No backups, no multi-node, no
+   resizing. Production needs object storage (S3/R2) + CDN.
+3. **Single migration file** — schema changes reset the database. Move to
+   incremental migrations before real data.
+4. **Photo evidence unvalidated; rate limiting only on auth.** Moderation and
+   abuse protection needed.
+5. **Very low automated-test coverage.**
+6. **Notifications only while the app runs.** Real background push needs
+   APNs/FCM or geofencing.
 
 ---
 
-## 5. Sırada ne var?
+## 5. What's next?
 
-Beş büyük iş kaldı. Ayrıntılı planlar, önerilen yaklaşımlar ve karar verilmesi
-gerekenler [YOL_HARITASI.md](YOL_HARITASI.md) içinde.
+Detailed plans and open decisions live in [ROADMAP.md](ROADMAP.md).
 
-### 1. Yapay zekâ ile hayvan eşleştirme
-"Hayvan Ekle" doğrudan formu açacak; alanlar ve fotoğraf girildikten sonra
-yapay zekâ çevredeki kayıtlı hayvanlar arasından en benzeyen 5 tanesini
-benzerlik oranıyla gösterecek. Biri seçilirse kullanıcı o hayvanın bakım
-verenlerine ekleniyor, seçilmezse yeni kayıt açılıyor.
+### 1. AI animal matching (v2)
+The current matcher is heuristic (breed + color + distance within 1 km). v2
+replaces it with image embeddings: a pretrained model (DINOv2/CLIP) produces
+vectors, cosine similarity runs over a PostGIS-narrowed candidate set, and
+vectors live in `pgvector`. **Important:** cosine similarity is not a
+probability — "87% same" would mislead. Tiered labels first ("very similar /
+similar"), a calibrated score once data accumulates. The final call always
+stays with the user.
 
-*Yaklaşım:* Model eğitilmeyecek. Hazır bir görüntü gömme modeli (DINOv2/CLIP)
-ile vektör çıkarılıp, PostGIS ile ~1km'ye daraltılmış aday kümesi içinde kosinüs
-benzerliği hesaplanacak; vektörler `pgvector` ile veritabanında tutulacak.
-**Önemli:** kosinüs benzerliği bir olasılık değil — "%87 aynı" demek yanıltıcı
-olur. İlk sürümde kademeli etiket ("çok benzer / benzer"), veri biriktikçe
-kalibre edilmiş gerçek bir oran gösterilmesi öneriliyor. Son karar her zaman
-kullanıcıda kalmalı.
+### 2. Donations — deferred
+In-app donations to organizations entered via the admin panel; 5% stays with
+the platform. Blockers are external: payment provider (iyzico/PayTR
+**marketplace / sub-merchant model**, so money flows directly to the
+organization — collecting first would make us a regulated donation collector
+under Turkish law 2860), legal entity, accountant/lawyer sign-off, and store
+rules (Apple requires charity donations to use external payment, not IAP).
+The 5% cut must be stated clearly on the donation screen.
 
-### 2. Bağış sistemi
-Admin panelinden girilen kurumlara uygulama üzerinden bağış yapılabilecek;
-bağışların %5'i platforma kalacak. Doğrudan uygulamaya bağış seçeneği en üstte
-çıkacak. Toplam bağış miktarı rozet kazandıracak.
+### 3. Ads — ✅ done
+See §2 above.
 
-*Yaklaşım:* Türkiye'de kart işlemleri için iyzico/PayTR gibi sağlayıcıların
-**pazaryeri (alt üye işyeri) modeli** kullanılmalı — böylece para doğrudan
-kuruma gider, siz yalnızca komisyon alırsınız. Parayı önce kendi hesabınıza
-toplayıp sonra aktarmak sizi "bağış toplayan taraf" yapar ve Türkiye'de bağış
-toplamak izne tabidir (2860 sayılı kanun). Ayrıca Apple, hayır kurumu
-bağışlarının uygulama içi satın alma ile **değil** harici ödeme yöntemiyle
-alınmasını istiyor. %5'lik kesinti bağış ekranında açıkça yazılmalı ve
-yayınlamadan önce mali müşavir/avukat teyidi alınmalı.
+### 4. UI — ✅ done
+The "pati" brand identity across the app; the web PWA additionally follows
+the newer studio aesthetic. Details: [DESIGN.md](DESIGN.md).
 
-### 3. Reklam
-Mama pop-up'ında mama markası, su pop-up'ında su markası, sağlık kaydı
-eklerken veteriner kliniği reklamı. Markalar admin panelinden giriliyor, her
-tıkta sıra bir sonrakine geçiyor.
+### 5. Admin panel — ✅ done
+See §2 above.
 
-*Yaklaşım:* Hazır reklam ağı değil, kendi basit reklam sunucumuz — üç yerleşim
-(`food_popup`, `water_popup`, `vet_health_record`), yerleşim başına rotasyon
-imleci. Markalara satış yapabilmek için gösterim ve tıklama ayrı ayrı
-kaydedilmeli.
-
-### 4. UI — ✅ tamamlandı
-"pati" marka kimliği uygulandı: `mobile/src/theme/` altında renk/tipografi/
-boşluk token'ları, `components/ui/` altında 11 çekirdek bileşen,
-`components/brand/` altında SVG logo ve 20 ikonluk set. 11 ekranın tamamı bu
-sisteme taşındı, 171 sabit renk kodu sıfırlandı. Marka fontu Nunito gömüldü.
-Ayrıntı: [TASARIM.md](TASARIM.md). Kalan: uygulama ikonu/açılış görseli ve
-karanlık mod.
-
-### 5. Admin sayfası (web)
-Tüm uygulamanın kontrol edileceği web tabanlı panel.
-
-*Yaklaşım:* Aynı repo içinde `admin/` klasörü, React + Vite + TypeScript,
-mevcut API üzerine. Önce altyapı: `users.role`, `requireAdmin` middleware,
-`/api/admin/*` ve **denetim kaydı** (`audit_log`). Panelde gösterge paneli,
-kullanıcı/hayvan/bakım kaydı yönetimi, mükerrer hayvan birleştirme, fotoğraf
-moderasyonu, reklamveren ve bağış kurumu yönetimi.
-
-### Durum
+### Status
 ```
-✅ Admin paneli  ──┬──> ✅ Reklam
-   + rol altyapısı └──> ⏸️  Bağış — ertelendi (ödeme sağlayıcı, hukuk, mağaza)
-⏸️  YZ eşleştirme — park edildi (maliyet/hız ölçüldü, isabet ölçülemedi)
-✅ Tasarım sistemi + UI giydirme
-🚀 Yayına çıkma sprint'i ← SIRADA, kalan tek zorunlu blok
+✅ Admin panel + roles  ──> ✅ Ads
+⏸️  Donations — deferred (payment provider, legal, stores)
+⏸️  AI matching v2 — parked (cost/speed measured; accuracy needs real photos)
+✅ Design system + UI
+🚀 Launch sprint ← NEXT, the only mandatory block left
 ```
-Kalan iki özellik maddesi de dış bir bilgiye bağlı olduğu için beklemede:
-**bağış** ödeme sağlayıcı/hukuk/mağaza kurallarına, **YZ eşleştirme** ise gerçek
-fotoğraflarla yapılacak isabet ölçümüne. Kod tarafında bloke eden bir şey yok;
-sıradaki iş [yayına çıkma sprint'i](YOL_HARITASI.md#-yayına-çıkma-sprinti--ertelendi-unutulmayacak).
 
 ---
 
-## 6. Kurulum özeti
+## 6. Setup summary
 
-Ayrıntılı adımlar [README.md](../README.md) içinde. Kısaca:
+Detailed steps in [README.md](../README.md). In short:
 
 ```bash
-# Veritabanı
+# Database
 docker run -d --name stray-db -p 5433:5432 \
   -e POSTGRES_USER=stray -e POSTGRES_PASSWORD=stray -e POSTGRES_DB=stray \
   imresamu/postgis:16-3.4
 
 # Backend
 cd backend && cp .env.example .env && npm install && npm run migrate && npm run dev
-npm run seed        # opsiyonel: 100 kullanıcı + 200 hayvanlık demo verisi
+npm run seed        # optional: demo data (100 users + 200 animals)
 
-# Mobil
+# Mobile
 cd mobile && npm install
-cd ios && bundle exec pod install && cd ..   # native bağımlılık eklendiyse şart
-npm run ios         # veya npm run android
+cd ios && bundle exec pod install && cd ..   # required when native deps changed
+npm run ios         # or npm run android
 ```
 
-Demo hesapları: `test1@stray.test` … `test100@stray.test`, şifre `password123`.
+Demo accounts: `test1@stray.test` … `test100@stray.test`, password `password123`.
