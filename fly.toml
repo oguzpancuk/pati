@@ -1,5 +1,5 @@
-# Fly.io yapılandırması — tek makine, kalıcı fotoğraf diski, PostGIS'li Fly Postgres.
-# İlk kurulum adımları docs/YAYIN.md içinde.
+# Fly.io configuration — one machine, a persistent photo volume, Fly Postgres
+# with PostGIS. First-time setup steps live in docs/DEPLOYMENT.md.
 app = "pati-app"
 primary_region = "fra"
 
@@ -7,7 +7,7 @@ primary_region = "fra"
   dockerfile = "Dockerfile"
 
 [deploy]
-  # Şema tek migrasyon dosyası ve IF NOT EXISTS'li: her deploy'da güvenle koşar.
+  # The schema is one migration file with IF NOT EXISTS: safe on every deploy.
   release_command = "node scripts/migrate.js"
 
 [env]
@@ -15,7 +15,7 @@ primary_region = "fra"
   UPLOADS_DIR = "/data/uploads"
   WEB_DIST_DIR = "/app/web-dist"
   ADMIN_DIST_DIR = "/app/admin-dist"
-  # Bu ana bilgisayar adından gelen istekler yönetim panelini alır (admin/dist).
+  # Requests arriving on this hostname get the admin panel (admin/dist).
   ADMIN_HOST = "admin.pati-app.com"
   # Keeps the guide (demo) areas alive: the server adds a few fresh
   # food/water actions on behalf of guide accounts every hour. Once the guide

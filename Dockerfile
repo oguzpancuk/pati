@@ -1,6 +1,7 @@
-# pati — tek imaj: Node backend + derlenmiş web PWA.
-# Web build'i mobile/src (taxonomy, avatars, badges, paging) ve shared/ dizinlerini
-# @mobile/@shared alias'larıyla import ediyor; o yüzden üç dizin de kopyalanıyor.
+# pati — single image: Node backend + built web PWA.
+# The web build imports mobile/src (taxonomy, avatars, badges, paging) and
+# shared/ through the @mobile/@shared aliases; that's why all three
+# directories are copied.
 
 FROM node:20-alpine AS web
 WORKDIR /repo
@@ -12,7 +13,7 @@ COPY mobile/src/taxonomy.ts mobile/src/avatars.ts mobile/src/badges.ts mobile/sr
 COPY mobile/assets/fonts/ mobile/assets/fonts/
 RUN cd web && npm run build
 
-# Yönetim paneli: ayrı Vite projesi, shared/ SVG üreticilerini kullanıyor.
+# Admin panel: separate Vite project, uses the shared/ SVG generators.
 COPY admin/package.json admin/package-lock.json admin/
 RUN cd admin && npm ci
 COPY admin/ admin/

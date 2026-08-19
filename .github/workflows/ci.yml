@@ -1,5 +1,5 @@
-# Her push/PR'da doğrulama bataryası (docs: CLAUDE.md "Doğrulama"). Ajanlar çok
-# kod üretiyor; bu kapı yeşil değilse deploy edilmemeli.
+# Verification battery on every push/PR (docs: CLAUDE.md "Verification").
+# Agents produce a lot of code; if this gate isn't green, don't deploy.
 name: ci
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm, cache-dependency-path: mobile/package-lock.json }
       - run: cd mobile && npm ci && npx tsc --noEmit && npx jest --ci
-      # Release bundle: Metro'nun derleyemediği bir import varsa burada patlar.
+      # Release bundle: an import Metro can't compile blows up here.
       - run: cd mobile && npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output /tmp/bundle.js
 
   backend:
@@ -52,8 +52,9 @@ jobs:
       - run: cd backend && npm ci
       - run: cd backend && node scripts/migrate.js
       - run: cd backend && node -e "require('./src/app.js')"
-      # Test script'i varsa koş (test-yazici ajanı ekleyince otomatik devreye girer).
-      - run: cd backend && (npm run | grep -q "^  test" && npm test || echo "backend testi yok")
+      # Run the test script if one exists (kicks in automatically once the
+      # test-writer agent adds tests).
+      - run: cd backend && (npm run | grep -q "^  test" && npm test || echo "no backend tests")
 
   docker:
     runs-on: ubuntu-latest
