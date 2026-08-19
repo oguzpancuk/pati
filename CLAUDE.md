@@ -111,6 +111,22 @@ Kurallar: aynı anda aynı dosyaya iki oturum dokunmasın; devir teslim git ile
 (push → "son halini canlıya al"); ortam/hesap/sır gerektiren her iş Operasyon'a.
 Rol, yeteneği değil erişimi anlatır — Operasyon boşsa kod da yazar.
 
+## Yardımcılar: skill'ler, subagent'lar, CI
+
+Depoda hazır (`.claude/`), her oturum ve subagent açılışta görür:
+
+- **Komutlar:** `/calistir` (ortamı ayağa kaldır), `/dogrula` (doğrulama bataryası)
+- **Skill'ler:** `yayina-al` (Fly deploy + canlı doğrulama), `simulatorde-bak`
+  (derin bağlantıyla ekran aç + görüntü), `web-ekran` (PWA ekran görüntüsü)
+- **Subagent'lar:** `kod-gozden-gecirici` (salt okunur inceleme),
+  `test-yazici` (test yazar/çalıştırır), `yayin-denetcisi` (sprint denetimi),
+  `ekran-dogrulayici` (görsel doğrulama; yalnız Operasyon)
+- **CI:** `.github/workflows/ci.yml` her push'ta web/admin/mobil/backend/docker
+  kapısı. Kırmızıysa deploy etme.
+
+Bir özellik bitince tipik akış: `kod-gozden-gecirici` → gerekirse
+`test-yazici` → push → CI yeşil → Operasyon `yayina-al`.
+
 ## Çalışma şekli
 
 - `main` üzerinde çalışılıyor, PR akışı yok. Commit + push serbest.

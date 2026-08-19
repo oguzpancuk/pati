@@ -1,0 +1,62 @@
+# Her push/PR'da doğrulama bataryası (docs: CLAUDE.md "Doğrulama"). Ajanlar çok
+# kod üretiyor; bu kapı yeşil değilse deploy edilmemeli.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: cd web && npm ci && npx tsc --noEmit && npx vite build
+
+  admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: admin/package-lock.json }
+      - run: cd admin && npm ci && npx tsc --noEmit && npm run build
+
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: mobile/package-lock.json }
+      - run: cd mobile && npm ci && npx tsc --noEmit && npx jest --ci
+      # Release bundle: Metro'nun derleyemediği bir import varsa burada patlar.
+      - run: cd mobile && npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output /tmp/bundle.js
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: imresamu/postgis:16-3.4
+        env: { POSTGRES_USER: stray, POSTGRES_PASSWORD: stray, POSTGRES_DB: stray }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U stray" --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://stray:stray@localhost:5432/stray
+      JWT_SECRET: ci-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: backend/package-lock.json }
+      - run: cd backend && npm ci
+      - run: cd backend && node scripts/migrate.js
+      - run: cd backend && node -e "require('./src/app.js')"
+      # Test script'i varsa koş (test-yazici ajanı ekleyince otomatik devreye girer).
+      - run: cd backend && (npm run | grep -q "^  test" && npm test || echo "backend testi yok")
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t pati-app:ci .
