@@ -21,7 +21,7 @@ Source of truth: `docs/DEPLOYMENT.md`. App `pati-app` (Fly.io, fra), database
    `https://admin.pati-app.com/` → 200. If the change is visual, take a
    production screenshot with the `web-screenshot` skill.
 5. If the schema changed, migrate already ran in the release step; if a data
-   script is needed (`seed-rehber.js --tazele/--temizle`), use
+   script is needed (`seed-guides.js --refresh/--remove`), use
    `fly ssh console --app pati-app -C "node scripts/…"`.
 6. Report to the user (in Turkish): commit short hash, deploy result,
    verification lines, any warnings. Never print secrets (DB password, JWT).

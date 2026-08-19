@@ -174,7 +174,7 @@ in the admin panel and slots are deliberately specific.
 Kadıköy, and chats on animal profiles. 20 users have 30-day streaks and 30
 have 7-day streaks, so every badge tier appears in the data. For
 production-safe demo data (guide accounts across 37 districts) see
-`scripts/seed-rehber.js` and [DEPLOYMENT.md](DEPLOYMENT.md).
+`scripts/seed-guides.js` and [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 

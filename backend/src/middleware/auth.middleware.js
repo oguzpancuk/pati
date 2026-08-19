@@ -16,10 +16,10 @@ async function requireAuth(req, res, next) {
   }
 
   try {
-    // Token geçerli olsa bile kullanıcı silinmiş olabilir (örn. geliştirme sırasında
-    // veritabanı sıfırlandığında). Bu durumda istemcinin oturumu temizleyip yeniden
-    // giriş yapabilmesi için 401 dönüyoruz; aksi halde her istek anlamsız bir hataya
-    // dönüşüyor ve uygulama içinde çıkış yapmak imkânsız hale geliyor.
+    // Even with a valid token the user may no longer exist (e.g. after a dev
+    // database reset). We return 401 so the client can clear the session and
+    // log in again; otherwise every request turns into a meaningless error and
+    // logging out from inside the app becomes impossible.
     const result = await pool.query(
       'SELECT id, role, suspended_at, suspended_reason FROM users WHERE id = $1',
       [payload.userId]
@@ -29,9 +29,9 @@ async function requireAuth(req, res, next) {
     }
 
     const user = result.rows[0];
-    // JWT'nin kendisi iptal edilemiyor (bkz. docs/NOTLAR.md), bu yüzden askıya
-    // alma her istekte veritabanından kontrol ediliyor. Askıya alınan kullanıcı
-    // token'ı elinde olsa bile hiçbir şey yapamıyor.
+    // The JWT itself cannot be revoked (see docs/NOTES.md), so suspension is
+    // checked against the database on every request. A suspended user can do
+    // nothing even while holding a valid token.
     if (user.suspended_at) {
       return res.status(403).json({
         error: user.suspended_reason
@@ -48,8 +48,8 @@ async function requireAuth(req, res, next) {
   }
 }
 
-// requireAuth'tan sonra kullanılır; rolü veritabanından okunmuş olur, yani
-// token'daki eski rol bilgisi yetki yükseltmek için kullanılamaz.
+// Used after requireAuth; the role has been read from the database, so a
+// stale role inside the token cannot be used for privilege escalation.
 function requireAdmin(req, res, next) {
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ error: 'Bu işlem için yönetici yetkisi gerekiyor' });

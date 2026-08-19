@@ -9,7 +9,7 @@
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed-demo.js",
     "make-admin": "node scripts/make-admin.js",
-    "seed-rehber": "node scripts/seed-rehber.js"
+    "seed-guides": "node scripts/seed-guides.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

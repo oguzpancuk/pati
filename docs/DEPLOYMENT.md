@@ -33,21 +33,21 @@ Milas/Güllük: 10 accounts per area with a month of organic usage history
 (~3 animals per week, food/water every other day, chats, vaccination and
 health records). Records don't pile up at district centers: each district is
 defined by neighborhood anchor points and every guide lives in a "home
-neighborhood" (see `DISTRICTS` in `scripts/seed-rehber.js`). Their bot nature
+neighborhood" (see `DISTRICTS` in `scripts/seed-guides.js`). Their bot nature
 is not hidden — names read "… · pati rehberi" and every animal's first comment
 says the record is an example; the comments double as a tutorial for how the
 app is used. (Seeded content itself is Turkish: it is product-facing.)
 
 ```bash
-fly ssh console --app pati-app -C "node scripts/seed-rehber.js"            # create
-fly ssh console --app pati-app -C "node scripts/seed-rehber.js --tazele"   # fresh food/water
-fly ssh console --app pati-app -C "node scripts/seed-rehber.js --temizle"  # remove entirely
+fly ssh console --app pati-app -C "node scripts/seed-guides.js"            # create
+fly ssh console --app pati-app -C "node scripts/seed-guides.js --refresh"  # fresh food/water
+fly ssh console --app pati-app -C "node scripts/seed-guides.js --remove"   # remove entirely
 ```
 
 The script only ADDS (unlike `seed-demo.js`, no TRUNCATE); it never touches
 existing users/animals/admins, so it is production-safe. Guide passwords are
 generated randomly per run and shown only in the script output. Because the
-map's green fades in 4-6 hours, `DEMO_REHBER_TAZELE = "1"` in `fly.toml` makes
+map's green fades in 4-6 hours, `DEMO_GUIDE_REFRESH = "1"` in `fly.toml` makes
 the server add a few fresh records hourly (harmlessly inert once the guide
 data is removed).
 

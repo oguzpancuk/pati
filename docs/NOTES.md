@@ -520,4 +520,4 @@ Things that cost time before and will come up again:
   no key.
 - **The seed script wipes everything on every run** (TRUNCATE, admins
   included) and regenerates fresh data — never point it at production; the
-  production-safe alternative is `scripts/seed-rehber.js`.
+  production-safe alternative is `scripts/seed-guides.js`.

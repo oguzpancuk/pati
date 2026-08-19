@@ -1,28 +1,36 @@
 /**
- * Rehber verisi için ilçelerin mahalle merkezlerini OpenStreetMap'ten
- * (Overpass) bir kez çekip data/mahalleler.json'a yazar. Seed bu dosyayı
- * kullanıyor; dosya depoda, script yalnızca ilçe listesi değişince koşar.
+ * Fetches district neighborhood centers from OpenStreetMap (Overpass) once
+ * for the guide data and writes them to data/neighborhoods.json. The seed
+ * uses that file; it lives in the repo and this script only runs when the
+ * district list changes.
  *
- *   node scripts/fetch-mahalleler.mjs
+ *   node scripts/fetch-neighborhoods.mjs
  *
- * Neden: rehber kayıtları ilçe merkezinde tek leke gibi yığılıyordu (±900 m
- * saçılım); rastgele geniş saçılım ise kıyı ilçelerinde denize düşüyor.
- * Gerçek mahalle noktaları hem karada hem ilçeye yayılmış.
+ * Why: guide records used to pile up as one blot at the district center
+ * (±900 m spread), while a wide random spread landed in the sea in coastal
+ * districts. Real neighborhood points are both on land and spread across
+ * the district.
  *
- * İlçe başına sorgu yerine şehir başına tek kutu sorgusu (3 istek): Overpass
- * yavaş/kısıtlı; noktalar sonra en yakın ilçe merkezine (≤ 6 km) atanıyor.
+ * One bounding-box query per city instead of per district (3 requests):
+ * Overpass is slow/throttled; points are then assigned to the nearest
+ * district center (≤ 6 km).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const seed = readFileSync(join(here, 'seed-rehber.js'), 'utf8');
-const districts = [...seed.matchAll(/city: '([^']+)', name: '([^']+)', lat: ([\d.]+), lng: ([\d.]+)/g)].map(
-  (m) => ({ city: m[1], name: m[2], lat: Number(m[3]), lng: Number(m[4]) })
-);
+// Parse the district list out of the seed source; the first anchor of each
+// district acts as its center. (Importing the seed would drag in dotenv and
+// the db pool.)
+const seed = readFileSync(join(here, 'seed-guides.js'), 'utf8');
+const districts = [
+  ...seed.matchAll(
+    /city: '([^']+)',\s*name: '([^']+)',\s*anchors: \[\s*\[([\d.]+), ([\d.]+)/g
+  ),
+].map((m) => ({ city: m[1], name: m[2], lat: Number(m[3]), lng: Number(m[4]) }));
 
-// Şehir kutuları ilçe merkezlerinden türetiliyor (+ kenar payı).
+// City bounding boxes derive from district centers (+ margin).
 const cities = {};
 for (const d of districts) {
   const c = (cities[d.city] ??= { minLat: 90, maxLat: -90, minLng: 180, maxLng: -180 });
@@ -41,7 +49,7 @@ const km = (a, b) => {
 const out = Object.fromEntries(districts.map((d) => [`${d.city}/${d.name}`, []]));
 for (const [city, b] of Object.entries(cities)) {
   const q = `[out:json][timeout:120];node["place"~"neighbourhood|quarter|suburb"](${b.minLat},${b.minLng},${b.maxLat},${b.maxLng});out;`;
-  // Birden çok ayna: ana sunucu yoğunken kumi/lz4 çoğu zaman yanıt veriyor.
+  // Multiple mirrors: kumi/lz4 usually answer while the main server is busy.
   const MIRRORS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
@@ -51,15 +59,15 @@ for (const [city, b] of Object.entries(cities)) {
   for (let attempt = 1; attempt <= 3 && !json; attempt += 1) {
     const base = MIRRORS[(attempt - 1) % MIRRORS.length];
     try {
-      // User-Agent şart: kimliksiz istekler 406/kesik bağlantı alıyor.
+      // The User-Agent is required: anonymous requests get 406 / dropped connections.
       const res = await fetch(base + '?data=' + encodeURIComponent(q), {
         headers: { 'User-Agent': 'pati-seed/1.0 (github.com/oguzpancuk/Pati)' },
         signal: AbortSignal.timeout(200000),
       });
       if (res.status === 200) json = await res.json();
-      else console.log(`${city}: HTTP ${res.status}, deneme ${attempt}`);
+      else console.log(`${city}: HTTP ${res.status}, attempt ${attempt}`);
     } catch (err) {
-      console.log(`${city}: ${err.message}, deneme ${attempt}`);
+      console.log(`${city}: ${err.message}, attempt ${attempt}`);
     }
     if (!json) await new Promise((r) => setTimeout(r, 10000 * attempt));
   }
@@ -73,11 +81,15 @@ for (const [city, b] of Object.entries(cities)) {
       if (dist <= 6 && (!best || dist < best.dist)) best = { d, dist };
     }
     if (!best) continue;
-    out[`${best.d.city}/${best.d.name}`].push({ name: n.tags.name, lat: +p.lat.toFixed(5), lng: +p.lng.toFixed(5) });
+    out[`${best.d.city}/${best.d.name}`].push({
+      name: n.tags.name,
+      lat: +p.lat.toFixed(5),
+      lng: +p.lng.toFixed(5),
+    });
     assigned += 1;
   }
-  console.log(`${city}: ${nodes.length} nokta, ${assigned} ilçeye atandı`);
+  console.log(`${city}: ${nodes.length} points, ${assigned} assigned to districts`);
 }
 for (const [k, v] of Object.entries(out)) console.log(`  ${k}: ${v.length}`);
-writeFileSync(join(here, 'data', 'mahalleler.json'), JSON.stringify(out, null, 1));
-console.log('yazıldı: scripts/data/mahalleler.json');
+writeFileSync(join(here, 'data', 'neighborhoods.json'), JSON.stringify(out, null, 1));
+console.log('wrote: scripts/data/neighborhoods.json');

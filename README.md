@@ -215,7 +215,7 @@ Demo logins: `test1@stray.test` … `test100@stray.test`, password `password123`
 >
 > ⚠️ The seed script TRUNCATEs **all** data (admins included) on every run.
 > Never run it against production. For production demo data see
-> `scripts/seed-rehber.js` (additive, reversible; docs/DEPLOYMENT.md).
+> `scripts/seed-guides.js` (additive, reversible; docs/DEPLOYMENT.md).
 >
 > Care photos are stored on the backend's local disk (`backend/uploads/`) and
 > served under `/uploads/...` — development/MVP only.

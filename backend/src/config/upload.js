@@ -3,8 +3,9 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 
-// Üretimde (Fly.io) kalıcı volume'a yazılıyor (UPLOADS_DIR=/data/uploads);
-// geliştirmede depo içindeki uploads/. Nesne depolamaya geçiş yol haritasında.
+// In production (Fly.io) this writes to the persistent volume
+// (UPLOADS_DIR=/data/uploads); in development, the in-repo uploads/.
+// Moving to object storage is on the roadmap.
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, '..', '..', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 

@@ -1,6 +1,6 @@
 require('dotenv').config();
 const app = require('./app');
-const { startDemoTazele } = require('./utils/demoTazele');
+const { startDemoGuideRefresh } = require('./utils/demoGuideRefresh');
 
 const PORT = process.env.PORT || 3000;
 
@@ -8,6 +8,6 @@ app.listen(PORT, () => {
   console.log(`pati API listening on port ${PORT}`);
 });
 
-// Rehber (demo) bölgelerinin haritasını canlı tutan saatlik tazeleme;
-// yalnızca DEMO_REHBER_TAZELE=1 ile açılır.
-startDemoTazele();
+// Hourly refresh keeping the guide (demo) areas alive on the map;
+// enabled only with DEMO_GUIDE_REFRESH=1.
+startDemoGuideRefresh();

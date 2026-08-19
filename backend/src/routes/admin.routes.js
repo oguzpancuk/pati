@@ -25,7 +25,7 @@ const {
 
 const router = express.Router();
 
-// Tüm admin uç noktaları önce kimlik, sonra rol kontrolünden geçiyor.
+// Every admin endpoint passes authentication first, then the role check.
 router.use(requireAuth, requireAdmin);
 
 router.get('/stats', getStats);

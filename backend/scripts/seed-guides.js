@@ -1,31 +1,33 @@
-// pati REHBER verisi — canlıda (üretimde) çalıştırılmak için tasarlandı.
+// pati GUIDE data — designed to run against production.
 //
-// Ne yapar: İstanbul merkez ilçeleri, İzmir merkez ilçeleri, Antalya/Kaş ve
-// Milas/Güllük'te "rehber" kullanıcılar oluşturur. Her bölgede 10 rehber ve
-// bölge, mahalle çapalarıyla tanımlı olduğu için kayıtlar ilçenin tamamına
-// yayılır. Her rehber, uygulamayı ~1 aydır
-// organik ritimde kullanıyormuş gibi görünür: haftada ~3 hayvan kaydı, gün
-// aşırı mama/su, sohbet yorumları, aşı ve sağlık kayıtları, ilçe içi
-// arkadaşlıklar. Amaç çifte: (1) uygulama ilk açılışta boş görünmesin,
-// (2) kayıtlar "uygulama böyle kullanılır" diyen bir rehber/tutorial olsun.
+// What it does: creates "guide" users across Istanbul's central districts,
+// İzmir's central districts, Antalya/Kaş, and Milas/Güllük. 10 guides per
+// area, and because areas are defined by neighborhood anchors the records
+// spread across the whole district. Each guide looks like they have been
+// using the app organically for ~a month: ~3 animal registrations a week,
+// food/water every other day, chat comments, vaccination and health records,
+// in-district friendships. The purpose is double: (1) the app never opens
+// onto an empty map, (2) the records act as a tutorial showing how the app
+// is used.
 //
-// Bot olduğu GİZLENMEZ: kullanıcı adları "... · pati rehberi", e-postalar
-// @pati.demo, her hayvanın ilk yorumu kaydın bir örnek olduğunu söyler.
+// Their bot nature is NOT hidden: user names read "... · pati rehberi",
+// emails end in @pati.demo, and every animal's first comment says the record
+// is an example. (Seeded content itself is Turkish — it is product-facing.)
 //
-// seed-demo.js'ten FARKI: burada TRUNCATE YOKTUR. Script yalnızca ekler;
-// mevcut kullanıcılara, hayvanlara, admin hesaplarına dokunmaz. Bu yüzden
-// üretimde güvenle çalıştırılabilir.
+// DIFFERENCE from seed-demo.js: there is NO TRUNCATE here. The script only
+// adds; it never touches existing users, animals, or admin accounts, so it
+// is safe to run in production.
 //
-// Kullanım:
-//   node scripts/seed-rehber.js             # rehber verisini oluştur
-//   node scripts/seed-rehber.js --tazele    # yalnızca taze mama/su ekle (harita yeşil kalsın)
-//   node scripts/seed-rehber.js --temizle   # tüm rehber verisini geri al
+// Usage:
+//   node scripts/seed-guides.js             # create the guide data
+//   node scripts/seed-guides.js --refresh   # only add fresh food/water (keep the map green)
+//   node scripts/seed-guides.js --remove    # roll all guide data back
 //
-// Canlıda (Fly): fly ssh console --app pati-app -C "node scripts/seed-rehber.js"
+// In production (Fly): fly ssh console --app pati-app -C "node scripts/seed-guides.js"
 //
-// Rehber hesapların şifresi her çalıştırmada rastgele üretilir ve yalnızca
-// bu scriptin çıktısında gösterilir: bilinen ortak bir şifre, herkesin bot
-// hesaplarına girebilmesi demek olurdu.
+// Guide passwords are generated randomly per run and shown only in this
+// script's output: a well-known shared password would let anyone log into
+// the bot accounts.
 require('dotenv').config();
 const crypto = require('crypto');
 const fs = require('fs');
@@ -47,24 +49,24 @@ const {
 } = require('../src/utils/taxonomy');
 
 const BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-// Rehber hesapları bu alan adından tanınır; --temizle ve --tazele de buna bakar.
+// Guide accounts are recognized by this domain; --remove and --refresh rely on it.
 const DEMO_EMAIL_DOMAIN = 'pati.demo';
 const USERS_PER_DISTRICT = 10;
 const WEEKS = 4;
 const ANIMALS_PER_WEEK = 3;
-// Bir çapanın (mahalle/semt merkezi) etrafındaki saçılım: ~±650 m. Kıyı
-// çapalarında noktalar denize düşmesin diye çapa bazında daraltılabilir
-// (üçüncü eleman, derece cinsinden).
+// Spread around an anchor (a neighborhood center): ~±650 m. Coastal anchors
+// can narrow it per anchor (third element, in degrees) so points do not land
+// in the sea.
 const ANCHOR_SPREAD_DEG = 0.006;
 
-// ---------------------------------------------------------------- ilçeler
-// Her ilçe tek merkez noktası değil, ilçeye yayılmış mahalle/semt ÇAPALARIYLA
-// tanımlı: rehberler ilçe merkezine yığılmasın, ilçenin tamamında otursun.
-// Her rehberin bir "ev mahallesi" (çapası) var; kayıtlarının çoğu orada,
-// arada başka mahallelere de uğruyor — gerçek gönüllü davranışı.
-// Koordinatlar yaklaşık semt merkezleri; ekleme/çıkarma serbest.
+// ---------------------------------------------------------------- districts
+// A district is not one center point but neighborhood ANCHORS spread across
+// it: guides should not pile up downtown, they live all over the district.
+// Every guide has a "home neighborhood" (anchor); most records land there,
+// with occasional visits elsewhere — real volunteer behavior. Coordinates
+// are approximate; edit freely.
 const DISTRICTS = [
-  // İstanbul — merkez (Avrupa)
+  // Istanbul — central (European side)
   {
     city: 'İstanbul',
     name: 'Fatih',
@@ -221,7 +223,7 @@ const DISTRICTS = [
       [40.97, 28.697, 0.004],
     ],
   },
-  // İstanbul — merkez (Anadolu)
+  // Istanbul — central (Anatolian side)
   {
     city: 'İstanbul',
     name: 'Kadıköy',
@@ -288,7 +290,7 @@ const DISTRICTS = [
       [40.89, 29.26],
     ],
   },
-  // İzmir — merkez
+  // İzmir — central
   {
     city: 'İzmir',
     name: 'Konak',
@@ -384,7 +386,7 @@ const DISTRICTS = [
       [38.354, 26.901],
     ],
   },
-  // Antalya — yalnızca Kaş (ilçenin tamamı: merkez, Kalkan, Gömbe yaylası)
+  // Antalya — Kaş only (the whole district: center, Kalkan, the Gömbe plateau)
   {
     city: 'Antalya',
     name: 'Kaş',
@@ -394,7 +396,7 @@ const DISTRICTS = [
       [36.452, 29.648],
     ],
   },
-  // Muğla — Milas'ın Güllük mahallesi
+  // Muğla — the Güllük neighborhood of Milas
   { city: 'Muğla', name: 'Güllük', anchors: [[37.2397, 27.6036, 0.004]] },
 ];
 
@@ -467,10 +469,10 @@ const MARKINGS = [
   null,
 ];
 
-// ------------------------------------------------------------ rehber sesi
-// Yorumlar hem sohbeti canlı gösterir hem de özellik anlatır: her hayvanın
-// ilk yorumu kaydın örnek olduğunu açıkça söyler, sonrakiler uygulamanın
-// nasıl kullanıldığını gösterir.
+// ------------------------------------------------------------ guide voice
+// Comments both make chats look alive and teach features: every animal's
+// first comment states the record is an example, follow-ups show how the app
+// is used. Product-facing content — stays Turkish.
 const INTRO_COMMENTS = [
   '🤖 Bu kayıt bir örnek: pati rehber ekibi, uygulamanın nasıl kullanıldığını göstermek için ekledi. Sen de sokağındaki dostları fotoğraflayıp kaydedebilirsin.',
   '🤖 Merhaba! Ben bir rehber hesabıyım. Bu hayvan kaydı gerçek değil; mahallende gördüğün dostları böyle kaydedebileceğini göstermek için burada.',
@@ -499,32 +501,32 @@ const VACCINE_NOTES = [
 function randomItem(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
-// OSM'den bir kez çekilmiş mahalle merkezleri (data/mahalleler.json,
-// fetch-mahalleler.mjs). Varsa ilçenin elle yazılmış çapalarına ek olarak
-// kullanılıyor: Kadıköy'de 4 çapa yerine 34 mahalle — rehberler ilçenin her
-// köşesine dağılıyor. Mahalle noktaları gerçek yerleşim olduğu için saçılımı
-// dar (±250 m); kıyıya taşma riski çapalardan da düşük.
-let MAHALLELER = {};
+// Neighborhood centers fetched once from OSM (data/neighborhoods.json,
+// fetch-neighborhoods.mjs). When present they extend the hand-written
+// anchors: Kadıköy gets 34 neighborhoods instead of 4 anchors, spreading
+// guides into every corner. Neighborhood points are real settlements, so the
+// spread is tight (±250 m) and the sea-spill risk is even lower.
+let NEIGHBORHOODS = {};
 try {
-  MAHALLELER = require('./data/mahalleler.json');
+  NEIGHBORHOODS = require('./data/neighborhoods.json');
 } catch {
-  /* dosya yoksa yalnızca elle çapalar */
+  /* without the file, hand-written anchors only */
 }
-const MAHALLE_SPREAD_DEG = 0.0023;
+const NEIGHBORHOOD_SPREAD_DEG = 0.0023;
 for (const d of DISTRICTS) {
-  const extra = MAHALLELER[`${d.city}/${d.name}`] || [];
-  for (const m of extra) d.anchors.push([m.lat, m.lng, MAHALLE_SPREAD_DEG]);
+  const extra = NEIGHBORHOODS[`${d.city}/${d.name}`] || [];
+  for (const m of extra) d.anchors.push([m.lat, m.lng, NEIGHBORHOOD_SPREAD_DEG]);
 }
 
 function offset(spread = ANCHOR_SPREAD_DEG) {
   return (Math.random() - 0.5) * 2 * spread;
 }
-/** Çapanın ([lat, lng, spread?]) saçılımı içinde rastgele bir nokta. */
+/** A random point inside the anchor's ([lat, lng, spread?]) scatter. */
 function pointNear(anchor) {
   const spread = anchor[2] ?? ANCHOR_SPREAD_DEG;
   return { lat: anchor[0] + offset(spread), lng: anchor[1] + offset(spread) };
 }
-// Türkçe karakterli ilçe adından e-posta güvenli kısa ad üretir.
+// Builds an email-safe slug from a district name with Turkish characters.
 function slugify(name) {
   const map = { ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u', İ: 'i' };
   return name
@@ -532,7 +534,7 @@ function slugify(name) {
     .replace(/[çğıöşüİ]/g, (c) => map[c] || c)
     .replace(/[^a-z0-9]/g, '');
 }
-// Son `daysAgoMax` gün içinde, gündüz saatlerinde rastgele bir an.
+// A random moment during daytime hours, `daysAgo` days back.
 function daytimeStamp(daysAgo) {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
@@ -540,10 +542,10 @@ function daytimeStamp(daysAgo) {
   return d;
 }
 
-// ---------------------------------------------------------------- görseller
-// seed-demo ile aynı yöntem: harici servise bağımlı olmadan tek renkli PNG.
-// Dosyalar `rehber-*.png` adıyla yazılır ve BINLERCE kayıt aynı küçük havuzu
-// paylaşır — diske hayvan başına fotoğraf yazılmaz.
+// ---------------------------------------------------------------- images
+// Same trick as seed-demo: solid-color PNGs, no external service. Files are
+// written as `rehber-*.png` and THOUSANDS of records share the same small
+// pool — no per-animal photo ever hits the disk.
 function makeSolidPng(width, height, [r, g, b]) {
   const raw = Buffer.alloc((width * 3 + 1) * height);
   let pos = 0;
@@ -610,7 +612,7 @@ function writePhotos() {
   });
 }
 
-// Toplu INSERT'leri parametre limitine takılmadan parça parça yürütür.
+// Runs bulk INSERTs in chunks to stay under the parameter limit.
 async function bulkInsert(sql, rows, cols) {
   const CHUNK = 200;
   for (let i = 0; i < rows.length; i += CHUNK) {
@@ -621,8 +623,8 @@ async function bulkInsert(sql, rows, cols) {
   }
   return rows.length;
 }
-// Konumlu satırlar için: her satırın İLK İKİ elemanı lng,lat kabul edilir ve
-// ST_MakePoint'e sarılır; kalanlar düz parametre olur.
+// For rows with a location: the FIRST TWO elements are taken as lng,lat and
+// wrapped in ST_MakePoint; the rest are plain parameters.
 async function bulkInsertGeo(sql, rows) {
   const CHUNK = 200;
   for (let i = 0; i < rows.length; i += CHUNK) {
@@ -647,12 +649,12 @@ async function demoUserIds() {
   return res.rows.map((r) => r.id);
 }
 
-// ---------------------------------------------------------------- --tazele
-// Haritadaki yeşil, mama 4 / su 6 saat içinde solduğu için bir aylık geçmiş
-// haritayı YEŞİL TUTMAZ. Bu mod, her rehberin kendi hayvanlarından birinin
-// yakınına son 1 saat içinde tarihlenmiş taze mama/su bırakır. Saatte bir
-// çalıştırılırsa (bkz. src/utils/demoTazele.js) demo bölgeleri canlı kalır.
-async function tazele({ sessiz = false } = {}) {
+// ---------------------------------------------------------------- --refresh
+// The map green fades in 4/6 hours (food/water), so a month of history does
+// NOT keep the map green. This mode drops fresh food/water, dated within the
+// last hour, near one of each guide's own animals. Run hourly (see
+// src/utils/demoGuideRefresh.js) it keeps the demo areas alive.
+async function refreshGuides({ quiet = false } = {}) {
   const res = await pool.query(
     `SELECT DISTINCT ON (u.id) u.id AS user_id,
             ST_Y(a.location::geometry) AS lat, ST_X(a.location::geometry) AS lng
@@ -663,19 +665,19 @@ async function tazele({ sessiz = false } = {}) {
     [`%@${DEMO_EMAIL_DOMAIN}`]
   );
   if (res.rows.length === 0) {
-    if (!sessiz) console.log('Rehber kullanıcı yok; önce script parametresiz çalıştırılmalı.');
+    if (!quiet) console.log('No guide users; run the script without arguments first.');
     return 0;
   }
   const photoUrls = PHOTO_COLORS.map((_, i) => `${BASE_URL}/uploads/rehber-${i}.png`);
   const rows = [];
   for (const r of res.rows) {
-    // Her rehber her turda değil, ~yarısı bırakıyor: hepsi aynı anda
-    // işaretlerse organik değil senkronize görünür.
+    // Not every guide every round — about half: all marking at the same
+    // moment would look synchronized, not organic.
     if (Math.random() < 0.5) continue;
     const minutesAgo = 5 + Math.floor(Math.random() * 50);
     const when = new Date(Date.now() - minutesAgo * 60 * 1000);
     rows.push([
-      r.lng + offset(0.001), // hayvanın hemen çevresi (~±100 m)
+      r.lng + offset(0.001), // the animal's immediate surroundings (~±100 m)
       r.lat + offset(0.001),
       r.user_id,
       Math.random() < 0.6 ? 'food' : 'water',
@@ -688,23 +690,23 @@ async function tazele({ sessiz = false } = {}) {
      VALUES __VALUES__`,
     rows
   );
-  if (!sessiz) console.log(`${rows.length} taze mama/su kaydı eklendi.`);
+  if (!quiet) console.log(`Added ${rows.length} fresh food/water actions.`);
   return rows.length;
 }
 
-// ---------------------------------------------------------------- --temizle
-// Rehber verisini geri alır. Sıra önemli: önce rehberlerin başka (gerçek)
-// hayvanlara bıraktığı izler, sonra rehber hayvanları (CASCADE kendi yorum/
-// kayıt/fotoğraflarını götürür), en son kullanıcılar. Gerçek bir kullanıcı
-// rehber hayvanına yorum yazdıysa o yorum da hayvanla birlikte silinir —
-// örnek kayıt kalkınca altındaki sohbetin de anlamı kalmıyor.
-async function temizle() {
+// ---------------------------------------------------------------- --remove
+// Rolls the guide data back. Order matters: first the traces guides left on
+// other (real) animals, then guide animals (CASCADE takes their own
+// comments/records/photos), users last. A real user's comment on a guide
+// animal goes with the animal — once the example record is gone, the chat
+// under it has no meaning either.
+async function removeGuides() {
   const ids = await demoUserIds();
   if (ids.length === 0) {
-    console.log('Silinecek rehber verisi yok.');
+    console.log('No guide data to remove.');
     return;
   }
-  console.log(`${ids.length} rehber kullanıcı ve tüm izleri siliniyor...`);
+  console.log(`Removing ${ids.length} guide users and all their traces...`);
   await pool.query('DELETE FROM care_actions WHERE user_id = ANY($1)', [ids]);
   await pool.query('DELETE FROM animal_comments WHERE user_id = ANY($1)', [ids]);
   await pool.query('DELETE FROM vaccinations WHERE recorded_by = ANY($1)', [ids]);
@@ -727,17 +729,17 @@ async function temizle() {
   await pool.query('DELETE FROM ad_events WHERE user_id = ANY($1)', [ids]);
   await pool.query('DELETE FROM users WHERE id = ANY($1)', [ids]);
   console.log(
-    `Tamam: ${ids.length} kullanıcı, ${animals.rows.length} hayvan ve bağlı kayıtlar silindi.`
+    `Done: removed ${ids.length} users, ${animals.rows.length} animals, and linked records.`
   );
 }
 
-// ---------------------------------------------------------------- oluştur
-async function olustur() {
+// ---------------------------------------------------------------- create
+async function createGuides() {
   const existing = await demoUserIds();
   if (existing.length > 0) {
     console.log(
-      `Zaten ${existing.length} rehber kullanıcı var. Yeniden kurmak için önce --temizle,\n` +
-        'haritayı tazelemek için --tazele çalıştırın.'
+      `${existing.length} guide users already exist. Run --remove first to rebuild,\n` +
+        'or --refresh to liven up the map.'
     );
     return;
   }
@@ -760,10 +762,10 @@ async function olustur() {
   for (const district of DISTRICTS) {
     const slug = slugify(district.name);
 
-    // --- kullanıcılar --------------------------------------------------
+    // --- users ---------------------------------------------------------
     const userRows = [];
     for (let i = 0; i < USERS_PER_DISTRICT; i += 1) {
-      // "· pati rehberi" eki her listede görünür; bot olduğu isimden belli.
+      // The "· pati rehberi" suffix shows in every list; the name says bot.
       const name = `${FIRST_NAMES[(i * 7 + district.name.length) % FIRST_NAMES.length]} · pati rehberi`;
       const joinedDaysAgo = 29 + Math.floor(Math.random() * 6);
       userRows.push([
@@ -786,21 +788,21 @@ async function olustur() {
     allUserIds.push(...inserted);
     totals.users += inserted.length;
 
-    // Her rehberin ev mahallesi: çapalar sırayla paylaştırılır, böylece
-    // ilçenin her çapasında en az bir rehber oturur.
+    // Each guide's home neighborhood: anchors are dealt out so every anchor
+    // in the district hosts at least one guide.
     const homeAnchor = new Map();
     inserted.forEach((userId, i) => {
-      // Çapa sayısı rehber sayısını aşınca (OSM mahalleleri) evler listeye
-      // eşit aralıkla dağıtılıyor; art arda ilk N çapa değil.
+      // When anchors outnumber guides (OSM neighborhoods), homes spread
+      // evenly across the list rather than taking the first N.
       homeAnchor.set(
         userId,
         district.anchors[Math.floor((i * district.anchors.length) / inserted.length) % district.anchors.length]
       );
     });
 
-    // --- hayvanlar: kullanıcı başına haftada ~3, son 4 hafta ------------
+    // --- animals: ~3 per user per week over the last 4 weeks -------------
     const animalRows = [];
-    const animalMeta = []; // eklenme sırasına göre {userId, createdAt}
+    const animalMeta = []; // {userId, createdAt} in insertion order
     for (const userId of inserted) {
       for (let w = 0; w < WEEKS; w += 1) {
         const count = ANIMALS_PER_WEEK - (Math.random() < 0.3 ? 1 : 0); // 2-3
@@ -808,8 +810,8 @@ async function olustur() {
           const daysAgo = w * 7 + Math.floor(Math.random() * 7);
           const createdAt = daytimeStamp(daysAgo);
           const species = Math.random() < 0.6 ? 'cat' : 'dog';
-          // Kayıtların çoğu ev mahallesinde; ~%20'si ilçenin başka bir
-          // köşesinde ("işe giderken gördüm" davranışı).
+          // Most records land in the home neighborhood; ~20% elsewhere in
+          // the district ("saw it on the way to work" behavior).
           const anchor =
             Math.random() < 0.8 ? homeAnchor.get(userId) : randomItem(district.anchors);
           const p = pointNear(anchor);
@@ -830,7 +832,7 @@ async function olustur() {
     }
     const animalIds = [];
     {
-      // RETURNING sırası VALUES sırasıyla aynı; meta ile eşleşiyor.
+      // RETURNING preserves VALUES order; it lines up with the meta array.
       const CHUNK = 100;
       for (let i = 0; i < animalRows.length; i += CHUNK) {
         const slice = animalRows.slice(i, i + CHUNK);
@@ -852,7 +854,7 @@ async function olustur() {
     }
     totals.animals += animalIds.length;
 
-    // --- fotoğraflar, bakım ilişkisi, yorumlar --------------------------
+    // --- photos, carer relations, comments -------------------------------
     const photoRows = [];
     const commentRows = [];
     const careRelRows = [];
@@ -868,14 +870,14 @@ async function olustur() {
       }
       careRelRows.push([meta.userId, animalId]);
 
-      // İlk yorum: kaydın örnek olduğunu söyleyen rehber mesajı, kayıt anında.
+      // First comment: the guide message saying this is an example, at creation time.
       commentRows.push([
         animalId,
         meta.userId,
         randomItem(INTRO_COMMENTS),
         meta.createdAt.toISOString(),
       ]);
-      // Sonraki günlerde aynı ilçedeki rehberlerden 1-3 takip yorumu.
+      // 1-3 follow-up comments from same-district guides over the next days.
       const followups = 1 + Math.floor(Math.random() * 3);
       for (let c = 0; c < followups; c += 1) {
         const commenter = randomItem(inserted);
@@ -899,7 +901,7 @@ async function olustur() {
       careRelRows
     );
 
-    // --- aşı (%30) ve sağlık kaydı (%20, yarısı iyileşmiş) ---------------
+    // --- vaccinations (30%) and health records (20%, half recovered) -----
     for (let idx = 0; idx < animalIds.length; idx += 1) {
       const meta = animalMeta[idx];
       const after = (days) => {
@@ -955,13 +957,13 @@ async function olustur() {
       }
     }
 
-    // --- mama/su: her rehber gün aşırı, kendi hayvanlarının çevresinde ---
+    // --- food/water: every other day per guide, near their own animals ---
     const careRows = [];
     inserted.forEach((userId, ui) => {
       for (let daysAgo = 30; daysAgo >= 0; daysAgo -= 1) {
-        // Gün aşırı ritim + kişiye göre kayma; her gün herkes değil.
+        // Every-other-day rhythm with a per-user shift; never everyone daily.
         if ((daysAgo + ui) % 2 !== 0 && Math.random() < 0.7) continue;
-        // Mama/su hep ev mahallesinde: gönüllü kendi sokağına bakar.
+        // Food/water always in the home neighborhood: volunteers tend their own street.
         const p = pointNear(homeAnchor.get(userId));
         careRows.push([
           p.lng,
@@ -979,7 +981,7 @@ async function olustur() {
       careRows
     );
 
-    // --- ilçe içi arkadaşlıklar -----------------------------------------
+    // --- in-district friendships -----------------------------------------
     const friendRows = [];
     for (let i = 0; i < inserted.length; i += 1) {
       for (let j = i + 1; j < inserted.length; j += 1) {
@@ -1001,13 +1003,13 @@ async function olustur() {
     );
 
     console.log(
-      `  ${district.city} / ${district.name}: ${inserted.length} rehber, ${animalIds.length} hayvan`
+      `  ${district.city} / ${district.name}: ${inserted.length} guides, ${animalIds.length} animals`
     );
   }
 
-  // Rozetleri "kazanılmış ve görülmüş" işle: rehber hesabına girildiğinde
-  // bir aylık birikim tek seferde kutlama patlaması yapmasın.
-  console.log('Rozetler geçmişe işleniyor...');
+  // Mark badges "earned and seen": logging into a guide account must not
+  // explode a month's backlog as celebration popups.
+  console.log('Backfilling badges...');
   const badgeMap = await getBadgesForUsers(allUserIds);
   const awardRows = [];
   for (const [userId, data] of badgeMap.entries()) {
@@ -1031,41 +1033,42 @@ async function olustur() {
     );
   }
 
-  // Harita açılışta yeşil görünsün diye bir tur taze mama/su.
-  await tazele({ sessiz: true });
+  // One round of fresh food/water so the map is born green.
+  await refreshGuides({ quiet: true });
 
-  console.log('\nTamamlandı (yalnızca EKLENDİ, mevcut veriye dokunulmadı):');
-  console.log(`  İlçe           : ${DISTRICTS.length}`);
-  console.log(`  Rehber         : ${totals.users}`);
-  console.log(`  Hayvan         : ${totals.animals}`);
-  console.log(`  Mama/su        : ${totals.care}`);
-  console.log(`  Yorum          : ${totals.comments}`);
-  console.log(`  Aşı            : ${totals.vaccinations}`);
-  console.log(`  Sağlık kaydı   : ${totals.health}`);
-  console.log(`  Arkadaşlık     : ${totals.friendships}`);
-  console.log(`\n  Rehber hesap şifresi (yalnızca burada gösterilir): ${password}`);
-  console.log(`  Örnek giriş: kadikoy.rehber1@${DEMO_EMAIL_DOMAIN}`);
-  console.log('\n  Haritanın yeşili 4-6 saatte solar; canlı tutmak için ya');
-  console.log('  DEMO_REHBER_TAZELE=1 ortam değişkenini verin (sunucu saatte bir tazeler)');
-  console.log('  ya da bu scripti --tazele ile zamanlanmış çalıştırın.');
+  console.log('\nDone (data was only ADDED; nothing existing was touched):');
+  console.log(`  Districts      : ${DISTRICTS.length}`);
+  console.log(`  Guides         : ${totals.users}`);
+  console.log(`  Animals        : ${totals.animals}`);
+  console.log(`  Food/water     : ${totals.care}`);
+  console.log(`  Comments       : ${totals.comments}`);
+  console.log(`  Vaccinations   : ${totals.vaccinations}`);
+  console.log(`  Health records : ${totals.health}`);
+  console.log(`  Friendships    : ${totals.friendships}`);
+  console.log(`\n  Guide account password (shown only here): ${password}`);
+  console.log(`  Example login: kadikoy.rehber1@${DEMO_EMAIL_DOMAIN}`);
+  console.log('\n  The map green fades in 4-6 hours; to keep it alive either set');
+  console.log('  DEMO_GUIDE_REFRESH=1 (the server refreshes hourly) or schedule');
+  console.log('  this script with --refresh.');
 }
 
 async function main() {
   const arg = process.argv[2];
-  if (arg === '--temizle') await temizle();
-  else if (arg === '--tazele') await tazele();
-  else await olustur();
+  if (arg === '--remove') await removeGuides();
+  else if (arg === '--refresh') await refreshGuides();
+  else await createGuides();
   await pool.end();
 }
 
-// Sunucu, saatlik tazeleme için `tazele`yi modül olarak da kullanıyor
-// (src/utils/demoTazele.js); o durumda main çalışmamalı ve havuz açık kalmalı.
+// The server also imports `refreshGuides` for the hourly refresh
+// (src/utils/demoGuideRefresh.js); then main must not run and the pool must
+// stay open.
 if (require.main === module) {
   main().catch(async (err) => {
-    console.error('seed-rehber başarısız:', err);
+    console.error('seed-guides failed:', err);
     await pool.end().catch(() => {});
     process.exit(1);
   });
 }
 
-module.exports = { tazele };
+module.exports = { refreshGuides };

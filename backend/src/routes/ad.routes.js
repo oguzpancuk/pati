@@ -4,9 +4,9 @@ const { getNextAd, recordImpression, recordClick } = require('../controllers/ad.
 
 const router = express.Router();
 
-// Sıradaki reklamı almak yan etkisiz; gösterim ayrıca bildiriliyor. Böylece
-// getirilip de gösterilmeyen bir reklam faturaya yazılmıyor ve rotasyon sırası
-// gerçekten gösterilenlere göre ilerliyor.
+// Fetching the next ad is side-effect-free; the impression is reported
+// separately. An ad fetched but never rendered isn't billed, and rotation
+// advances by what was actually shown.
 router.get('/', requireAuth, getNextAd);
 router.post('/:id/impression', requireAuth, recordImpression);
 router.post('/:id/click', requireAuth, recordClick);

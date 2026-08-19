@@ -17,10 +17,11 @@ primary_region = "fra"
   ADMIN_DIST_DIR = "/app/admin-dist"
   # Bu ana bilgisayar adından gelen istekler yönetim panelini alır (admin/dist).
   ADMIN_HOST = "admin.pati-app.com"
-  # Rehber (demo) bölgelerinin haritasını canlı tutar: sunucu saatte bir,
-  # rehber hesaplar adına birkaç taze mama/su ekler. Rehber verisi kaldırılınca
-  # (seed-rehber --temizle) bu satır da silinebilir; verisiz zararsızdır.
-  DEMO_REHBER_TAZELE = "1"
+  # Keeps the guide (demo) areas alive: the server adds a few fresh
+  # food/water actions on behalf of guide accounts every hour. Once the guide
+  # data is removed (seed-guides --remove) this line can go too; without the
+  # data it is harmless.
+  DEMO_GUIDE_REFRESH = "1"
 
 [http_service]
   internal_port = 3000
