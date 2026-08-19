@@ -243,8 +243,7 @@ export default function MapPage() {
       // Without a location (http origin, no permission), instead of blocking
       // the user we use the map center and state the reason: people drop at
       // the spot they're looking at anyway. The mobile app requires the real
-      // location; web is more
-      // esnek (bkz. docs/NOTLAR.md).
+      // location; web is more lenient (see docs/NOTES.md).
       let usedFallback: string | null = null;
       const loc = await getCurrentLocation().catch((err) => {
         usedFallback = describeLocationError(err);

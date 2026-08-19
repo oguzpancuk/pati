@@ -1,7 +1,7 @@
 /**
  * The pati logo (studio aesthetic): four toe pads + a map pin with a heart
  * cutout. Geometry taken verbatim from the design handoff
- * (docs/tasarim/studyo-estetigi-handoff.md — viewBox 0 0 120 130).
+ * (docs/design/studio-aesthetic-handoff.md — viewBox 0 0 120 130).
  *
  * The fill defaults to the vertical orange gradient (#F4581C→#F9A052);
  * pass `color` where a flat color is needed. The heart cutout ALWAYS fills
