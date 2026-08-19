@@ -85,8 +85,8 @@ export default function AuditLog() {
 }
 
 /**
- * Denetim ayrıntıları serbest JSON. Ham JSON tabloyu okunmaz hale getirdiği için
- * en çok işe yarayan alanları öne çıkarıp gerisini kısaltıyoruz.
+ * Audit details are free-form JSON. Raw JSON makes the table unreadable, so
+ * the most useful fields are surfaced and the rest is truncated.
  */
 function summarize(entry: AuditEntry): string {
   const d = entry.details || {};
@@ -104,7 +104,7 @@ function summarize(entry: AuditEntry): string {
   if (typeof d.body === 'string') parts.push(`"${d.body.slice(0, 60)}"`);
   if (typeof d.action_type === 'string') parts.push(d.action_type === 'food' ? 'mama' : 'su');
 
-  // Reklam işlemleri
+  // Advertiser operations
   if (entry.target_type === 'advertiser') {
     if (typeof d.name === 'string') parts.push(d.name);
     if (typeof d.slot === 'string') parts.push(SLOT_LABELS[d.slot] ?? d.slot);

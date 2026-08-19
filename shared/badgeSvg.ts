@@ -1,9 +1,9 @@
 /**
- * Rozet madalyonu ve seviye ambleminin web (düz SVG) üreticileri.
+ * Web (plain SVG) generators for the badge medallion and the level emblem.
  *
- * Kaynak çizimler `mobile/src/components/badges/{BadgeSymbol,LevelMark}.tsx`
- * — glyph ya da geometri değişirse iki taraf birlikte güncellenmeli. Kademe
- * renkleri `mobile/src/theme/colors.ts` → `tierColors` ile birebir aynı.
+ * Source drawings are `mobile/src/components/badges/{BadgeSymbol,LevelMark}.tsx`
+ * — when a glyph or the geometry changes, both sides change together. Tier
+ * colors match `mobile/src/theme/colors.ts` → `tierColors` exactly.
  */
 
 export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'diamond';
@@ -24,7 +24,7 @@ export const TIER_COLORS: Record<BadgeTier | 'locked', { ring: string; fill: str
   locked: { ring: '#C4C9CF', fill: '#EFF1F3', ink: '#8B9198' },
 };
 
-// 24 birimlik kutuda, ince çizgi, yuvarlak uç — brand/Icon ile aynı dil.
+// In a 24-unit box, thin stroke, round caps — same language as brand/Icon.
 const GLYPHS: Record<BadgeSymbolName, (ink: string) => string> = {
   food: () =>
     '<path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z"/>' +
@@ -52,7 +52,7 @@ const GLYPHS: Record<BadgeSymbolName, (ink: string) => string> = {
     '</g>',
 };
 
-/** Rozet madalyonu: dış halka + iç disk + ortada sembol. tier null → gri (kilitli). */
+/** Badge medallion: outer ring + inner disc + symbol in the middle. tier null → gray (locked). */
 export function badgeSymbolSvg(symbol: BadgeSymbolName, tier: BadgeTier | null, size = 44): string {
   const p = TIER_COLORS[tier ?? 'locked'];
   const glyph = (GLYPHS[symbol] ?? GLYPHS.paw)(p.ink);
@@ -66,8 +66,9 @@ export function badgeSymbolSvg(symbol: BadgeSymbolName, tier: BadgeTier | null, 
 }
 
 /**
- * Seviye amblemi: yaprak sayısı `3 + seviye` olan rozet + ortada marka dolgulu
- * disk + rakam. Rakam SVG içinde `<text>` — sayfanın yazı tipini alsın diye
+ * Level emblem: a rosette with `3 + level` petals + a brand-filled disc +
+ * the numeral in the middle. The numeral is `<text>` inside the SVG so it
+ * picks up the page's typeface
  * font-family inherit.
  */
 export function levelMarkSvg(

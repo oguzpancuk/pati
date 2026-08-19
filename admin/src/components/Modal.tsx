@@ -9,7 +9,7 @@ interface Props {
 }
 
 export default function Modal({ title, hint, onClose, children, footer }: Props) {
-  // Esc ile kapatma: bir onay penceresinden çıkmanın en beklenen yolu.
+  // Close on Esc: the most expected way out of a confirmation dialog.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();

@@ -9,7 +9,7 @@ const SERIES = [
   { key: 'animals' as const, label: 'Yeni hayvan', color: 'var(--clay)' },
 ];
 
-// Sağlık kaydı artık yalnızca iki tip; aşı ayrı tabloda sayılıyor.
+// Health records are down to two types; vaccinations count in their own table.
 const RECORD_TYPE_LABELS: Record<string, string> = {
   illness: 'Hastalık',
   injury: 'Yaralanma',
@@ -30,8 +30,8 @@ export default function Dashboard() {
   if (!stats) return <p className="muted">Yükleniyor…</p>;
 
   const t = stats.totals;
-  // Tüm serileri aynı ölçekte göstermek için günlük toplamların en büyüğünü alıyoruz;
-  // her seriyi kendi ölçeğinde çizmek günler arası karşılaştırmayı bozardı.
+  // Take the largest daily total so all series share one scale; drawing each
+  // series at its own scale would break day-to-day comparison.
   const maxDay = Math.max(1, ...stats.daily.map((d) => d.food + d.water + d.comments + d.animals));
 
   return (

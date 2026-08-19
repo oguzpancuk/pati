@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
 
 /**
- * Sayfalanmış admin listeleri için ortak yükleme kancası. Beş liste ekranı da
- * aynı deseni kullanıyor (yükleniyor / hata / sayfalama / yeniden yükle), bu
- * yüzden tek yerde duruyor.
+ * Shared loading hook for paginated admin lists. All five list screens use
+ * the same pattern (loading / error / pagination / reload), so it lives in
+ * one place.
  */
 export function useList<T>(
   path: string,
@@ -32,7 +32,7 @@ export function useList<T>(
     } finally {
       setLoading(false);
     }
-    // extract her render'da yeniden oluşuyor; bağımlılığa koyarsak sonsuz döngü olur.
+    // extract is recreated on every render; putting it in deps would loop forever.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, offset, limit]);
 
@@ -40,7 +40,7 @@ export function useList<T>(
     load();
   }, [load]);
 
-  // Filtre değişince ilk sayfaya dön; aksi halde 3. sayfada boş liste görünüyor.
+  // Return to page one when the filter changes; otherwise page 3 shows an empty list.
   useEffect(() => {
     setOffset(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps

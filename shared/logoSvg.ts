@@ -1,21 +1,21 @@
 /**
- * pati logosu (stüdyo estetiği): dört parmak yastığı + kalp boşluklu harita
- * iğnesi. Geometri, tasarım handoff'undan birebir
+ * The pati logo (studio aesthetic): four toe pads + a map pin with a heart
+ * cutout. Geometry taken verbatim from the design handoff
  * (docs/tasarim/studyo-estetigi-handoff.md — viewBox 0 0 120 130).
  *
- * Dolgu varsayılan olarak dikey turuncu degrade (#F4581C→#F9A052); tek renk
- * gereken yerlerde `color` verilebilir. Kalp boşluğu HER ZAMAN zeminin
- * rengiyle dolar (`accent`) — CSS değişkeni de geçirilebilir, ör.
+ * The fill defaults to the vertical orange gradient (#F4581C→#F9A052);
+ * pass `color` where a flat color is needed. The heart cutout ALWAYS fills
+ * with the background color (`accent`) — a CSS variable works too, e.g.
  * `var(--background)`.
  *
- * Not: mobil Logo.tsx henüz eski geometride; mobil stüdyo estetiğine
- * geçerken bu dosya referans alınmalı.
+ * Note: the mobile Logo.tsx still has the old geometry; use this file as
+ * the reference when mobile moves to the studio aesthetic.
  */
 export function logoSvg(size = 64, color?: string, accent = 'var(--background)'): string {
   const height = Math.round((size * 130) / 120);
   const fill = color ?? 'url(#patiLogoGrad)';
-  // Aynı sayfada birden çok logo olursa <defs> id'si çakışır ama içerik özdeş
-  // olduğu için tarayıcı ilkini kullanır; görsel sonuç değişmez.
+  // Multiple logos on one page collide on the <defs> id, but the content is
+  // identical so the browser uses the first; the visual result is unchanged.
   const defs = color
     ? ''
     : '<defs><linearGradient id="patiLogoGrad" x1="0" y1="0" x2="0" y2="1">' +

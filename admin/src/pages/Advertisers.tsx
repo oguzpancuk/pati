@@ -359,7 +359,7 @@ function AdvertiserModal({
   );
 }
 
-/** <input type="date"> yyyy-mm-dd bekliyor; sunucu ISO zaman damgası döndürüyor. */
+/** <input type="date"> expects yyyy-mm-dd; the server returns an ISO timestamp. */
 function toDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
   return new Date(iso).toISOString().slice(0, 10);

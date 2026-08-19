@@ -1,10 +1,10 @@
 /**
- * Hayvan desen avatarlarının web (düz SVG) üreticisi. Web istemcisi hem
- * listelerde hem Leaflet marker'larında (divIcon) bu string'i kullanıyor.
+ * Web (plain SVG) generator for the animal pattern avatars. The web client
+ * uses this string both in lists and in Leaflet markers (divIcon).
  *
- * Kaynak çizim `mobile/src/components/avatars/AnimalPatternAvatar.tsx` —
- * yüz değişirse iki dosya birlikte güncellenmeli. Desen adları
- * `mobile/src/taxonomy.ts` listeleriyle birebir aynı.
+ * The source drawing is `mobile/src/components/avatars/AnimalPatternAvatar.tsx`
+ * — when a face changes, both files change together. Pattern names match the
+ * `mobile/src/taxonomy.ts` lists exactly.
  */
 
 const INK = '#3A2E27';
@@ -153,7 +153,7 @@ function dogFace(v: DogVariant): string {
 
 let clipCounter = 0;
 
-/** Tür + desen için yuvarlak avatar SVG'si. Tanınmayan desen nötr yüze düşer. */
+/** Round avatar SVG for species + pattern. Unknown patterns fall back to the neutral face. */
 export function animalAvatarSvg(
   species: 'cat' | 'dog',
   breed: string | null | undefined,

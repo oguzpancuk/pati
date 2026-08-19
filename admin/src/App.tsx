@@ -18,8 +18,9 @@ export default function App() {
     return <div className="login-page">Yükleniyor…</div>;
   }
 
-  // Giriş yapılmamışsa tüm yollar giriş ekranına düşer. Asıl yetki kontrolü
-  // sunucuda: her /api/admin isteği requireAdmin'den geçiyor.
+  // Without a session every path falls through to the login screen. The real
+  // authorization check is server-side: every /api/admin request passes
+  // through requireAdmin.
   if (!user) {
     return (
       <Routes>

@@ -221,10 +221,10 @@ function EditUserModal({
 }
 
 /**
- * Kullanıcı görseli: yüklenmiş fotoğraf, hazır avatar (pati-avatar:*) ya da
- * boş daire. Avatar SVG'si kendi ürettiğimiz statik işaretleme olduğu için
- * dangerouslySetInnerHTML burada güvenli; kullanıcı girdisi HTML'e karışmıyor
- * (tanınmayan anahtar null döner, boş daire çizilir).
+ * User image: an uploaded photo, a built-in avatar (pati-avatar:*), or an
+ * empty circle. The avatar SVG is static markup we generate ourselves, so
+ * dangerouslySetInnerHTML is safe here; no user input reaches the HTML
+ * (an unrecognized key returns null and draws the empty circle).
  */
 function UserThumb({ avatarUrl }: { avatarUrl: string | null }) {
   const svg = patiAvatarSvg(avatarUrl, 40);

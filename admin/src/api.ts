@@ -29,8 +29,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (res.status === 401) {
-    // Oturum düştüyse token'ı temizleyip giriş ekranına dön; aksi halde panel
-    // her istekte anlamsız hata gösterip kilitli kalıyor.
+    // On an expired session, clear the token and return to login; otherwise
+    // the panel shows a meaningless error on every request and stays stuck.
     setToken(null);
     window.location.href = '/login';
     throw new ApiError(401, 'Oturumunuz sona erdi');
@@ -178,7 +178,7 @@ export interface Advertiser {
   clicks: number;
 }
 
-/** Görsel yüklemesi multipart olduğu için ortak JSON istemcisinin dışında. */
+/** Image upload is multipart, so it lives outside the shared JSON client. */
 export async function uploadAdvertiserImage(id: number, file: File): Promise<Advertiser> {
   const form = new FormData();
   form.append('image', file);

@@ -1,11 +1,12 @@
 /**
- * Hazır insan avatarlarının web (düz SVG) üreticisi. Admin ve web istemcisi
- * ikisi de buradan import ediyor — web tarafında tek kopya bu.
+ * Web (plain SVG) generator for the built-in human avatars. Both the admin
+ * and web clients import from here — this is the single web-side copy.
  *
- * Kaynak çizim `mobile/src/components/avatars/CartoonAvatar.tsx`: react-native-svg
- * bileşenleri tarayıcıda kullanılamadığı için path'ler buraya string olarak
- * taşındı. Yüzler değişirse iki dosya birlikte güncellenmeli; anahtar listesi
- * `backend/src/utils/avatars.js` ile aynı (bkz. docs/NOTLAR.md).
+ * The source drawing is `mobile/src/components/avatars/CartoonAvatar.tsx`:
+ * react-native-svg components can't run in the browser, so the paths were
+ * carried over here as strings. When faces change, both files change
+ * together; the key list matches `backend/src/utils/avatars.js`
+ * (see docs/NOTES.md).
  */
 
 type Variant = {
@@ -126,7 +127,7 @@ function frontHair(style: string, hair: string, fabric: string): string {
 const AVATAR_PREFIX = 'pati-avatar:';
 let clipCounter = 0;
 
-/** `pati-avatar:f3` biçimindeki değer için SVG işaretlemesi; tanınmazsa null. */
+/** SVG markup for a `pati-avatar:f3`-style value; null if unrecognized. */
 export function patiAvatarSvg(avatarUrl: string | null, size = 34): string | null {
   if (!avatarUrl || !avatarUrl.startsWith(AVATAR_PREFIX)) return null;
   const v = VARIANTS[avatarUrl.slice(AVATAR_PREFIX.length)];

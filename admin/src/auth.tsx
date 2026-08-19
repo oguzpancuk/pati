@@ -30,9 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const me = await api.get<CurrentUser>('/users/me');
-      // Panel yalnızca yöneticilere açık. Rol kontrolü sunucuda da yapılıyor
-      // (her /api/admin isteği requireAdmin'den geçiyor); buradaki kontrol
-      // sadece kullanıcıya anlamlı bir mesaj gösterebilmek için.
+      // The panel is admin-only. The role check also happens server-side
+      // (every /api/admin request passes through requireAdmin); this one only
+      // exists to show the user a meaningful message.
       if (me.role !== 'admin') {
         setToken(null);
         setUser(null);

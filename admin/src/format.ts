@@ -26,7 +26,7 @@ export function animalTitle(animal: { name: string | null; species: 'cat' | 'dog
   return animal.name ?? `İsimsiz ${speciesLabel(animal.species).toLowerCase()}`;
 }
 
-/** GeoJSON [lng, lat] sırasında gelir; insan okuması için lat, lng yazıyoruz. */
+/** GeoJSON arrives as [lng, lat]; we print lat, lng for human reading. */
 export function formatPoint(point: { coordinates: [number, number] } | null): string {
   if (!point) return '—';
   const [lng, lat] = point.coordinates;
