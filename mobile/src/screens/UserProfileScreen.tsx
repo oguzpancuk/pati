@@ -41,7 +41,15 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import { brand, makeStyles, radius, spacing, useTheme, useThemeMode, type ThemeMode } from '../theme';
+import {
+  brand,
+  makeStyles,
+  radius,
+  spacing,
+  useTheme,
+  useThemeMode,
+  type ThemeMode,
+} from '../theme';
 
 // The profile is a summary screen: 3 rows per section (same as comments),
 // the rest in pages of 20 via "show more".
@@ -54,7 +62,7 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'dark', label: 'koyu' },
 ];
 
-export default function UserProfileScreen({ navigation }: any) {
+export default function UserProfileScreen({ navigation, route }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { mode, setMode } = useThemeMode();
@@ -228,7 +236,8 @@ export default function UserProfileScreen({ navigation }: any) {
         stats={[
           { value: String(me.points?.total ?? 0), label: 'puan' },
           {
-            value: me.rank ? `${me.rank.rank}. / ${me.rank.totalUsers}` : '—',
+            // Rank alone; the total is on the leaderboard (the strip cell is narrow).
+            value: me.rank ? `${me.rank.rank}.` : '—',
             label: 'sıra',
             onPress: () => navigation.navigate('Leaderboard'),
           },
@@ -420,7 +429,7 @@ export default function UserProfileScreen({ navigation }: any) {
           gizlilik ve kullanım koşulları
         </Text>
       </Pressable>
-      <DeleteAccountLink />
+      <DeleteAccountLink initialOpen={!!route?.params?.deleteAccount} />
     </Screen>
   );
 }

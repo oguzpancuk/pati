@@ -12,11 +12,12 @@ import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme'
  * the password — an unlocked phone must not be enough to destroy an account.
  * Mirrors the web client's DeleteAccountDialog.
  */
-export default function DeleteAccountLink() {
+export default function DeleteAccountLink({ initialOpen = false }: { initialOpen?: boolean } = {}) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { logout } = useAuth();
-  const [open, setOpen] = useState(false);
+  // initialOpen: dev/QA only (deep link `pati://profile?deleteAccount=1`).
+  const [open, setOpen] = useState(initialOpen);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

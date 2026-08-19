@@ -15,14 +15,17 @@ export default function ReportLink({
   targetType,
   targetId,
   style,
+  initialOpen = false,
 }: {
   targetType: ReportTargetType;
   targetId: number;
   style?: object;
+  /** Dev/QA: open the sheet on mount (deep link `?report=1`); never set in product flows. */
+  initialOpen?: boolean;
 }) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [busy, setBusy] = useState(false);

@@ -84,7 +84,7 @@ const linking: LinkingOptions<MainStackParamList> = {
         screens: { Map: 'map', Animals: 'animals', Profile: 'profile' },
       },
       AddAnimal: 'add-animal',
-      AnimalProfile: { path: 'animal/:animalId', parse: { animalId: Number } },
+      AnimalProfile: { path: 'animal/:animalId', parse: { animalId: Number } }, // ?matchReview=1 / ?report=1
       PublicProfile: { path: 'user/:userId', parse: { userId: Number } },
       FindFriends: 'friends',
       Leaderboard: 'leaderboard',

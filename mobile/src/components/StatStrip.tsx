@@ -30,7 +30,8 @@ export default function StatStrip({ stats, style }: Props) {
       {stats.map((stat, index) => {
         const content = (
           <>
-            <Text variant="stat" numberOfLines={1}>
+            {/* Long values ("372. / 1204") shrink instead of truncating to "3…". */}
+            <Text variant="stat" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
               {stat.value}
             </Text>
             <Text variant="micro" style={styles.label} numberOfLines={1}>

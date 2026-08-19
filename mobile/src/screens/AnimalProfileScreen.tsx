@@ -307,7 +307,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 .filter(Boolean)
                 .join(' · ')}
             </Text>
-            <ReportLink targetType="animal" targetId={animal.id} style={styles.reportLink} />
+            <ReportLink
+              targetType="animal"
+              targetId={animal.id}
+              style={styles.reportLink}
+              initialOpen={!!route.params?.report}
+            />
           </View>
         </View>
 
