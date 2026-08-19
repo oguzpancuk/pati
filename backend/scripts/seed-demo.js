@@ -1,14 +1,15 @@
-// Demo/test verisi üretir: 100 kullanıcı, her birinin 2 hayvanı, bir kısmı 7 bir
-// kısmı 30 gündür üst üste mama/su bırakan seriler ve bakım verdikleri hayvanlara
-// yapılmış yorumlar. Ayrıca sözlükteki (src/utils/taxonomy.js) her desen için
-// birer "vitrin" hayvanı: sağlık kaydı, aşı kaydı ve kayda bağlı yorumlarıyla
-// birlikte — böylece yeni eklenen ekranlar boş veriyle test edilmiyor.
+// Generates demo/test data: 100 users with 2 animals each, streaks of users
+// leaving food/water for 7 or 30 consecutive days, and comments on the animals
+// they care for. Also one "showcase" animal per pattern in the taxonomy
+// (src/utils/taxonomy.js), complete with a health record, a vaccination and
+// record-bound comments — so newly added screens are never tested against
+// empty data.
 //
-// Kullanım:  npm run seed
-// Tüm hesapların şifresi: password123
+// Usage:  npm run seed
+// Every account's password: password123
 //
-// Fotoğraf URL'leri PUBLIC_BASE_URL üzerinden kurulur (varsayılan
-// http://localhost:3000). Android emülatöründe test edecekseniz:
+// Photo URLs are built from PUBLIC_BASE_URL (default http://localhost:3000).
+// When testing on the Android emulator:
 //   PUBLIC_BASE_URL=http://10.0.2.2:3000 npm run seed
 require('dotenv').config();
 const fs = require('fs');
@@ -34,8 +35,8 @@ const ANIMALS_PER_USER = 2;
 const PASSWORD = 'password123';
 const BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
-// Kadıköy merkezli dağılım: konum override'ı olan test hesaplarıyla aynı bölgede
-// olsun ki seed edilen veri uygulamada hemen görünsün.
+// Distribution centered on Kadıköy: same area as the test accounts with the
+// location override, so seeded data shows up in the app immediately.
 const CENTER = { lat: 40.9905, lng: 29.0277 };
 const SPREAD_DEG = 0.012; // ~1.3 km
 
@@ -144,10 +145,10 @@ const COMMENT_TEMPLATES = [
   'Diğer kedilerle arası iyi.',
 ];
 
-// Sözlükteki her desenden birer "vitrin" hayvanı. Amaç: yeni desen/renk
-// listeleri, sağlık kaydı ve aşı ekranları demo veride gerçekten görünsün.
-// Son sıradaki ikisi "Diğer" seçilince ne olduğunu gösteriyor: listede olmayan
-// bir metin doğrudan `breed` kolonuna yazılıyor, ayrı bir kolon yok.
+// One "showcase" animal per pattern in the taxonomy, so the new pattern/color
+// lists, health-record and vaccination screens actually appear in demo data.
+// The last one in each list shows what picking "Diğer" (other) does: text not
+// on the list goes straight into the `breed` column, there is no extra column.
 const SHOWCASE_CATS = [
   { name: 'Boncuk', breed: CAT_PATTERNS[0], color: CAT_COLORS[0], markings: 'Sol kulakta çentik' },
   { name: 'Zeytin', breed: CAT_PATTERNS[1], color: CAT_COLORS[1], markings: 'Kuyruğu kalın' },
@@ -195,8 +196,8 @@ const SHOWCASE_DOGS = [
   },
 ];
 
-// Vitrin hayvanlarının sağlık ve aşı kayıtları. Hastalık/yaralanma sırayla
-// dönüyor ki her iki kayıt tipi de demo veride bulunsun.
+// Health and vaccination records for the showcase animals. Illness/injury
+// alternate so both record types exist in demo data.
 const SHOWCASE_HEALTH_NOTES = [
   'Bugün fark ettim, veterinere haber verdim.',
   'İlk gün kötüydü, şimdi biraz daha iyi.',
@@ -216,8 +217,8 @@ function randomOffset() {
   return (Math.random() - 0.5) * 2 * SPREAD_DEG;
 }
 
-// Basit tek renkli PNG üretir; seed verisinin uygulamada gerçek görsellerle
-// görünmesi için harici bir dosyaya/servise bağımlı kalmıyoruz.
+// Produces a simple solid-color PNG; seeded data gets real images in the app
+// without depending on an external file or service.
 function makeSolidPng(width, height, [r, g, b]) {
   const raw = Buffer.alloc((width * 3 + 1) * height);
   let pos = 0;
@@ -293,14 +294,14 @@ function writeSeedPhotos() {
   });
 }
 
-// Bugünden geriye doğru `days` gün, her gün için bir zaman damgası üretir.
-// Rozet hesabı DATE(created_at) üzerinden ardışık gün serisi aradığı için
-// gün başına en az bir kayıt yeterli.
+// Produces one timestamp per day going back `days` days from today. Badge
+// computation looks for consecutive-day runs over DATE(created_at), so one
+// record per day is enough.
 //
-// Bugünün kaydı son 5-60 dakikaya düşer, sabit bir saate değil. Mama 4 / su 6
-// saatte solduğu için "bugün saat 9'da" üretilen kayıtlar öğleden sonra seed
-// atıldığında haritada soluk doğuyordu; taze kayıt olmadan yeşil alanlar hiç
-// canlı görünmüyordu.
+// Today's record lands within the last 5-60 minutes, not at a fixed hour.
+// Food fades in 4 h and water in 6 h, so records generated "at 9 am today"
+// were born faded on the map when the seed ran in the afternoon; without a
+// fresh record the green areas never looked alive.
 function streakTimestamps(days) {
   const stamps = [];
   const now = new Date();
@@ -318,35 +319,35 @@ function streakTimestamps(days) {
 }
 
 async function seed() {
-  // Script her çalıştırıldığında sıfırdan taze veri üretir. Eski akış mevcut
-  // veriyi görünce duruyordu; "haritayı canlı veriyle görmek" için her
-  // seferinde veritabanı sıfırlamak gerekiyordu. TRUNCATE her şeyi (admin
-  // hesapları dahil) temizler — bu bilinçli: script yalnızca demo/geliştirme
-  // veritabanı için, üretimde asla çalıştırılmamalı.
+  // Every run regenerates fresh data from scratch. The old flow stopped when
+  // it saw existing data, so "seeing the map with live data" meant resetting
+  // the database each time. TRUNCATE wipes everything (admin accounts
+  // included) — deliberately: this script is for the demo/development
+  // database only and must never run in production.
   const existing = await pool.query('SELECT count(*)::int AS c FROM users');
   if (existing.rows[0].c > 0) {
-    console.log(`Mevcut ${existing.rows[0].c} kullanıcı ve tüm veriler temizleniyor...`);
+    console.log(`Wiping ${existing.rows[0].c} existing users and all data...`);
     await pool.query(
       `TRUNCATE users, animals, animal_photos, health_records, vaccinations,
                animal_comments, user_animal_care, care_actions, friendships,
                user_badge_awards, audit_log, advertisers, ad_events
        RESTART IDENTITY CASCADE`
     );
-    console.log('(Admin hesabı da silindi; gerekiyorsa: npm run make-admin)');
+    console.log('(The admin account was deleted too; if needed: npm run make-admin)');
   }
 
   const photoUrls = writeSeedPhotos();
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
-  console.log(`${USER_COUNT} kullanıcı oluşturuluyor...`);
+  console.log(`Creating ${USER_COUNT} users...`);
   const userValues = [];
   const userParams = [];
   for (let i = 0; i < USER_COUNT; i += 1) {
     const name = `${FIRST_NAMES[i % FIRST_NAMES.length]} ${LAST_NAMES[i % LAST_NAMES.length]}`;
     const base = userParams.length;
     userValues.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`);
-    // Her 10. kullanıcıya yüklenmiş fotoğraf, kalanlara hazır avatar: iki
-    // durumun da uygulamada nasıl göründüğü demo veride görülebilsin.
+    // Every 10th user gets an uploaded photo, the rest a built-in avatar:
+    // demo data should show how both cases look in the app.
     userParams.push(
       name,
       `test${i + 1}@stray.test`,
@@ -362,7 +363,7 @@ async function seed() {
   );
   const userIds = users.rows.map((r) => r.id);
 
-  console.log(`${USER_COUNT * ANIMALS_PER_USER} hayvan oluşturuluyor...`);
+  console.log(`Creating ${USER_COUNT * ANIMALS_PER_USER} animals...`);
   const animalValues = [];
   const animalParams = [];
   for (const userId of userIds) {
@@ -383,9 +384,9 @@ async function seed() {
         CENTER.lng + randomOffset(),
         CENTER.lat + randomOffset(),
         userId,
-        // Kayıt tarihlerini son 30 güne yayıyoruz. Hepsi bugüne yığılırsa admin
-        // panelindeki günlük aktivite grafiği tek bir devasa sütunla eziliyor ve
-        // "kaydedici" seri rozetleri de hiç oluşmuyor.
+        // Registration dates are spread over the last 30 days. Piled onto
+        // today, the admin panel's daily-activity chart is crushed by one
+        // giant column and the "registrar" streak badges never form.
         Math.floor(Math.random() * 30)
       );
     }
@@ -396,13 +397,13 @@ async function seed() {
     animalParams
   );
 
-  // Kaydeden kişi otomatik olarak bakım verendir.
+  // Whoever registers an animal automatically becomes a carer.
   await pool.query(
     `INSERT INTO user_animal_care (user_id, animal_id)
      SELECT created_by, id FROM animals ON CONFLICT DO NOTHING`
   );
 
-  console.log('Hayvan fotoğrafları ekleniyor...');
+  console.log('Adding animal photos...');
   const photoValues = [];
   const photoParams = [];
   animals.rows.forEach((animal, index) => {
@@ -417,11 +418,11 @@ async function seed() {
     photoParams
   );
 
-  // --- Vitrin hayvanları -----------------------------------------------
-  // Rastgele üretilen 200 hayvan listeden rastgele desen seçiyor; hangi
-  // desenin hiç düşmediği garanti edilemiyor. Buradaki 12 kayıt her deseni
-  // birer kez, sağlık ve aşı kaydıyla birlikte garanti ediyor.
-  console.log('Her desenden birer vitrin hayvanı oluşturuluyor...');
+  // --- Showcase animals -------------------------------------------------
+  // The 200 random animals pick random patterns from the list; there is no
+  // guarantee every pattern appears. These 12 records guarantee each pattern
+  // once, complete with a health record and a vaccination.
+  console.log('Creating one showcase animal per pattern...');
   const showcaseSpecs = [
     ...SHOWCASE_CATS.map((s) => ({ ...s, species: 'cat' })),
     ...SHOWCASE_DOGS.map((s) => ({ ...s, species: 'dog' })),
@@ -466,10 +467,10 @@ async function seed() {
     [showcaseRows.map((r) => r.id)]
   );
 
-  console.log('Vitrin hayvanlarına sağlık ve aşı kaydı ekleniyor...');
+  console.log('Adding health and vaccination records to showcase animals...');
   const healthIds = [];
-  // Aşıların bir kısmını tek bir kullanıcıya yığıyoruz: "Aşı Gönüllüsü"
-  // rozetinin gümüş kademesi (5 kayıt) demo veride de görünsün.
+  // Some vaccinations pile onto a single user so the silver tier of the
+  // vaccination badge (5 records) shows up in demo data too.
   const vaccineChampion = userIds[0];
 
   for (let i = 0; i < showcaseRows.length; i += 1) {
@@ -488,8 +489,8 @@ async function seed() {
         isIllness ? ILLNESSES[i % ILLNESSES.length] : INJURIES[i % INJURIES.length],
         animal.created_by,
         2 + (i % 5),
-        // Her üçüncü kayıt iyileşmiş olsun; "aktif" ve "geçmiş" ayrımı
-        // arayüzde iki farklı görünüm üretiyor, ikisi de test edilebilmeli.
+        // Every third record is recovered; "active" vs "past" renders two
+        // different views in the UI, and both must be testable.
         i % 3 === 0,
       ]
     );
@@ -511,8 +512,8 @@ async function seed() {
     );
   }
 
-  // Sağlık kaydına bağlı yorumlar. Aşıların sohbeti yok (bkz. 001_init.sql);
-  // aşı notu zaten kaydın kendi `note` alanında duruyor.
+  // Comments bound to health records. Vaccinations have no chat (see
+  // 001_init.sql); the vaccine note lives in the record's own `note` field.
   const recordCommentValues = [];
   const recordCommentParams = [];
   showcaseRows.forEach((animal, i) => {
@@ -531,14 +532,14 @@ async function seed() {
     recordCommentParams
   );
 
-  console.log('Mama/su serileri oluşturuluyor (7 ve 30 günlük)...');
+  console.log('Creating food/water streaks (7- and 30-day)...');
   const careValues = [];
   const careParams = [];
   const streakSummary = { 30: 0, 7: 0, short: 0 };
 
   userIds.forEach((userId, index) => {
-    // İlk 20 kullanıcı 30 gün, sonraki 30 kullanıcı 7 gün üst üste; kalanlar
-    // rozet eşiğinin altında kalsın diye 1-3 günlük dağınık kayıtlar.
+    // The first 20 users get 30 consecutive days, the next 30 users 7; the
+    // rest get scattered 1-3 day records to stay below the badge threshold.
     let days;
     if (index < 20) {
       days = 30;
@@ -570,12 +571,12 @@ async function seed() {
     }
   });
 
-  // Tek seferde 1000'lerce satır için parametre limitine takılmamak adına parçalı ekliyoruz.
+  // Inserted in chunks to stay under the parameter limit with thousands of rows.
   const CHUNK = 200;
   for (let i = 0; i < careValues.length; i += CHUNK) {
     const valuesChunk = careValues.slice(i, i + CHUNK);
     const paramsChunk = careParams.slice(i * 6, (i + CHUNK) * 6);
-    // Parametre numaralarını parça başına yeniden numaralandır.
+    // Renumber the placeholders per chunk.
     let n = 0;
     const renumbered = valuesChunk.map((v) => v.replace(/\$\d+/g, () => `$${++n}`));
     await pool.query(
@@ -585,11 +586,11 @@ async function seed() {
     );
   }
 
-  console.log('Yorumlar ekleniyor...');
+  console.log('Adding comments...');
   const commentValues = [];
   const commentParams = [];
-  // Hangi kullanıcının hangi hayvana yorum yaptığını takip ediyoruz: yorum yapmak
-  // uygulamada kişiyi bakım listesine eklediği için aynı ilişkiyi burada da kuruyoruz.
+  // Track who commented on which animal: commenting adds the person to the
+  // care list in the app, so the same relationship is built here too.
   const carerPairs = new Set();
 
   function pushComment(animalId, userId, usedTexts) {
@@ -614,14 +615,14 @@ async function seed() {
   for (const animal of animals.rows) {
     const usedTexts = new Set();
 
-    // Hayvanı kaydeden kişinin yorumları.
+    // Comments from the person who registered the animal.
     const ownCount = 1 + Math.floor(Math.random() * 3);
     for (let c = 0; c < ownCount; c += 1) {
       pushComment(animal.id, animal.created_by, usedTexts);
     }
 
-    // Hayvanların yarısında başka kullanıcılar da sohbete katılsın; böylece
-    // çok bakım verenli sohbet ekranı demo veride görülebiliyor.
+    // On half of the animals other users join the chat too, so the
+    // multi-carer chat screen is visible in demo data.
     if (Math.random() < 0.5) {
       const otherCount = 1 + Math.floor(Math.random() * 2);
       for (let c = 0; c < otherCount; c += 1) {
@@ -643,8 +644,8 @@ async function seed() {
     );
   }
 
-  // Uygulamada yorum yapmak kişiyi bakım listesine ekliyor; seed verisinde de
-  // aynı ilişkiyi kuruyoruz ki "bakım verdiğim hayvanlar" listeleri tutarlı olsun.
+  // In the app, commenting adds you to the care list; seed data builds the
+  // same relationship so the "animals I care for" lists stay consistent.
   const carerRows = [...carerPairs].map((pair) => pair.split(':').map(Number));
   for (let i = 0; i < carerRows.length; i += CHUNK) {
     const slice = carerRows.slice(i, i + CHUNK);
@@ -657,10 +658,10 @@ async function seed() {
     );
   }
 
-  // Örnek reklamverenler. Bunlar olmadan mama/su pop-up'ında ve sağlık kaydı
-  // ekranında reklam bandı hiç çizilmiyor ve özellik "çalışmıyor" gibi görünüyor.
-  // Her yerleşimde iki marka var ki rotasyon da denenebilsin.
-  console.log('Örnek reklamverenler ekleniyor...');
+  // Sample advertisers. Without these the ad banner never renders in the
+  // food/water popups or the health-record screen and the feature looks
+  // "broken". Two brands per placement so rotation can be tried too.
+  console.log('Adding sample advertisers...');
   const DEMO_ADS = [
     [
       'Pati Mama',
@@ -721,10 +722,10 @@ async function seed() {
     DEMO_ADS.flatMap((ad, i) => [...ad, photoUrls[i % photoUrls.length]])
   );
 
-  // Demo kullanıcıların rozetlerini "kazanılmış ve görülmüş" olarak işliyoruz.
-  // Aksi halde bir demo hesapla ilk aksiyon yapıldığında 30 günlük serinin
-  // biriktirdiği onlarca rozet aynı anda kutlama popup'ı olarak patlıyor.
-  console.log('Demo kullanıcıların rozetleri geçmişe işleniyor...');
+  // Demo users' badges are recorded as "earned and seen". Otherwise the first
+  // action on a demo account detonates dozens of celebration popups at once —
+  // everything a 30-day streak accumulated.
+  console.log('Backfilling demo users\' badge awards...');
   const badgeMap = await getBadgesForUsers(userIds);
   const awardRows = [];
   for (const [userId, data] of badgeMap.entries()) {
@@ -763,26 +764,26 @@ async function seed() {
        (SELECT count(*) FROM advertisers)::int AS advertisers`
   );
 
-  console.log('\nTamamlandı:');
-  console.log(`  Kullanıcı      : ${counts.rows[0].users}`);
-  console.log(`  Hayvan         : ${counts.rows[0].animals}`);
-  console.log(`  Mama/su kaydı  : ${counts.rows[0].care_actions}`);
-  console.log(`  Yorum          : ${counts.rows[0].comments}`);
-  console.log(`  Sağlık kaydı   : ${counts.rows[0].health_records}`);
-  console.log(`  Aşı kaydı      : ${counts.rows[0].vaccinations}`);
-  console.log(`  Bakım ilişkisi : ${counts.rows[0].carers}`);
-  console.log(`  Kazanılmış rozet: ${counts.rows[0].badge_awards}`);
-  console.log(`  Reklamveren     : ${counts.rows[0].advertisers}`);
-  console.log(`\n  30 günlük seri : ${streakSummary[30]} kullanıcı (Altın rozet)`);
-  console.log(`  7 günlük seri  : ${streakSummary[7]} kullanıcı (Gümüş rozet)`);
-  console.log(`  1-3 günlük     : ${streakSummary.short} kullanıcı (Bronz rozet)`);
-  console.log(`\n  Giriş: test1@stray.test ... test${USER_COUNT}@stray.test / ${PASSWORD}`);
+  console.log('\nDone:');
+  console.log(`  Users            : ${counts.rows[0].users}`);
+  console.log(`  Animals          : ${counts.rows[0].animals}`);
+  console.log(`  Care actions     : ${counts.rows[0].care_actions}`);
+  console.log(`  Comments         : ${counts.rows[0].comments}`);
+  console.log(`  Health records   : ${counts.rows[0].health_records}`);
+  console.log(`  Vaccinations     : ${counts.rows[0].vaccinations}`);
+  console.log(`  Care links       : ${counts.rows[0].carers}`);
+  console.log(`  Badge awards     : ${counts.rows[0].badge_awards}`);
+  console.log(`  Advertisers      : ${counts.rows[0].advertisers}`);
+  console.log(`\n  30-day streak    : ${streakSummary[30]} users (gold badge)`);
+  console.log(`  7-day streak     : ${streakSummary[7]} users (silver badge)`);
+  console.log(`  1-3 days         : ${streakSummary.short} users (bronze badge)`);
+  console.log(`\n  Login: test1@stray.test ... test${USER_COUNT}@stray.test / ${PASSWORD}`);
 
   await pool.end();
 }
 
 seed().catch(async (err) => {
-  console.error('Seed başarısız:', err);
+  console.error('Seed failed:', err);
   await pool.end().catch(() => {});
   process.exit(1);
 });

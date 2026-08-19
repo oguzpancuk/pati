@@ -1,8 +1,8 @@
--- Stray - Başlangıç veritabanı şeması
--- PostGIS uzantısını etkinleştir (coğrafi sorgular için)
+-- pati - initial database schema
+-- Enable the PostGIS extension (for geo queries)
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- Kullanıcılar
+-- Users
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
@@ -10,36 +10,36 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'vet', 'admin')),
     avatar_url TEXT,
-    -- Profilde öne çıkarılacak en fazla 3 rozetin anahtarı (örn. "breed:Tekir").
-    -- Rozetler hesaplanmış veriden türetildiği için burada yalnızca seçim saklanıyor.
+    -- Keys of up to 3 badges featured on the profile (e.g. "breed:Tekir").
+    -- Badges are derived from computed data, so only the selection is stored.
     featured_badges JSONB NOT NULL DEFAULT '[]'::jsonb,
-    -- Rozet kazanma popup'ında "eski sıralaman / yeni sıralaman" gösterebilmek için
-    -- en son hesaplanan sıralama ve puanın anlık görüntüsü. Sıralama başkalarının
-    -- puan kazanmasıyla da değiştiği için geçmişe dönük hesaplanamaz.
+    -- Snapshot of the last computed rank and points, to show "previous rank /
+    -- new rank" in the badge-award popup. The rank also shifts as other people
+    -- earn points, so it cannot be reconstructed after the fact.
     last_rank INTEGER,
     last_points INTEGER NOT NULL DEFAULT 0,
-    -- Admin panelinden askıya alınan hesaplar. Silmek yerine askıya alıyoruz ki
-    -- kullanıcının bıraktığı bakım kayıtları ve yorumlar (başkalarının gördüğü
-    -- veri) kaybolmasın. Dolu ise API 403 döner.
+    -- Accounts suspended from the admin panel. We suspend instead of delete so
+    -- the care actions and comments the user left (data others can see) are
+    -- not lost. When set, the API returns 403.
     suspended_at TIMESTAMPTZ,
     suspended_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Hayvanlar
+-- Animals
 CREATE TABLE IF NOT EXISTS animals (
     id SERIAL PRIMARY KEY,
     species VARCHAR(10) NOT NULL CHECK (species IN ('cat', 'dog')),
     name VARCHAR(120),
     color VARCHAR(120),
-    -- Tür/desen. Uygulama türe göre sabit bir liste sunuyor (bkz.
-    -- src/utils/taxonomy.js) ama "Diğer" seçilirse kullanıcının yazdığı metin
-    -- buraya giriyor; bu yüzden CHECK yok ve alan renkle aynı genişlikte.
+    -- Breed/pattern. The app offers a fixed list per species (see
+    -- src/utils/taxonomy.js), but picking "Diğer" (other) puts the user's free
+    -- text here; hence no CHECK, and the field is as wide as color.
     breed VARCHAR(120),
     markings TEXT,
-    -- Hayvanın en son görüldüğü konum. Biri "bu hayvan zaten kayıtlı" diyerek
-    -- görüldü bildirdiğinde bu alan güncellenir, yani sabit bir kayıt yeri değil
-    -- güncel konumu tutar.
+    -- Where the animal was last seen. Updated whenever someone reports a
+    -- sighting via "this animal is already registered" — it holds the current
+    -- location, not a fixed registration spot.
     location GEOGRAPHY(POINT, 4326) NOT NULL,
     location_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by INTEGER NOT NULL REFERENCES users(id),
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS animals (
 
 CREATE INDEX IF NOT EXISTS idx_animals_location ON animals USING GIST (location);
 
--- Hayvan fotoğrafları
+-- Animal photos
 CREATE TABLE IF NOT EXISTS animal_photos (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
@@ -57,18 +57,19 @@ CREATE TABLE IF NOT EXISTS animal_photos (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Sağlık kayıtları: yalnızca HASTALIK ve YARALANMA.
--- Aşı ayrı bir tabloda (vaccinations) tutuluyor: aşının "iyileşti" durumu yok,
--- tekrar tarihi var ve kim yaptı sorusu farklı (belediye/veteriner). Aynı
--- tabloda tutmak iki kaydı da yarım yamalak modellemek olurdu.
--- Takip durumu ayrı bir kolonda değil; "tedaviye başlanmadı / başlandı" ayrımı
--- kayda bağlı yorum olup olmamasından türetiliyor (bkz. animal_comments).
--- Yalnızca "iyileşti" kalıcı bir işaret olduğu için burada saklanıyor.
+-- Health records: ILLNESS and INJURY only.
+-- Vaccinations live in their own table: a vaccine has no "recovered" state,
+-- it has a booster date, and "who administered it" is a different question
+-- (municipality/vet). One shared table would model both records poorly.
+-- Follow-up state is not a separate column; the "treatment not started /
+-- started" distinction is derived from whether a comment is attached to the
+-- record (see animal_comments). Only "recovered" is stored here, because it
+-- is the one permanent marker.
 CREATE TABLE IF NOT EXISTS health_records (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     record_type VARCHAR(20) NOT NULL CHECK (record_type IN ('illness', 'injury')),
-    -- Listeden seçilen başlık ya da "Diğer" seçilmişse kullanıcının yazdığı metin.
+    -- Title picked from the list, or the user's free text if "Diğer" (other) was picked.
     description TEXT NOT NULL,
     vet_verified BOOLEAN NOT NULL DEFAULT false,
     recorded_by INTEGER NOT NULL REFERENCES users(id),
@@ -77,17 +78,17 @@ CREATE TABLE IF NOT EXISTS health_records (
     recovered_by INTEGER REFERENCES users(id)
 );
 
--- Aşı ve paraziter ilaçlama kayıtları.
--- `vaccine_type` listeden gelen bir değer ya da "Diğer" seçilmişse serbest metin.
--- `next_due_at` bilinmiyorsa NULL: sokak hayvanında bir sonraki dozu kimse
--- garanti edemiyor, zorunlu tutmak sahte veri üretirdi.
+-- Vaccination and antiparasitic treatment records.
+-- `vaccine_type` is a value from the list, or free text if "Diğer" was picked.
+-- `next_due_at` is NULL when unknown: nobody can guarantee a stray's next
+-- dose, and making it required would manufacture fake data.
 CREATE TABLE IF NOT EXISTS vaccinations (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     vaccine_type VARCHAR(120) NOT NULL,
     note TEXT,
-    -- Belediye/veteriner tarafından yapıldıysa işaretleniyor; rozet ve
-    -- güvenilirlik açısından kullanıcı beyanından ayrışması gerekiyor.
+    -- Marked when administered by the municipality/a vet; it must stand apart
+    -- from user claims for badges and trustworthiness.
     vet_verified BOOLEAN NOT NULL DEFAULT false,
     administered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     next_due_at TIMESTAMPTZ,
@@ -98,12 +99,11 @@ CREATE TABLE IF NOT EXISTS vaccinations (
 CREATE INDEX IF NOT EXISTS idx_vaccinations_animal ON vaccinations (animal_id, administered_at DESC);
 CREATE INDEX IF NOT EXISTS idx_vaccinations_recorder ON vaccinations (recorded_by);
 
--- Hayvan profilindeki sohbet. Bir yorum isteğe bağlı olarak bir sağlık kaydına
--- bağlanabilir; böylece kayda tıklandığında yalnızca o kayda ait yorumlar
--- listelenebiliyor.
--- Aşı kayıtlarının sohbeti YOK: aşı tek seferlik ve doğrulanabilir bir olay,
--- "iyileşti mi, nasıl gidiyor" gibi bir takip süreci yok. Yorum alanı açık
--- kalınca boş duruyor ve sağlık kaydıyla karıştırılıyordu.
+-- The chat on an animal's profile. A comment can optionally attach to a
+-- health record, so clicking a record lists only its own comments.
+-- Vaccination records have NO chat: a vaccine is a one-off, verifiable event
+-- with no "is it healing, how is it going" follow-up. When the comment field
+-- was open it sat empty and got confused with health records.
 CREATE TABLE IF NOT EXISTS animal_comments (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS animal_comments (
 CREATE INDEX IF NOT EXISTS idx_animal_comments_animal ON animal_comments (animal_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_animal_comments_health_record ON animal_comments (health_record_id);
 
--- Kullanıcı ile hayvan arasındaki bakım (takip) ilişkisi
+-- The care (follow) relationship between a user and an animal
 CREATE TABLE IF NOT EXISTS user_animal_care (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
@@ -124,10 +124,11 @@ CREATE TABLE IF NOT EXISTS user_animal_care (
     PRIMARY KEY (user_id, animal_id)
 );
 
--- Bakım noktaları: kullanıcıların mama/su bıraktığı tam konumlar.
--- Bölge/idari sınır kavramı yok; harita bu noktaların yoğunluğuna göre ısı haritası
--- olarak renklendirilir ve "yakınımda bakım var mı" sorgusu buradan hesaplanır
--- (yarıçap ve zaman penceresi care.controller.js içinde: 100m, mama 4sa / su 6sa).
+-- Care points: the exact locations where users left food/water.
+-- There is no region/administrative-boundary concept; the map is colored as a
+-- heatmap by the density of these points, and "is there care near me" is
+-- computed from them (radius and time window live in care.controller.js:
+-- 100 m, food 4 h / water 6 h).
 CREATE TABLE IF NOT EXISTS care_actions (
     id SERIAL PRIMARY KEY,
     location GEOGRAPHY(POINT, 4326) NOT NULL,
@@ -139,10 +140,10 @@ CREATE TABLE IF NOT EXISTS care_actions (
 
 CREATE INDEX IF NOT EXISTS idx_care_actions_location ON care_actions USING GIST (location);
 
--- Arkadaşlık istekleri/ilişkileri. 'pending' durumundaki bir satır iken karşı taraf
--- da istek gönderirse uygulama katmanında otomatik 'accepted' yapılır (bkz.
--- friendship.controller.js). Kabul edilmiş bir ilişki, iki yönden de sorgulanabilir
--- olması için requester/addressee ayrımı yalnızca isteği kimin başlattığını gösterir.
+-- Friend requests/relationships. If the other side also sends a request while
+-- a row is 'pending', the application layer auto-accepts it (see
+-- friendship.controller.js). An accepted relationship is queryable from both
+-- directions; requester/addressee only records who initiated.
 CREATE TABLE IF NOT EXISTS friendships (
     id SERIAL PRIMARY KEY,
     requester_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -154,10 +155,10 @@ CREATE TABLE IF NOT EXISTS friendships (
     UNIQUE (requester_id, addressee_id)
 );
 
--- Kazanılan rozetlerin anı. Rozetin kendisi türetilmiş veri (bkz. utils/badges.js),
--- ama "yeni rozet kazandın" popup'ını gösterebilmek için rozetin ilk kez ne zaman
--- kazanıldığını ve o andaki puan/sıralama/seviye bilgisini saklamak gerekiyor —
--- bu bilgi sonradan yeniden hesaplanamaz.
+-- The moment a badge was earned. The badge itself is derived data (see
+-- utils/badges.js), but showing the "you earned a new badge" popup requires
+-- storing when it was first earned and the points/rank/level at that moment —
+-- that information cannot be recomputed later.
 CREATE TABLE IF NOT EXISTS user_badge_awards (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -171,7 +172,7 @@ CREATE TABLE IF NOT EXISTS user_badge_awards (
     rank_after INTEGER,
     level_before INTEGER,
     level_after INTEGER,
-    -- Popup gösterildikten sonra doldurulur; NULL olanlar "henüz gösterilmedi".
+    -- Set after the popup is shown; NULL means "not shown yet".
     seen_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id, badge_key, tier)
@@ -180,13 +181,14 @@ CREATE TABLE IF NOT EXISTS user_badge_awards (
 CREATE INDEX IF NOT EXISTS idx_user_badge_awards_unseen
     ON user_badge_awards (user_id, created_at DESC) WHERE seen_at IS NULL;
 
--- Bir kullanıcının son yorumlarını profilinde listeleyebilmek için.
+-- For listing a user's recent comments on their profile.
 CREATE INDEX IF NOT EXISTS idx_animal_comments_user ON animal_comments (user_id, created_at DESC);
 
--- Admin panelinden yapılan her değişikliğin kaydı. Veri manipüle edilebilen bir
--- panelde bu olmadan "bu hayvanı kim sildi?" sorusu cevaplanamıyor.
--- target_type/target_id serbest metin: yeni bir varlık türü eklenince şema
--- değişmesin diye yabancı anahtar konmadı (kayıt silinse bile iz kalmalı).
+-- A record of every change made from the admin panel. In a panel where data
+-- can be manipulated, "who deleted this animal?" is unanswerable without it.
+-- target_type/target_id are free-form: no foreign key, so the schema doesn't
+-- change when a new entity type appears (the trail must survive even if the
+-- record is deleted).
 CREATE TABLE IF NOT EXISTS audit_log (
     id SERIAL PRIMARY KEY,
     actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -200,10 +202,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_target ON audit_log (target_type, target_id);
 
--- Reklamverenler. Hazır bir reklam ağı (AdMob vb.) yerine kendi basit reklam
--- sunucumuz: markalar admin panelinden elle giriliyor ve yerleşimler çok
--- spesifik (mama pop-up'ında mama markası, su pop-up'ında su markası, sağlık
--- kaydı eklerken veteriner kliniği).
+-- Advertisers. Our own simple ad server instead of an off-the-shelf network
+-- (AdMob etc.): brands are entered by hand in the admin panel and placements
+-- are very specific (a food brand in the food popup, a water brand in the
+-- water popup, a vet clinic when adding a health record).
 CREATE TABLE IF NOT EXISTS advertisers (
     id SERIAL PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
@@ -213,7 +215,7 @@ CREATE TABLE IF NOT EXISTS advertisers (
     image_url TEXT,
     target_url TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT true,
-    -- Kampanya tarih aralığı; NULL = sınırsız.
+    -- Campaign date range; NULL = unbounded.
     starts_at TIMESTAMPTZ,
     ends_at TIMESTAMPTZ,
     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -222,12 +224,12 @@ CREATE TABLE IF NOT EXISTS advertisers (
 
 CREATE INDEX IF NOT EXISTS idx_advertisers_slot ON advertisers (slot, sort_order, id);
 
--- Gösterim ve tıklama kayıtları. Markalara "şu kadar gösterim, şu kadar tık"
--- diyebilmek için şart — bu ölçüm olmadan reklam satılamaz.
+-- Impression and click records. Required to tell brands "this many
+-- impressions, this many clicks" — without this measurement ads can't be sold.
 --
--- slot burada advertisers'tan kopyalanıyor (denormalize): reklamveren silinse
--- bile geçmiş rapor ayakta kalsın ve rotasyon sayacı yerleşim bazında tek
--- indeksle sayılabilsin diye.
+-- slot is copied (denormalized) from advertisers: historical reports stay
+-- intact even if the advertiser is deleted, and the rotation counter can be
+-- computed per placement with a single index.
 CREATE TABLE IF NOT EXISTS ad_events (
     id SERIAL PRIMARY KEY,
     advertiser_id INTEGER REFERENCES advertisers(id) ON DELETE SET NULL,
@@ -237,7 +239,7 @@ CREATE TABLE IF NOT EXISTS ad_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Rotasyon sırası kullanıcının o yerleşimdeki gösterim sayısından türetiliyor,
--- bu yüzden bu indeks sıcak yolda (her pop-up açılışında) kullanılıyor.
+-- Rotation order is derived from the user's impression count in that
+-- placement, so this index sits on the hot path (every popup open).
 CREATE INDEX IF NOT EXISTS idx_ad_events_rotation ON ad_events (user_id, slot, type);
 CREATE INDEX IF NOT EXISTS idx_ad_events_report ON ad_events (advertiser_id, type);

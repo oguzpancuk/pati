@@ -1,13 +1,13 @@
 /**
- * Bir kullanıcıyı yönetici yapar.
+ * Promotes a user to admin.
  *
- * İlk admin bir yerden gelmek zorunda ve bunu API'den yapmak mümkün değil
- * (admin uç noktaları zaten admin yetkisi istiyor — yumurta-tavuk). Bu yüzden
- * sunucuya erişimi olan biri tarafından elle çalıştırılan bir script kullanıyoruz.
+ * The first admin has to come from somewhere, and it can't be done through
+ * the API (admin endpoints already require admin rights — chicken and egg).
+ * So this script is run by hand by someone with access to the server.
  *
- * Kullanım:
- *   npm run make-admin -- ornek@eposta.com
- *   npm run make-admin -- ornek@eposta.com --revoke   (yöneticiliği geri al)
+ * Usage:
+ *   npm run make-admin -- someone@example.com
+ *   npm run make-admin -- someone@example.com --revoke   (take admin away)
  */
 require('dotenv').config();
 const pool = require('../src/config/db');
@@ -18,7 +18,7 @@ async function main() {
   const revoke = args.includes('--revoke');
 
   if (!email) {
-    console.error('Kullanım: npm run make-admin -- eposta@adresi.com [--revoke]');
+    console.error('Usage: npm run make-admin -- someone@example.com [--revoke]');
     process.exit(1);
   }
 
@@ -29,24 +29,24 @@ async function main() {
   );
 
   if (result.rows.length === 0) {
-    console.error(`"${email}" adresiyle kayıtlı bir kullanıcı bulunamadı.`);
-    console.error('Önce uygulamadan kayıt olun, sonra bu scripti çalıştırın.');
+    console.error(`No user registered with "${email}".`);
+    console.error('Register through the app first, then run this script.');
     process.exit(1);
   }
 
   const user = result.rows[0];
   console.log(
     revoke
-      ? `${user.name} <${user.email}> artık yönetici değil (rol: ${user.role}).`
-      : `${user.name} <${user.email}> artık yönetici (rol: ${user.role}).`
+      ? `${user.name} <${user.email}> is no longer an admin (role: ${user.role}).`
+      : `${user.name} <${user.email}> is now an admin (role: ${user.role}).`
   );
-  console.log('\nAdmin paneline bu hesapla giriş yapabilirsiniz.');
+  console.log('\nYou can sign in to the admin panel with this account.');
 }
 
 main()
   .then(() => pool.end())
   .catch(async (err) => {
-    console.error('Başarısız:', err.message);
+    console.error('Failed:', err.message);
     await pool.end().catch(() => {});
     process.exit(1);
   });
