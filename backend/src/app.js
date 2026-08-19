@@ -63,30 +63,39 @@ app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Üretimde web PWA'sı (web/dist) aynı kökten servis ediliyor: tek https adres,
-// /api aynı origin (proxy/CORS derdi yok). Geliştirmede web'i Vite kendi
-// sunuyor; dist yoksa bu blok atlanır ve kökte tanıtım sayfası (public/) kalır.
+// Üretimde derlenmiş istemciler aynı Node sürecinden servis ediliyor: tek
+// deploy, /api aynı origin (proxy/CORS derdi yok). Hangi istemcinin verileceği
+// ana bilgisayar adına göre seçiliyor: ADMIN_HOST (admin.pati-app.com) →
+// yönetim paneli (admin/dist), diğer her şey → web PWA (web/dist).
+// Geliştirmede Vite kendi sunuyor; dist yoksa ilgili blok atlanır.
 const WEB_DIST_DIR = process.env.WEB_DIST_DIR || path.join(__dirname, '..', '..', 'web', 'dist');
-if (fs.existsSync(path.join(WEB_DIST_DIR, 'index.html'))) {
-  app.use(
-    express.static(WEB_DIST_DIR, {
-      setHeaders(res, filePath) {
-        // sw.js ve index.html önbelleğe alınmasın; hash'li asset'ler uzun süre kalsın.
-        if (filePath.endsWith('sw.js') || filePath.endsWith('index.html')) {
-          res.setHeader('Cache-Control', 'no-cache');
-        } else if (/\/assets\//.test(filePath)) {
-          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        }
-      },
-    })
-  );
+const ADMIN_DIST_DIR = process.env.ADMIN_DIST_DIR || path.join(__dirname, '..', '..', 'admin', 'dist');
+const ADMIN_HOST = process.env.ADMIN_HOST || null;
+
+function serveSpa(distDir, match) {
+  if (!fs.existsSync(path.join(distDir, 'index.html'))) return;
+  const statics = express.static(distDir, {
+    setHeaders(res, filePath) {
+      // sw.js ve index.html önbelleğe alınmasın; hash'li asset'ler uzun süre kalsın.
+      if (filePath.endsWith('sw.js') || filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else if (/\/assets\//.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    },
+  });
+  app.use((req, res, next) => (match(req) ? statics(req, res, next) : next()));
   // SPA fallback: /hayvanlar/12 gibi istemci rotaları index.html'e düşer;
   // API ve dosya yolları yukarıda zaten eşleşmiş olur.
   app.get(/^\/(?!api\/|uploads\/).*/, (req, res, next) => {
-    if (req.method !== 'GET' || (req.headers.accept ?? '').indexOf('text/html') === -1) return next();
-    res.sendFile(path.join(WEB_DIST_DIR, 'index.html'));
+    if (!match(req) || (req.headers.accept ?? '').indexOf('text/html') === -1) return next();
+    res.sendFile(path.join(distDir, 'index.html'));
   });
 }
+
+const isAdminHost = (req) => !!ADMIN_HOST && req.hostname === ADMIN_HOST;
+serveSpa(ADMIN_DIST_DIR, isAdminHost);
+serveSpa(WEB_DIST_DIR, (req) => !isAdminHost(req));
 
 app.use(notFoundHandler);
 app.use(errorHandler);

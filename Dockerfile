@@ -12,6 +12,12 @@ COPY mobile/src/taxonomy.ts mobile/src/avatars.ts mobile/src/badges.ts mobile/sr
 COPY mobile/assets/fonts/ mobile/assets/fonts/
 RUN cd web && npm run build
 
+# Yönetim paneli: ayrı Vite projesi, shared/ SVG üreticilerini kullanıyor.
+COPY admin/package.json admin/package-lock.json admin/
+RUN cd admin && npm ci
+COPY admin/ admin/
+RUN cd admin && npm run build
+
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
@@ -19,7 +25,9 @@ COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --omit=dev
 COPY backend/ ./
 COPY --from=web /repo/web/dist ./web-dist
+COPY --from=web /repo/admin/dist ./admin-dist
 ENV WEB_DIST_DIR=/app/web-dist
+ENV ADMIN_DIST_DIR=/app/admin-dist
 ENV UPLOADS_DIR=/data/uploads
 ENV PORT=3000
 EXPOSE 3000
