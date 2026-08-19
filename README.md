@@ -171,7 +171,7 @@ yerine bir [Personal Access Token](https://github.com/settings/tokens) (classic,
 adınızı, şifre istendiğinde token'ı yapıştırın.
 
 ```bash
-git clone https://github.com/oguzpancuk/Stray.git
+git clone https://github.com/oguzpancuk/Pati.git
 cd Stray
 ```
 

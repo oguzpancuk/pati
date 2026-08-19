@@ -1,8 +1,7 @@
 # pati — Proje Dokümanı
 
 **Son güncelleme:** 18 Ağustos 2026
-**Depo:** https://github.com/oguzpancuk/Stray (uygulamanın adı **pati**, depo adı
-hâlâ `Stray`)
+**Depo:** https://github.com/oguzpancuk/Pati
 
 Bu doküman projenin bütününü tek yerde anlatır: ne yaptığı, nasıl çalıştığı,
 şu an nerede olduğu ve sırada ne olduğu. Ayrıntılar için:
