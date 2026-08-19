@@ -499,7 +499,10 @@ export default function MapScreen({ navigation }: any) {
       {/* The bottom sheet carries the area's status and the call to action
           (handoff 3b). The button stays even when everything is covered —
           leaving a record is always possible. */}
-      <SafeAreaView style={styles.bottomLayer} edges={['bottom']} pointerEvents="box-none">
+      {/* No bottom safe-area edge here: the tab bar below already absorbs the
+          home-indicator inset, so an extra one left a strip of map between the
+          sheet and the bar and the sheet looked like it was floating. */}
+      <SafeAreaView style={styles.bottomLayer} edges={[]} pointerEvents="box-none">
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} />
           <Text variant="micro" style={styles.sheetMicro}>
