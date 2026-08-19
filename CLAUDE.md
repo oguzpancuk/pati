@@ -91,6 +91,26 @@ doğrulamayı gerçekten çalıştırın, "muhtemelen çalışır" demeyin.
   taze üretir; bugünün mama/su kayıtları son 1 saate düşer ki harita canlı
   doğsun. Üretim veritabanında asla çalıştırmayın.
 
+## Oturum rolleri (iki Claude Code çalışanı)
+
+Aynı depoda iki oturum çalışıyor; fark **çalıştıkları yer**:
+
+- **Operasyon** — kullanıcının Mac'inde koşan yerel oturum. Elinde: iOS
+  simülatörü/Metro, Vite, Docker'daki yerel DB, Fly girişi (`fly`), Namecheap
+  DNS, sırlar (`~/.config/pati/`), Claude Design senkronu (`/design-sync`).
+  İşi: yerel ortamı ayakta tutmak, `main`'in son halini **canlıya almak**
+  (`fly deploy`), veritabanı/seed/sertifika bakımı, çapraz kesen altyapı
+  (rate limit, CORS, migrasyon). "Çalıştır / canlıya al / simülatörde bak"
+  istekleri buraya.
+- **Geliştirici** — claude.ai/code bulut oturumu. Depoyu görür, özellik yazar,
+  kendi sandbox'ında tsc/build/Playwright ile doğrular, `main`'e push eder.
+  Kullanıcının makinesine, cihazına, Fly hesabına, yerel DB'ye **erişemez**;
+  cihaz/ortam gerektiren doğrulamayı Operasyon'a bırakır.
+
+Kurallar: aynı anda aynı dosyaya iki oturum dokunmasın; devir teslim git ile
+(push → "son halini canlıya al"); ortam/hesap/sır gerektiren her iş Operasyon'a.
+Rol, yeteneği değil erişimi anlatır — Operasyon boşsa kod da yazar.
+
 ## Çalışma şekli
 
 - `main` üzerinde çalışılıyor, PR akışı yok. Commit + push serbest.
