@@ -1,547 +1,396 @@
-# Yol Haritası
+# Roadmap
 
-MVP tamamlandı (harita, bakım işaretleme, hayvan profilleri, sohbet, sağlık
-takibi, rozetler, liderlik tablosu, arkadaşlık, bildirimler). Kalan beş büyük iş
-aşağıda. Her madde için **ne yapılacağı**, **nasıl yapılmasını önerdiğim** ve
-**karar verilmesi gerekenler** ayrı ayrı yazıldı.
+The MVP is complete (map, care marking, animal profiles, chat, health
+tracking, badges, leaderboard, friendships, notifications). The remaining
+large items are below. Each lists **what**, **the suggested approach**, and
+**open decisions** separately.
 
-Ayrıca üretime çıkmadan kapatılması gereken teknik borç listesi için bkz.
-[NOTLAR.md → Bilinen Sınırlar](NOTLAR.md#3-bilinen-sınırlar-ve-teknik-borç).
-
----
-
-## Önerilen sıra
-
-```
-✅ 1. Admin paneli (madde 5)  ──┬──> ✅ 2. Reklam (madde 3)
-   + rol/yetki altyapısı        └──> ⏸️  Bağış (madde 2) — ertelendi,
-                                          dış taraflar netleşince
-⏸️  3. YZ hayvan eşleştirme (madde 1) — park edildi, isabet ölçülemedi
-✅ 4. Tasarım sistemi + UI giydirme (madde 4)
-🚀 5. Yayına çıkma sprint'i           ← SIRADA, kalan tek zorunlu blok
-```
-
-> **Bağış neden ertelendi:** Bloke ediciler kod değil dış taraflar — ödeme
-> sağlayıcı, tüzel kişilik, mali müşavir/avukat, mağaza kuralları. Karar listesi
-> [madde 2](#2-bağış-sistemi--️-ertelendi) altında hazır bekliyor.
-
-**Neden bu sıra:**
-
-- **Admin paneli önce**, çünkü hem reklam firmaları hem bağış kurumları
-  "admin sayfasından girilir" diye tanımlandı. Admin olmadan diğer ikisinin
-  veri girişi yok. Ayrıca rol/yetki altyapısı (`users.role`, `requireAdmin`)
-  bir kere kurulunca sonraki her şey onun üzerine biniyor.
-- **Reklam ikinci**, çünkü teknik olarak en basit iş (CRUD + rotasyon +
-  gösterim sayacı), dış bağımlılığı yok ve ilk gelir kalemi.
-- **Bağış sonra**, çünkü tek dış bağımlılığı olan madde: ödeme sağlayıcı
-  entegrasyonu, hukuki kontrol ve mağaza (App Store / Play) kuralları var.
-  Bunlar kod yazmadan önce netleşmeli.
-- **UI ikiye bölünsün.** Renk/tipografi/boşluk token'larından oluşan küçük bir
-  **tasarım sistemi hemen** çıkarılsın ki yeni gelen ekranlar (admin, bağış)
-  onun üzerine kurulsun; **tam giydirme en sona** kalsın, çünkü her yeni özellik
-  yeni ekran ekliyor ve erken yapılan giydirme boşa gidiyor.
-- **YZ eşleştirme paralel yürüyebilir**, çünkü ayrı bir servis olarak
-  geliştirilebilir ve mevcut akışlara tek bir uç noktadan bağlanıyor. En büyük
-  teknik belirsizlik burada olduğu için erken bir "spike" (2–3 günlük deneme)
-  yapılması, sonucun tatmin edici olup olmadığının önceden görülmesi iyi olur.
+For the technical-debt list that must close before production, see
+[NOTES.md](NOTES.md).
 
 ---
 
-## 1. Yapay zekâ ile hayvan eşleştirme
+## Suggested order
 
-### 📊 Spike sonuçları (18 Ağustos 2026) — maliyet ve hız ölçüldü
+```
+✅ 1. Admin panel (item 5)  ──┬──> ✅ 2. Ads (item 3)
+   + role infrastructure      └──> ⏸️  Donations (item 2) — deferred until
+                                       external parties are settled
+⏸️  3. AI animal matching (item 1) — parked; accuracy not yet measurable
+✅ 4. Design system + UI (item 4)
+🚀 5. Launch sprint               ← NEXT, the only mandatory block left
+```
 
-**Ölçüm ortamı:** 4 çekirdek CPU, GPU yok. Gömme modeli için rastgele ağırlıklı
-ama **gerçek mimari** kullanıldı — ileri geçiş süresi mimariye ve girdi boyutuna
-bağlı, ağırlıkların eğitilmiş olmasına değil. Yani bu milisaniyeler gerçek
-DINOv2/CLIP ağırlıklarıyla da aynı çıkar.
+> **Why donations were deferred:** the blockers are external, not code —
+> payment provider, legal entity, accountant/lawyer, store rules. The
+> decision list under [item 2](#2-donations--️-deferred) is ready and waiting.
 
-**Fotoğrafı vektöre çevirme (CPU, kayıt başına 3 fotoğraf, toplu işlenmiş):**
+**Why this order:**
 
-| Model | 1 fotoğraf | 3 fotoğraf | Kayıt başına |
+- **Admin panel first**: both advertisers and donation organizations were
+  specified as "entered via the admin panel" — no admin, no data entry for
+  either. Role infrastructure (`users.role`, `requireAdmin`) also underpins
+  everything after it.
+- **Ads second**: technically the simplest (CRUD + rotation + impression
+  counter), no external dependency, first revenue line.
+- **Donations later**: the only item with an external dependency — payment
+  integration, legal review, store rules. Those must settle before code.
+- **UI in two phases.** A small design system (color/typography/spacing
+  tokens) immediately, so new screens build on it; the full re-skin last,
+  because every feature adds screens and early skinning gets wasted.
+- **AI matching can run in parallel** as a separate service attached through
+  a single endpoint. The biggest technical unknown lives there, so an early
+  2–3 day spike was recommended.
+
+---
+
+## 1. AI animal matching
+
+### 📊 Spike results (August 18, 2026) — cost and speed measured
+
+**Environment:** 4 CPU cores, no GPU. The embedding model used random weights
+on the **real architecture** — forward-pass time depends on architecture and
+input size, not on whether weights are trained, so the milliseconds hold for
+real DINOv2/CLIP weights too.
+
+**Photo → vector (CPU, 3 photos per record, batched):**
+
+| Model | 1 photo | 3 photos | Per record |
 | --- | --- | --- | --- |
-| ViT-B/16 (86M) — DINOv2 base sınıfı | 136 ms | 335 ms | **0,33 sn** |
-| ViT-B/32 (88M) — CLIP ViT-B/32 sınıfı | 49 ms | 84 ms | **0,08 sn** |
-| ResNet-50 (25M) | 51 ms | 101 ms | 0,10 sn |
-| MobileNetV3-L (5M) | 16 ms | 28 ms | 0,03 sn |
+| ViT-B/16 (86M) — DINOv2-base class | 136 ms | 335 ms | **0.33 s** |
+| ViT-B/32 (88M) — CLIP ViT-B/32 class | 49 ms | 84 ms | **0.08 s** |
+| ResNet-50 (25M) | 51 ms | 101 ms | 0.10 s |
+| MobileNetV3-L (5M) | 16 ms | 28 ms | 0.03 s |
 
-**Vektör araması (pgvector 0.6, 25.000 hayvan × 3 fotoğraf = 75.000 vektör, 768 boyut):**
+**Vector search (pgvector 0.6; 25,000 animals × 3 photos = 75,000 vectors, 768-d):**
 
-| Aday kümesi | Vektör sayısı | Süre |
+| Candidate set | Vectors | Time |
 | --- | --- | --- |
-| 1 km yarıçap | ~300 | **4 ms** |
-| 3 km yarıçap | ~2.850 | 20 ms |
-| 10 km yarıçap | ~31.400 | 261 ms |
-| Coğrafi daraltma yok (tam tarama) | 75.000 | 309 ms |
+| 1 km radius | ~300 | **4 ms** |
+| 3 km radius | ~2,850 | 20 ms |
+| 10 km radius | ~31,400 | 261 ms |
+| No geo narrowing (full scan) | 75,000 | 309 ms |
 
-**Depolama:** 75.000 vektör + GIST indeksi = **309 MB**.
+**Storage:** 75,000 vectors + index = **309 MB**.
 
-#### Sonuçlar
+#### Conclusions
 
-1. **Kullanıcının bekleyeceği ek süre ~0,35 saniye** (ViT-B/16 + 1 km arama).
-   Önceki tahminim 1–2 saniyeydi; gerçek ölçüm daha iyi çıktı. **GPU gerekmiyor.**
-2. **İstek başına ücret yok** — model kendi sunucumuzda çalışıyor. Maliyet =
-   sunucuya ~2 GB ek RAM. Binlerce kullanıcıda bile model günde ~200 kez
-   çalışıyor (hayvan kaydı nadir bir eylem), yani sunucu boş duruyor.
-3. **Coğrafi daraltma her şeyi belirliyor:** 1 km'de 4 ms, daraltma olmadan
-   309 ms — 75 kat fark. PostGIS ile önce daraltmak mimarinin en kritik parçası.
-4. **Model seçimi bir denge:** ViT-B/32, ViT-B/16'dan 4 kat hızlı ve vektörü
-   daha küçük (512 vs 768 boyut → %33 daha az depolama). İsabet ölçülünce hangisinin
-   yeteceğine karar verilecek.
+1. **Added user-facing latency ~0.35 s** (ViT-B/16 + 1 km search). Better
+   than the earlier 1–2 s estimate. **No GPU needed.**
+2. **No per-request fees** — the model runs on our own server. Cost = ~2 GB
+   extra RAM. Even with thousands of users the model runs ~200×/day
+   (registering an animal is rare), so the server mostly idles.
+3. **Geo narrowing decides everything:** 4 ms at 1 km vs 309 ms without —
+   a 75× gap. PostGIS-first narrowing is the critical piece of the design.
+4. **Model choice is a tradeoff:** ViT-B/32 is 4× faster than B/16 with
+   smaller vectors (512 vs 768-d → 33% less storage). Accuracy measurement
+   will decide which suffices.
 
-#### ⚠️ Henüz ölçülemeyen: isabet
+#### ⚠️ Not yet measured: accuracy
 
-Asıl risk maliyet değil, modelin sokak koşullarında (kötü ışık, uzaktan çekim,
-hareketli hayvan) **aynı kediyi tanıyıp tanımaması**. Bu ölçüm bu ortamda
-yapılamadı: sanal makinenin ağ politikası model ağırlığı ve veri seti
-sunucularını (huggingface.co, download.pytorch.org, GitHub release, GCS)
-engelliyor. Yalnızca PyPI açık — paket kurulabiliyor ama eğitilmiş ağırlık
-indirilemiyor.
+The real risk isn't cost but whether the model **recognizes the same cat**
+under street conditions (bad light, distance, motion). It couldn't be
+measured in the spike environment: the VM's network policy blocks the weight
+and dataset hosts (huggingface.co, download.pytorch.org, GitHub releases,
+GCS). Only PyPI was reachable — packages install, trained weights don't.
 
-**İsabet ölçümü için gereken (biri yeterli):**
-- Aynı sokak hayvanının farklı zaman/açılardan çekilmiş fotoğrafları (10–20 hayvan
-  × 3–4 fotoğraf yeterli bir ilk sinyal verir), **veya**
-- Ağ erişimi açık bir ortamda (yerel makine) ölçümün çalıştırılması — script
-  hazırlanabilir, kimlik doğrulama gerektirmeyen açık veri setleri var
+**Needed for the accuracy measurement (either works):**
+- Photos of the same street animals at different times/angles (10–20 animals
+  × 3–4 photos gives a first signal), **or**
+- Running the prepared script in a network-open environment (a local machine);
+  open datasets without auth exist.
 
-**Ölçülecek metrik:** "aynı hayvanın ikinci fotoğrafı ilk 5 sonuçta çıkıyor mu?"
-(top-5 isabet). Ayrıca yanlış eşleşme oranı — farklı hayvanlar için skor eşiği.
+**Metric:** "does the second photo of the same animal land in the top 5?"
+(top-5 hit rate), plus the false-match rate for a score threshold.
 
-> **Kurulum notu:** `pgvector` ayrı bir PostgreSQL eklentisi. Mevcut
-> `imresamu/postgis` imajında olmayabilir; entegrasyona geçilirken imajın
-> pgvector içerdiği doğrulanmalı veya `postgresql-16-pgvector` paketi kurulmalı.
+> **Setup note:** `pgvector` is a separate PostgreSQL extension. The
+> `imresamu/postgis` image may not include it; verify or install
+> `postgresql-16-pgvector` before integration.
 
 <details>
-<summary>Tam plan</summary>
+<summary>Full plan</summary>
 
-### İstenen akış
-"Hayvan Ekle" butonu doğrudan hayvan ekleme sayfasını açar. Gerekli alanlar
-girilip fotoğraf eklendikten sonra yapay zekâ çalışır ve çevredeki kayıtlı
-hayvanlar arasından en çok benzeyen 5 tanesini benzerlik oranıyla gösterir.
-Bu hayvanlardan biri seçilirse kullanıcı o hayvanın bakım verenlerine eklenir;
-seçilmezse yeni hayvan oluşturulur.
+### Desired flow
+"Add animal" opens the form directly. After fields and photos, AI shows the 5
+most similar registered animals nearby with similarity. Picking one adds the
+user to that animal's carers; picking none creates a new record.
 
-> **Durum (19 Ağustos 2026):** Akışın arayüzü ve iskeleti **hazır**, yalnızca
-> "yapay zekâ" kısmı kural tabanlı bir yer tutucu. Form → "Yapay zekâ
-> eşleştiriyor…" ekranı (en az 2 sn) → 1 km içindeki aynı türden hayvanlar
-> **yüksek / orta / düşük** benzerlik kademesiyle listeleniyor → "bu o" ya da
-> "yeni kayıt". Kademe şimdilik desen (+2), renk (+1) ve 200 m mesafe (+1)
-> puanından geliyor (`GET /api/animals/match`, `animal.controller.js` →
-> `similarityFor`). Fotoğraf gömme servisi geldiğinde aynı uca eklenir, arayüz
-> ve kademeler değişmez; 2 sn'lik yapay bekleme
-> (`AddAnimalScreen.tsx` → `MIN_MATCHING_MS`) o zaman kaldırılır.
+> **Status (August 19, 2026):** the flow's UI and skeleton are **live**; only
+> the "AI" part is a rule-based placeholder. Form → "AI matching…" screen
+> (min 2 s) → same-species animals within 1 km listed as **high / medium /
+> low** similarity → "it's this one" or "new record". The tier currently
+> comes from pattern (+2), color (+1), and ≤200 m distance (+1)
+> (`GET /api/animals/match`, `animal.controller.js` → `similarityFor`).
+> When the embedding service arrives it plugs into the same endpoint; UI and
+> tiers stay, and the artificial 2 s wait
+> (`AddAnimalScreen.tsx` → `MIN_MATCHING_MS`) goes away.
 
-### Önerilen yaklaşım
-Model **eğitilmesin**. Hazır bir görüntü gömme (embedding) modeliyle vektör
-çıkarıp benzerlik hesaplamak bu iş için hem yeterli hem çok daha ucuz:
+### Suggested approach
+**Don't train a model.** A pretrained image-embedding model is sufficient and
+far cheaper:
 
-1. **Aday kümesini önce coğrafyayla daralt.** PostGIS `ST_DWithin` ile ~1km
-   içindeki hayvanlar. Türkiye'deki tüm hayvanlarla karşılaştırma yapmaya gerek
-   yok — hem yavaş hem anlamsız (aynı hayvan 300km ötede olmaz).
-2. **Her fotoğraf için bir gömme vektörü üret.** Aday modeller: DINOv2 (görsel
-   benzerlik için güçlü), CLIP (daha genel), veya hayvan yüz tanımaya özel
-   açık modeller. Python tarafında bir mikroservis (FastAPI) olarak koşar.
-3. **Vektörleri veritabanında sakla.** PostgreSQL zaten var; `pgvector`
-   eklentisiyle `animal_photos.embedding vector(768)` kolonu ekleyip kosinüs
-   benzerliğini SQL içinde hesaplamak en az hareketli parça demek.
-4. **Bir hayvanın birden fazla fotoğrafı var** — hayvan skoru, o hayvanın
-   fotoğrafları arasındaki **en yüksek** benzerlik olsun (aynı kedinin bir
-   fotoğrafı arkadan çekilmiş olabilir).
-5. **Tür/cins ile filtrele.** Kullanıcı "kedi / Tekir" seçtiyse aday kümesi
-   zaten daralıyor; bu hem hızlandırır hem isabeti artırır.
+1. **Narrow candidates by geography first.** PostGIS `ST_DWithin`, ~1 km.
+   Comparing against every animal in Türkiye is slow and meaningless (the
+   same animal isn't 300 km away).
+2. **One embedding per photo.** Candidates: DINOv2 (strong for visual
+   similarity), CLIP (more general), or open pet-reid models. Runs as a small
+   Python microservice (FastAPI).
+3. **Store vectors in the database.** PostgreSQL is already there; `pgvector`
+   with an `animal_photos.embedding vector(768)` column keeps moving parts
+   minimal.
+4. **Animals have several photos** — score an animal by the **max** similarity
+   across its photos (one shot may be from behind).
+5. **Filter by species/breed.** "cat / Tekir" already narrows the set; faster
+   and more accurate.
 
-### Dikkat edilecek nokta: "aynı olma ihtimali"
-Kosinüs benzerliği bir **olasılık değildir**. Ham skoru "%87 aynı hayvan" diye
-göstermek yanıltıcı olur. İki seçenek var:
-- **Kolay yol:** "çok benzer / benzer / az benzer" gibi üç kademeli bir etiket
-  göster, sayı gösterme.
-- **Doğru yol:** Elde biriken "aynı hayvan" / "farklı hayvan" kararlarıyla
-  skoru kalibre et (Platt scaling gibi basit bir yöntem yeter), sonra gerçek
-  bir olasılık göster. Bunun için önce veri birikmesi gerekiyor — yani ilk
-  sürüm kolay yolla çıkıp, kullanıcı seçimlerini kaydedip sonra kalibre etmek
-  mantıklı.
+### The "probability" trap
+Cosine similarity is **not a probability**. Showing "87% the same animal"
+would mislead. Options:
+- **Easy path:** tiered labels ("very similar / similar / less similar"),
+  no numbers.
+- **Right path:** calibrate scores with accumulated same/different decisions
+  (Platt scaling suffices), then show a real probability. Needs data first —
+  so ship the easy path, record user choices, calibrate later.
 
-Her hâlükârda **son kararı kullanıcı vermeli**; sistem otomatik birleştirme
-yapmamalı.
+Either way **the user makes the final call**; never auto-merge.
 
-### Yapılacaklar
-- [ ] Spike: 20–30 gerçek sokak hayvanı fotoğrafıyla DINOv2/CLIP benzerliğini
-      ölç, isabet yeterli mi gör (2–3 gün)
-- [ ] `pgvector` eklentisi + `animal_photos.embedding` kolonu + index
-- [ ] Python gömme servisi (FastAPI) + backend'den çağrı
-- [ ] Mevcut fotoğrafları toplu vektörleştiren script (seed verisi dahil)
-- [ ] `GET /api/animals/match` — **kural tabanlı sürümü var** (tür/desen/renk/
-      mesafe); fotoğraf gömme skoru bu uca eklenecek
-- [x] Mobil: "Hayvan Ekle" akışını değiştir — form + fotoğraf sonrası eşleştirme
-      ekranı, "bu o hayvan" / "yeni hayvan oluştur" seçimi (19 Ağustos 2026)
-- [ ] Kullanıcı seçimlerini `animal_match_feedback` tablosuna kaydet (ileride
-      kalibrasyon için)
+### Tasks
+- [ ] Spike: measure DINOv2/CLIP similarity on 20–30 real street-animal
+      photos; is accuracy sufficient (2–3 days)
+- [ ] `pgvector` extension + `animal_photos.embedding` column + index
+- [ ] Python embedding service (FastAPI) + backend call
+- [ ] Batch script vectorizing existing photos (seed data included)
+- [ ] `GET /api/animals/match` — **rule-based version live**
+      (species/pattern/color/distance); embedding score joins this endpoint
+- [x] Mobile: match flow — form + photos, then matching screen with
+      "it's this one" / "create new" (August 19, 2026)
+- [ ] Record user choices in `animal_match_feedback` (future calibration)
 
-### Karar verilmesi gerekenler
-- ~~Gömme servisi nerede koşacak, CPU yeterli mi?~~ → **CPU yeterli, GPU
-  gerekmiyor** (spike ölçümü: kayıt başına 0,33 sn)
-- ~~Skor kullanıcıya sayı olarak mı gösterilecek, kademe olarak mı?~~ →
-  **kademe** (yüksek/orta/düşük); sayı gösterilmiyor
-- ~~Eşleşme bulunamadığında akış nasıl devam edecek~~ → 1 km'de aynı türden
-  hiç kayıt yoksa **sessizce yeni kayıt** açılıyor (soracak aday yok)
-- ViT-B/16 mı ViT-B/32 mi? (isabet ölçülünce netleşecek — B/32 dört kat hızlı)
+### Open decisions
+- ~~Where does the embedding service run; is CPU enough?~~ → **CPU is enough,
+  no GPU** (spike: 0.33 s per record)
+- ~~Score as a number or a tier?~~ → **tier** (high/medium/low); no numbers
+- ~~Flow when no match is found~~ → with zero same-species records within
+  1 km, a **new record opens silently** (nothing to ask about)
+- ViT-B/16 vs ViT-B/32? (settled by the accuracy measurement — B/32 is 4× faster)
 
 </details>
 
 ---
 
-## 2. Bağış sistemi — ⏸️ ertelendi
+## 2. Donations — ⏸️ deferred
 
-> **Durum: ertelendi (18 Ağustos 2026).** Karar: *"orada netleştirilmesi gereken
-> çok taraf var."* Doğru karar — bu maddenin bloke edicileri kod değil, dış
-> taraflar: ödeme sağlayıcı, tüzel kişilik, mali müşavir/avukat ve mağaza
-> kuralları. Bunlar netleşmeden yazılan kod büyük ihtimalle çöpe gider.
+> **Status: deferred (August 18, 2026).** Decision: *"too many external
+> parties need settling."* Correct call — the blockers are not code: payment
+> provider, legal entity, accountant/lawyer, store rules. Code written before
+> those settle would likely be thrown away.
 >
-> Aşağıdaki **karar listesi** hazır bekliyor; bu dört başlık netleşince madde
-> hemen açılabilir.
+> The **decision list** below is ready; once these four settle, the item
+> opens immediately.
 
-### Kod yazmadan önce netleşmesi şart
+### Must settle before any code
 
-| # | Karar | Neden bloke ediyor |
+| # | Decision | Why it blocks |
 | --- | --- | --- |
-| 1 | **Ödeme sağlayıcı ve model** — pazaryeri (split payment) mi, tek hesap mı? | Veri modeli ve para akışı buna göre şekilleniyor. *Önerilen: pazaryeri* |
-| 2 | **Tüzel kişilik** — şirket kurulu mu, üye işyeri hesabı kimin adına? | Test ortamından öteye geçilemez |
-| 3 | **Hukuki teyit** — %5 komisyon + bağış toplama izni (2860 sayılı kanun) | Yanlış model = izinsiz bağış toplama riski |
-| 4 | **Mağaza kuralları** — Apple/Google'ın hayır kurumu bağışı kuralları (IAP değil harici ödeme) | Yanlış entegrasyon = mağaza reddi |
+| 1 | **Payment provider and model** — marketplace (split payment) or single account? | Data model and money flow depend on it. *Suggested: marketplace* |
+| 2 | **Legal entity** — is a company formed; whose name is on the merchant account? | Can't move past test environments |
+| 3 | **Legal review** — the 5% fee + donation-collection permits (Turkish law 2860) | Wrong model = unlicensed donation collection |
+| 4 | **Store rules** — Apple/Google charity rules (external payment, not IAP) | Wrong integration = store rejection |
 
-**Neden pazaryeri modeli öneriliyor:** Parayı önce kendi hesabınıza toplayıp
-sonra kuruma aktarmak sizi "bağış toplayan taraf" yapar ve Türkiye'de bağış
-toplamak izne tabidir (2860 sayılı Yardım Toplama Kanunu). Pazaryeri modelinde
-para doğrudan kuruma gider, siz yalnızca hizmet komisyonu alırsınız — hem
-operasyonel hem hukuki olarak temiz.
+**Why marketplace:** collecting money into your own account first and then
+forwarding it makes you a "donation collector", which is permit-gated in
+Türkiye (Law 2860 on Aid Collection). In the marketplace model the money goes
+straight to the organization and you take a service fee — cleaner both
+operationally and legally.
 
-### Ürün kararları (kod yazarken lazım, bloke etmiyor)
+### Product decisions (needed while coding, not blocking)
 
-- Kurumlar sisteme nasıl dahil olacak — siz mi ekleyeceksiniz, başvuru mu?
-  (alt üye işyeri kaydı için kurumun evrakları gerekiyor)
-- Tekrarlayan (aylık) bağış olacak mı? *Önerilen: ilk sürümde yalnızca tek seferlik*
-- Tutar seçenekleri: sabit butonlar mı, serbest giriş mi, alt/üst limit?
-- "Uygulamaya bağış" kalemi kullanıcıya nasıl anlatılacak? (hayır kurumu bağışı
-  değil, platforma destek — %5 mantığı burada işlemiyor)
-- Anonim bağış olacak mı? Bağış yapan profilinde/listede görünecek mi?
-- Bağış yapana reklamsız deneyim? (madde 3'ten kalan açık soru)
+- How do organizations join — added by you, or applications?
+  (sub-merchant onboarding needs their paperwork)
+- Recurring (monthly) donations? *Suggested: one-off only in v1*
+- Amounts: fixed buttons, free entry, limits?
+- How is "donate to the app" explained? (not a charity donation — platform
+  support; the 5% logic doesn't apply, it's all yours)
+- Anonymous donations? Shown on profiles/lists?
+- Ad-free experience for donors? (open question from item 3)
 
-### ⚠️ Üzerinde durulması gereken tasarım kararı
+### ⚠️ A design decision worth pausing on
 
-**Bağış puanı liderlik tablosuna girmeli mi?**
+**Should donation points enter the leaderboard?**
 
-Rozet kısmı sorunsuz. Ama o rozetlerin puanı liderlik tablosuna eklenirse
-sıralama "en çok bakan" değil kısmen "en çok ödeyen" listesine dönüşür. Şimdiye
-kadar kurulan her şey (seri rozetleri, yorum puanının genişliğe göre
-ağırlıklandırılması) tam da bunu engellemek üzerineydi.
+Badges are fine. But if their points count toward the leaderboard, the
+ranking morphs from "who cares the most" into partially "who pays the most".
+Everything built so far (streak badges, breadth-weighted comment points)
+exists precisely to prevent that.
 
-**Önerilen:** Bağış rozetleri ayrı bir vitrin olsun, liderlik puanına girmesin.
-Profilde görünsün, öne çıkan 3 rozet arasında seçilebilsin, ama sıralamayı
-etkilemesin. İstenirse ayrı bir "Destekçiler" listesi yapılabilir. Bu bağışı
-değersizleştirmez — sadece iki farklı katkı türünü karıştırmaz.
+**Suggested:** donation badges live in a separate showcase and don't affect
+leaderboard points. Visible on the profile, selectable among the featured 3,
+but no ranking effect. A separate "Supporters" list is possible. This doesn't
+devalue donating — it just doesn't mix two kinds of contribution.
 
 <details>
-<summary>Teknik plan (kararlar netleşince açılacak)</summary>
+<summary>Technical plan (opens when the decisions settle)</summary>
 
-### İstenen akış
-Admin sayfasından bağış yapılabilecek kurumlar girilir. Uygulama üzerinden bu
-kurumlara bağış yapılabilir; bağışların **%5'i platforma** kalır. Ayrıca doğrudan
-uygulamaya da bağış yapılabilir ve bu seçenek listenin en üstünde çıkar.
-Bağışlar toplam miktara göre rozet kazandırır.
+### Desired flow
+Organizations entered via the admin panel; users donate in-app; **5% stays
+with the platform**; direct-to-app donations appear at the top; total donated
+amount earns badges.
 
-### Önerilen yaklaşım
-1. **Ödeme sağlayıcısı seçilmeli.** Türkiye'de kart işlemleri için iyzico ve
-   PayTR yaygın seçenekler; ikisinin de "pazaryeri / alt üye işyeri" modeli var.
-   **Bu model önemli:** komisyonun otomatik ayrılması ve kurumun payının
-   doğrudan kuruma gitmesi için gerekiyor.
-2. **Parayı önce kendi hesabınıza toplayıp sonra kuruma aktarmayın.** Bu model
-   sizi "bağış toplayan taraf" hâline getirir ve Türkiye'de bağış toplamak
-   izne tabidir (2860 sayılı Yardım Toplama Kanunu). Pazaryeri/split-payment
-   modelinde para doğrudan kuruma gider, siz yalnızca hizmet komisyonu alırsınız
-   — hem operasyonel hem hukuki olarak çok daha temiz.
-3. **Mağaza kuralları:** Apple, kayıtlı hayır kurumlarına yapılan bağışların
-   uygulama içi satın alma (IAP) ile **değil**, harici bir ödeme yöntemiyle
-   alınmasını istiyor. Google'ın kuralı da benzer. Yani ödeme sağlayıcının kendi
-   akışı kullanılacak, IAP değil. Bu kuralların güncel hâli entegrasyondan önce
-   doğrulanmalı.
-4. **"Uygulamaya bağış" ayrı bir kalem.** Bu bir hayır kurumu bağışı değil,
-   platformun kendisine destek — mağaza tarafında farklı değerlendirilebilir ve
-   %5 komisyon mantığı burada işlemez (zaten tamamı size gelir). Kullanıcıya da
-   bu fark açıkça anlatılmalı.
-5. **Şeffaflık.** %5'lik kesinti bağış ekranında, bağış yapılmadan önce açıkça
-   yazılmalı. Hayır amaçlı ödemelerden komisyon almak hukuken ve itibar
-   açısından hassas bir konu — bir mali müşavir/avukat teyidi almadan
-   yayınlamayın.
+### Approach
+1. **Pick a provider.** iyzico and PayTR are the common Turkish options; both
+   offer a marketplace / sub-merchant model. **That model matters**: automatic
+   fee split, organization's share flows directly to them.
+2. **Never collect first, forward later** (see "why marketplace" above).
+3. **Store rules:** Apple requires donations to registered charities to use
+   external payment, **not IAP**; Google is similar. Verify the current rules
+   before integrating.
+4. **"Donate to the app" is a separate item** — platform support, not
+   charity; stores may treat it differently and the 5% doesn't apply.
+   Explain the difference clearly to users.
+5. **Transparency.** The 5% must be stated on the donation screen before
+   donating. Taking a fee on charitable payments is legally and
+   reputationally sensitive — don't ship without accountant/lawyer sign-off.
 
-### Veri modeli taslağı
+### Data-model sketch
 ```
 donation_orgs      (id, name, logo_url, description, website, tax_id,
                     provider_submerchant_id, active, sort_order)
 donations          (id, user_id, org_id NULL, amount, currency, platform_fee,
                     provider_payment_id, status, created_at)
-                    -- org_id NULL = doğrudan uygulamaya bağış
+                    -- org_id NULL = direct-to-app donation
 ```
-Rozetler için `badges.js`'e yeni bir grup: toplam bağış miktarına göre
-bronz/gümüş/altın/elmas (`donation:total`).
+A new badge group in `badges.js`: tiers by total donated (`donation:total`).
 
-### Yapılacaklar
-- [ ] Ödeme sağlayıcı seçimi + hesap açılışı + test ortamı
-- [ ] Hukuki kontrol: komisyon modeli, bağış toplama izni gerekliliği,
-      kullanıcıya gösterilecek metinler
-- [ ] Şema: `donation_orgs`, `donations`
-- [ ] Backend: kurum listesi, bağış başlatma, sağlayıcı webhook'u ile durum
-      güncelleme, kullanıcı bağış geçmişi
-- [ ] Admin: kurum CRUD, bağış raporu, komisyon raporu
-- [ ] Mobil: bağış ekranı (uygulamaya bağış en üstte), ödeme akışı, makbuz
-- [ ] Rozet: toplam bağış miktarına göre kademe
-
-*(Karar listesi yukarı taşındı.)*
+### Tasks
+- [ ] Provider selection + account + sandbox
+- [ ] Legal review: fee model, permit requirements, user-facing texts
+- [ ] Schema: `donation_orgs`, `donations`
+- [ ] Backend: org list, donation initiation, provider webhook, history
+- [ ] Admin: org CRUD, donation and fee reports
+- [ ] Mobile: donation screen (app-donation on top), payment flow, receipt
+- [ ] Badge: tiers by total amount
 
 </details>
 
 ---
 
-## 3. Reklam — ✅ tamamlandı
+## 3. Ads — ✅ done
 
-**Yapıldı (18 Ağustos 2026):** Üç yerleşim (`food_popup`, `water_popup`,
-`vet_health_record`), admin panelinde reklamveren yönetimi (görsel yükleme,
-kampanya tarih aralığı, yayına alma/durdurma, sıra), mobilde `AdBanner` bileşeni
-ve gösterim/tık ölçümü + CTR raporu.
+**Shipped (August 18, 2026):** three slots (`food_popup`, `water_popup`,
+`vet_health_record`), advertiser management in the admin panel (image upload,
+campaign window, activation, ordering), the mobile `AdBanner`, and
+impression/click measurement + CTR reports.
 
-**Rotasyon kararı:** Ayrı bir imleç tablosu yok — sıra, kullanıcının o yerleşimde
-kaç kez reklam gördüğünden türetiliyor (`gösterim_sayısı % marka_sayısı`).
-Gösterimler zaten faturalama için kaydedildiğinden ekstra durum tutmadan hem
-**kullanıcı bazında** hem eşit dağılımlı bir sıra elde ediliyor. Global imleç
-tercih edilmedi: iki kişi aynı anda açtığında ikisi de aynı markayı görürdü.
-Gerekçenin tamamı [NOTLAR.md](NOTLAR.md) içinde.
+**Rotation decision:** no separate cursor table — the position derives from
+how many impressions the user has in that slot (`impressions % brand_count`).
+Impressions are recorded for billing anyway, so this yields a **per-user**,
+evenly distributed rotation with zero extra state. A global cursor was
+rejected: two users opening at once would both see the same brand.
+Full rationale in [NOTES.md](NOTES.md).
 
-**Kalanlar:**
-- [ ] Giriş/gösterim uç noktalarına rate limit (sahte gösterim üretimine karşı)
-- [ ] Bağış yapmış kullanıcıya reklamsız deneyim (madde 2 gelince karar verilecek)
-- [ ] Reklam bandının kapatılabilir olup olmayacağı
-
-<details>
-<summary>Orijinal plan (referans için)</summary>
-
-### İstenen akış
-Mama ve su ekleme pop-up'larının altında reklam çıkar: mama sayfasında mama
-markası, su sayfasında su markası. Hayvan profilindeki hastalık takibi
-bölümünde hastalık eklerken veteriner kliniği reklamı çıkar. Markalar admin
-sayfasından girilir; **her tıkta sıra bir sonraki markaya geçer.**
-
-### Önerilen yaklaşım
-Hazır bir reklam ağı (AdMob vb.) değil, **kendi basit reklam sunucumuz** —
-çünkü markalar elle giriliyor ve yerleşimler çok spesifik.
-
-Üç yerleşim (slot): `food_popup`, `water_popup`, `vet_health_record`.
-
-**Rotasyon:** "her tıkta sıra bir sonrakine geçer" ifadesini netleştirmek
-gerekiyor. En mantıklı yorum: her yerleşim için bir imleç tutulur, reklam
-gösterildikçe (veya tıklandıkça) sıradaki markaya geçilir. Bunu **sunucu
-tarafında** yerleşim başına bir sayaçla yapmak en basiti; her kullanıcının kendi
-sırasını görmesi isteniyorsa imleç kullanıcı bazında tutulur. Karar sizin —
-ikisi de birkaç satır fark.
-
-**Ölçüm şart:** Markalara "şu kadar gösterim, şu kadar tık" diyebilmek için
-gösterim ve tıklama ayrı ayrı kaydedilmeli; bu olmadan reklam satılamaz.
-
-### Veri modeli taslağı
-```
-advertisers   (id, name, logo_url, target_url, slot, weight, active,
-               starts_at, ends_at, sort_order)
-ad_events     (id, advertiser_id, user_id, type 'impression'|'click', created_at)
-```
-
-### Yapılacaklar
-- [ ] Şema: `advertisers`, `ad_events`
-- [ ] Backend: `GET /api/ads?slot=...` (rotasyonla bir reklam döner),
-      `POST /api/ads/:id/click`, gösterim kaydı
-- [ ] Admin: reklamveren CRUD, yerleşim seçimi, tarih aralığı, gösterim/tık raporu
-- [ ] Mobil: mama pop-up'ı, su pop-up'ı ve sağlık kaydı ekleme ekranına reklam
-      bandı; tıklayınca hedef URL'i aç
-- [ ] Reklam yokken düzenin bozulmaması (boş slot durumu)
-
-</details>
-
-### Karar verilmesi gerekenler
-- Rotasyon imleci global mi, kullanıcı başına mı?
-- Reklam gösterilmeyecek durumlar var mı? (ör. bağış yapmış kullanıcıya
-  reklamsız deneyim)
-- Reklam bandı kapatılabilir olacak mı?
+**Remaining:**
+- [ ] Rate limiting on login/impression endpoints (against fake impressions)
+- [ ] Ad-free experience for donors (decided with item 2)
+- [ ] Whether the banner should be dismissible
 
 ---
 
-## 4. UI — ✅ tasarım sistemi ve giydirme tamamlandı
+## 4. UI — ✅ design system and re-skin done
 
-**Yapıldı (18 Ağustos 2026):** "pati" marka kimliği uygulandı. Ayrıntılı
-doküman: [TASARIM.md](TASARIM.md).
+**Shipped (August 18, 2026):** the "pati" brand identity. Details:
+[DESIGN.md](DESIGN.md).
 
-- **Tema katmanı** `mobile/src/theme/`: renk, tipografi, boşluk, köşe, gölge
-  token'ları + navigasyon teması. Marka kimliğinden gelen beş renk sabit
-  (turuncu `#F47A4A`, krem `#FFF3E7`, koyu gri `#2B2B2B`, yeşil `#34A853`,
-  kırmızı `#FF5C5C`), gerisi bunlardan türetildi.
-- **Nunito gömüldü** (SIL OFL, 4 ağırlık, ~520 KB). Türkçe karakterlerin
-  tamamı var. iOS + Android bağlantısı `react-native-asset` ile yapıldı.
-- **Çekirdek bileşenler** `mobile/src/components/ui/`: `Text`, `Button`,
-  `Card`, `Screen`, `Input`, `Chip`, `Banner`, `Avatar`, `SectionHeader`,
-  `Divider`, `EmptyState`/`LoadingState`.
-- **Marka bileşenleri** `mobile/src/components/brand/`: SVG `Logo` (harita
-  pini + kalp içeren pati), `Wordmark`, 20 ikonluk `Icon` seti.
-- **11 ekranın tamamı** ve 7 bileşen bu sisteme taşındı. Sabit renk kodu
-  sayısı 171'den 0'a indi (kalanlar yalnızca `theme/` altında).
-- Ana ekranda görünen ad `pati` yapıldı.
+- **Theme layer** `mobile/src/theme/`: color, typography, spacing, radius,
+  shadow tokens + navigation theme. Five brand colors fixed (orange
+  `#F47A4A`, cream `#FFF3E7`, charcoal `#2B2B2B`, green `#34A853`, red
+  `#FF5C5C`), the rest derived.
+- **Nunito embedded** (SIL OFL, 4 weights, ~520 KB), full Turkish coverage,
+  linked on iOS + Android via `react-native-asset`.
+- **Core components** in `mobile/src/components/ui/`; **brand components**
+  (SVG `Logo`, `Wordmark`, a 20-icon `Icon` set) in `components/brand/`.
+- **All 11 screens** and 7 components migrated; hard-coded hex count went
+  from 171 to 0 (the survivors live only under `theme/`).
+- Dark mode (system/light/dark, warm-coffee dark palette), app icon and
+  launch screens, package rename `com.straymobile` → **`com.patiapp`**.
+- The web PWA additionally moved to the **studio aesthetic**
+  (docs/design handoff): white surfaces, hairlines, Quicksand, gradient
+  discipline.
 
-**Ölçüm:** öncesinde 18 StyleSheet dosyasında 171 sabit hex, 28 farklı renk
-vardı (`#2e7d32` 33 kez, `#fff` 24, `#888` 23, `#eee` 19).
-
-**Karanlık mod (ikinci turda eklendi):** `ThemeProvider` + `useTheme()` +
-`makeStyles`. Seçim üç durumlu (Sistem / Açık / Koyu), Profilim ekranından
-değiştiriliyor ve cihazda saklanıyor. Koyu palet nötr gri değil sıcak kahve —
-marka kremi sıcak olduğu için gri bir koyu tema aynı uygulama gibi durmuyor.
-
-**Uygulama ikonu ve açılış ekranı (ikinci turda eklendi):**
-`mobile/scripts/generate-icons.mjs` ikonları `Logo.tsx` ile aynı SVG
-yollarından üretiyor (`npm run icons`) — iOS AppIcon seti, Android klasik +
-yuvarlak + uyarlanabilir ikon. iOS açılış ekranı markaya çevrildi, Android'de
-soğuk açılış zemini kreme alındı.
-
-**Paket adı değiştirildi:** `com.straymobile` → **`com.patiapp`** (Android
-`applicationId` + namespace + Kotlin paketi, iOS bundle identifier, npm paket
-adları). Depo adı `Stray` kaldı.
-
-### Kalanlar
-- [ ] **Erişilebilirlik: turuncu üstünde beyaz yazı.** `#F47A4A` üzerinde beyaz
-      kontrast oranı ölçüldü: **2,7:1** (AA için 4,5:1 gerekiyor). Marka kimliği
-      böyle verildiği için değiştirilmedi; yayına çıkmadan karar verilmeli.
-- [ ] **Ekran okuyucu etiketleri** uçtan uca test edilmedi.
-- [ ] **Admin paneli** hâlâ kendi renklerinde; mobil palete hizalanmalı.
-- [ ] **Depo adı** `Stray` → `pati`. Sadece kozmetik, ama `git remote`
-      adreslerini bozuyor; GitHub eskisini yönlendiriyor.
-
-### Karar verilmesi gerekenler
-- ~~Hazır bir tasarım var mı?~~ → "pati" marka kimliği verildi, uygulandı
-- ~~Depo ve paket adı `Stray` kalsın mı?~~ → paket adı `com.patiapp` yapıldı
-- ~~Karanlık mod bu sürümde olacak mı?~~ → eklendi
-- **Turuncu butonlarda kontrast düzeltilsin mi?** Dolgu koyulaştırılabilir
-  (~`#C2551F`, 4,6:1) ya da yazı koyulaştırılabilir (`#2B2B2B`, 5,3:1).
-  İkisi de markadan bir tık sapıyor. **(açık)**
+### Remaining
+- [ ] **Accessibility: white on orange.** Measured contrast on `#F47A4A` is
+      **2.7:1** (AA needs 4.5:1). Kept because the brand identity shows it;
+      decide before launch (darker fill ~`#C2551F` at 4.6:1, or dark text at
+      5.3:1). *(The web studio aesthetic's gradient buttons have the same
+      question.)*
+- [ ] **Screen-reader labels** untested end to end.
+- [ ] **Admin panel** still on its own palette; align with the brand.
+- [ ] **Mobile port of the studio aesthetic** — web is ahead of mobile now.
 
 ---
 
-## 5. Admin sayfası (web) — ✅ temel panel tamamlandı
+## 5. Admin panel (web) — ✅ done
 
-**Yapıldı (18 Ağustos 2026):** `admin/` klasöründe React + Vite + TypeScript
-paneli. Altyapı: `requireAdmin` middleware, `/api/admin/*` route grubu,
-`users.suspended_at` ile askıya alma ve `audit_log` denetim kaydı. Ekranlar:
-gösterge paneli (30 günlük aktivite grafiği), kullanıcı yönetimi, hayvan yönetimi
-+ mükerrer birleştirme, bakım kaydı fotoğraf moderasyonu, yorum moderasyonu,
-denetim kaydı. İlk yönetici `npm run make-admin` scriptiyle oluşturuluyor.
+**Shipped (August 18, 2026):** React + Vite + TypeScript panel in `admin/`.
+Infrastructure: `requireAdmin`, the `/api/admin/*` route group,
+`users.suspended_at` suspension, and the `audit_log`. Screens: dashboard
+(30-day activity chart), users, animals + duplicate merge, care-photo
+moderation, comment moderation, audit log. First admin via
+`npm run make-admin`. Advertiser management arrived with item 3. The panel is
+served in production from the same Fly app under `ADMIN_HOST`
+(admin.pati-app.com).
 
-**Kalanlar:**
-- [ ] Reklamveren yönetimi (madde 3 ile birlikte)
-- [ ] Bağış kurumu yönetimi ve raporları (madde 2 ile birlikte)
-- [ ] Panelin dağıtımı: nerede yayınlanacak, IP kısıtı olacak mı, 2FA gerekli mi
-- [ ] Giriş uç noktasına rate limit (parola deneme saldırısına karşı)
-
-<details>
-<summary>Orijinal plan (referans için)</summary>
-
-### İstenen
-Tüm uygulamanın kontrol edileceği, verinin takip ve manipüle edileceği web
-tabanlı admin paneli.
-
-### Önerilen yaklaşım
-Aynı repo içinde yeni bir `admin/` klasörü; **React + Vite + TypeScript**.
-Mevcut API'yi kullanır, ayrı bir backend kurulmaz. Kimlik doğrulama mevcut JWT
-ile, ama **rol kontrolü eklenmeli**.
-
-**Önce altyapı:**
-- `users.role` kolonu zaten var (`'user' | 'vet' | 'admin'`) ama yalnızca sağlık
-  kaydının "veteriner onaylı" işaretlenmesinde okunuyor — yetkilendirme için
-  kullanılmaya başlanmalı
-- `requireAdmin` middleware
-- `/api/admin/*` route grubu
-- Admin işlemlerinin denetim kaydı (`audit_log`) — kim neyi ne zaman değiştirdi.
-  Veri manipüle edilebilen bir panelde bu olmadan hata ayıklanamaz.
-
-**Panelde olması gerekenler:**
-- **Gösterge paneli:** kullanıcı/hayvan/bakım sayıları, günlük aktivite grafiği,
-  şehir bazlı dağılım
-- **Kullanıcılar:** arama, detay, rol değiştirme, askıya alma, puan/rozet
-  görüntüleme
-- **Hayvanlar:** listeleme, düzenleme, silme, **mükerrer kayıtları birleştirme**
-  (YZ eşleştirme gelene kadar elle çözüm)
-- **Bakım kayıtları:** harita üzerinde ve liste hâlinde, **fotoğraf moderasyonu**
-  (sahte/uygunsuz kayıtları silme) — bugün hiçbir moderasyon yok
-- **Sağlık kayıtları:** görüntüleme, gerekirse düzeltme
-- **Reklamverenler** (madde 3) ve **bağış kurumları** (madde 2) CRUD + raporlar
-- **İçerik moderasyonu:** yorum silme, kullanıcı şikâyetleri
-
-### Yapılacaklar
-- [ ] Şema: `audit_log` (denetim kaydı)
-- [ ] Backend: `requireAdmin`, `/api/admin/*` uç noktaları, denetim kaydı
-- [ ] `admin/` web projesi (Vite + React + TS), giriş ekranı, yetki koruması
-- [ ] Gösterge paneli
-- [ ] Kullanıcı / hayvan / bakım kaydı yönetim ekranları
-- [ ] Reklamveren ve bağış kurumu yönetimi (2 ve 3 ile birlikte)
-- [ ] Dağıtım: admin paneli nerede yayınlanacak, kim erişebilecek
-
-### Karar verilmesi gerekenler
-- ~~İlk admin kullanıcısı nasıl oluşturulacak?~~ → `npm run make-admin` scripti
-- Panel herkese açık bir adreste mi olacak, yoksa IP kısıtlı mı? **(hâlâ açık)**
-- İki aşamalı doğrulama (2FA) gerekli mi? Veri manipüle edilebilen bir panel
-  için önerilir. **(hâlâ açık)**
-
-</details>
+**Remaining:**
+- [ ] Donation-org management and reports (with item 2)
+- [ ] IP allowlisting and/or 2FA for the panel — recommended for a panel
+      that can manipulate data **(open)**
 
 ---
 
-## 🚀 Yayına Çıkma Sprint'i — ertelendi, unutulmayacak
+## 🚀 Launch sprint — deferred, not forgotten
 
-> **Durum: ertelendi (18 Ağustos 2026).** Karar: "yayına çıkmaya daha çok var,
-> şimdilik admin panelinden devam edelim." Bu bölüm bilerek burada duruyor —
-> özellik geliştirmeye devam edilse bile bu maddeler **gerçek bir kullanıcı
-> uygulamaya dokunmadan önce** kapatılmak zorunda. Aşağıdaki maddelerden biri
-> bile eksikken canlıya çıkılırsa veri kaybı, kötüye kullanım veya KVKK sorunu
-> yaşanır.
+> **Status: in progress.** Deployment infrastructure shipped (Fly.io, single
+> image, guide demo data); the remaining items below must close **before any
+> real user touches the app**. Shipping with even one of them missing means
+> data loss, abuse, or a KVKK (privacy-law) problem.
 >
-> **Bu sprint'i her büyük iş bitiminde tekrar gündeme getir.**
+> **Bring this sprint up at the end of every major task.**
 
-Bunlar özellik değil, "yayınlanabilir hâle gelme" işleri —
-[NOTLAR.md](NOTLAR.md#3-bilinen-sınırlar-ve-teknik-borç) içinde gerekçeleriyle
-duruyor. Tahmini süre: 1–2 hafta.
+These are not features; they are "become shippable" work. Rationale lives in
+[NOTES.md](NOTES.md). Estimate: 1–2 weeks.
 
-**Veri güvenliği (bunlar olmadan gerçek veri girilmemeli):**
-- [ ] Fotoğrafları nesne depolamaya (S3/R2) taşı + görsel yeniden boyutlandırma
-      — bugün sunucunun yerel diskinde, konteyner yeniden oluşturulunca kayboluyor
-- [ ] Artımlı migrasyon aracına geç (node-pg-migrate / Knex) — bugün şema
-      değişince veritabanı sıfırlanıyor
-- [ ] Veritabanı yedeği (yönetilen Postgres kullanılacaksa otomatik gelir)
+**Data safety (no real data before these):**
+- [ ] Move photos to object storage (S3/R2) + image resizing — today they
+      sit on the machine's disk (a persistent Fly volume, but single-node
+      and unversioned)
+- [ ] Move to incremental migrations (node-pg-migrate / Knex) — today a
+      schema change resets the database
+- [x] Database backups — automatic with managed Fly Postgres
 
-**Kötüye kullanım koruması:**
-- [ ] Rate limit (özellikle `POST /care-actions` ve yorum uç noktalarında)
-- [ ] Fotoğraf moderasyonu — admin panelinin bir parçası (madde 5)
-- [ ] Kullanıcı askıya alma + JWT iptal mekanizması
-- [ ] CORS'u kısıtla
+**Abuse protection:**
+- [ ] Rate limiting beyond auth (especially `POST /care-actions` and
+      comments) — auth got 30/15 min on August 19
+- [x] Photo moderation — part of the admin panel (item 5)
+- [x] User suspension + JWT rejection on every request
+- [ ] Restrict CORS
 
-**Hukuk / mağaza:**
-- [ ] KVKK: aydınlatma metni, gizlilik politikası, veri silme akışı
-- [ ] Mağaza hazırlığı: ikon, ekran görüntüleri, gizlilik beyanı
-- [ ] **İç adları pati'ye çevir (mağaza öncesi ŞART):** iOS proje/target
-      `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace, scheme, Podfile),
-      Android paket/uygulama adı, backend log metni "Stray API", Docker
-      konteyneri `stray-db` ve veritabanı/rol adı `stray`, `.env.example`.
-      Native build + veritabanı sıfırlama gerektirir; bundle id `com.patiapp`
-      zaten doğru.
-- [ ] Konum override kodunu kaldır (`mobile/src/location.ts`)
+**Legal / stores:**
+- [ ] KVKK: privacy notice, privacy policy, data-deletion flow
+- [ ] Store prep: icon, screenshots, privacy declaration
+- [ ] **Rename internals to pati (REQUIRED before stores):** iOS
+      project/target `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace,
+      scheme, Podfile), Android package/app name, backend log text, Docker
+      container `stray-db` and db/role name `stray`, `.env.example`. Needs a
+      native build + database reset; bundle id `com.patiapp` is already right.
+- [ ] Remove the location-override code (`mobile/src/location.ts`)
 
-**Kalite:**
-- [ ] Backend testleri + CI (bugün backend'de hiç otomatik test yok)
-- [ ] Gerçek arka plan bildirimi (APNs/FCM) veya geofencing — bugün bildirimler
-      yalnızca uygulama çalışırken geliyor
+**Quality:**
+- [x] CI (web/admin/mobile/backend/docker gates on every push —
+      `.github/workflows/ci.yml`, August 19)
+- [ ] Backend tests (the `test-writer` subagent can bootstrap jest+supertest)
+- [ ] Real background notifications (APNs/FCM) or geofencing
 
-**Dağıtım:**
-- [ ] Backend'i bir sunucuya deploy et (Fly.io / Railway / Hetzner) + yönetilen
-      PostgreSQL + PostGIS
-- [ ] TestFlight (iOS) ve Play internal testing (Android) derlemeleri
-- [ ] Tek bir mahallede 10–20 gerçek kullanıcıyla pilot
+**Distribution:**
+- [x] Backend deployed (Fly.io single image + managed PostGIS + volume;
+      docs/DEPLOYMENT.md, August 19)
+- [ ] TestFlight (iOS) and Play internal testing (Android) builds
+- [ ] Pilot with 10–20 real users in a single neighborhood
