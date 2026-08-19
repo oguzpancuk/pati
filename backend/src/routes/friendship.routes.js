@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth.middleware');
+const { limits } = require('../middleware/rateLimit.middleware');
 const {
   sendRequest,
   acceptRequest,
@@ -10,7 +11,7 @@ const {
 const router = express.Router();
 
 router.get('/me', requireAuth, listMyFriendships);
-router.post('/', requireAuth, sendRequest);
+router.post('/', requireAuth, limits.friendRequests, sendRequest);
 router.post('/:id/accept', requireAuth, acceptRequest);
 router.delete('/:id', requireAuth, removeFriendship);
 

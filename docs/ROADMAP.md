@@ -367,8 +367,14 @@ These are not features; they are "become shippable" work. Rationale lives in
 - [x] Database backups — automatic with managed Fly Postgres
 
 **Abuse protection:**
-- [ ] Rate limiting beyond auth (especially `POST /care-actions` and
-      comments) — auth got 30/15 min on August 19
+- [x] Rate limiting beyond auth — every content write is now capped
+      **per user** (not per IP: Turkish carriers CGNAT thousands of users
+      behind one address). Ceilings sized at ~3x the heaviest honest use:
+      care actions 40/h, new animals 20/h, comments 60/h, sightings/
+      photos/follows 30/h, health+vaccine records 30/h, avatar 15/h,
+      friend requests 30/h (`src/middleware/rateLimit.middleware.js`,
+      Aug 19). In-process store — fine for one machine; a second machine
+      needs a shared store. Auth keeps its per-IP 30/15 min
 - [x] Photo moderation — part of the admin panel (item 5)
 - [x] User reports + moderation queue — `content_reports` table,
       `POST /api/reports` (rate-limited, one open report per user per
@@ -380,9 +386,10 @@ These are not features; they are "become shippable" work. Rationale lives in
 **Legal / stores:**
 - [x] KVKK: privacy notice + short terms live at `/gizlilik` (source:
       `web/src/legal.ts`), linked from register screens, profile pages and
-      the landing page (Aug 19). Remaining: fill in the veri sorumlusu
-      name placeholder; a self-service data-deletion flow is still manual
-      (e-mail request)
+      the landing page (Aug 19). Veri sorumlusu filled in (Oğuz Pancuk).
+      Remaining: create/forward the iletisim@pati-app.com mailbox (Ops —
+      KVKK requests must actually arrive somewhere); a self-service
+      data-deletion flow is still manual (e-mail request)
 - [ ] Store prep: icon, screenshots, privacy declaration
 - [ ] **Rename internals to pati (REQUIRED before stores):** iOS
       project/target `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace,
