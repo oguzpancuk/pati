@@ -2,17 +2,17 @@ import React from 'react';
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, Path, Rect } from 'react-native-svg';
 
 /**
- * Hayvanın tür/desenine göre çizilen karikatür avatar. Sözlükteki 5+1 kedi ve
- * 5+1 köpek çeşidinin her birinin kendi yüzü var; "Diğer" (listede olmayan
- * serbest metin) türe göre nötr bir yüze düşüyor.
+ * A cartoon avatar drawn from the animal's species/pattern. Each of the
+ * taxonomy's 5+1 cat and 5+1 dog varieties has its own face; "Diğer" (free
+ * text not on the list) falls back to a neutral face per species.
  *
- * Fotoğraf yerine bunun kullanılmasının nedeni tutarlılık: sokak fotoğrafları
- * karanlık, bulanık ve kadraj dışı olabiliyor; küçük yuvarlak içinde çoğu
- * zaman ne olduğu seçilemiyordu. Fotoğraflar profildeki galeride duruyor,
- * hayvanın "yüzü" ise haritada ve listelerde her zaman aynı çizim.
+ * Why this instead of photos: consistency. Street photos can be dark,
+ * blurry and badly framed; in a small circle they were rarely legible.
+ * Photos live in the profile gallery, while the animal's "face" is always
+ * the same drawing on the map and in lists.
  *
- * Desen adları `taxonomy.ts` içindeki listelerle birebir aynı olmalı —
- * listeye çeşit eklenirse buraya da yüzü eklenmeli.
+ * Pattern names must match the `taxonomy.ts` lists exactly — adding a
+ * variety to the list means adding its face here.
  */
 type Props = {
   species: 'cat' | 'dog';
@@ -126,7 +126,7 @@ const DOG_OTHER: DogVariant = {
 let clipCounter = 0;
 
 export default function AnimalPatternAvatar({ species, breed, size = 36 }: Props) {
-  // Aynı ekranda onlarca marker olabildiği için clip id'leri çakışmamalı.
+  // Dozens of markers can share a screen, so clip ids must not collide.
   const clipId = React.useRef(`pati-animal-clip-${(clipCounter += 1)}`).current;
   const variant =
     species === 'cat'
@@ -156,8 +156,8 @@ function CatFace({ v }: { v: CatVariant }) {
   const mark2 = v.mark2 ?? v.mark;
   return (
     <>
-      {/* Kulaklar başın arkasında; iç kulak pembesi kediyi köpekten ayıran
-          en okunur işaret. */}
+      {/* Ears behind the head; the pink inner ear is the most legible
+          cat-versus-dog marker. */}
       <Path d="M15 24 L18 8 L30 17 Z" fill={v.fur} />
       <Path d="M49 24 L46 8 L34 17 Z" fill={v.fur} />
       <Path d="M18.6 20.2 L20 11.8 L26.6 16.8 Z" fill="#E8A0A0" />
@@ -222,13 +222,13 @@ function DogFace({ v }: { v: DogVariant }) {
     <>
       {v.kind === 'beard' ? (
         <>
-          {/* Dik terrier kulakları */}
+          {/* Upright terrier ears */}
           <Path d="M17 25 L19 9 L29 16 Z" fill={v.ears} />
           <Path d="M47 25 L45 9 L35 16 Z" fill={v.ears} />
         </>
       ) : (
         <>
-          {/* Düşük kulaklar başın yanında */}
+          {/* Drooping ears beside the head */}
           <Path
             d="M14.5 22c-2.6 4-3.4 10.5-1.6 16.5 1.4 4.6 5.4 6.6 8.6 4.6 2.6-1.6 3.4-5.6 2.4-10.5-1-5-4.6-9.4-9.4-10.6Z"
             fill={v.ears}
@@ -239,8 +239,8 @@ function DogFace({ v }: { v: DogVariant }) {
           />
         </>
       )}
-      {/* Kısa bacaklı melezde baş hafif uzun: gövde görünmediği için tipin
-          tek okunur izi bu. */}
+      {/* On the short-legged mix the head is slightly long: with no body
+          visible, this is the type's only legible cue. */}
       <Ellipse cx={32} cy={31.5} rx={17.5} ry={v.kind === 'long' ? 20.5 : 19} fill={v.fur} />
 
       <Ellipse

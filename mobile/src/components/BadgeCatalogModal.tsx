@@ -23,8 +23,8 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   badges: Badge[];
-  // Seçim modu yalnızca kendi profilinde açılır; başkasının profilinde katalog
-  // salt görüntüleme olarak çalışır.
+  // Selection mode opens only on your own profile; on someone else's the
+  // catalog is read-only.
   selectable?: boolean;
   featuredKeys?: string[];
   maxFeatured?: number;
@@ -47,7 +47,7 @@ export default function BadgeCatalogModal({
   const [selection, setSelection] = useState<string[]>(featuredKeys);
   const [saving, setSaving] = useState(false);
 
-  // Modal her açıldığında mevcut seçimle başlasın.
+  // Start from the current selection every time the modal opens.
   const featuredSignature = featuredKeys.join('|');
   const initialSelection = useMemo(() => featuredKeys, [featuredSignature]);
   React.useEffect(() => {

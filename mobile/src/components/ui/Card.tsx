@@ -5,13 +5,13 @@ import { makeStyles, radius, spacing } from '../../theme';
 export type CardProps = {
   children: React.ReactNode;
   onPress?: () => void;
-  /** flat: gölge yok, sadece ince çerçeve (liste içi yoğun kullanımda). */
+  /** flat: no shadow, just a thin border (for dense in-list use). */
   variant?: 'raised' | 'flat' | 'tinted';
   padding?: keyof typeof spacing | 'none';
   style?: StyleProp<ViewStyle>;
 };
 
-/** Zemin üzerinde yükseltilmiş yüzey. Uygulamadaki temel gruplama kabı. */
+/** A raised surface over the background. The app's basic grouping container. */
 export default function Card({
   children,
   onPress,

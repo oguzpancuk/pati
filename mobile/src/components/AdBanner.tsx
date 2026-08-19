@@ -7,23 +7,23 @@ import { makeStyles, radius, spacing, useTheme } from '../theme';
 
 interface Props {
   slot: AdSlot;
-  /** Bant yalnızca görünürken yüklensin diye: pop-up kapalıyken false geçilir. */
+  /** So the banner loads only while visible: false while the popup is closed. */
   visible?: boolean;
 }
 
 /**
- * Yerleşime göre tek bir reklam gösteren bant.
+ * A banner showing a single ad per placement.
  *
- * Yayında reklam yoksa hiçbir şey çizilmez — boş bir kutu bırakmak düzeni
- * bozardı. Gösterim, reklam gerçekten ekrana geldiğinde bildirilir; bu hem
- * faturalamayı doğru tutar hem de sıradaki markaya geçişi tetikler.
+ * When nothing is live, nothing renders — leaving an empty box would break
+ * the layout. The impression is reported when the ad actually reaches the
+ * screen; that keeps billing honest and advances rotation to the next brand.
  */
 export default function AdBanner({ slot, visible = true }: Props) {
   const [ad, setAd] = useState<Ad | null>(null);
   const styles = useStyles();
   const { colors } = useTheme();
-  // Aynı reklam için gösterimi iki kez bildirmemek adına (React yeniden render
-  // ettiğinde ya da pop-up tekrar açıldığında).
+  // To avoid reporting the same ad's impression twice (on React re-renders
+  // or when the popup reopens).
   const reportedRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -40,13 +40,13 @@ export default function AdBanner({ slot, visible = true }: Props) {
         setAd(next);
         if (reportedRef.current !== next.id) {
           reportedRef.current = next.id;
-          // Gösterim bildirimi başarısız olursa reklam yine görünür; yalnızca
-          // sayaç ve rotasyon bir adım geride kalır.
+          // If the impression report fails the ad still shows; only the
+          // counter and rotation fall one step behind.
           recordAdImpression(next.id).catch(() => {});
         }
       })
       .catch(() => {
-        // Reklam ikincil bir özellik: hata durumunda bant sessizce görünmez.
+        // Ads are a secondary feature: on error the banner silently doesn't show.
       });
 
     return () => {
@@ -62,7 +62,7 @@ export default function AdBanner({ slot, visible = true }: Props) {
     try {
       await Linking.openURL(ad.target_url);
     } catch {
-      // Açılamayan bağlantı için kullanıcıyı uyarmıyoruz; reklam akışı kesmemeli.
+      // No warning for a link that won't open; an ad must not interrupt the flow.
     }
   }
 
@@ -71,9 +71,9 @@ export default function AdBanner({ slot, visible = true }: Props) {
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
       onPress={handlePress}
     >
-      {/* "REKLAM" etiketi zorunlu: kullanıcı neyin içerik neyin reklam olduğunu
-          ayırt edebilmeli. Marka renginden uzak, nötr bir tonda duruyor ki
-          uygulamanın kendi eylemleriyle karışmasın. */}
+      {/* The "REKLAM" (ad) label is mandatory: users must be able to tell
+          content from ads. Kept in a neutral tone away from the brand color
+          so it doesn't blend with the app's own actions. */}
       <Text variant="micro" style={styles.label}>
         REKLAM
       </Text>

@@ -5,13 +5,13 @@ import { hitSlop, makeStyles, spacing } from '../../theme';
 
 export type SectionHeaderProps = {
   title: string;
-  /** Sağdaki bağlantı, ör. "Tümünü gör". */
+  /** The link on the right, e.g. "see all". */
   actionLabel?: string;
   onAction?: () => void;
   style?: StyleProp<ViewStyle>;
 };
 
-/** Bölüm başlığı + sağda isteğe bağlı bağlantı. */
+/** Section title + an optional link on the right. */
 export default function SectionHeader({ title, actionLabel, onAction, style }: SectionHeaderProps) {
   const styles = useStyles();
   return (

@@ -10,7 +10,7 @@ export type BannerProps = {
   emoji?: string;
   title: string;
   description?: string;
-  /** Sağ tarafa buton vb. koymak için. */
+  /** For placing a button etc. on the right. */
   trailing?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 };
@@ -30,7 +30,7 @@ function toneColors(c: Palette, tone: Tone) {
   }
 }
 
-/** Ekran içi durum kutusu: hata mesajı, "bu bölgede mama yok" uyarısı vb. */
+/** In-screen status box: error messages, "no food in this area" warnings, etc. */
 export default function Banner({
   tone = 'info',
   emoji,
@@ -71,7 +71,7 @@ const useStyles = makeStyles(() => ({
     paddingLeft: spacing.md,
     overflow: 'hidden',
   },
-  // Sol kenardaki renkli şerit; tonu tek bakışta belli ediyor.
+  // The colored strip on the left edge; reveals the tone at a glance.
   bar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
   emoji: { fontSize: 20, lineHeight: 26, marginRight: spacing.md },
   textCol: { flex: 1 },

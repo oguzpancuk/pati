@@ -4,7 +4,7 @@ import { useTheme, type Theme } from './ThemeContext';
 type NamedStyles = Record<string, ViewStyle | TextStyle | ImageStyle>;
 
 /**
- * Temaya bağlı `StyleSheet`. `StyleSheet.create(...)` yerine bunu kullanın:
+ * A theme-bound `StyleSheet`. Use this instead of `StyleSheet.create(...)`:
  *
  *   const useStyles = makeStyles(({ colors: c, shadow }) => ({
  *     card: { backgroundColor: c.surface, ...shadow.card },
@@ -14,9 +14,9 @@ type NamedStyles = Record<string, ViewStyle | TextStyle | ImageStyle>;
  *     const styles = useStyles();
  *   }
  *
- * Stil sayfası tema başına bir kez üretilip saklanıyor; her render'da yeniden
- * `StyleSheet.create` çağırmak gereksiz iş olurdu. Tema sayısı iki olduğu için
- * önbellek sınırsız büyümüyor.
+ * The stylesheet is built once per theme and cached; calling
+ * `StyleSheet.create` on every render would be wasted work. With only two
+ * themes, the cache never grows unbounded.
  */
 export function makeStyles<T extends NamedStyles>(factory: (theme: Theme) => T) {
   const cache: Partial<Record<Theme['name'], T>> = {};

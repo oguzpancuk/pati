@@ -52,8 +52,8 @@ const RECORD_TYPE_LABELS: Record<HealthRecordType, string> = {
   injury: 'Yaralanma',
 };
 
-// Durum renkleri tema tonlarından: kırmızı = müdahale bekliyor, turuncu =
-// sürüyor, yeşil = kapandı.
+// Status colors from the theme tones: red = awaiting intervention, orange =
+// ongoing, green = closed.
 const STATUS_META: Record<
   HealthRecordStatus,
   { label: string; tone: 'danger' | 'warning' | 'success' }
@@ -79,14 +79,14 @@ function formatDate(iso: string) {
   });
 }
 
-// Sohbet profilde bir özet: açılışta yalnızca son 3 yorum (profil uzamasın,
-// sağlık/aşı bölümleri gömülmesin); "önceki yorumları yükle" dedikçe 20'lik
-// sayfalar üste ekleniyor.
+// Chat is a summary on the profile: only the last 3 comments at open (the
+// profile mustn't stretch and bury the health/vaccine sections); "load
+// earlier comments" prepends pages of 20.
 const COMMENT_PREVIEW = 3;
 const COMMENT_PAGE = 20;
-// Aşı ve sağlık kayıtları profille birlikte tam geliyor (kısa listeler);
-// kartları uzun olduğu için (durum rozeti, "iyileşti" düğmesi) 2'den fazlası
-// katlanıyor — 3 kart bile sohbeti ekranın altına itiyordu.
+// Vaccinations and health records arrive complete with the profile (short
+// lists); their cards are tall (status tag, "recovered" button) so more than
+// 2 folds away — even 3 cards pushed the chat below the screen.
 const RECORD_PREVIEW = 2;
 
 export default function AnimalProfileScreen({ route, navigation }: any) {
@@ -94,15 +94,16 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
   const { animalId } = route.params;
-  // Hayvan ekleme akışından "bu hayvan mı?" diye bakılıyorsa yorum kutusu
-  // yerine karar çubuğu çıkar. Karar AddAnimal'a parametreyle dönüyor; konum
-  // güncelleme ve bakım listesine ekleme orada tek yerde yapılıyor.
+  // When viewed from the add-animal flow as "is this the animal?", a
+  // decision bar replaces the comment box. The decision returns to AddAnimal
+  // via a param; location update and care-list insertion happen there, in
+  // one place.
   const matchReview: boolean = !!route.params?.matchReview;
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [draft, setDraft] = useState('');
-  // Yoruma bağlanacak sağlık kaydı: "şu hastalık için ilacını verdim" gibi
-  // yorumların ilgili kayda iliştirilmesini sağlar. Aşıların sohbeti yok.
+  // The health record a comment attaches to: lets comments like "gave the
+  // medication for this illness" pin to the record. Vaccinations have no chat.
   const [linkedRecord, setLinkedRecord] = useState<HealthRecord | null>(null);
   const [sending, setSending] = useState(false);
 
@@ -116,7 +117,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const [vaccineNote, setVaccineNote] = useState('');
   const [savingVaccine, setSavingVaccine] = useState(false);
 
-  // Bir sağlık kaydına tıklandığında yalnızca o kayda bağlı yorumlar listelenir.
+  // Tapping a health record lists only the comments bound to that record.
   const [logRecord, setLogRecord] = useState<HealthRecord | null>(null);
   const [logComments, setLogComments] = useState<AnimalComment[]>([]);
   const [commentTotal, setCommentTotal] = useState(0);
@@ -138,8 +139,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
     }
   }, [animalId]);
 
-  // Sohbet en yeniden geriye açılıyor: son sayfa ekranda, eskiler düğmeyle.
-  // Öncekiler listenin *başına* ekleniyor ki kronoloji bozulmasın.
+  // Chat opens newest-first: the last page on screen, older ones behind the
+  // button. Earlier pages are *prepended* so chronology stays intact.
   async function handleLoadOlderComments() {
     setLoadingOlder(true);
     try {
@@ -227,7 +228,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
 
   async function handleOpenLog(record: HealthRecord) {
     try {
-      // Kayıt sohbeti kısa (tek konu); tek sayfada tamamı yeterli.
+      // Record chat is short (single topic); one full page is enough.
       const data = await fetchAnimalComments(animalId, { healthRecordId: record.id, limit: 100 });
       setLogComments(data.comments);
       setLogRecord(record);
@@ -247,8 +248,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           onPress: async () => {
             try {
               const updated = await markHealthRecordRecovered(animalId, record.id);
-              // Yoruma bağlanmak için seçiliyse seçimi kaldır: kapanmış kayda
-              // yorum gönderilemez.
+              // If selected as the comment target, deselect: a closed
+              // record takes no comments.
               setLinkedRecord((prev) => (prev?.id === record.id ? null : prev));
               await load();
               celebrate(updated);
@@ -275,8 +276,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const latitude = animal.location.coordinates[1];
   const longitude = animal.location.coordinates[0];
-  // İyileşmiş kayıtlar kapalı; sunucu da yorum kabul etmediği için seçilebilir
-  // listede hiç göstermiyoruz.
+  // Recovered records are closed; the server rejects comments on them too,
+  // so they never appear in the selectable list.
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
 
   return (
@@ -330,10 +331,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           </MapView>
         </View>
 
-        {/* Aşı, sağlık kaydının üstünde: "bu hayvan aşılı mı" sorusu sokakta
-            hastalık geçmişinden önce geliyor (kuduz riski, yaklaşılabilir mi).
-            Kartlar dokunulabilir değil — aşının sohbeti yok, tek seferlik ve
-            doğrulanabilir bir olay. */}
+        {/* Vaccinations above health records: on the street, "is this animal
+            vaccinated" comes before its illness history (rabies risk, can it
+            be approached). The cards aren't tappable — vaccines have no
+            chat, being one-off, verifiable events. */}
         <SectionHeader
           title="Aşı kayıtları"
           actionLabel={animal.isCarer ? '+ Aşı ekle' : undefined}
@@ -552,8 +553,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                     selected={recordType === option}
                     onPress={() => {
                       setRecordType(option);
-                      // Başlık listesi tipe göre değişiyor; hastalıktan
-                      // yaralanmaya geçince eski seçim anlamsız kalıyor.
+                      // The title list changes with the type; switching
+                      // from illness to injury invalidates the old pick.
                       setRecordDescription(null);
                     }}
                   />
@@ -568,8 +569,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 maxLength={200}
               />
 
-              {/* Hastalık/yaralanma kaydı girenler veteriner arayışında
-                  olabiliyor; reklam bu yüzden burada duruyor. */}
+              {/* People entering illness/injury records may be looking for
+                  a vet; that's why the ad sits here. */}
               <AdBanner slot="vet_health_record" visible={recordModalVisible} />
             </ScrollView>
             <Button

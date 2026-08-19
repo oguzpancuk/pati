@@ -4,8 +4,8 @@ import { fetchCareStatus } from './api/care';
 import { getCurrentLocation } from './location';
 
 const CHANNEL_ID = 'care-alerts';
-// Aynı bölge için sürekli bildirim yağmasın: bir uyarı gönderildikten sonra bu
-// süre boyunca aynı tür için tekrar gönderilmiyor.
+// No notification storm for the same area: after one alert, the same type
+// isn't sent again for this long.
 const COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const LAST_ALERT_KEY = 'careAlerts:lastSentAt';
 
@@ -43,14 +43,14 @@ async function writeCooldown(map: Record<string, number>) {
 }
 
 /**
- * Kullanıcının bulunduğu yerin yakın çevresinde mama/su kalmadıysa (yeşil alan
- * solup bittiyse) cihaz üzerinde bir bildirim gösterir. Yarıçapı sunucu
- * belirliyor ve haritadaki yeşil dairenin yarıçapıyla aynı: yeşil dairenin
- * dışındaysa uyarı gelir, içindeyse gelmez.
+ * Shows an on-device notification when no food/water remains near the user
+ * (the green area has faded out). The radius is set by the server and equals
+ * the green circle on the map: outside the green circle you get the alert,
+ * inside you don't.
  *
- * Sunucuya "bu kullanıcıya bildirim gönder" demek yerine cihazın kendi konumunu
- * kontrol etmesinin sebebi: konum sürekli sunucuya gönderilmediği için sunucu
- * kimin nerede olduğunu bilmiyor. Bu yaklaşım konum verisini cihazda tutuyor.
+ * The device checks its own location instead of the server deciding "notify
+ * this user" because the location is never streamed to the server — it has
+ * no idea who is where. This approach keeps location data on the device.
  */
 export async function checkCareAndNotify(): Promise<boolean> {
   const token = await AsyncStorage.getItem('token');

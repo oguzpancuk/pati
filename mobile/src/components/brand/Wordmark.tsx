@@ -6,22 +6,22 @@ import { brand, fonts, makeStyles, spacing, useTheme } from '../../theme';
 
 export type WordmarkProps = {
   size?: 'sm' | 'md' | 'lg';
-  /** Sloganı da göster. */
+  /** Show the tagline too. */
   tagline?: boolean;
   color?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-// `line` bilerek yazılıyor: `fontSize` verilip `lineHeight` verilmeseydi yazı
-// varyantın satır yüksekliğine sıkışıp kırpılırdı. Oran 1,2 — Nunito
-// ExtraBold'un çıkıntılı harfleri (p, t, i noktası) rahat sığsın diye.
+// `line` is set on purpose: with `fontSize` but no `lineHeight` the text
+// would squeeze into the variant's line height and clip. Ratio 1.2 — so
+// Nunito ExtraBold's protruding letters (p, t, the dot on i) fit easily.
 const SIZES = {
   sm: { logo: 28, name: 22, line: 27 },
   md: { logo: 44, name: 32, line: 39 },
   lg: { logo: 72, name: 46, line: 56 },
 } as const;
 
-/** Logo + "pati" yazısı. Giriş/kayıt ekranlarının tepesinde kullanılıyor. */
+/** Logo + the "pati" text. Used at the top of the login/register screens. */
 export default function Wordmark({ size = 'md', tagline = false, color, style }: WordmarkProps) {
   const styles = useStyles();
   const { colors } = useTheme();

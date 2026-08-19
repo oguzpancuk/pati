@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mapColors, palettes, type Palette, type ThemeName } from './colors';
 import { makeShadows, type Shadows } from './layout';
 
-/** Kullanıcının seçimi. 'system' = telefonun ayarını takip et (varsayılan). */
+/** The user's choice. 'system' = follow the phone's setting (default). */
 export type ThemeMode = 'system' | 'light' | 'dark';
 
 export interface Theme {
@@ -27,8 +27,8 @@ function buildTheme(name: ThemeName): Theme {
   return { name, colors, shadow: makeShadows(colors), map: mapColors };
 }
 
-// Tema sağlayıcı henüz monte edilmemişken (ör. test render'ı) çökmemek için
-// açık tema varsayılan değer olarak duruyor.
+// The light theme stands as the default so nothing crashes before the
+// provider mounts (e.g. test renders).
 const ThemeContext = createContext<ThemeContextValue>({
   theme: buildTheme('light'),
   mode: 'system',
@@ -39,7 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('system');
 
-  // Seçim cihazda saklanıyor; uygulama her açılışta aynı temayla gelsin.
+  // The choice is stored on the device; the app opens with the same theme every time.
   useEffect(() => {
     let cancelled = false;
     AsyncStorage.getItem(STORAGE_KEY)
@@ -50,7 +50,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch(() => {
-        // Okunamazsa sistem temasıyla devam; tema tercihi kritik veri değil.
+        // If unreadable, continue with the system theme; the preference isn't critical data.
       });
     return () => {
       cancelled = true;
@@ -71,12 +71,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-/** Bileşen içinde renk/gölge okumak için. */
+/** For reading colors/shadows inside a component. */
 export function useTheme(): Theme {
   return useContext(ThemeContext).theme;
 }
 
-/** Tema seçicisi (Sistem / Açık / Koyu) için. */
+/** For the theme picker (System / Light / Dark). */
 export function useThemeMode() {
   const { mode, setMode } = useContext(ThemeContext);
   return { mode, setMode };

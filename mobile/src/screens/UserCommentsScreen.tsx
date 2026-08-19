@@ -17,7 +17,7 @@ function formatDate(iso: string) {
 
 export default function UserCommentsScreen({ route, navigation }: any) {
   const styles = useStyles();
-  // userId verilmezse kendi yorumlarımız listelenir.
+  // Without userId, our own comments are listed.
   const userId: number | 'me' = route.params?.userId ?? 'me';
   const [comments, setComments] = useState<UserComment[]>([]);
   const [total, setTotal] = useState(0);

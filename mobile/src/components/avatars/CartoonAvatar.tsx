@@ -3,12 +3,12 @@ import Svg, { Circle, ClipPath, Defs, Ellipse, G, Path, Rect } from 'react-nativ
 import type { AvatarVariant, HairStyle } from '../../avatars';
 
 /**
- * Hazır profil avatarı. 20 ayrı görsel dosyası yerine birkaç parametreden
- * çiziliyor (bkz. src/avatars.ts): zemin, ten, saç rengi, saç modeli ve
- * gözlük/sakal gibi ayrıntılar.
+ * The built-in profile avatar. Drawn from a few parameters instead of 20
+ * separate image files (see src/avatars.ts): background, skin, hair color,
+ * hairstyle and details like glasses/beard.
  *
- * Çizim 64 birimlik kare içinde, yüz merkezde. Omuzlar dairenin dışına
- * taşmasın diye zemin dairesiyle kırpılıyor.
+ * The drawing sits in a 64-unit square, face centered. Clipped by the
+ * background circle so the shoulders don't spill outside.
  */
 type Props = {
   variant: AvatarVariant;
@@ -35,10 +35,10 @@ export default function CartoonAvatar({ variant, size = 44 }: Props) {
       <G clipPath={`url(#${clipId})`}>
         <Rect x={0} y={0} width={64} height={64} fill={bg} />
 
-        {/* Saçın arkada kalan kısmı (uzun saç, at kuyruğu, afro) yüzden önce. */}
+        {/* The hair mass behind the head (long hair, ponytail, afro) draws before the face. */}
         {backHair(style, hair, shirt)}
 
-        {/* Boyun önce, omuzlar üstüne: yaka çizgisi boynu kesiyor. */}
+        {/* Neck first, shoulders on top: the collar line cuts across the neck. */}
         <Rect x={27.5} y={38} width={9} height={12} rx={4.5} fill={skin} />
         <Path d="M10 64c0-9.4 9.8-15 22-15s22 5.6 22 15z" fill={shirt} />
 
@@ -62,7 +62,7 @@ export default function CartoonAvatar({ variant, size = 44 }: Props) {
           </G>
         )}
 
-        {/* Yüz hatları: kaşlar, gözler, burun, ağız. */}
+        {/* Facial features: brows, eyes, nose, mouth. */}
         <G stroke="#3A2E27" strokeWidth={1.5} strokeLinecap="round" fill="none">
           <Path d="M22.5 24.5c1.6-1.2 3.8-1.2 5.4 0" />
           <Path d="M36.1 24.5c1.6-1.2 3.8-1.2 5.4 0" />
@@ -104,9 +104,9 @@ export default function CartoonAvatar({ variant, size = 44 }: Props) {
 }
 
 /**
- * Yüzün arkasında kalan saç kütlesi. Başörtüsü ve bere saç değil kumaş
- * olduğu için `fabric` (gömlekle uyumlu renk) alıyor — saç renginde çizilince
- * ikisi de "tuhaf bir saç modeli" gibi görünüyordu.
+ * The hair mass behind the face. The headscarf and beanie are fabric, not
+ * hair, so they take `fabric` (a color matching the shirt) — drawn in hair
+ * color they both looked like "a strange hairstyle".
  */
 function backHair(style: HairStyle, hair: string, fabric: string): React.ReactNode {
   switch (style) {
@@ -133,14 +133,14 @@ function backHair(style: HairStyle, hair: string, fabric: string): React.ReactNo
     case 'bun':
       return <Circle cx={32} cy={9} r={6.5} fill={hair} />;
     case 'headscarf':
-      // Örtü omuzlara kadar iniyor; yüzü çevreleyen kısmı önde çiziliyor.
+      // The scarf descends to the shoulders; the part framing the face draws in front.
       return <Path d="M13 32c0-12 8.6-19 19-19s19 7 19 19v20H13z" fill={fabric} />;
     default:
       return null;
   }
 }
 
-/** Alından ve tepeden görünen saç (ya da başörtüsü/bere). */
+/** The hair visible at the forehead and crown (or headscarf/beanie). */
 function frontHair(style: HairStyle, hair: string, fabric: string): React.ReactNode {
   switch (style) {
     case 'bald':
@@ -160,8 +160,9 @@ function frontHair(style: HairStyle, hair: string, fabric: string): React.ReactN
         />
       );
     case 'quiff':
-      // Yana taranmış, öne doğru yükselen perçem: silüeti diğerlerinden ayıran
-      // tek ayrıntı olduğu için tepe noktası bilerek abartılı.
+      // Side-swept fringe rising forward: it's the only detail separating
+      // this silhouette from the others, so the peak is deliberately
+      // exaggerated.
       return (
         <Path
           d="M17.6 29c0-10.4 6.6-16.4 14.4-16.4 4.6 0 8.4 2 10.8 5.6 1.6 2.4-.4 4-2.4 2.6-3.4-2.4-8.4-2.4-12.4.6-3.6 2.6-6.6 4.6-10.4 7.6Z"
@@ -193,15 +194,16 @@ function frontHair(style: HairStyle, hair: string, fabric: string): React.ReactN
         <>
           <Circle cx={32} cy={7.5} r={3.6} fill={fabric} />
           <Path d="M17.4 24c0-9 6.6-14.6 14.6-14.6S46.6 15 46.6 24z" fill={fabric} />
-          {/* Katlanmış kenar: bereyi kâse kesim saçtan ayıran şey bu bant. */}
+          {/* The folded brim: this band is what separates the beanie from bowl-cut hair. */}
           <Rect x={16} y={21.6} width={32} height={5} rx={2.5} fill={fabric} />
           <Rect x={16} y={21.6} width={32} height={5} rx={2.5} fill="#00000026" />
         </>
       );
     case 'headscarf':
-      // Yüzü çevreleyen halka: dış hat baştan çeneye kadar iniyor, iç hat yüzü
-      // açıkta bırakıyor (evenodd ile delik). Örtüyü saç modelinden ayıran şey
-      // alnı tamamen kapatması ve çenenin altından geçmesi.
+      // The ring framing the face: the outer path descends from the head to
+      // the chin, the inner path leaves the face open (a hole via evenodd).
+      // What separates the scarf from a hairstyle is covering the forehead
+      // entirely and passing under the chin.
       return (
         <>
           <Path
@@ -210,7 +212,7 @@ function frontHair(style: HairStyle, hair: string, fabric: string): React.ReactN
             fill={fabric}
             fillRule="evenodd"
           />
-          {/* Yandaki düğüm. */}
+          {/* The knot at the side. */}
           <Circle cx={15.5} cy={41} r={3.4} fill={fabric} />
         </>
       );

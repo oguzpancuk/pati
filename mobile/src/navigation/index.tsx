@@ -29,15 +29,15 @@ export type AuthStackParamList = {
 
 export type MainStackParamList = {
   Tabs: undefined;
-  // confirmedAnimalId: eşleştirme incelemesinden "bu o" ile dönüldüğünde dolu.
+  // confirmedAnimalId: set when returning from the match review via "that's the one".
   AddAnimal: { confirmedAnimalId?: number } | undefined;
-  // matchReview: hayvan ekleme akışında adaya bakarken; profil "inceleme"
-  // modunda açılır, altta "geri dön / bu o" çubuğu çıkar.
+  // matchReview: while viewing a candidate in the add-animal flow; the
+  // profile opens in "review" mode with a "go back / that's the one" bar.
   AnimalProfile: { animalId: number; matchReview?: boolean };
   PublicProfile: { userId: number };
   FindFriends: undefined;
   Leaderboard: undefined;
-  // userId verilmezse kendi yorumlarımız listelenir.
+  // Without userId, our own comments are listed.
   UserComments: { userId?: number | 'me'; name?: string } | undefined;
 };
 
@@ -48,22 +48,22 @@ export type MainTabParamList = {
 };
 
 /**
- * `pati://` derin bağlantıları. İki işi var: (1) ileride paylaşım linkleri —
- * "pati://animal/12" bir hayvanın profilini açar; (2) geliştirmede ekranlara
- * doğrudan gitmek (`xcrun simctl openurl booted pati://add-animal`), böylece
- * ekran görüntüsü almak için her seferinde elle dolaşmak gerekmiyor. Şema
- * iOS'ta Info.plist (CFBundleURLTypes), Android'de AndroidManifest'te kayıtlı.
- * Giriş yapılmamışsa eşleşen ekran yok; bağlantı sessizce yok sayılır.
+ * `pati://` deep links. Two jobs: (1) future share links — "pati://animal/12"
+ * opens an animal's profile; (2) jumping straight to screens in development
+ * (`xcrun simctl openurl booted pati://add-animal`), so screenshots don't
+ * require manual navigation every time. The scheme is registered in
+ * Info.plist (CFBundleURLTypes) on iOS and AndroidManifest on Android.
+ * Without a session no screen matches; the link is silently ignored.
  */
 const DEV_INITIAL_URL_KEY = 'devInitialUrl';
 
 const linking: LinkingOptions<MainStackParamList> = {
   prefixes: ['pati://'],
-  // Yalnızca geliştirme: `xcrun simctl openurl` iOS'ta her seferinde "pati ile
-  // açılsın mı?" onayı istiyor ve komut satırından onaylanamıyor. Bunun yerine
-  // simülatörün AsyncStorage dosyasına tek seferlik bir URL yazılıp uygulama
-  // yeniden başlatılıyor (bkz. docs/NOTLAR.md "pati:// derin bağlantı").
-  // Anahtar okunur okunmaz siliniyor ki sonraki açılışlar normal başlasın.
+  // Development only: `xcrun simctl openurl` on iOS asks "open with pati?"
+  // every time and can't be confirmed from the command line. Instead, a
+  // one-shot URL is written into the simulator's AsyncStorage file and the
+  // app is restarted (see docs/NOTES.md, "pati:// deep links"). The key is
+  // deleted as soon as it's read so later launches start normally.
   async getInitialURL() {
     if (__DEV__) {
       const pending = await AsyncStorage.getItem(DEV_INITIAL_URL_KEY);
@@ -75,9 +75,9 @@ const linking: LinkingOptions<MainStackParamList> = {
     return Linking.getInitialURL();
   },
   config: {
-    // Bağlantıyla açılan ekran her zaman sekmelerin ÜSTÜNE gelsin: aksi halde
-    // React Navigation yalnızca o ekranı kök yapıyor, sekme çubuğu ve geri
-    // tuşu kayboluyor.
+    // A screen opened via a link must always land ON TOP of the tabs:
+    // otherwise React Navigation makes that screen the root and the tab bar
+    // and back button disappear.
     initialRouteName: 'Tabs',
     screens: {
       Tabs: {
@@ -174,12 +174,12 @@ export default function RootNavigator() {
   const styles = useStyles();
   const theme = useTheme();
   const { user, isLoading } = useAuth();
-  // Bakım uyarıları yalnızca giriş yapılmışken çalışır; çıkışta zamanlayıcı durur.
+  // Care alerts only run while signed in; the timer stops on sign-out.
   useCareAlerts(!!user);
 
   if (isLoading) {
-    // Oturum okunurken boş ekran yerine logo duruyor: uygulama bir anlığına
-    // beyaz/boş açılmıyor, açılış görseliyle sürekli bir geçiş oluyor.
+    // While the session loads, the logo stands in for a blank screen: the
+    // app never flashes white/empty, the launch image transitions smoothly.
     return (
       <View style={styles.splash}>
         <Logo size={96} />
@@ -190,8 +190,8 @@ export default function RootNavigator() {
   return (
     <NavigationContainer theme={navigationTheme(theme)} linking={user ? linking : undefined}>
       {user ? (
-        // Rozet kutlama popup'ı navigasyonun üstünde duruyor ki hangi ekranda
-        // kazanılırsa kazanılsın aynı yerden gösterilebilsin.
+        // The badge celebration popup sits above navigation so it can show
+        // from the same place no matter which screen earned it.
         <BadgeAwardProvider>
           <MainNavigator />
         </BadgeAwardProvider>

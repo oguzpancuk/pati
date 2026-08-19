@@ -2,8 +2,8 @@ import { apiClient } from './client';
 import type { PhotoAsset } from './care';
 import type { Badge, BadgeTier } from '../badges';
 
-// Rozet tipleri saf `badges.ts` içinde (web de oradan okuyor); buradan yeniden
-// dışa aktarılıyor ki mevcut import yolları bozulmasın.
+// Badge types live in pure `badges.ts` (web reads from there too);
+// re-exported here so existing import paths keep working.
 export type { Badge, BadgeTier } from '../badges';
 
 export interface UserPoints {
@@ -18,8 +18,8 @@ export interface UserRank {
   totalUsers: number;
 }
 
-// Seviye eşikleri de sunucuda; istemci yalnızca gelen değeri gösteriyor ki
-// eşikler değiştiğinde uygulama güncellemesi gerekmesin.
+// Level thresholds live on the server too; the client only displays what it
+// receives, so changing thresholds never requires an app update.
 export interface UserLevel {
   level: number;
   title: string;
@@ -41,8 +41,9 @@ export interface UserComment {
   animal_photo_url: string | null;
 }
 
-// Rozet kazanıldığı anın kaydı. rankBefore null olabilir: kullanıcının daha önce
-// hesaplanmış bir sıralaması yoksa (ilk rozeti) karşılaştıracak bir değer yok.
+// The record of the moment a badge was earned. rankBefore can be null: with
+// no previously computed rank (their first badge) there is nothing to
+// compare against.
 export interface BadgeAward {
   id: number;
   badgeKey: string;
@@ -58,7 +59,7 @@ export interface BadgeAward {
   createdAt: string;
 }
 
-// Puan kazandıran uç noktaların yanıtına eklenen alan.
+// Field appended to the responses of point-earning endpoints.
 export interface WithNewBadges {
   newBadges?: BadgeAward[];
 }
@@ -181,8 +182,8 @@ export async function uploadAvatar(photo: PhotoAsset): Promise<Me> {
 }
 
 /**
- * Hazır avatarlardan birini seçer. Fotoğrafla aynı alana yazıldığı için önceki
- * fotoğrafın yerini alır — aynı anda yalnızca biri geçerli.
+ * Picks one of the built-in avatars. Written to the same field as the photo,
+ * so it replaces any previous photo — only one is active at a time.
  */
 export async function setAvatarKey(avatarKey: string): Promise<Me> {
   const { data } = await apiClient.put<Me>('/users/me/avatar-key', { avatarKey });
@@ -218,8 +219,8 @@ export interface AnimalPage {
   total: number;
 }
 
-// Profildeki "bakım verdiği hayvanlar" sayfalı geliyor; ilk sayfa profille
-// birlikte önizleme olarak düşüyor, gerisi "daha fazla göster" ile buradan.
+// The profile's "animals cared for" arrives paginated; the first page comes
+// with the profile as a preview, the rest from here via "show more".
 export async function fetchUserAnimals(
   userId: number | 'me',
   limit: number,
@@ -230,7 +231,7 @@ export async function fetchUserAnimals(
   return data;
 }
 
-// userId verilmezse kendi yorumlarımızı getirir ('/users/me/comments').
+// Without userId, fetches our own comments ('/users/me/comments').
 export async function fetchUserComments(
   userId: number | 'me',
   limit = 50,

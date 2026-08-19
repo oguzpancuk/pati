@@ -1,7 +1,7 @@
 import { Platform, ViewStyle } from 'react-native';
 import type { Palette } from './colors';
 
-/** 4'ün katları. Ekranlarda 13, 17 gibi tek tük değerler kalmasın diye. */
+/** Multiples of 4, so no stray 13s and 17s remain on screens. */
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -12,7 +12,7 @@ export const spacing = {
   xxxl: 48,
 } as const;
 
-/** Marka yuvarlak hatlı; köşeler cömert. */
+/** The brand is round-edged; corners are generous. */
 export const radius = {
   sm: 8,
   md: 12,
@@ -24,11 +24,11 @@ export const radius = {
 export type Shadows = Record<'card' | 'raised' | 'modal', ViewStyle>;
 
 /**
- * Gölgeler. iOS shadow* + Android elevation birlikte veriliyor; ikisi ayrı
- * ayrı ayarlanmazsa Android'de kart düz kalıyor.
+ * Shadows. iOS shadow* + Android elevation set together; without both, the
+ * card stays flat on Android.
  *
- * Renge bağlı olduğu için fonksiyon: koyu temada gölge siyah, açık temada
- * sıcak kahve.
+ * A function because it depends on color: the shadow is black in the dark
+ * theme, warm coffee in the light one.
  */
 export function makeShadows(colors: Palette): Shadows {
   const dark = colors.shadow === '#000000';
@@ -36,7 +36,7 @@ export function makeShadows(colors: Palette): Shadows {
     card: Platform.select({
       ios: {
         shadowColor: colors.shadow,
-        // Koyu zeminde gölge neredeyse görünmüyor; biraz güçlendirildi.
+        // Shadows are nearly invisible on a dark ground; strengthened a bit.
         shadowOpacity: dark ? 0.35 : 0.08,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
@@ -64,6 +64,6 @@ export function makeShadows(colors: Palette): Shadows {
   };
 }
 
-/** Dokunma hedefi en az 44pt (Apple HIG / Material'ın ortak alt sınırı). */
+/** Touch target at least 44pt (the shared floor of Apple HIG / Material). */
 export const hitSlop = { top: 8, bottom: 8, left: 8, right: 8 } as const;
 export const minTouch = 44;

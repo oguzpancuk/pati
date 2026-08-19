@@ -9,8 +9,9 @@ import AnimalAvatar from '../components/AnimalAvatar';
 import { Icon } from '../components/brand';
 import { makeStyles, spacing, useTheme } from '../theme';
 
-// 1 km: yürüyerek gidilip bakılabilecek mesafe. 5 km'de liste onlarca alakasız
-// kayıtla doluyordu; sokak hayvanı zaten kendi mahallesinden çıkmıyor.
+// 1 km: a distance you can walk to provide care. At 5 km the list filled
+// with dozens of irrelevant records; a street animal doesn't leave its own
+// neighborhood anyway.
 const NEARBY_RADIUS_METERS = 1000;
 const PAGE_SIZE = 20;
 
@@ -35,14 +36,14 @@ export default function AnimalsScreen({ navigation }: any) {
   const [filter, setFilter] = useState<SpeciesFilter>('all');
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  // Sayfa dolu geldiyse devamı olabilir; kısa geldiyse liste bitmiştir.
+  // A full page may have more behind it; a short page means the list ended.
   const [hasMore, setHasMore] = useState(true);
-  // Konum ilk sayfada alınıp saklanıyor: sonraki sayfalar aynı merkezden
-  // istenmeli, yoksa kullanıcı yürürken sayfalar birbirine karışır.
+  // The location is taken on page one and kept: later pages must use the
+  // same center, or pages blur together while the user walks.
   const locationRef = useRef<Coordinates | null>(null);
-  // State'teki loading bayrağı bir sonraki render'a kadar eski kalıyor;
-  // onEndReached aynı karede iki kez tetiklenince aynı sayfa iki kez
-  // istenebiliyordu. Ref anında güncellendiği için ikinci isteği keser.
+  // The loading flag in state stays stale until the next render; with
+  // onEndReached firing twice in one frame the same page could be requested
+  // twice. The ref updates instantly, cutting off the second request.
   const inFlightRef = useRef(false);
 
   const load = useCallback(async (species: SpeciesFilter, offset: number) => {
@@ -137,8 +138,8 @@ export default function AnimalsScreen({ navigation }: any) {
             style={styles.row}
             onPress={() => navigation.navigate('AnimalProfile', { animalId: item.id })}
           >
-            {/* Liste görseli de desen avatarı: fotoğraf kalitesinden bağımsız,
-                tür/desen bir bakışta ayırt ediliyor. */}
+            {/* The list visual is the pattern avatar too: independent of
+                photo quality, species/pattern reads at a glance. */}
             <AnimalAvatar species={item.species} breed={item.breed} size={52} />
             <View style={styles.rowText}>
               <Text variant="subheading" numberOfLines={1}>

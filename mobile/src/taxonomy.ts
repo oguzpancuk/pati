@@ -1,25 +1,26 @@
 /**
- * Uygulamanın ortak sözlüğü — `backend/src/utils/taxonomy.js` ile **birebir
- * aynı** tutulmalı. İki kopya olmasının sebebi: sunucu doğrulamayı istemciye
- * bırakamaz (API'ye doğrudan istek atan biri listede olmayan değer yazabilir),
- * istemci de her seçici için ağdan liste çekmek zorunda kalmamalı.
+ * The app's shared vocabulary — must stay **identical** to
+ * `backend/src/utils/taxonomy.js`. Why two copies: the server can't delegate
+ * validation to the client (anyone hitting the API directly could write
+ * values not on the list), and the client shouldn't fetch a list over the
+ * network for every picker.
  *
- * Listelerden biri değişirse **iki dosyayı birlikte** güncelleyin.
+ * If one of the lists changes, update **both files together**.
  *
- * ## Neden "cins" değil "desen"
- * Türkiye sokak kedileri bir ırka ait değil; halk arasındaki adları (tekir,
- * sarman, smokin) ırk değil post deseni belirtiyor. Köpekler de büyük ölçüde
- * melez. Veritabanı kolonu `breed` kaldı, arayüz etiketi "Tür / Desen".
+ * ## Why "pattern", not "breed"
+ * Turkish street cats don't belong to a breed; their common names (tekir,
+ * sarman, smokin) describe coat patterns, not breeds. Dogs are mostly mixed
+ * too. The database column stayed `breed`; the UI label is "Tür / Desen".
  */
 
 export const OTHER = 'Diğer';
 
 export type Species = 'cat' | 'dog';
 
-/** Sokakta en sık görülen kedi desenleri (yaygınlık sırasıyla). */
+/** The cat patterns most common on the street (in order of prevalence). */
 export const CAT_PATTERNS = ['Tekir', 'Sarman', 'Siyah', 'Üç renk (calico)', 'Smokin'];
 
-/** Sokak köpeği tipleri. Hepsi melez; saf ırk sokakta neredeyse görülmüyor. */
+/** Street dog types. All mixed; purebreds are almost never seen on the street. */
 export const DOG_PATTERNS = [
   'Kangal melezi',
   'Akbaş melezi',
@@ -28,7 +29,7 @@ export const DOG_PATTERNS = [
   'Av/Terrier melezi',
 ];
 
-/** Ana gövde rengi. Desenle kısmen çakışıyor (sarman zaten turuncu). */
+/** Main body color. Partially overlaps the pattern (sarman is already orange). */
 export const CAT_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah', 'Beyaz', 'Siyah-beyaz'];
 export const DOG_COLORS = [
   'Sarı / kahverengi',
@@ -47,11 +48,11 @@ export const ILLNESSES = [
 ];
 
 /**
- * Yaralanma başlıkları **nedeni değil yarayı** tarif ediyor: "trafik kazası"
- * gibi bir neden kaydı gören gönüllüye ne yapacağını söylemiyor ve çoğu zaman
- * tahminden ibaret (kimse kazayı görmedi). Yaranın nerede ve ne tür olduğu ise
- * hem gözle doğrulanabiliyor hem de "yaklaşılır mı, veteriner şart mı"
- * sorusunu cevaplıyor.
+ * Injury titles describe **the wound, not the cause**: a cause like "traffic
+ * accident" tells the volunteer seeing the record nothing about what to do,
+ * and is usually a guess (nobody saw the accident). Where the wound is and
+ * what kind it is can be verified by eye and answers "can I approach, is a
+ * vet required".
  */
 export const INJURIES = [
   'Bacak/pati yarası',
@@ -62,12 +63,12 @@ export const INJURIES = [
 ];
 
 /**
- * Aşı türleri. Kuduz başta: 5199 sayılı kanun gereği zorunlu ve belediyeler
- * sokak hayvanlarına öncelikle onu yapıyor.
+ * Vaccine types. Rabies first: mandatory under Law No. 5199, and
+ * municipalities administer it to street animals with priority.
  */
 export const VACCINE_TYPES = ['Kuduz', 'Karma', 'İç parazit', 'Dış parazit'];
 
-/** Seçenek listesine "Diğer" ekler; arayüzde son sırada görünür. */
+/** Appends "Diğer" (other) to an option list; renders last in the UI. */
 export function withOther(options: string[]): string[] {
   return [...options, OTHER];
 }
@@ -85,9 +86,9 @@ export function conditionsFor(recordType: 'illness' | 'injury'): string[] {
 }
 
 /**
- * Kayıtlı bir değerin listedeki seçeneklerden biri mi yoksa serbest metin mi
- * olduğunu söyler. Arayüz, kayıtlı hayvanı düzenlerken hangi çipin seçili
- * geleceğine buna bakarak karar veriyor.
+ * Tells whether a stored value is one of the listed options or free text.
+ * The UI consults this to decide which chip comes pre-selected when editing
+ * a registered animal.
  */
 export function isPresetChoice(value: string | null | undefined, options: string[]): boolean {
   return !!value && options.includes(value);

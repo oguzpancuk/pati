@@ -15,8 +15,9 @@ export interface Animal {
   cover_photo_url?: string | null;
 }
 
-// Sağlık kaydı yalnızca iki tip. Tedavi/ilaç ayrı kayıt değil, kayda bağlı
-// yorum olarak tutuluyor; aşı ise kendi tablosunda (bkz. Vaccination).
+// Health records come in just two types. Treatment/medication is not a
+// separate record but a comment bound to one; vaccinations have their own
+// table (see Vaccination).
 export type HealthRecordType = 'illness' | 'injury';
 
 export type HealthRecordStatus = 'not_started' | 'in_treatment' | 'recovered';
@@ -90,8 +91,8 @@ export interface FetchAnimalsOptions {
   offset?: number;
 }
 
-// limit verilmezse sunucu geniş bir varsayılan uyguluyor (harita tek seferde
-// çevreyi çekiyor); liste ekranları sayfa sayfa istesin.
+// Without a limit the server applies a wide default (the map fetches the
+// surroundings in one go); list screens should request page by page.
 export async function fetchAnimals(options: FetchAnimalsOptions = {}): Promise<Animal[]> {
   const { lat, lng, radiusMeters, species, limit, offset } = options;
   const { data } = await apiClient.get<Animal[]>('/animals', {
@@ -119,9 +120,10 @@ export interface MatchAnimalsInput {
 }
 
 /**
- * Yeni kayıt açmadan önce "bu hayvan zaten kayıtlı mı?" adayları. Sunucu 1 km
- * içindeki aynı türden hayvanları girilen desen/renk ve mesafeye göre
- * yüksek/orta/düşük benzerlikle sıralıyor (sayısal yüzde yok, bilerek).
+ * "Is this animal already registered?" candidates before opening a new
+ * record. The server ranks same-species animals within 1 km by the entered
+ * pattern/color and distance as high/medium/low similarity (no numeric
+ * percentage, on purpose).
  */
 export async function matchAnimals(
   input: MatchAnimalsInput
@@ -218,8 +220,8 @@ export async function addVaccination(
   return data;
 }
 
-// Kayıtlı bir hayvanı yeniden gördüğünü bildirir: güncel konumunu buraya taşır
-// ve bildireni bakım listesine ekler.
+// Reports a sighting of a registered animal: moves its current location here
+// and adds the reporter to the care list.
 export async function reportSighting(animalId: number, lat: number, lng: number): Promise<Animal> {
   const { data } = await apiClient.post<Animal>(`/animals/${animalId}/sightings`, { lat, lng });
   return data;
@@ -231,12 +233,12 @@ export interface CommentPage {
 }
 
 /**
- * Yorumlar yalnızca hayvana ya da bir sağlık kaydına bağlanabiliyor. Aşı
- * kayıtlarının sohbeti yok: aşı tek seferlik bir olay, takip edilecek bir
- * süreci yok.
+ * Comments attach only to the animal or to a health record. Vaccination
+ * records have no chat: a vaccine is a one-off event with no process to
+ * follow.
  *
- * Sohbet en yeniden geriye sayfalanır: offset 0 son N yorumu (kronolojik
- * sırayla) getirir, "öncekileri yükle" dedikçe offset büyür.
+ * Chat pages newest-first: offset 0 fetches the last N comments (in
+ * chronological order), and offset grows with each "load earlier".
  */
 export async function fetchAnimalComments(
   animalId: number,

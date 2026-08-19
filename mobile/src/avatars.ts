@@ -1,13 +1,13 @@
 /**
- * Hazır karikatür avatarların tanımı. `backend/src/utils/avatars.js` ile aynı
- * anahtar listesini paylaşıyor — biri değişirse diğeri de değişmeli.
+ * Definition of the built-in cartoon avatars. Shares the key list with
+ * `backend/src/utils/avatars.js` — if one changes, so must the other.
  *
- * Anahtar, kullanıcının `avatar_url` alanında `pati-avatar:f3` biçiminde
- * duruyor; nedeni sunucudaki dosyada açıklandı (tek kolonda etiketli birleşim).
+ * The key sits in the user's `avatar_url` field as `pati-avatar:f3`; the
+ * reason is explained in the server file (a tagged union in one column).
  *
- * Yüzler 20 ayrı görsel dosyası değil, birkaç parametreden **türetiliyor**:
- * ten, saç rengi, saç modeli, gözlük/sakal gibi ayrıntılar ve zemin rengi.
- * Böylece hem uygulama boyutu artmıyor hem de yeni bir yüz eklemek bir satır.
+ * The faces are **derived** from a few parameters rather than 20 separate
+ * image files: skin, hair color, hairstyle, details like glasses/beard, and
+ * a background color. App size doesn't grow, and a new face is one line.
  */
 
 export const AVATAR_PREFIX = 'pati-avatar:';
@@ -30,7 +30,7 @@ export type HairStyle =
 
 export type AvatarVariant = {
   key: string;
-  /** Seçim ekranında sekmeleri ayırmak için. Yüzün kendisi zaten farklı. */
+  /** For splitting tabs on the picker screen. The face itself already differs. */
   group: 'female' | 'male';
   bg: string;
   skin: string;
@@ -44,8 +44,8 @@ export type AvatarVariant = {
   freckles?: boolean;
 };
 
-// Ten ve saç tonları Türkiye'de yaygın görülen aralıktan seçildi; tek bir ten
-// tonuyla 20 yüz çizmek kimseyi temsil etmiyordu.
+// Skin and hair tones were picked from the range common in Turkey; drawing
+// 20 faces with a single skin tone represented no one.
 const SKIN = {
   light: '#F5D6BE',
   medium: '#E8BE9A',
@@ -79,7 +79,7 @@ const SHIRT = {
   olive: '#6E7A45',
 };
 
-/** 10 kadın + 10 erkek. Sıra değişse de anahtar aynı yüzü göstermeye devam eder. */
+/** 10 women + 10 men. Keys keep pointing at the same face even if the order changes. */
 export const AVATAR_VARIANTS: AvatarVariant[] = [
   {
     key: 'f1',
@@ -280,12 +280,12 @@ export const AVATAR_VARIANTS: AvatarVariant[] = [
 
 const BY_KEY = new Map(AVATAR_VARIANTS.map((v) => [v.key, v]));
 
-/** `avatar_url` hazır bir avatarı mı gösteriyor? */
+/** Does `avatar_url` point at a built-in avatar? */
 export function isAvatarKey(value: string | null | undefined): boolean {
   return !!value && value.startsWith(AVATAR_PREFIX);
 }
 
-/** `pati-avatar:f3` → f3 varyantı. Tanınmayan anahtar için null. */
+/** `pati-avatar:f3` → the f3 variant. Null for unrecognized keys. */
 export function variantFromValue(value: string | null | undefined): AvatarVariant | null {
   if (!isAvatarKey(value)) return null;
   return BY_KEY.get(value!.slice(AVATAR_PREFIX.length)) ?? null;

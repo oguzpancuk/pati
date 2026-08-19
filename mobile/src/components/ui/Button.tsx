@@ -13,7 +13,7 @@ export type ButtonProps = {
   size?: Size;
   loading?: boolean;
   disabled?: boolean;
-  /** Butonun soluna konacak öge (ikon, emoji vb.). */
+  /** Element placed left of the label (icon, emoji, etc.). */
   icon?: React.ReactNode;
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -59,9 +59,9 @@ function variantColors(c: Palette, variant: Variant) {
   }
 }
 
-// lineHeight de veriliyor: yalnız fontSize ezilirse `Text` varyantın satır
-// yüksekliğini düşürüyor ve buton yüksekliği fontun varsayılanına kalıyor.
-// Burada sabit tutmak butonları öngörülebilir kılıyor.
+// lineHeight is set too: overriding only fontSize makes `Text` drop the
+// variant's line height and the button's height falls to the font default.
+// Fixing it here keeps buttons predictable.
 const SIZES: Record<
   Size,
   { paddingV: number; paddingH: number; fontSize: number; lineHeight: number }

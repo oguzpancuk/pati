@@ -1,12 +1,13 @@
 /**
- * Rozet sözlüğü ve yardımcıları. Bu dosya bilerek **saf TypeScript**: react-native
- * ya da axios'a uzanan hiçbir import yok, çünkü web istemcisi (`web/`) bunu
- * `@mobile/badges` alias'ıyla doğrudan kullanıyor. Tipler bu yüzden burada
- * tanımlı; `api/users.ts` ve `components/badges` buradan alıyor.
+ * The badge vocabulary and helpers. This file is deliberately **pure
+ * TypeScript**: no import reaching react-native or axios, because the web
+ * client (`web/`) uses it directly via the `@mobile/badges` alias. That's
+ * why the types are defined here; `api/users.ts` and `components/badges`
+ * import from here.
  */
 export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'diamond';
 
-/** Madalyonun ortasındaki sembol; sunucudan `badge.symbol` olarak geliyor. */
+/** The symbol at the medallion's center; arrives from the server as `badge.symbol`. */
 export type BadgeSymbolName =
   | 'food'
   | 'water'
@@ -16,8 +17,8 @@ export type BadgeSymbolName =
   | 'vaccine'
   | 'paw';
 
-// Rozetler sunucuda türetiliyor; istemci sabit bir liste tutmuyor ki yeni bir
-// rozet türü eklendiğinde mobil tarafta değişiklik gerekmesin.
+// Badges are derived on the server; the client keeps no fixed list, so a
+// new badge type requires no mobile change.
 export interface Badge {
   key: string;
   label: string;
@@ -45,16 +46,16 @@ export const TIER_POINTS: Record<BadgeTier, number> = {
 
 export const TIER_ORDER: BadgeTier[] = ['bronze', 'silver', 'gold', 'diamond'];
 
-// Rozetin tam adı kademesiyle birlikte anlam kazanıyor: "Altın Tekir Dostu".
+// A badge's full name gains meaning with its tier: "Altın Tekir Dostu" (gold).
 export function badgeTitle(badge: Badge): string {
   return badge.tier ? `${TIER_LABELS[badge.tier]} ${badge.label}` : badge.label;
 }
 
 /**
- * Rozet anahtarından sembol adı. Rozet listesi `symbol` alanını zaten
- * taşıyor; bu yardımcı yalnızca onu taşımayan yerler için gerekiyor —
- * kazanılan rozetin anı (`user_badge_awards`) sunucuda kaydedilirken sembol
- * saklanmıyor, çünkü sembol rozetin türünden zaten belli.
+ * Symbol name from a badge key. The badge list already carries `symbol`;
+ * this helper exists only for places that don't — the earned-badge moment
+ * (`user_badge_awards`) is stored server-side without the symbol, since the
+ * symbol is already implied by the badge type.
  */
 export function symbolForKey(key: string): BadgeSymbolName {
   const [group, name] = key.split(':');
@@ -98,7 +99,7 @@ export function badgeProgressText(badge: Badge): string {
 }
 
 export function sortBadges(badges: Badge[]): Badge[] {
-  // Kazanılanlar önce, sonra kademesi yüksek olan, sonra ilerlemesi çok olan.
+  // Earned first, then higher tier, then more progress.
   return [...badges].sort((a, b) => {
     const aTier = a.tier ? TIER_ORDER.indexOf(a.tier) : -1;
     const bTier = b.tier ? TIER_ORDER.indexOf(b.tier) : -1;

@@ -1,6 +1,6 @@
 /**
- * Marka metinleri tek yerde. Uygulama adı ekranlarda sabit yazılmasın diye —
- * isim değişirse burası değişir.
+ * Brand copy in one place, so the app name is never hardcoded on screens —
+ * if the name changes, this changes.
  */
 export const brand = {
   name: 'pati',

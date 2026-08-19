@@ -4,20 +4,20 @@ import Button from './Button';
 import { spacing } from '../../theme';
 
 type Props = {
-  /** Henüz yüklenmemiş kayıt sayısı; 0 ise buton hiç çizilmez. */
+  /** Count of records not yet loaded; at 0 the button doesn't render. */
   remaining: number;
   loading?: boolean;
   onPress: () => void;
-  /** Varsayılan "Daha fazla göster"; sohbette "Önceki yorumları yükle" gibi. */
+  /** Defaults to "show more"; in chat it reads like "load earlier comments". */
   label?: string;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
- * Sayfalı listelerin ortak "devamını getir" düğmesi. Profil ekranları
- * ScrollView olduğu için sonsuz kaydırma yerine açık bir düğme kullanıyoruz:
- * kullanıcı sayfanın nerede bittiğini görsün, "kaç tane daha var" bilgisini
- * alsın. FlatList'li tam liste ekranları ise onEndReached ile kendisi yüklüyor.
+ * The shared "load more" button for paginated lists. Profile screens are
+ * ScrollViews, so we use an explicit button instead of infinite scroll: the
+ * user sees where the page ends and how many remain. Full-list screens with
+ * FlatList load by themselves via onEndReached.
  */
 export default function LoadMoreButton({ remaining, loading, onPress, label, style }: Props) {
   if (remaining <= 0) return null;

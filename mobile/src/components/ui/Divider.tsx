@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { makeStyles, spacing } from '../../theme';
 
-/** Kart içi ayraç. */
+/** In-card divider. */
 export default function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
   const styles = useStyles();
   return <View style={[styles.line, style]} />;

@@ -1,9 +1,9 @@
 /**
- * Sayfalı listeleri birleştirirken aynı kaydın iki kez girmesini engeller.
- * Neden gerekli: offset tabanlı sayfalama arada yeni kayıt girince kayıyor
- * (bir yorum eklenir, sonraki sayfa bir öncekinin son kaydını da getirir);
- * ayrıca FlatList `onEndReached` aynı karede birden çok tetiklenebiliyor.
- * React "aynı key'e sahip iki çocuk" uyarısı buradan geliyordu.
+ * Prevents the same record entering twice when merging paginated lists. Why:
+ * offset-based pagination drifts when a new record lands in between (a
+ * comment is added and the next page re-fetches the previous page's last
+ * record); FlatList's `onEndReached` can also fire multiple times in one
+ * frame. React's "two children with the same key" warning came from here.
  */
 export function mergeById<T extends { id: number }>(
   prev: T[],

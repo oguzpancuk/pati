@@ -3,9 +3,9 @@ import { AppState, AppStateStatus } from 'react-native';
 import { checkCareAndNotify, requestNotificationPermission } from './careAlerts';
 import { requestBackgroundLocationPermission } from './location';
 
-// Kontrol aralığı. Arka planda iOS uygulamayı bir süre sonra askıya aldığı için
-// bu zamanlayıcı garanti değil; uygulama öne geldiğinde de bir kontrol yapılıyor
-// ki kaçırılan pencereler telafi edilsin.
+// The check interval. iOS suspends the app in the background after a while,
+// so this timer is not guaranteed; a check also runs when the app
+// foregrounds, to make up for missed windows.
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
 export function useCareAlerts(enabled: boolean) {
@@ -18,15 +18,15 @@ export function useCareAlerts(enabled: boolean) {
     let cancelled = false;
 
     async function runCheck() {
-      // Aynı anda birden fazla kontrol başlamasın (zamanlayıcı + uygulamanın
-      // öne gelmesi aynı ana denk gelebiliyor).
+      // Don't start overlapping checks (the timer and the app foregrounding
+      // can coincide).
       if (runningRef.current) return;
       runningRef.current = true;
       try {
         await checkCareAndNotify();
       } catch {
-        // Konum/ağ hatası bildirim akışını sessizce atlar; kullanıcıya bu
-        // arka plan işi için hata göstermek doğru olmaz.
+        // Location/network errors skip the notification flow silently;
+        // showing the user an error for this background job would be wrong.
       } finally {
         runningRef.current = false;
       }

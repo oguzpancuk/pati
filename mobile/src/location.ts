@@ -7,31 +7,32 @@ export interface Coordinates {
   lng: number;
 }
 
-// Demo verisinin merkezi (bkz. backend/scripts/seed-demo.js). Konum override'ları
-// buranın çevresine dağıtılıyor ki seed'lenen hayvanlar ve bakım noktaları
-// haritada görünsün.
+// The demo data's center (see backend/scripts/seed-demo.js). Location
+// overrides are scattered around here so the seeded animals and care points
+// show up on the map.
 const KADIKOY = { lat: 40.9905, lng: 29.0277 }; // Kadıköy, Rıhtım
 
-// Test amaçlı: bu hesaplarla giriş yapıldığında gerçek GPS yerine hep Kadıköy
-// civarında sabit bir konum döndürülür (uzaktan test edebilmek için). İki hesap
-// birbirine yakın ama aynı noktada değil; böylece iki kullanıcıyla mükerrer
-// hayvan tespiti ve 20m yakınlık kontrolü gerçekçi şekilde denenebiliyor.
-// Yalnızca __DEV__ derlemelerinde aktiftir, prod derlemede bu dal hiç çalışmaz.
+// For testing: signing in with these accounts always returns a fixed
+// location around Kadıköy instead of real GPS (to allow remote testing). The
+// two accounts are near each other but not at the same point, so duplicate
+// animal detection and the 20 m proximity check can be tried realistically
+// with two users. Active only in __DEV__ builds; this branch never runs in
+// production.
 const LOCATION_OVERRIDES: Record<string, Coordinates> = {
   'oguzpancuk@gmail.com': KADIKOY,
-  'sumeyyeayan@gmail.com': { lat: 40.9892, lng: 29.0301 }, // Kadıköy, Bahariye (~250m ötesi)
+  'sumeyyeayan@gmail.com': { lat: 40.9892, lng: 29.0301 }, // Kadıköy, Bahariye (~250 m away)
 };
 
-// Demo hesapları (test1@stray.test … test100@stray.test) de override kapsamında:
-// aksi halde demo veriyle test ederken cihazın gerçek konumu kullanılıyor ve
-// Kadıköy'e seed'lenmiş hayvanlar/bakım noktaları haritada hiç görünmüyor.
+// Demo accounts (test1@stray.test … test100@stray.test) are overridden too:
+// otherwise testing with demo data uses the device's real location and the
+// animals/care points seeded in Kadıköy never appear on the map.
 const DEMO_EMAIL_PATTERN = /^test(\d+)@stray\.test$/i;
 
 /**
- * Demo hesabın numarasından sabit ama birbirinden farklı bir konum üretir.
- * Aynı hesap her açılışta aynı yerde durur (rastgele olsaydı hesap her
- * girişte başka yere ışınlanırdı), farklı hesaplar ise üst üste binmez —
- * altın açı ile dağıtıldıkları için birbirlerine yakın ama ayrı noktalarda.
+ * Derives a fixed but distinct location from the demo account's number. The
+ * same account stands in the same spot on every launch (random would
+ * teleport it on each sign-in), and different accounts never overlap —
+ * distributed by the golden angle, close together but at separate points.
  */
 function demoLocationFor(email: string): Coordinates | null {
   const match = DEMO_EMAIL_PATTERN.exec(email);
@@ -39,10 +40,10 @@ function demoLocationFor(email: string): Coordinates | null {
 
   const n = Number(match[1]);
   const angle = (n * 137.5 * Math.PI) / 180;
-  const radiusDeg = 0.0008 + (n % 7) * 0.0004; // merkeze ~90m - 400m arası
+  const radiusDeg = 0.0008 + (n % 7) * 0.0004; // ~90-400 m from the center
   return {
     lat: KADIKOY.lat + radiusDeg * Math.sin(angle),
-    // Boylam dereceleri enleme göre daralıyor; aynı metrik mesafe için düzeltme.
+    // Longitude degrees shrink with latitude; corrected for equal metric distance.
     lng: KADIKOY.lng + (radiusDeg * Math.cos(angle)) / Math.cos((KADIKOY.lat * Math.PI) / 180),
   };
 }
@@ -67,14 +68,14 @@ async function requestAndroidPermission(): Promise<boolean> {
   return granted === PermissionsAndroid.RESULTS.GRANTED;
 }
 
-// Uygulama arka plandayken de konum kontrolü yapabilmek için "her zaman" iznini
-// ister. Reddedilirse uygulama çalışmaya devam eder; yalnızca arka plan
-// bildirimleri gelmez (ön planda kontrol yine yapılır).
+// Requests the "always" permission so location checks can run in the
+// background too. If denied, the app keeps working; only background
+// notifications stop (foreground checks still happen).
 export async function requestBackgroundLocationPermission(): Promise<boolean> {
   if (Platform.OS === 'android') {
     const fine = await requestAndroidPermission();
     if (!fine) return false;
-    // Android 10+ arka plan konumu ayrı bir izin olarak ister.
+    // Android 10+ asks for background location as a separate permission.
     const permission = (PermissionsAndroid.PERMISSIONS as Record<string, string>)
       .ACCESS_BACKGROUND_LOCATION;
     if (!permission) return true;

@@ -22,8 +22,8 @@ import { Banner, Button, Text } from '../components/ui';
 import { Icon } from '../components/brand';
 import { caredFill, makeStyles, radius, spacing, useTheme } from '../theme';
 
-// Türkiye'nin yaklaşık coğrafi sınır kutusu (kesin idari sınır değil).
-// Harita bu alana odaklanır ve kullanıcı bu kutunun dışına fazla kayamaz.
+// Turkey's approximate geographic bounding box (not an exact administrative
+// border). The map focuses on this area and the user can't pan far outside.
 const TURKEY_BOUNDS = {
   minLat: 35.8,
   maxLat: 42.1,
@@ -38,35 +38,37 @@ const TURKEY_REGION: MapRegion = {
 };
 
 const ACTION_CIRCLE_RADIUS_METERS = 100;
-// Hayvanlar yalnızca kullanıcının yakın çevresinde (200 m) çekiliyor:
-// kullanıcının işi bulunduğu sokaktaki hayvanlarla, uzaktakiler haritayı
-// kalabalıklaştırıyordu. (Web haritasıyla aynı kural.)
+// Animals are fetched only near the user (200 m): their business is with
+// the animals on their own street, distant ones crowded the map. (Same rule
+// as the web map.)
 const ANIMAL_RADIUS_METERS = 200;
 const USER_ZOOM_DELTA = 0.03;
 const MIN_DELTA = 0.001;
 const MAX_DELTA = 40;
 
-// Hayvan avatarları yalnızca bina/sokak ölçeğine iyice yaklaşınca çizilir
-// (~0.004° ≈ 450 m'lik ekran); daha uzaktan onlarca avatar üst üste binip
-// haritayı kapatıyordu.
+// Animal avatars draw only when zoomed well into building/street scale
+// (~0.004° ≈ a 450 m viewport); from farther out dozens of avatars piled up
+// and covered the map.
 const ANIMAL_VISIBLE_MAX_DELTA = 0.004;
 
-// Mama/su bırakılınca haritanın odaklandığı ölçek: yeşil daire (100 m) ve
-// içindeki hayvanlar rahatça görünsün diye sokak ölçeğinin de biraz altı.
+// The scale the map focuses to after leaving food/water: slightly below
+// street scale so the green circle (100 m) and the animals in it fit
+// comfortably.
 const CELEBRATE_ZOOM_DELTA = 0.003;
 const CELEBRATE_ZOOM_MS = 400;
 const ANIMAL_MARKER_SIZE = 36;
 const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 
-// react-native-maps'in Heatmap bileşeni yalnızca Google Maps sağlayıcısında çalışıyor
-// (iOS'ta Apple Maps kullandığımız için desteklenmiyor, Google'a geçmek iOS'ta da API
-// key zorunluluğu getirirdi). Bunun yerine ağırlığa göre saydamlaşan yeşil daireler
-// çiziyoruz: taze/çok sayıda aksiyon olan yerlerde daireler üst üste binip belirgin
-// yeşile döner. Eskiden altta tüm ülkeyi kaplayan kırmızı bir taban katmanı vardı
-// ("her yer alarm"); kaldırıldı — haritayı bulanıklaştırıyor, uygulamanın tonuna
-// aykırı bir gerginlik veriyordu. Bakılmamış yer artık sade harita; "buralarda mama
-// yok" mesajını üstteki banner veriyor. Yeşil buna karşılık biraz daha tok.
-// Opaklık yine de düşük: altındaki sokak/işletme isimleri okunabilir kalmalı.
+// react-native-maps' Heatmap component only works with the Google Maps
+// provider (we use Apple Maps on iOS, and switching to Google would force an
+// API key on iOS too). Instead we draw green circles that fade with weight:
+// where actions are fresh/numerous, circles overlap into a solid green. A
+// red base layer used to cover the whole country underneath ("everywhere is
+// an alarm"); it was removed — it blurred the map and carried a tension at
+// odds with the app's tone. Uncared areas are now plain map; the "no food
+// around here" message moved to the top banner. The green is a bit bolder
+// in exchange. Opacity stays low regardless: street/business names beneath
+// must remain readable.
 const MAX_GREEN_ALPHA = 0.5;
 
 function weightToGreenAlpha(weight: number) {
@@ -91,18 +93,19 @@ export default function MapScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
-  // Kalp patlamaları haritanın üstünde ayrı bir katmanda, ekran koordinatıyla
-  // çiziliyor (marker'ın içine gömülmüyor): iOS marker görünümünü bir kez
-  // resme çevirip öyle çizdiği için içindeki animasyon takılıyor ya da yanlış
-  // yerde beliriyordu. `round` her kayıtta artıyor ki aynı hayvan üst üste iki
-  // kayıtta yeniden patlasın (HeartBurst tek seferlik; yeni key = yeni mount).
+  // Heart bursts draw in a separate layer above the map at screen
+  // coordinates (not embedded in the marker): iOS rasterizes the marker view
+  // once, so an animation inside it stuttered or appeared in the wrong
+  // place. `round` increments on every record so the same animal bursts
+  // again on back-to-back records (HeartBurst is one-shot; new key = new
+  // mount).
   const [hearts, setHearts] = useState<{
     bursts: { id: number; x: number; y: number }[];
     round: number;
   }>({ bursts: [], round: 0 });
   const heartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Yakınlaşma bitene kadar bekleyen kutlama; ekran noktaları harita durunca
-  // hesaplanıyor (hareket hâlindeyken alınan nokta yanlış yere düşüyor).
+  // The celebration waits for the zoom to finish; screen points are
+  // computed once the map settles (points taken mid-motion land wrong).
   const pendingHeartsRef = useRef<Animal[] | null>(null);
 
   const typeLabel = viewType === 'food' ? 'mama' : 'su';
@@ -110,8 +113,8 @@ export default function MapScreen({ navigation }: any) {
   function centerOnUser(loc: Coordinates) {
     if (hasCenteredOnUser.current) return;
     if (!mapReadyRef.current) {
-      // Harita native tarafta henüz hazır değilse animateToRegion sessizce yok
-      // sayılabiliyor; hazır olduğunda tekrar denemek için konumu saklıyoruz.
+      // animateToRegion can be silently ignored while the native map isn't
+      // ready yet; the location is stored to retry once it is.
       pendingCenterRef.current = loc;
       return;
     }
@@ -191,10 +194,10 @@ export default function MapScreen({ navigation }: any) {
   }
 
   /**
-   * Bırakılan mama/suyun etki alanındaki (yeşil daire, 100 m) hayvanların
-   * avatarından kalpler çıkar. Harita da o alana yakınlaşıyor: kullanıcı
-   * genelde sokak ölçeğinin üstünde duruyor ve avatarlar o ölçekte çizilmiyor;
-   * animasyonu görmesi için önce hayvanların görünür olması gerekiyor.
+   * Hearts rise from the avatars of the animals within the dropped
+   * food/water's range (the green circle, 100 m). The map also zooms to
+   * that area: the user usually sits above street scale where avatars don't
+   * draw; the animals must become visible before the animation can be seen.
    */
   function celebrateNearbyAnimals(origin: Coordinates, currentAnimals: Animal[]) {
     const affected = currentAnimals.filter(
@@ -217,8 +220,8 @@ export default function MapScreen({ navigation }: any) {
     setAnimalsVisible(true);
     if (affected.length === 0) return;
 
-    // Normalde onRegionChangeComplete tetikler; harita zaten o bölgedeyse
-    // animasyon olmayabilir, o yüzden yedek zamanlayıcı da var.
+    // Normally onRegionChangeComplete fires; if the map is already in that
+    // area there may be no animation, hence the fallback timer.
     pendingHeartsRef.current = affected;
     if (heartTimerRef.current) clearTimeout(heartTimerRef.current);
     heartTimerRef.current = setTimeout(flushPendingHearts, CELEBRATE_ZOOM_MS + 600);
@@ -248,9 +251,9 @@ export default function MapScreen({ navigation }: any) {
   }
 
   /**
-   * Kayıt her zaman kullanıcının bulunduğu noktaya düşüyor. Konum, fotoğraf
-   * çekildikten **sonra** okunuyor: kamera açıkken geçen sürede kullanıcı
-   * yürümüş olabilir, kaydın doğru yere düşmesi için en güncel konum lazım.
+   * The record always drops at the user's current spot. The location is read
+   * **after** the photo is taken: the user may have walked while the camera
+   * was open, and the record needs the freshest location to land right.
    */
   async function handleChooseAction(actionType: 'food' | 'water') {
     try {
@@ -259,9 +262,9 @@ export default function MapScreen({ navigation }: any) {
         saveToPhotos: false,
       });
 
-      // Simülatörlerde gerçek kamera donanımı yok. Geliştirme sırasında akışın
-      // geri kalanını test edebilmek için galeriden seçmeye izin veriyoruz;
-      // gerçek cihazda bu dal hiç tetiklenmez.
+      // Simulators have no real camera hardware. Picking from the gallery is
+      // allowed during development so the rest of the flow can be tested;
+      // this branch never triggers on a real device.
       if (__DEV__ && photoResult.errorCode === 'camera_unavailable') {
         photoResult = await launchImageLibrary({ mediaType: 'photo' });
       }
@@ -362,9 +365,9 @@ export default function MapScreen({ navigation }: any) {
           ))}
       </MapView>
 
-      {/* Kalp katmanı: harita tam ekran olduğu için pointForCoordinate'in verdiği
-          nokta doğrudan bu katmanın koordinatı. Her patlama avatarın merkezine
-          oturur, kalpler oradan yukarı süzülür. */}
+      {/* The heart layer: with the map fullscreen, the point from
+          pointForCoordinate is directly this layer's coordinate. Each burst
+          sits at the avatar's center and hearts drift up from there. */}
       {hearts.bursts.length > 0 && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {hearts.bursts.map((burst) => (
@@ -384,7 +387,7 @@ export default function MapScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* Üst katman: harita tam ekran, kontroller üstünde yüzüyor. */}
+      {/* Top layer: the map is fullscreen, controls float above it. */}
       <SafeAreaView style={styles.topLayer} edges={['top']} pointerEvents="box-none">
         <View style={styles.segment}>
           {(['food', 'water'] as const).map((option) => {
@@ -444,8 +447,9 @@ export default function MapScreen({ navigation }: any) {
         </Pressable>
       </View>
 
-      {/* Alt katman: kayıt butonu. Konum haritadan seçilmiyor, kullanıcının
-          bulunduğu noktaya bırakılıyor — bu yüzden butonun etiketi "buraya". */}
+      {/* Bottom layer: the record button. No point is picked from the map;
+          the drop lands where the user stands — hence the button's label
+          says "here". */}
       <SafeAreaView style={styles.bottomLayer} edges={['bottom']} pointerEvents="box-none">
         {!animalsVisible && animals.length > 0 && (
           <View style={styles.hint} pointerEvents="none">
@@ -471,8 +475,9 @@ export default function MapScreen({ navigation }: any) {
         </View>
       </SafeAreaView>
 
-      {/* Hangi harita açıksa yalnızca ona ait aksiyon sunuluyor: mama haritasındayken
-          su eklemek (ya da tersi) kafa karıştırıcı ve görüntülenen katmanla tutarsız. */}
+      {/* Only the open map's own action is offered: adding water while on
+          the food map (or vice versa) is confusing and inconsistent with the
+          displayed layer. */}
       <Modal visible={confirmOpen} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
@@ -502,7 +507,7 @@ export default function MapScreen({ navigation }: any) {
               style={styles.modalCancel}
             />
 
-            {/* Mama haritasında mama markası, su haritasında su markası. */}
+            {/* A food brand on the food map, a water brand on the water map. */}
             <AdBanner
               slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
               visible={confirmOpen}
@@ -549,8 +554,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginTop: spacing.md,
     ...shadow.card,
   },
-  // Yakınlaştırma tuşları kayıt butonunun üstünde kalmalı; aksi halde büyük
-  // butonun altında kalıp dokunulamaz oluyorlar.
+  // The zoom buttons must stay above the record button; otherwise they end
+  // up beneath the big button, untouchable.
   zoomControls: { position: 'absolute', right: spacing.md, bottom: 140 },
   zoomButton: {
     width: 42,

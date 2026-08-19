@@ -23,7 +23,7 @@ function formatDate(iso: string) {
   });
 }
 
-/** Profilde gösterilen son yorumlar özeti; "Tümünü gör" tam listeye götürür. */
+/** The recent-comments summary on the profile; "see all" opens the full list. */
 export default function RecentComments({
   comments,
   total,

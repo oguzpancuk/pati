@@ -1,4 +1,4 @@
-/** Çekirdek arayüz bileşenleri. Ekranlar yalnızca buradan import etsin. */
+/** The core UI components. Screens should import only from here. */
 export { default as Text } from './Text';
 export { default as Button } from './Button';
 export { default as Card } from './Card';

@@ -8,25 +8,24 @@ import { makeStyles, spacing } from '../../theme';
 
 type Props = {
   label: string;
-  /** Sabit seçenekler; "Diğer" bu listede olmamalı, sonuna kendisi ekleniyor. */
+  /** Fixed options; "Diğer" (other) must not be in this list, it appends itself. */
   options: string[];
   value: string | null;
   onChange: (value: string | null) => void;
-  /** Serbest metin alanının ipucu metni. */
+  /** Placeholder for the free-text field. */
   otherPlaceholder?: string;
   maxLength?: number;
 };
 
 /**
- * Listeden seç ya da "Diğer"i seçip yaz.
+ * Pick from the list, or pick "Diğer" (other) and type.
  *
- * Serbest metin ayrı bir alana değil, seçilen değerin kendisine yazılıyor:
- * veritabanında `breed`/`color` kolonunda ya listedeki bir değer ya da
- * kullanıcının yazdığı metin duruyor. Böylece "diğer_aciklama" gibi ikinci bir
- * kolon ve her sorguda COALESCE gerekmiyor.
+ * The free text is written into the value itself, not a separate field: the
+ * `breed`/`color` column holds either a listed value or the user's text.
+ * No second "other_description" column and no COALESCE in every query.
  *
- * Kayıtlı bir değerin listede olup olmadığına bakarak açılışta doğru çipin
- * seçili gelmesini de bu bileşen hallediyor.
+ * This component also handles pre-selecting the right chip on open by
+ * checking whether the stored value is on the list.
  */
 export default function ChoiceField({
   label,
@@ -37,8 +36,8 @@ export default function ChoiceField({
   maxLength = 120,
 }: Props) {
   const styles = useStyles();
-  // Açılışta: değer listede yoksa ama doluysa kullanıcı daha önce "Diğer"i
-  // seçmiş demektir.
+  // On open: a value that is set but not on the list means the user picked
+  // "Diğer" before.
   const [otherMode, setOtherMode] = useState(!!value && !options.includes(value));
   const [otherText, setOtherText] = useState(otherMode && value ? value : '');
 
@@ -49,8 +48,8 @@ export default function ChoiceField({
 
   function selectOther() {
     setOtherMode(true);
-    // Daha önce yazılmış metin varsa korunuyor; yoksa seçim henüz "boş" sayılır
-    // ve zorunlu alan kontrolü devreye girebilir.
+    // Previously typed text is preserved; otherwise the selection still
+    // counts as "empty" and required-field validation can kick in.
     onChange(otherText.trim() || null);
   }
 
@@ -92,7 +91,7 @@ const useStyles = makeStyles(() => ({
   container: { marginBottom: spacing.lg },
   label: { marginBottom: spacing.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  // Input'un kendi alt boşluğu var; ChoiceField zaten boşluk bıraktığı için
-  // sıfırlanıyor, yoksa alanlar arası aralık iki katına çıkıyor.
+  // Input has its own bottom margin; zeroed because ChoiceField already
+  // spaces itself, otherwise the field gap doubles.
   otherInput: { marginTop: spacing.md, marginBottom: 0 },
 }));

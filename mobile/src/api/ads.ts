@@ -13,8 +13,8 @@ export interface Ad {
 }
 
 /**
- * Yerleşim için sıradaki reklamı getirir. Yayında reklam yoksa null döner —
- * istemci bu durumda bandı hiç çizmez.
+ * Fetches the next ad for a placement. Returns null when none is live — the
+ * client doesn't render the banner at all in that case.
  */
 export async function fetchAd(slot: AdSlot): Promise<Ad | null> {
   const { data } = await apiClient.get<{ ad: Ad | null }>('/ads', {
@@ -23,8 +23,8 @@ export async function fetchAd(slot: AdSlot): Promise<Ad | null> {
   return data.ad;
 }
 
-// Gösterim ve tıklama ayrı bildiriliyor: getirilip de gösterilmeyen bir reklam
-// faturaya yazılmasın ve rotasyon sırası gerçekten gösterilenlere göre ilerlesin.
+// Impressions and clicks are reported separately: a fetched-but-never-shown
+// ad must not be billed, and rotation must advance by what was actually shown.
 export async function recordAdImpression(adId: number): Promise<void> {
   await apiClient.post(`/ads/${adId}/impression`);
 }

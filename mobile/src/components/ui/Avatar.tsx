@@ -7,19 +7,20 @@ import { makeStyles, radius, useTheme } from '../../theme';
 
 export type AvatarProps = {
   uri?: string | null;
-  /** Fotoğraf yoksa baş harf üretmek için. */
+  /** For deriving the initial letter when there is no photo. */
   name?: string | null;
   size?: number;
-  /** Kenarlık rengi — ör. bakım durumuna göre yeşil/kırmızı. */
+  /** Border color — e.g. green/red by care status. */
   ring?: string;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
- * Yuvarlak profil görseli. Üç durum var ve üçü de `uri` alanından okunuyor:
- * yüklenmiş fotoğraf, seçilmiş hazır avatar (`pati-avatar:` önekli) ya da
- * hiçbiri — o zaman baş harf. Önekin neden `avatar_url` içinde durduğu
- * src/avatars.ts ve backend/src/utils/avatars.js içinde anlatıldı.
+ * The round profile image. Three states, all read from the `uri` field: an
+ * uploaded photo, a selected built-in avatar (`pati-avatar:` prefixed), or
+ * neither — then the initial letter. Why the prefix lives inside
+ * `avatar_url` is explained in src/avatars.ts and
+ * backend/src/utils/avatars.js.
  */
 export default function Avatar({ uri, name, size = 44, ring, style }: AvatarProps) {
   const styles = useStyles();
@@ -59,8 +60,8 @@ export default function Avatar({ uri, name, size = 44, ring, style }: AvatarProp
     <View style={box}>
       <Text
         variant="bodyStrong"
-        // lineHeight boyutla birlikte veriliyor; yalnız fontSize ezilse
-        // varyantın 22 punto satırı büyük harfi kırpardı.
+        // lineHeight is set along with the size; overriding only fontSize
+        // would let the variant's 22pt line clip the capital letter.
         style={{ fontSize: size * 0.4, lineHeight: size * 0.5, color: colors.brandDark }}
       >
         {initial}

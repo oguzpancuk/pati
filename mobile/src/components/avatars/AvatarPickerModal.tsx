@@ -9,11 +9,11 @@ import { makeStyles, radius, spacing } from '../../theme';
 
 type Props = {
   visible: boolean;
-  /** Kullanıcının mevcut `avatar_url` değeri; seçili avatarı işaretlemek için. */
+  /** The user's current `avatar_url`; for marking the selected avatar. */
   currentValue: string | null;
   onClose: () => void;
   onSelect: (key: string) => Promise<void> | void;
-  /** "Fotoğraf yükle" butonuna basıldığında; modal kapanır. */
+  /** When the "upload photo" button is pressed; the modal closes. */
   onUploadPhoto: () => void;
   saving?: boolean;
 };
@@ -24,11 +24,12 @@ const GROUPS = [
 ];
 
 /**
- * Hazır avatar seçimi.
+ * Built-in avatar selection.
  *
- * Fotoğrafı olmayan kullanıcıya rastgele bir yüz atamak yerine seçtiriyoruz:
- * rastgele atanan bir yüz kişiyi temsil etmiyor ve değiştirilemiyorsa rahatsız
- * edici olabiliyor. Fotoğraf yükleme yolu da aynı ekrandan açık kalıyor.
+ * Instead of assigning a random face to users without a photo, we let them
+ * choose: a randomly assigned face doesn't represent the person and can be
+ * off-putting when unchangeable. The photo-upload path stays open from the
+ * same screen.
  */
 export default function AvatarPickerModal({
   visible,

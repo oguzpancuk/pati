@@ -5,13 +5,13 @@ import Text from '../ui/Text';
 import { makeStyles, useTheme } from '../../theme';
 
 /**
- * Seviye amblemi. On ayrı görsel çizmek yerine seviyeden **türetiliyor**:
- * çevredeki yaprak sayısı `3 + seviye`, yani 1. seviyede dört, 10. seviyede
- * on üç. Böylece hem tek bir çizim kodu yetiyor hem de seviye atlamak görsel
- * olarak da fark ediliyor — sadece sayı değişmiyor, amblem "büyüyor".
+ * The level emblem. **Derived** from the level instead of drawing ten
+ * separate images: the petal count around it is `3 + level`, so four at
+ * level 1 and thirteen at level 10. One piece of drawing code suffices, and
+ * leveling up is visible — not just the number changes, the emblem "grows".
  *
- * Rakam SVG içinde değil üstüne binen normal `Text` ile yazılıyor; SVG metni
- * uygulamanın Nunito'sunu almıyor.
+ * The numeral is a normal `Text` overlaid on top, not inside the SVG; SVG
+ * text doesn't pick up the app's Nunito.
  */
 type Props = {
   level: number;
@@ -20,13 +20,13 @@ type Props = {
 
 const VIEWBOX = 48;
 
-/** Ortadan `count` yönde, sırayla uzun ve kısa yarıçapla giden yıldız köşeleri. */
+/** Star vertices in `count` directions from the center, alternating long and short radii. */
 function rosettePoints(count: number, outer: number, inner: number): string {
   const points: string[] = [];
   const center = VIEWBOX / 2;
   const steps = count * 2;
   for (let i = 0; i < steps; i += 1) {
-    // -90°: ilk yaprak tam yukarı baksın, amblem simetrik dursun.
+    // -90°: the first petal points straight up, keeping the emblem symmetric.
     const angle = (i / steps) * Math.PI * 2 - Math.PI / 2;
     const radius = i % 2 === 0 ? outer : inner;
     points.push(`${center + radius * Math.cos(angle)},${center + radius * Math.sin(angle)}`);

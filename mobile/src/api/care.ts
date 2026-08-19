@@ -14,8 +14,8 @@ export interface CareStatus {
   needsAttention: boolean;
   actionCount: number;
   lastActionAt: string | null;
-  // Yarıçap ve pencere sunucudan geliyor; arayüz metinleri bu değerleri
-  // yazdırıyor ki iki tarafta ayrı ayrı güncellenmesi gerekmesin.
+  // Radius and window come from the server; UI copy prints these values so
+  // the two sides never need updating separately.
   radiusMeters: number;
   windowHours: number;
 }
@@ -55,9 +55,10 @@ export interface PhotoAsset {
 }
 
 /**
- * Mama/su kaydı. `lat`/`lng` her zaman kullanıcının **kendi** konumu: artık
- * haritadan nokta seçilmiyor, alttaki butona basınca bulunduğu yere bırakıyor.
- * Bu yüzden eskiden ayrıca gönderilen `deviceLat`/`deviceLng` kalktı.
+ * A food/water record. `lat`/`lng` is always the user's **own** location: no
+ * point is picked from the map anymore, the bottom button drops at where
+ * they stand. That's why the previously separate `deviceLat`/`deviceLng`
+ * are gone.
  */
 export async function addCareAction(
   lat: number,

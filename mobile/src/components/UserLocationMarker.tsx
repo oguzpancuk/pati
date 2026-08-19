@@ -2,11 +2,11 @@ import React from 'react';
 import { View } from 'react-native';
 import { makeStyles, mapColors, radius } from '../theme';
 
-// Haritalarda alışılmış "konum noktası" göstergesi: dış halka konumun yaklaşık
-// olduğunu ima eder, beyaz çerçeveli iç nokta ise haritanın üzerinde her zaman
-// seçilebilir kalır. Daha önce kullanılan düz Circle, harita zemininde kaybolan
-// ve boyutu zoom'a göre değişen bir leke gibi görünüyordu.
-// Renk marka turuncusu: haritadaki yeşil bakım daireleriyle karışmıyor.
+// The familiar "location dot" seen on maps: the outer ring implies the
+// location is approximate, the white-bordered inner dot stays legible over
+// the map at all times. The plain Circle used before looked like a smudge
+// that vanished into the map ground and resized with zoom.
+// The color is brand orange: it doesn't blend with the green care circles.
 export default function UserLocationMarker() {
   const styles = useStyles();
   return (
@@ -29,8 +29,8 @@ const useStyles = makeStyles(({ colors: c }) => ({
     width: 14,
     height: 14,
     borderRadius: radius.pill,
-    // Nokta haritanın üstünde duruyor; harita zemini temayı takip etmediği
-    // için çerçeve her iki temada da açık kalıyor.
+    // The dot sits over the map; the map ground doesn't follow the theme,
+    // so the border stays light in both themes.
     backgroundColor: mapColors.userRadiusStroke,
     borderWidth: 2.5,
     borderColor: '#FFFFFF',

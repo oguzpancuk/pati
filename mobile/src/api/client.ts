@@ -2,10 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-// Android emülatörü "localhost"u kendi üzerinde arar; geliştirici makinesine
-// ulaşmak için Google'ın ayırdığı 10.0.2.2 adresi kullanılır. iOS simülatöründe
-// (ve gerçek cihazlarda LAN IP'si ile) localhost doğrudan çalışır.
-// Gerçek bir cihazda test ederken bu değeri makinenizin LAN IP'siyle değiştirin.
+// The Android emulator resolves "localhost" to itself; Google's reserved
+// 10.0.2.2 address reaches the developer machine. On the iOS simulator (and
+// on real devices via the LAN IP) localhost works directly.
+// When testing on a real device, replace this with your machine's LAN IP.
 export const API_BASE_URL = Platform.select({
   android: 'http://10.0.2.2:3000/api',
   default: 'http://localhost:3000/api',
@@ -23,9 +23,9 @@ apiClient.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Oturum geçersizleştiğinde (token süresi dolmuş ya da kullanıcı silinmiş)
-// saklanan oturumu temizleyip AuthProvider'a haber veriyoruz; aksi halde
-// uygulama, hiçbir isteği geçmeyen "yarı giriş yapmış" bir durumda takılıyor.
+// When the session becomes invalid (token expired or user deleted) we clear
+// the stored session and notify AuthProvider; otherwise the app gets stuck
+// in a "half signed-in" state where no request succeeds.
 type SessionExpiredHandler = () => void;
 let onSessionExpired: SessionExpiredHandler | null = null;
 

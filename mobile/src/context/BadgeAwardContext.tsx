@@ -8,9 +8,9 @@ import {
 import BadgeAwardModal from '../components/BadgeAwardModal';
 
 interface BadgeAwardContextValue {
-  /** Puan kazandıran bir isteğin yanıtındaki rozetleri kuyruğa alır. */
+  /** Queues the badges found in a point-earning request's response. */
   celebrate: (response: WithNewBadges | null | undefined) => void;
-  /** Kaçırılmış rozetleri (uygulama kapanmış olabilir) sunucudan çeker. */
+  /** Fetches missed badges (the app may have been closed) from the server. */
   checkPending: () => Promise<void>;
 }
 
@@ -24,15 +24,15 @@ export function useBadgeAwards() {
 }
 
 /**
- * Rozet kutlama popup'ını tek bir yerden yönetir. Rozet birden fazla ekrandaki
- * aksiyondan kazanılabildiği için (mama bırakma, hayvan ekleme, yorum, sağlık
- * kaydı) popup'ı her ekrana ayrı ayrı koymak yerine navigasyonun üstünde tek bir
- * kuyruk tutuyoruz.
+ * Manages the badge celebration popup from one place. Badges can be earned
+ * from actions on several screens (leaving food, adding an animal,
+ * commenting, health records), so instead of a popup per screen we keep a
+ * single queue above navigation.
  */
 export function BadgeAwardProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<BadgeAward[]>([]);
-  // Aynı rozetin iki kez kuyruğa girmesini engeller: aksiyon yanıtından gelen
-  // rozet, hemen ardından checkPending ile de gelebiliyor.
+  // Prevents the same badge queuing twice: a badge from an action response
+  // can arrive again right after via checkPending.
   const queuedIds = useRef<Set<number>>(new Set());
 
   const enqueue = useCallback((awards: BadgeAward[]) => {
@@ -53,7 +53,7 @@ export function BadgeAwardProvider({ children }: { children: React.ReactNode }) 
     try {
       enqueue(await fetchUnseenBadgeAwards());
     } catch {
-      // Kutlama popup'ı ikincil bir özellik; ağ hatasında sessizce geçiyoruz.
+      // The celebration popup is a secondary feature; skip silently on network errors.
     }
   }, [enqueue]);
 
@@ -61,8 +61,8 @@ export function BadgeAwardProvider({ children }: { children: React.ReactNode }) 
     setQueue((prev) => {
       const [shown, ...rest] = prev;
       if (shown) {
-        // Görüldü işaretini beklemiyoruz: başarısız olursa rozet bir sonraki
-        // açılışta tekrar gösterilir, bu kaybolmasından iyidir.
+        // We don't await the seen-mark: if it fails the badge shows again on
+        // the next launch, which beats losing it.
         markBadgeAwardsSeen([shown.id]).catch(() => {});
       }
       return rest;

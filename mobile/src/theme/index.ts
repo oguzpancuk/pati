@@ -1,10 +1,10 @@
 /**
- * Tema girişi. Tek import yeter:
+ * The theme entry. One import suffices:
  *   import { useTheme, makeStyles, spacing, radius, type } from '../theme';
  *
- * Renk okumanın iki yolu var:
- *   - Stil sayfası için: `makeStyles(({ colors: c, shadow }) => ({ ... }))`
- *   - JSX içinde tek tük renk için: `const { colors } = useTheme()`
+ * Two ways to read a color:
+ *   - For stylesheets: `makeStyles(({ colors: c, shadow }) => ({ ... }))`
+ *   - For the occasional color in JSX: `const { colors } = useTheme()`
  */
 export { mapColors, caredFill, tierColors, lightPalette, darkPalette, palettes } from './colors';
 export type { ColorName, Palette, ThemeName, TierColorName } from './colors';

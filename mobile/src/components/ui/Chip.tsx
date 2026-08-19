@@ -10,7 +10,7 @@ export type ChipProps = {
   selected?: boolean;
   onPress?: () => void;
   tone?: Tone;
-  /** Yazının solundaki küçük öge (emoji, ikon). */
+  /** Small element left of the label (emoji, icon). */
   leading?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 };
@@ -33,8 +33,8 @@ function toneColors(c: Palette, tone: Tone) {
 }
 
 /**
- * Hem filtre düğmesi (onPress + selected) hem de salt okunur etiket olarak
- * kullanılıyor. Seçiliyken dolu turuncu, değilken kart rengi.
+ * Used both as a filter button (onPress + selected) and a read-only label.
+ * Filled orange when selected, card color otherwise.
  */
 export default function Chip({
   label,

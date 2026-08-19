@@ -31,7 +31,7 @@ import {
 import { Icon } from '../components/brand';
 import { makeStyles, spacing, useTheme } from '../theme';
 
-// Profil özet; hayvanların ilk sayfası profille geliyor, gerisi buradan.
+// The profile is a summary; the first page of animals comes with it, the rest from here.
 const ANIMAL_PAGE = 20;
 
 function formatDate(iso: string) {
@@ -191,8 +191,8 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         actionLabel="Tüm rozetler"
         onAction={() => setCatalogVisible(true)}
       />
-      {/* Kullanıcı öne çıkanları seçtiyse onları, seçmediyse en güçlü rozetlerini
-          gösteriyoruz; boş bir alan görünmesin. */}
+      {/* Show the user's chosen featured badges, or their strongest ones if
+          they haven't picked; no empty area. */}
       {displayBadges.length === 0 ? (
         <Card variant="flat" style={styles.block}>
           <Text variant="caption">Henüz rozet kazanmamış.</Text>

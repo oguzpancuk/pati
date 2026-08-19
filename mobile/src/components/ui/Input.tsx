@@ -10,7 +10,7 @@ export type InputProps = TextInputProps & {
   containerStyle?: StyleProp<ViewStyle>;
 };
 
-/** Etiketli metin alanı. Odakta kenarlık marka rengine dönüyor. */
+/** A labeled text field. The border turns brand-colored on focus. */
 export default function Input({
   label,
   hint,

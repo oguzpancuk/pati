@@ -6,9 +6,9 @@ import { fonts } from './typography';
 import { spacing } from './layout';
 
 /**
- * react-navigation'ın kendi teması. Bunu vermezsek ekran geçişlerinde bir an
- * beyaz zemin görünüyor (varsayılan tema beyaz), krem/koyu arka planla
- * çarpışıyor.
+ * react-navigation's own theme. Without it, a flash of white ground shows
+ * during screen transitions (the default theme is white), clashing with the
+ * cream/dark background.
  */
 export function navigationTheme({ name, colors }: Theme): NavTheme {
   const base = name === 'dark' ? DarkTheme : DefaultTheme;
@@ -26,7 +26,7 @@ export function navigationTheme({ name, colors }: Theme): NavTheme {
   };
 }
 
-/** Stack başlıkları: zeminle aynı renk, ayraç yok, marka rengi geri oku. */
+/** Stack headers: same color as the ground, no divider, brand-colored back arrow. */
 export function screenOptions({ colors }: Theme): NativeStackNavigationOptions {
   return {
     headerStyle: { backgroundColor: colors.background },
@@ -42,7 +42,7 @@ export function screenOptions({ colors }: Theme): NativeStackNavigationOptions {
   };
 }
 
-/** Sekme çubuğu: kart rengi, üstte tek ayraç, seçili sekme marka turuncusu. */
+/** The tab bar: card color, a single divider on top, brand orange for the active tab. */
 export function tabBarOptions({ colors }: Theme): BottomTabNavigationOptions {
   return {
     headerShown: false,
@@ -52,8 +52,8 @@ export function tabBarOptions({ colors }: Theme): BottomTabNavigationOptions {
       backgroundColor: colors.surface,
       borderTopColor: colors.border,
       borderTopWidth: 1,
-      // Yükseklik verilmedi: bottom-tabs alt güvenli alanı kendi ekliyor, sabit
-      // yükseklik çentikli telefonlarda etiketleri kırpıyor.
+      // No height set: bottom-tabs adds the bottom safe area itself, and a
+      // fixed height clips the labels on notched phones.
       paddingTop: spacing.sm,
     },
     tabBarLabelStyle: { fontFamily: fonts.semibold, fontSize: 12 },

@@ -23,11 +23,11 @@ const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
 
 /**
- * "Eşleştiriliyor" ekranının en az ne kadar görüneceği. Şu an sunucu yalnızca
- * tür/desen/renk/mesafeye bakıyor ve anında dönüyor; bekleme, kullanıcıya bir
- * karşılaştırma yapıldığını hissettirmek için. Fotoğraf tabanlı yapay zekâ
- * eşleştirme geldiğinde gerçek işlem süresi bunun yerini alacak ve bu sabit
- * kaldırılacak (bkz. docs/NOTLAR.md).
+ * Minimum time the "matching" screen stays visible. The server currently
+ * only checks species/pattern/color/distance and returns instantly; the wait
+ * makes the user feel a comparison happened. When photo-based AI matching
+ * arrives, real processing time replaces this and the constant goes away
+ * (see docs/NOTES.md).
  */
 const MIN_MATCHING_MS = 2000;
 
@@ -66,9 +66,9 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   const [photos, setPhotos] = useState<PhotoAsset[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Akış: form → (kaydet) → eşleştirme beklemesi → adaylar → yeni kayıt ya da
-  // mevcut profil. Eskiden mükerrer kontrolü form açılmadan yapılıyordu; ama
-  // o zaman elimizde karşılaştıracak bilgi yoktu, yalnızca mesafeye bakılıyordu.
+  // Flow: form → (save) → matching wait → candidates → new record or an
+  // existing profile. Duplicate checking used to run before the form opened,
+  // but then there was nothing to compare — only distance was checked.
   const [step, setStep] = useState<Step>('form');
   const [candidates, setCandidates] = useState<AnimalMatch[]>([]);
   const [matchRadius, setMatchRadius] = useState(1000);
@@ -76,8 +76,8 @@ export default function AddAnimalScreen({ navigation, route }: any) {
 
   function handleSpeciesChange(next: Species) {
     setSpecies(next);
-    // Desen ve renk listeleri türe göre değişiyor; kediye ait bir seçim köpekte
-    // anlamsız kalacağı için sıfırlanıyor.
+    // Pattern and color lists change per species; a cat pick makes no sense
+    // for a dog, so it resets.
     setBreed(null);
     setColor(null);
   }
@@ -98,7 +98,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   }
 
-  /** Form gönderildi: önce eşleştir, sonra karar ver. */
+  /** Form submitted: match first, decide after. */
   async function handleSubmit() {
     if (photos.length < MIN_PHOTOS) {
       Alert.alert('Fotoğraf gerekli', `En az ${MIN_PHOTOS} fotoğraf eklemelisin.`);
@@ -112,8 +112,8 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       setLocation(loc);
       const result = await matchAnimals({ lat: loc.lat, lng: loc.lng, species, breed, color });
 
-      // Bekleme ekranı en az MIN_MATCHING_MS görünsün; sunucu ondan hızlı
-      // döndüyse kalan süre kadar tutuluyor.
+      // Show the waiting screen for at least MIN_MATCHING_MS; if the server
+      // returned faster, hold for the remainder.
       const elapsed = Date.now() - startedAt;
       if (elapsed < MIN_MATCHING_MS) {
         await new Promise((resolve) => setTimeout(resolve, MIN_MATCHING_MS - elapsed));
@@ -122,14 +122,14 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       setCandidates(result.candidates);
       setMatchRadius(result.radiusMeters);
       if (result.candidates.length === 0) {
-        // Yakında aynı türden hiç kayıt yok: soracak bir şey yok, doğrudan kaydet.
+        // No same-species records nearby: nothing to ask, save directly.
         await createNewAnimal(loc);
       } else {
         setStep('results');
       }
     } catch (err: any) {
-      // Konum ya da sunucu hatası: kullanıcıyı engellemek yerine forma geri
-      // döndürüyoruz, tekrar deneyebilir.
+      // Location or server error: instead of blocking the user we return
+      // them to the form to retry.
       Alert.alert(
         'Eşleştirme yapılamadı',
         err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
@@ -163,9 +163,10 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     }
   }
 
-  // Adaya dokununca profil "inceleme" modunda açılıyor: kullanıcı fotoğraflara,
-  // sağlık kayıtlarına bakıp karar versin. Karar profildeki alt çubuktan
-  // geliyor — "bu o" bizi confirmedAnimalId parametresiyle buraya geri düşürür.
+  // Tapping a candidate opens the profile in "review" mode: let the user
+  // study the photos and health records and decide. The decision comes from
+  // the profile's bottom bar — "that's the one" drops us back here with the
+  // confirmedAnimalId param.
   function handleReviewCandidate(animal: AnimalMatch) {
     navigation.navigate('AnimalProfile', { animalId: animal.id, matchReview: true });
   }
@@ -275,9 +276,9 @@ export default function AddAnimalScreen({ navigation, route }: any) {
 
   return (
     <Screen scroll>
-      {/* Seçilen tür/desene göre hayvanın "yüzü" anında burada beliriyor:
-          kullanıcı ne kaydettiğini görsün, listede/haritada nasıl
-          görüneceğini önceden bilsin. */}
+      {/* The animal's "face" appears here instantly from the chosen
+          species/pattern: the user sees what they're registering and knows
+          in advance how it will look in lists/on the map. */}
       <View style={styles.previewWrap}>
         <AnimalAvatar species={species} breed={breed} size={96} />
         <Text variant="caption" center style={styles.previewCaption}>
@@ -303,8 +304,9 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         />
       </View>
 
-      {/* "Cins" demiyoruz: sokak kedileri bir ırka ait değil, tekir/sarman gibi
-          adlar post desenini anlatıyor; köpekler de melez (bkz. taxonomy.ts). */}
+      {/* We don't say "breed": street cats belong to no breed, names like
+          tekir/sarman describe coat patterns; dogs are mixed too (see
+          taxonomy.ts). */}
       <ChoiceField
         label="TÜR / DESEN"
         options={patternsFor(species)}
@@ -380,9 +382,9 @@ export default function AddAnimalScreen({ navigation, route }: any) {
 }
 
 /**
- * "Eşleştiriliyor" bekleme ekranı: seçilen avatar nefes alır gibi büyüyüp
- * küçülüyor, altında tarama halkası dönüyor. Süre kısa (2 sn) ama boş bir
- * spinner "takıldı" hissi veriyordu; ne yapıldığı yazıyla söyleniyor.
+ * The "matching" waiting screen: the chosen avatar breathes in and out with
+ * a scanning ring spinning below. The wait is short (2 s), but an empty
+ * spinner felt "stuck"; the text says what is happening.
  */
 function MatchingState({ species, breed }: { species: Species; breed: string | null }) {
   const styles = useStyles();
@@ -515,7 +517,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
     justifyContent: 'center',
     marginBottom: spacing.xl,
   },
-  // Tarama halkası: kesik kenarlık dönünce "tarıyor" hissi veriyor.
+  // The scanning ring: a rotating dashed border reads as "scanning".
   matchingRing: {
     position: 'absolute',
     width: 140,

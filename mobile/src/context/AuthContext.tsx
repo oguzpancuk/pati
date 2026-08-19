@@ -27,8 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // API katmanı 401 aldığında saklanan oturumu zaten temizliyor; burada da
-    // kullanıcıyı sıfırlayarak giriş ekranına dönmesini sağlıyoruz.
+    // The API layer already clears the stored session on a 401; here we
+    // also reset the user so they land back on the login screen.
     setSessionExpiredHandler(() => setUser(null));
     return () => setSessionExpiredHandler(null);
   }, []);

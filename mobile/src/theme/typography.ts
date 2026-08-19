@@ -2,13 +2,14 @@ import { TextStyle } from 'react-native';
 import type { ColorName } from './colors';
 
 /**
- * Tipografi. Marka kimliği "yuvarlak, sıcak, güven veren" bir karakter istiyor;
- * Nunito (SIL OFL) bu tarife uyuyor ve Türkçe karakterlerin tamamını içeriyor
- * (ı İ ğ Ğ ş Ş ç Ç ö Ö ü Ü — assets/fonts altında, lisans assets/OFL-Nunito.txt).
+ * Typography. The brand identity calls for a "round, warm, reassuring"
+ * character; Nunito (SIL OFL) fits and covers every Turkish character
+ * (ı İ ğ Ğ ş Ş ç Ç ö Ö ü Ü — under assets/fonts, license
+ * assets/OFL-Nunito.txt).
  *
- * Dosya adları PostScript adlarıyla aynı olduğu için tek bir fontFamily değeri
- * hem iOS hem Android'de çalışıyor. fontWeight KULLANMAYIN: ağırlık dosya
- * seçimiyle geliyor, ikisi birlikte kullanılırsa Android sahte kalın üretiyor.
+ * File names match the PostScript names, so a single fontFamily value works
+ * on both iOS and Android. Do NOT use fontWeight: weight comes from file
+ * selection, and combining both makes Android produce faux bold.
  */
 export const fonts = {
   regular: 'Nunito-Regular',
@@ -31,21 +32,21 @@ type Variant =
   | 'button';
 
 /**
- * Ölçekte renk YOK — renk temaya bağlı olduğu için `Text` bileşeni
- * `VARIANT_COLOR` üzerinden çalışma anında ekliyor.
+ * NO color in the scale — color is theme-bound, so the `Text` component
+ * adds it at runtime via `VARIANT_COLOR`.
  */
 export const type: Record<Variant, TextStyle> = {
-  // Karşılama ekranı, kutlama popup'ı gibi tek cümlelik büyük başlıklar
+  // Large one-line headings: the welcome screen, the celebration popup
   display: { fontFamily: fonts.extrabold, fontSize: 30, lineHeight: 37 },
-  // Ekran başlığı
+  // Screen title
   title: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 31 },
-  // Kart başlığı, bölüm başlığı
+  // Card title, section title
   heading: { fontFamily: fonts.bold, fontSize: 19, lineHeight: 25 },
   subheading: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22 },
-  // Gövde metni
+  // Body text
   body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
   bodyStrong: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22 },
-  // Açıklama satırı
+  // Description lines
   caption: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18 },
   captionStrong: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18 },
   // Form etiketi
@@ -55,7 +56,7 @@ export const type: Record<Variant, TextStyle> = {
     lineHeight: 16,
     letterSpacing: 0.3,
   },
-  // Rozet/etiket üstü küçük yazı
+  // Tiny text on badges/labels
   micro: {
     fontFamily: fonts.bold,
     fontSize: 11,
@@ -70,7 +71,7 @@ export const type: Record<Variant, TextStyle> = {
   },
 };
 
-/** Her varyantın varsayılan renk rolü. `color` prop'u bunu ezer. */
+/** Each variant's default color role. The `color` prop overrides it. */
 export const VARIANT_COLOR: Record<Variant, ColorName> = {
   display: 'text',
   title: 'text',

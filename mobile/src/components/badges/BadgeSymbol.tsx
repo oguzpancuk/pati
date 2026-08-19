@@ -3,27 +3,28 @@ import Svg, { Circle, G, Path } from 'react-native-svg';
 import type { BadgeSymbolName, BadgeTier } from '../../badges';
 import { tierColors } from '../../theme';
 
-// Sembol adı saf `badges.ts` içinde tanımlı (web ile ortak); buradan yeniden
-// dışa aktarılıyor.
+// The symbol name is defined in pure `badges.ts` (shared with web);
+// re-exported from here.
 export type { BadgeSymbolName } from '../../badges';
 
 /**
- * Rozet madalyonu: dış halka + iç disk + ortada rozete özgü sembol.
+ * The badge medallion: outer ring + inner disc + the badge's own symbol in
+ * the middle.
  *
- * Emoji madalya (🥉🥈🥇💎) yerine buna geçildi. Emoji her cihazda farklı
- * çiziliyor, satır yüksekliğine oturmuyor ve rengi verilemiyor; rozetlerin
- * tamamı aynı ailenin parçası gibi görünmüyordu.
+ * Replaced the emoji medals (🥉🥈🥇💎). Emoji render differently on every
+ * device, don't sit on the line height and can't be tinted; the badges
+ * never looked like parts of one family.
  *
- * Semboller bilinçli olarak `brand/Icon` ile aynı dilde: 24 birimlik kutu,
- * ince çizgi, yuvarlak uç. Madalyon 48 birimlik kutuda, sembol ortasına
- * 24'lük kutu olarak yerleştiriliyor.
+ * The symbols deliberately speak the same language as `brand/Icon`: a
+ * 24-unit box, thin stroke, round caps. The medallion is a 48-unit box with
+ * the symbol placed as a 24-unit box at its center.
  *
- * Sembol adı sunucudan geliyor (`badge.symbol`, bkz. backend/src/utils/badges.js);
- * yeni bir rozet türü eklenince iki tarafın da güncellenmesi gerekiyor.
+ * The symbol name comes from the server (`badge.symbol`, see
+ * backend/src/utils/badges.js); a new badge type means updating both sides.
  */
 type Props = {
   symbol: BadgeSymbolName;
-  /** null: henüz kazanılmamış rozet — gri madalyon çizilir. */
+  /** null: a badge not yet earned — the gray medallion is drawn. */
   tier: BadgeTier | null;
   size?: number;
 };
@@ -51,7 +52,7 @@ export default function BadgeSymbol({ symbol, tier, size = 44 }: Props) {
 }
 
 const GLYPHS: Record<BadgeSymbolName, (ink: string) => React.ReactNode> = {
-  // Mama kabı: yandan görünüş, üstünde buhar değil "tane" izleri.
+  // The food bowl: side view, kibble marks above it, not steam.
   food: () => (
     <>
       <Path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z" />
@@ -59,7 +60,7 @@ const GLYPHS: Record<BadgeSymbolName, (ink: string) => React.ReactNode> = {
     </>
   ),
   water: () => <Path d="M12 3.4s6.2 6.5 6.2 10.2a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.4 12 3.4Z" />,
-  // Kayıt: haritaya yeni bir nokta eklemek. İğne + artı.
+  // Registration: adding a new point to the map. Pin + plus.
   register: () => (
     <>
       <Path d="M12 21s6.4-6 6.4-10.4a6.4 6.4 0 1 0-12.8 0C5.6 15 12 21 12 21Z" />
@@ -75,18 +76,18 @@ const GLYPHS: Record<BadgeSymbolName, (ink: string) => React.ReactNode> = {
       <Path d="M12 9v5M9.5 11.5h5" />
     </>
   ),
-  // Şırınga: gövde çapraz, ucunda iğne, arkasında piston.
+  // The syringe: body at a diagonal, needle at the tip, plunger behind.
   vaccine: () => (
     <>
       <Path d="M8.4 15.6 15.6 8.4l4 4-7.2 7.2z" />
       <Path d="m10.4 17.6-4 4" />
       <Path d="m17.6 10.4 3.4-3.4" />
       <Path d="m19.2 5.9 2.9 2.9" />
-      {/* Tek ölçek çizgisi: küçük boyutta iki çizgi lekeye dönüşüyor. */}
+      {/* A single scale mark: two lines smear into a blot at small sizes. */}
       <Path d="m11.6 12.4 1.8 1.8" />
     </>
   ),
-  // Desen dostluğu rozetleri: pati. Dolu çizim, çizgi değil.
+  // Pattern-friendship badges: a paw. Filled drawing, not stroked.
   paw: (ink) => (
     <G fill={ink} stroke="none">
       <Circle cx={6.4} cy={10.6} r={2.1} />

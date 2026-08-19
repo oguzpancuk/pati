@@ -3,9 +3,9 @@ import Svg, { Circle, G, Path } from 'react-native-svg';
 import { useTheme } from '../../theme';
 
 /**
- * Marka kimliğindeki ikonlar gibi ince çizgili (outline), yuvarlak uçlu bir
- * set. Emoji yerine bunu kullanıyoruz: emoji her cihazda farklı çiziliyor ve
- * marka rengini alamıyor.
+ * A thin-stroke (outline), round-capped set like the brand identity's icons.
+ * Used instead of emoji: emoji render differently on every device and can't
+ * take the brand color.
  */
 export type IconName =
   | 'pin'

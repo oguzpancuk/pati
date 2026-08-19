@@ -5,9 +5,9 @@ import { makeStyles, spacing, useTheme } from '../../theme';
 
 export type ScreenProps = {
   children: React.ReactNode;
-  /** İçerik kaydırılsın mı (liste içeren ekranlarda false verin). */
+  /** Whether the content scrolls (pass false on screens containing lists). */
   scroll?: boolean;
-  /** Üstte güvenli alan bırakılsın mı — başlığı olan ekranlarda gerekmiyor. */
+  /** Whether to leave a top safe area — unneeded on screens with a header. */
   edges?: ('top' | 'bottom')[];
   padded?: boolean;
   refreshing?: boolean;
@@ -16,7 +16,7 @@ export type ScreenProps = {
   contentStyle?: StyleProp<ViewStyle>;
 };
 
-/** Tema zemini + güvenli alan + isteğe bağlı kaydırma/yenileme. */
+/** Theme background + safe area + optional scrolling/refresh. */
 export default function Screen({
   children,
   scroll = false,

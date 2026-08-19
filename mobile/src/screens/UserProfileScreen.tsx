@@ -41,8 +41,8 @@ import {
 import { Icon } from '../components/brand';
 import { makeStyles, radius, spacing, useTheme, useThemeMode, type ThemeMode } from '../theme';
 
-// Profil bir özet ekranı: her bölümden 3 satır (yorumlarla aynı), gerisi
-// "daha fazla göster" ile 20'lik sayfalar.
+// The profile is a summary screen: 3 rows per section (same as comments),
+// the rest in pages of 20 via "show more".
 const PROFILE_PREVIEW = 3;
 const PROFILE_PAGE = 20;
 
@@ -62,8 +62,8 @@ export default function UserProfileScreen({ navigation }: any) {
   const [myAnimals, setMyAnimals] = useState<ProfileAnimal[]>([]);
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
-  // Arkadaş listesi tek istekte geliyor (kısa); profili şişirmemek için
-  // istemci tarafında parça parça açılıyor.
+  // The friend list arrives in one request (it's short); revealed piecewise
+  // client-side to keep the profile lean.
   const [visibleFriends, setVisibleFriends] = useState(PROFILE_PREVIEW);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -104,7 +104,7 @@ export default function UserProfileScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       load();
-      // Uygulama kapalıyken kazanılmış olabilecek rozetler burada yakalanır.
+      // Badges possibly earned while the app was closed are caught here.
       checkPending();
     }, [load, checkPending])
   );
@@ -122,8 +122,8 @@ export default function UserProfileScreen({ navigation }: any) {
         type: asset.type,
         fileName: asset.fileName,
       });
-      // Yanıtı doğrudan yerine koymak yerine mevcut profille birleştiriyoruz:
-      // eksik bir alan gelse bile ekran render edilebilir durumda kalır.
+      // Merged into the current profile instead of swapped in wholesale:
+      // even with a missing field the screen stays renderable.
       setMe((prev) => (prev ? { ...prev, ...updated } : updated));
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
@@ -172,8 +172,8 @@ export default function UserProfileScreen({ navigation }: any) {
     }
   }
 
-  // Profil verisi gelmese bile çıkış yapabilmek kritik: aksi halde geçersiz bir
-  // oturumla uygulamada kilitli kalınıyor.
+  // Being able to sign out even without profile data is critical: otherwise
+  // an invalid session locks you inside the app.
   if (!me) {
     return (
       <Screen edges={['top']}>
@@ -199,7 +199,7 @@ export default function UserProfileScreen({ navigation }: any) {
 
   return (
     <Screen edges={['top']} scroll>
-      {/* Başlık kartı: avatar, isim, seviye çubuğu bir arada */}
+      {/* The header card: avatar, name and level bar together */}
       <Card style={styles.headerCard}>
         <View style={styles.headerRow}>
           <Pressable onPress={() => setAvatarPickerVisible(true)} disabled={uploading}>

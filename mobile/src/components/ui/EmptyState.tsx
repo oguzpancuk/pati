@@ -5,7 +5,7 @@ import Button from './Button';
 import { makeStyles, radius, spacing, useTheme } from '../../theme';
 
 export type EmptyStateProps = {
-  /** Büyük emoji ya da ikon. */
+  /** A large emoji or icon. */
   emoji?: string;
   icon?: React.ReactNode;
   title: string;
@@ -15,7 +15,7 @@ export type EmptyStateProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-/** Boş liste, hata ve "henüz yok" durumlarının ortak görünümü. */
+/** The shared look of empty lists, errors and "nothing yet" states. */
 export default function EmptyState({
   emoji,
   icon,
@@ -50,7 +50,7 @@ export default function EmptyState({
   );
 }
 
-/** Aynı boşlukta duran yükleniyor hâli — liste zıplamasın diye aynı hizada. */
+/** The loading state occupying the same space — aligned so the list doesn't jump. */
 export function LoadingState({ label = 'Yükleniyor…' }: { label?: string }) {
   const styles = useStyles();
   const { colors } = useTheme();

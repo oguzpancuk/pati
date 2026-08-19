@@ -15,7 +15,7 @@ interface Props {
 
 function rankLine(award: BadgeAward): string {
   if (award.rankAfter === null) return 'Sıralama hesaplanıyor';
-  // İlk rozette karşılaştırılacak bir önceki sıralama yok.
+  // On the first badge there is no previous rank to compare against.
   if (award.rankBefore === null) return `${award.rankAfter}. sıradasın`;
   if (award.rankBefore === award.rankAfter) return `${award.rankAfter}. sırada kaldın`;
   const climbed = award.rankBefore - award.rankAfter;

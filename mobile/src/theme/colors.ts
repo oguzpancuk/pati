@@ -1,46 +1,46 @@
 /**
- * pati marka paleti — açık ve koyu iki sürüm.
+ * The pati brand palette — light and dark versions.
  *
- * Marka kimliğinden gelen beş renk sabit, gerisi bunlardan türetildi:
- *   #F47A4A turuncu  — marka, birincil eylem
- *   #FFF3E7 krem     — arka plan
- *   #2B2B2B koyu gri — metin
- *   #34A853 yeşil    — haritada "bakım var"
- *   #FF5C5C kırmızı  — "bakım yok" uyarıları (haritada zemin boyanmıyor)
+ * Five colors from the brand identity are fixed, the rest derived:
+ *   #F47A4A orange    — brand, primary action
+ *   #FFF3E7 cream     — background
+ *   #2B2B2B dark gray — text
+ *   #34A853 green     — "care present" on the map
+ *   #FF5C5C red       — "no care" warnings (the map ground isn't painted)
  *
- * Koyu temada nötr gri değil **sıcak kahve** tonları kullanıldı; marka kremi
- * sıcak olduğu için soğuk gri bir koyu tema aynı uygulama gibi durmuyor.
- * Durum renkleri koyu zeminde bir tık açıldı: aynı yeşil/kırmızı koyu zeminde
- * sönük kalıyor.
+ * The dark theme uses **warm coffee** tones, not neutral gray; the brand
+ * cream is warm, and a cold gray dark theme didn't read as the same app.
+ * Status colors are lightened a notch on dark: the same green/red goes dull
+ * on a dark ground.
  *
- * Kural: ekran dosyalarında hex yazmayın. Renk lazımsa `useTheme()` ya da
- * `makeStyles((t) => ...)` üzerinden isim kullanın.
+ * Rule: no hex in screen files. When you need a color, use a name via
+ * `useTheme()` or `makeStyles((t) => ...)`.
  */
 export const lightPalette = {
   // Marka
   brand: '#F47A4A',
-  brandDark: '#D9633A', // basılı hâl
-  brandSoft: '#FDE7DB', // turuncu üzerine yazı okunacak açık zemin
-  brandTint: '#FFF0E7', // çok açık vurgu (seçili satır vb.)
+  brandDark: '#D9633A', // pressed state
+  brandSoft: '#FDE7DB', // light ground for text over orange
+  brandTint: '#FFF0E7', // very light accent (selected rows etc.)
 
-  // Zeminler
-  background: '#FFF3E7', // ekran arka planı (krem)
+  // Grounds
+  background: '#FFF3E7', // screen background (cream)
   surface: '#FFFFFF', // kart
-  surfaceAlt: '#FFF9F2', // kart içi ikincil blok
+  surfaceAlt: '#FFF9F2', // secondary block inside a card
   overlay: 'rgba(43, 43, 43, 0.45)', // modal perdesi
 
   // Metin
   text: '#2B2B2B',
-  textMuted: '#7A6E66', // ikincil satır, açıklama
-  textSubtle: '#A2948A', // ipucu, zaman damgası
+  textMuted: '#7A6E66', // secondary lines, descriptions
+  textSubtle: '#A2948A', // hints, timestamps
   textOnBrand: '#FFFFFF',
 
-  // Çizgiler
-  border: '#F0DCC8', // krem zeminde sıcak ayraç
+  // Lines
+  border: '#F0DCC8', // a warm divider on cream
   borderStrong: '#E2C9AE',
 
-  // Durum — haritadaki iki renk uygulamanın geneline de yayıldı.
-  // *Soft: açık zemin, on*: o zemin üstünde okunacak yazı.
+  // Status — the map's two colors spread across the whole app.
+  // *Soft: light ground; on*: text readable on that ground.
   success: '#34A853',
   successSoft: '#E3F3E7',
   successDark: '#2C8F46',
@@ -56,18 +56,18 @@ export const lightPalette = {
   infoSoft: '#E5EFFE',
   onInfo: '#2A5FB0',
 
-  // Nötr yardımcılar
+  // Neutral helpers
   disabled: '#E8DCD0',
   disabledText: '#B5A99E',
   skeleton: '#F3E6D9',
-  shadow: '#7A4A2A', // gölge de sıcak; gri gölge kremde kirli duruyor
+  shadow: '#7A4A2A', // the shadow is warm too; gray shadows look dirty on cream
 } as const;
 
 export type Palette = { -readonly [K in keyof typeof lightPalette]: string };
 
 export const darkPalette: Palette = {
-  // Marka turuncusu koyu zeminde biraz açıldı; #F47A4A koyu kahve üstünde
-  // matlaşıyor.
+  // The brand orange is lightened a bit on dark; #F47A4A goes flat over
+  // dark coffee.
   brand: '#FF8F5E',
   brandDark: '#E0714A',
   brandSoft: '#4A2E22',
@@ -115,44 +115,45 @@ export const palettes: Record<ThemeName, Palette> = {
 };
 
 /**
- * Haritanın kendi sözlüğü. Ekran kodunda "yeşil/kırmızı" yerine anlam yazalım
- * diye ayrı tutuldu. Katmanlar yarı saydam olduğu ve haritanın kendi zemini
- * (Apple/Google) sistem temasını takip ettiği için iki temada da aynı.
+ * The map's own vocabulary. Kept separate so screen code says meaning
+ * instead of "green/red". Identical in both themes: the layers are
+ * translucent and the map's own ground (Apple/Google) follows the system
+ * theme.
  */
 export const mapColors = {
   cared: lightPalette.success,
   caredFill: 'rgba(52, 168, 83, 0.18)',
-  // Haritada artık kırmızı taban yok (bkz. MapScreen); "bakım eksik" rengi
-  // banner ve durum metinlerinde kullanılıyor.
+  // The map has no red base anymore (see MapScreen); the "care missing"
+  // color is used in banners and status text.
   needsCare: lightPalette.danger,
   userRadius: 'rgba(244, 122, 74, 0.16)',
   userRadiusStroke: lightPalette.brand,
 } as const;
 
 /**
- * Yeşilin verilen saydamlıktaki hâli. Haritadaki bakım daireleri tazeliğe göre
- * saydamlaşıyor, o yüzden alfa çalışma anında hesaplanıyor.
+ * The green at a given opacity. Care circles on the map fade with freshness,
+ * so the alpha is computed at runtime.
  */
 export function caredFill(alpha: number) {
   return `rgba(52, 168, 83, ${alpha})`;
 }
 
 /**
- * Rozet kademelerinin madeni renkleri. Emoji madalyalar (🥉🥈🥇💎) yerine
- * kendi çizdiğimiz madalyonu kullanıyoruz: emoji her cihazda farklı çiziliyor,
- * marka tipografisiyle aynı hizaya oturmuyor ve renk verilemiyor.
+ * The metallic colors of the badge tiers. We use our own drawn medallion
+ * instead of emoji medals (🥉🥈🥇💎): emoji render differently per device,
+ * don't align with the brand typography and can't be tinted.
  *
- * Her kademe üç tondan oluşuyor: `ring` dış halka, `fill` iç disk, `ink`
- * ortadaki sembol. Madenin kendi rengi temaya göre değişmediği için (altın
- * karanlık modda da altındır) tek set yeterli; `ink`/`fill` kontrastı iki
- * temada da okunabilecek şekilde seçildi.
+ * Each tier is three tones: `ring` the outer ring, `fill` the inner disc,
+ * `ink` the central symbol. The metal's own color doesn't change with the
+ * theme (gold is gold in dark mode too), so one set suffices; `ink`/`fill`
+ * contrast was chosen to read in both themes.
  */
 export const tierColors = {
   bronze: { ring: '#B87333', fill: '#F0D6BC', ink: '#7A4A1E' },
   silver: { ring: '#9AA5B1', fill: '#E6EAEF', ink: '#59636D' },
   gold: { ring: '#D9A520', fill: '#FBEEC4', ink: '#8A6408' },
   diamond: { ring: '#4FB0C6', fill: '#D9F1F7', ink: '#1F6B7D' },
-  /** Henüz kazanılmamış rozet: renksiz ama boş kutu gibi de durmuyor. */
+  /** A badge not yet earned: colorless, but not looking like an empty box either. */
   locked: { ring: '#C4C9CF', fill: '#EFF1F3', ink: '#8B9198' },
 } as const;
 

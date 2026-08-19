@@ -11,8 +11,8 @@ interface Props {
 }
 
 /**
- * Seviye rozeti + bir sonraki seviyeye kalan puanı gösteren çubuk.
- * Seviye bilgisi sunucudan geliyor; eşikler burada tekrarlanmıyor.
+ * The level emblem + a bar showing points left to the next level.
+ * Level data comes from the server; thresholds are not repeated here.
  */
 export default function LevelBar({ level, points }: Props) {
   const styles = useStyles();

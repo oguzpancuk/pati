@@ -10,11 +10,11 @@ interface Props {
 }
 
 /**
- * Hayvanın yuvarlak "yüzü": her yerde (harita, listeler, yorumlar) tür/desene
- * göre çizilen karikatür avatar. Fotoğraf bilerek kullanılmıyor — sokak
- * fotoğrafları küçük yuvarlakta çoğu zaman seçilemiyordu ve her hayvanın
- * görünümü fotoğraf kalitesine göre değişiyordu. Fotoğraflar profildeki
- * galeride duruyor; avatar ise desenin tutarlı temsili (bkz.
+ * The animal's round "face": a cartoon avatar drawn from species/pattern,
+ * used everywhere (map, lists, comments). Photos are deliberately not used —
+ * street photos were rarely legible in a small circle, and each animal's
+ * look depended on photo quality. Photos live in the profile gallery; the
+ * avatar is the pattern's consistent representation (see
  * avatars/AnimalPatternAvatar).
  */
 export default function AnimalAvatar({ species, breed, size = 36 }: Props) {
@@ -27,8 +27,8 @@ export default function AnimalAvatar({ species, breed, size = 36 }: Props) {
 }
 
 const useStyles = makeStyles(({ colors: c }) => ({
-  // Beyaz halka haritada zeminden ayrışmak için; avatar kendi zemin rengini
-  // getirdiği için ekstra dolgu yok.
+  // The white ring separates it from the map ground; the avatar brings its
+  // own background color, so no extra fill.
   frame: {
     borderWidth: 2,
     borderColor: c.surface,
