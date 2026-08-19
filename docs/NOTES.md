@@ -1,243 +1,230 @@
-# Teknik Notlar, Kararlar ve Bilinen Sınırlar
+# Technical Notes, Decisions, and Known Limits
 
-Bu dosya geliştirme sırasında verilen kararların **gerekçelerini** ve bilerek
-ertelenen konuları tutar. Amaç: altı ay sonra "burası neden böyle yapılmış?"
-sorusunun cevabının kaybolmaması ve üretime çıkmadan önce kapatılması gereken
-maddelerin unutulmaması.
+This file keeps the **rationale** behind decisions made during development and
+the things deliberately postponed. Purpose: six months from now, "why was this
+done this way?" must still have an answer, and the items that must close
+before production must not be forgotten.
 
-Yeni bir karar verdiğinizde veya bir sınırı bilerek kabul ettiğinizde buraya
-bir satır ekleyin.
+When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
-## 1. Ürün kararları ve gerekçeleri
+## 1. Product decisions and rationale
 
-### Mesafe toleransı 20 metre
-Başlangıçta 10m'ydi. Şehir içinde tipik GPS hassasiyeti 5–20m arasında
-değişiyor; 10m sınırı gerçekten mama bırakan dürüst kullanıcıları da
-engelliyordu. 20m hâlâ fiilen o noktaya gitmeyi gerektiriyor ama hassasiyet
-kaynaklı yanlış retleri ortadan kaldırıyor.
+### Distance tolerance is 20 meters
+It started at 10 m. Typical urban GPS accuracy is 5–20 m; the 10 m limit was
+rejecting honest users who really were dropping food. 20 m still requires
+physically being there but removes accuracy-driven false rejections.
 `backend/src/controllers/care.controller.js` → `MAX_DISTANCE_TO_PIN_METERS`
-(mobil tarafta aynı sabit `mobile/src/screens/MapScreen.tsx` içinde — **iki
-yerde tanımlı, birini değiştirirken diğerini de değiştirin**).
+(the same constant exists on mobile in `mobile/src/screens/MapScreen.tsx` —
+**defined in two places; change both together**).
 
-### Solma süresi ile uyarı süresi aynı tutuldu
-Mama 4 saat, su 6 saat. Haritadaki yeşil alanın solma süresi ile "bu bölgede
-bakım eksik" uyarısının penceresi bilerek aynı: farklı olsalardı harita
-yeşilken uyarı çıkması gibi tutarsızlıklar oluşuyordu. Mama daha çabuk
-tükeniyor/bozuluyor, su daha uzun süre işe yarıyor — süre farkı buradan
-geliyor.
+### Fade window equals warning window
+Food 4 h, water 6 h. The map-green fade time and the "care missing" warning
+window are deliberately identical: when they differed, warnings could fire
+while the map was still green. Food runs out/spoils faster than water — hence
+the different durations.
 
-Pencere **satır bazında** hesaplanıyor (`WINDOW_HOURS_SQL` içindeki `CASE`),
-böylece mama ve su kayıtları aynı sorguda listelense bile her biri kendi
-hızında soluyor.
+The window is computed **per row** (the `CASE` inside `WINDOW_HOURS_SQL`), so
+food and water fade at their own speeds even when listed in one query.
 
-### Rozet bir kere kazanılınca düşmüyor
-Aktif seri bozulsa bile kademe düşmüyor; puan en yüksek ulaşılan kademeden
-geliyor. Gerekçe: rozet sistemi ceza değil ödül mekanizması; seriyi kaybeden
-kullanıcının profilinin fakirleşmesi motivasyonu kırıyor.
+### Badges never demote
+Even when an active streak breaks, the tier stays; points come from the
+highest tier reached. Rationale: badges are a reward mechanism, not a
+punishment; a profile that gets poorer after losing a streak kills motivation.
 
-### Yorum puanı genişliğe göre ağırlıklı
-Hayvan başına en fazla 5 yorum sayılıyor (yorum başına 1 puan) ve yorum yapılan
-**farklı** hayvan başına 3 puan veriliyor. Gerekçe: düz "yorum başına 1 puan"
-olsaydı tek hayvana 500 yorum atmak liderlik tablosunu kırardı. Bu formül
-genişliği (çok hayvanla ilgilenmeyi) tekrar yorumdan daha değerli kılıyor.
+### Comment points are breadth-weighted
+At most 5 comments per animal count (1 point each) plus 3 points per
+**distinct** animal commented on. Rationale: flat per-comment scoring would
+let 500 comments on one animal break the leaderboard. This formula makes
+breadth (caring about many animals) worth more than repetition.
 `backend/src/utils/badges.js` → `commentPoints()`.
 
-### Hastalık durumu saklanmıyor, türetiliyor
-Sağlık kaydının durumu (`not_started` / `in_treatment` / `recovered`) ayrı bir
-kolonda tutulmuyor; yorum var mı ve `recovered_at` dolu mu sorularından SQL
-içinde türetiliyor. Gerekçe: saklansaydı yorum eklendiğinde/silindiğinde
-güncellenmeyi unutup gerçekle uyumsuz hale gelebilirdi. Türetilmiş değer
-desenkron olamaz.
+### Illness state is derived, not stored
+A health record's state (`not_started` / `in_treatment` / `recovered`) has no
+column; it derives in SQL from "are there comments?" and "is `recovered_at`
+set?". Rationale: a stored value could go stale when comments were
+added/deleted. A derived value cannot desync.
 
-### Rozet isimleri bilerek sıcak ve esprili
-İlk sürümde cins rozetleri "Tekir Avcısı" gibi isimlendirilmişti; "avcı" bu ürüne
-yakışmayan agresif bir çağrışım taşıyor — burada kovalanan bir av değil bakılan
-bir canlı var. Şimdiki isimler dostluk üzerinden kuruluyor: Tekir Ahbabı, Sarman
-Sırdaşı, Kara Kedi Kankası, Kangal Yoldaşı, Mama Perisi, Su Elçisi, Mahalle
-Muhabiri, Mahalle Dedikoducusu, Pati Şifacısı. Kademe sıfat olarak öne geliyor:
-"Altın Tekir Ahbabı".
+### Badge names are deliberately warm and playful
+The first draft named breed badges like "Tekir Avcısı" ("Tabby Hunter") —
+"hunter" carries an aggressive connotation that doesn't fit this product;
+what's pursued here is a living creature receiving care, not prey. Current
+names build on friendship: Tekir Ahbabı, Sarman Sırdaşı, Kara Kedi Kankası,
+Kangal Yoldaşı, Mama Perisi, Su Elçisi, Mahalle Muhabiri, Mahalle
+Dedikoducusu, Pati Şifacısı. The tier reads as a leading adjective:
+"Altın Tekir Ahbabı". (Names are product content and stay Turkish.)
 
-### Rozet kazanma anı saklanıyor, rozetin kendisi saklanmıyor
-Rozetler türetilmiş veri (istenildiği an yeniden hesaplanabiliyor), ama "bu rozeti
-ne zaman kazandın ve o an kaçıncı sıradaydın" bilgisi geçmişe dönük
-hesaplanamıyor — sıralama başkalarının puan kazanmasıyla da değişiyor. Bu yüzden
-`user_badge_awards` tablosu yalnızca **kazanma anının fotoğrafını** tutuyor:
-puan öncesi/sonrası, sıralama öncesi/sonrası, seviye öncesi/sonrası.
+### The moment of earning a badge is stored; the badge itself is not
+Badges are derived data (recomputable at any time), but "when did you earn
+this and what was your rank at that moment" cannot be reconstructed — ranking
+also shifts as others earn points. So `user_badge_awards` stores only a
+**snapshot of the earning moment**: points before/after, rank before/after,
+level before/after.
 
-"Önceki sıralama" değeri `users.last_rank` anlık görüntüsünden geliyor ve bu
-görüntü hem rozet kazanıldığında hem profil açıldığında tazeleniyor — yani
-pratikte "en son baktığında kaçıncıydın" anlamına geliyor. İlk rozette
-karşılaştırılacak bir değer olmadığı için `rank_before` NULL kalıyor; arayüz bu
-durumu ayrıca ele alıyor.
+The "previous rank" comes from the `users.last_rank` snapshot, refreshed both
+when a badge lands and when the profile opens — in practice it means "where
+you stood last time you looked". The first badge has nothing to compare to,
+so `rank_before` stays NULL and the UI handles that case.
 
-### Sıralama yalnızca gerçekten yeni rozet varsa hesaplanıyor
-`syncBadgeAwards` her puan kazandıran işlemden sonra çalışıyor, ama pahalı kısmı
-(tüm kullanıcıları tarayan sıralama hesabı) sadece gerçekten yeni bir rozet
-kazanıldığında yapılıyor. Ayrıca rozet senkronizasyonu bir yan iş olduğu için
-hata verirse asıl işlem (mama bırakma, yorum...) düşürülmüyor — kullanıcı
-açısından rozetin gecikmesi, işlemin başarısız olmasından iyidir.
+### Ranking is computed only when a badge is actually new
+`syncBadgeAwards` runs after every point-earning action, but the expensive
+part (the all-users ranking scan) only runs when a new badge was actually
+earned. Badge sync is a side job: if it fails, the main action (food drop,
+comment…) is not rolled back — a delayed badge beats a failed action.
 
-### Seed script rozetleri "görülmüş" olarak işliyor
-Demo kullanıcıların 30 günlük serileri onlarca rozet üretiyor. Backfill olmasaydı
-bir demo hesapla yapılan ilk aksiyonda bu rozetlerin hepsi aynı anda kutlama
-popup'ı olarak patlıyordu. `seed-demo.js` bu yüzden mevcut rozetleri
-`seen_at = now()` ile yazıyor.
+### The seed script marks badges as "seen"
+Demo users' 30-day streaks generate dozens of badges. Without a backfill, the
+first action on a demo account exploded them all as celebration popups at
+once. `seed-demo.js` therefore writes existing badges with `seen_at = now()`.
 
-> Aynı durum gerçek kullanıcılar için de geçerli: bu özellik canlıya alındığında
-> mevcut kullanıcılar bir sonraki aksiyonlarında birikmiş tüm rozetlerini
-> görecek. Sıfırdan bir veritabanında sorun değil, ama veri varken deploy
-> edilecekse benzer bir backfill çalıştırılmalı.
+> The same applies to real users: when this feature ships onto a database
+> with existing data, run a similar backfill or users will get their entire
+> backlog on their next action.
 
-### Reklam rotasyonu ayrı bir imleç tutmuyor
-"Her tıkta sıra bir sonraki markaya geçsin" isteniyordu. Sırayı bir imleç
-tablosunda tutmak yerine, **kullanıcının o yerleşimde kaç kez reklam gördüğünden**
-türetiyoruz: `index = gösterim_sayısı % marka_sayısı`. Gösterimleri zaten
-faturalama için kaydediyoruz, yani ekstra durum tutmadan hem kullanıcı bazında
-hem eşit dağılımlı bir sıra elde ediliyor.
+### Ad rotation keeps no cursor
+"Each open shows the next brand" — instead of a cursor table, the position
+derives from **how many impressions the user has in that slot**:
+`index = impressions % brand_count`. Impressions are recorded for billing
+anyway, so this yields a per-user, evenly distributed rotation with no extra
+state.
 
-Global bir imleç yerine kullanıcı bazında olmasının sebebi: global imleçte iki
-kişi aynı anda açtığında ikisi de aynı markayı görür ve tek bir kullanıcı arka
-arkaya açtığında sıra atlar. Kullanıcı bazında herkes markaları sırayla görüyor.
+Per-user rather than global because a global cursor shows two simultaneous
+users the same brand and skips entries for a user opening twice in a row.
+Cost: adding/removing a brand shifts the order. Acceptable.
 
-Bedeli: marka listesi değişince (ekleme/çıkarma) sıra kayıyor. Kabul edilebilir.
+### Impressions are recorded on display, not on fetch
+`GET /api/ads` is side-effect-free; the impression is a separate `POST`. An
+ad fetched but never rendered isn't billed, and rotation advances by what was
+actually shown. (A GET recording impressions would let retries or prefetching
+inflate the counter.)
 
-### Gösterim, reklam getirilirken değil gösterilirken kaydediliyor
-`GET /api/ads` yan etkisiz; gösterim ayrı bir `POST` ile bildiriliyor. Böylece
-getirilip de ekrana gelmeyen bir reklam faturaya yazılmıyor ve rotasyon sırası
-gerçekten gösterilenlere göre ilerliyor. (GET'in kendisi gösterim kaydetseydi bir
-yeniden deneme ya da ön yükleme sayacı şişirirdi.)
+### Ads are a side feature: failures never break a flow
+If an ad can't be fetched, an impression/click can't be reported, or the
+target URL won't open, the user sees no error — the banner silently doesn't
+render. Breaking the food-drop flow over an ad is unacceptable. With nothing
+active, the banner isn't drawn at all (an empty box would wreck the layout).
 
-### Reklam bir yan özellik: hata akışı kesmiyor
-Reklam getirilemezse, gösterim/tık bildirilemezse ya da hedef adres açılamazsa
-kullanıcıya hata gösterilmiyor — bant sessizce görünmüyor. Mama bırakma akışının
-reklam yüzünden kesilmesi kabul edilemez. Yayında reklam yoksa da bant hiç
-çizilmiyor (boş kutu düzeni bozardı).
+### The mandatory "Reklam" label
+Users must be able to tell content from advertising. Both honesty and store
+policy expect it.
 
-### Bantta zorunlu "Reklam" etiketi
-Kullanıcının neyin içerik neyin reklam olduğunu ayırt edebilmesi gerekiyor. Bu
-hem dürüstlük hem de mağaza kuralları açısından beklenen bir şey.
+### Users are suspended, never deleted
+The admin panel has "suspend", not "delete". Rationale: a user's care actions
+are the map's data and their comments are content others read — deleting the
+account destroys data other people see. A suspended account has
+`suspended_at` set and every API request is rejected (`requireAuth` checks it
+each time), while the historical contribution stays.
 
-### Kullanıcı silinmiyor, askıya alınıyor
-Admin panelinde "sil" yok, "askıya al" var. Gerekçe: kullanıcının bıraktığı bakım
-kayıtları haritanın verisi, yorumları da başkalarının okuduğu içerik — hesabı
-silmek başkalarının gördüğü veriyi de götürüyor. Askıya alınan hesap
-`suspended_at` dolu olduğu için API'ye erişemiyor (`requireAuth` her istekte
-kontrol ediyor), ama geçmiş katkısı yerinde kalıyor.
+This also practically solves **JWT non-revocability**: even with a valid
+token, a suspended user gets 403.
 
-Bu aynı zamanda **JWT'nin iptal edilememesi** sorununu pratikte çözüyor: token
-geçerli olsa bile askıya alınmış kullanıcı 403 alıyor.
+### Admins can't change their own role/status
+A sole admin accidentally demoting themself locks the panel entirely (the
+only recovery is the server-side script). Hence users can't modify role or
+suspension fields on their own record.
 
-### Yönetici kendi rolünü/durumunu değiştiremiyor
-Tek yöneticinin kendini yanlışlıkla kullanıcıya düşürmesi paneli tamamen
-erişilemez hale getirir (geri dönüş yalnızca sunucudaki script). Bu yüzden
-kullanıcı kendi kaydında rol ve askı alanlarını değiştiremiyor.
+### The audit log is best-effort
+If `writeAuditLog` fails, the primary action is not rolled back — only
+logged. Rationale: the delete/edit has already happened; failing the request
+over the log makes things worse. The content of deleted records is written
+into the audit log — the row is gone but "what was deleted" stays answerable.
 
-### Denetim kaydı "best effort"
-`writeAuditLog` hata verirse asıl işlem geri alınmıyor, yalnızca loglanıyor.
-Gerekçe: silme/düzenleme zaten gerçekleşmiş oluyor; kaydı yazamamak yüzünden
-kullanıcıya hata döndürmek durumu daha da karıştırır. Silinen kayıtların içeriği
-denetim kaydına yazılıyor — satır artık yok ama "ne silindi" sorusu
-cevaplanabilir kalıyor.
+### Animal merge runs in a single transaction
+If half of the photo/comment/health/carer moves succeeded, two broken records
+would remain. `user_animal_care` has a composite primary key, so
+`ON CONFLICT DO NOTHING` is required when the same person cares for both.
 
-### Hayvan birleştirme tek transaction'da
-Fotoğraf, yorum, sağlık kaydı ve bakım veren taşıma işlemlerinin yarısı olup
-yarısı olmazsa geriye iki bozuk kayıt kalır. `user_animal_care` birleşik birincil
-anahtar kullandığı için aynı kişi iki kayda da bakıyorsa `ON CONFLICT DO NOTHING`
-gerekiyor.
+### Featured badges store only the key
+`users.featured_badges` holds keys like `["streak:feeder", "breed:Tekir"]`,
+no tier. When the user climbs from silver to gold, the profile badge upgrades
+by itself — no sync job.
 
-### Öne çıkan rozetler yalnızca anahtarı saklıyor
-`users.featured_badges` içinde `["streak:feeder", "breed:Tekir"]` gibi
-anahtarlar var, kademe bilgisi yok. Gerekçe: kullanıcı gümüşten altına
-yükseldiğinde profildeki rozet kendiliğinden güncelleniyor, ayrıca bir
-senkronizasyon işi gerekmiyor.
+### Notifications are computed on device, not on the server
+Instead of "send this user a notification", the device takes its own location
+and queries `/api/care-actions/status`. Rationale: the user's location is
+never streamed to the server. Cost: no notifications while the app is fully
+closed (see Known Limits #6).
 
-### Bildirimler cihazda hesaplanıyor, sunucuda değil
-"Bu kullanıcıya bildirim gönder" demek yerine cihaz kendi konumunu alıp
-`/api/care-actions/status` sorguyor. Gerekçe: kullanıcının konumu sunucuya
-sürekli gönderilmiyor; bu yaklaşım konum verisini cihazda tutuyor. Bedeli:
-uygulama tamamen kapalıyken bildirim gelmiyor (bkz. Bilinen Sınırlar #6).
+### The location override is `__DEV__`-only
+Two personal accounts (`oguzpancuk@gmail.com`, `sumeyyeayan@gmail.com`) and
+**all demo accounts** (`test1@stray.test` …) get a fixed Kadıköy location —
+so distance-gated flows can be tested from abroad. The branch never runs in
+production builds.
 
-### Konum override'ı yalnızca `__DEV__`
-İki kişisel hesap (`oguzpancuk@gmail.com`, `sumeyyeayan@gmail.com`) ve **tüm demo
-hesapları** (`test1@stray.test` … `test100@stray.test`) için Kadıköy'de sabit
-konum döndürülüyor — yurt dışından 20m mesafe kontrolü gerektiren akışları test
-edebilmek için. Prod derlemede bu dal hiç çalışmıyor.
+The two personal accounts are ~250 m apart so duplicate-animal detection can
+be tested with two users. Demo accounts derive their spot
+**deterministically** from their number (golden-angle spread, 90–360 m from
+the center): random placement would teleport an account between launches; a
+single fixed point would stack 100 accounts.
 
-Kişisel iki hesabın konumu ~250m arayla seçildi ki mükerrer hayvan tespiti de
-denenebilsin. Demo hesapları ise numaralarından **deterministik** olarak
-üretiliyor (altın açıyla dağıtılmış, merkeze 90–360m): rastgele olsaydı hesap her
-girişte başka yere ışınlanırdı; sabit tek bir nokta olsaydı 100 hesap üst üste
-binerdi.
-
-> Demo hesapları başta override kapsamında değildi ve demo veriyle test ederken
-> harita boş görünüyordu — kullanıcı yurt dışındayken cihazın gerçek GPS'i
-> kullanılıyordu. Seed verisi Kadıköy'e yazıldığı için override'ın seed merkeziyle
-> aynı noktayı kullanması şart.
+> Demo accounts weren't in the override at first, and the map looked empty in
+> tests — the device's real GPS was used abroad. The seed writes to Kadıköy,
+> so the override must share the seed's center.
 
 ---
 
-### Eşleştirme "2 saniye" beklemesi bilinçli bir yer tutucu
-Hayvan ekleme akışında "yapay zekâ eşleştiriyor" ekranı en az 2 sn duruyor
-(`mobile/src/screens/AddAnimalScreen.tsx` → `MIN_MATCHING_MS`). Sunucu şu an
-yalnızca tür/desen/renk/mesafeye bakıp anında döndüğü için bekleme yapay; ama
-kullanıcıya bir karşılaştırma yapıldığını hissettiriyor ve fotoğraf tabanlı
-eşleştirme (YOL_HARITASI §1) geldiğinde gerçek işlem süresi bu yerin altını
-dolduracak. O gün sabit silinir, ekran değişmez.
+### The 2-second matching wait is a deliberate placeholder
+The "AI matching" screen shows for at least 2 s
+(`mobile/src/screens/AddAnimalScreen.tsx` → `MIN_MATCHING_MS`). The server
+currently checks species/pattern/color/distance and returns instantly, so the
+wait is artificial; it makes the comparison feel real and reserves the slot
+for photo-based matching (ROADMAP §1). When that lands, the constant goes and
+the screen stays.
 
-### Benzerlik kademe, yüzde değil
-`GET /api/animals/match` yüksek/orta/düşük döner; sayısal skor istemciye hiç
-gitmiyor. Elimizdeki sinyal kullanıcının girdiği birkaç alan; "%73 benzer"
-olmayan bir kesinlik vaat eder. Puanlama `animal.controller.js` →
-`similarityFor` içinde tek yerde (desen +2, renk +1, 200 m içinde +1;
-≥3 yüksek, 2 orta, gerisi düşük). Tür filtre: kediyle köpek eşleşmez.
+### Similarity is a tier, not a percentage
+`GET /api/animals/match` returns high/medium/low; no numeric score reaches
+the client. The only signal is a few user-entered fields; "73% similar" would
+promise a precision that doesn't exist. Scoring lives in one place
+(`animal.controller.js` → `similarityFor`: pattern +2, color +1, within
+200 m +1; ≥3 high, 2 medium, else low). Species filters: a cat never matches
+a dog.
 
-### Yakındaki hayvanlar 1 km, mama/su etki alanı 100 m
-"Yakındakiler" listesi 5 km'den 1 km'ye indi: yürüyerek gidilip bakılabilecek
-mesafe bu; sokak hayvanı kendi mahallesinden çıkmıyor, 5 km'de liste alakasız
-kayıtla doluyordu. Kalp animasyonu ise haritadaki yeşil daireyle aynı 100 m'yi
-kullanıyor (`MapScreen.tsx` → `ACTION_CIRCLE_RADIUS_METERS`) — "etki alanı"nın
-uygulamada tek bir tanımı olsun diye. Genişletmek gerekirse tek sabit.
+### Nearby animals 1 km; food/water effect radius 100 m
+The "nearby" list dropped from 5 km to 1 km: that's a walkable care distance,
+a street animal doesn't leave its neighborhood, and at 5 km the list filled
+with irrelevant records. The heart animation uses the same 100 m as the map's
+green circle (`MapScreen.tsx` → `ACTION_CIRCLE_RADIUS_METERS`) — one
+definition of "effect area" in the app. Widening it later is one constant.
 
-### Sayfalama: profil önizleme + "daha fazla göster", listeler kaydırdıkça
-Profil ekranları ScrollView; orada sonsuz kaydırma yerine açık bir düğme
-(`ui/LoadMoreButton`, "Daha fazla göster (12)") var — kullanıcı nerede
-bittiğini ve kaç tane daha olduğunu görsün. Özet sayısı her bölümde **3**
-(hayvanlar, arkadaşlar, yorumlar, hayvan sohbeti); "daha fazla" 20'lik sayfa
-getirir. Yalnızca "Yakındakiler" tam liste: 20'şer, kaydırdıkça. Tam liste ekranları (Yakındakiler,
-Yorumlar) FlatList `onEndReached` ile yüklüyor. Sunucu tarafı `limit/offset`;
-`limit` verilmezse eski geniş varsayılan korunuyor ki harita tek istekte
-çevreyi çeksin. Yorum sohbeti en yeniden geriye sayfalanır ve sayfa kronolojik
-sırayla döner (`listComments`).
+### Pagination: profile previews + "show more"; full lists scroll
+Profile screens are ScrollViews; instead of infinite scroll they use an
+explicit button (`ui/LoadMoreButton`, "Show more (12)") — users see where
+they stopped and how much is left. Preview size is **3** everywhere
+(animals, friends, comments, animal chat); "more" fetches pages of 20. Only
+full-list screens (nearby animals, comments) load via FlatList
+`onEndReached`. Server side is `limit/offset`; without `limit` the old wide
+default holds so the map fetches its surroundings in one request. The chat
+paginates newest-backwards and each page returns in chronological order
+(`listComments`).
 
-### Yayında kökte web PWA, tanıtım sayfası /tanitim altında
-Karar (yayın hazırlığı): backend üretimde `web/dist`'i kökten servis ediyor
-(tek https adres, `/api` aynı origin, SPA fallback); `backend/public` tanıtım
-sayfası `/tanitim/`'e taşındı (yolları göreli yapıldı). Bkz. docs/YAYIN.md.
-Geliştirmede `web/dist` yoksa kökte hiçbir şey yok, tanıtım yine `/tanitim/`.
+### In production the web PWA owns the root; the landing page lives at /tanitim
+Decision (launch prep): production serves `web/dist` from the root (one https
+address, `/api` same-origin, SPA fallback); the `backend/public` landing page
+moved to `/tanitim/` (paths made relative). See docs/DEPLOYMENT.md. In
+development, with no `web/dist`, the root serves nothing and the landing page
+is still `/tanitim/`.
 
-### Kök adres bir PWA kabuğu, web sürümü değil (tarihçe)
-`backend/public/` altındaki sayfa "URL ile ana ekrana ekle" isteğinin
-karşılığı: manifest + service worker + ikonlar, tam ekran açılır, çevrimdışı
-kabuk. Halka açık `/api/care-actions/status` ile "yakınımda mama/su var mı"
-gösteriyor; giriş, harita, profil yok. Gerçek bir web sürümü (react-native-web)
-ayrı ve büyük bir karar (YOL_HARITASI). Service worker `Cache-Control:
-no-cache` ile servis ediliyor; aksi halde tarayıcı eski sw.js'e yapışıp
-güncellemeyi hiç almıyor. Kabuk dosyaları değişince `sw.js` → `CACHE` sürümünü
-artırın.
+### The root used to be a PWA shell, not a web app (history)
+The page under `backend/public/` answered "add to home screen via URL":
+manifest + service worker + icons, opens full-screen, offline shell. It shows
+"is there food/water near me" via the public `/api/care-actions/status`; no
+login, map, or profile. The service worker is served with `Cache-Control:
+no-cache`; otherwise browsers stick to an old sw.js and never update. When
+shell files change, bump `CACHE` in `sw.js`.
 
-### `pati://` derin bağlantı şeması
-`mobile/src/navigation/index.tsx` → `linking`. Paylaşım linkleri için altyapı
-ve geliştirmede ekranlara doğrudan gitmek için:
-`xcrun simctl openurl booted pati://add-animal` (ya da `pati://animal/12`,
-`pati://profile`). Ekran görüntüsü alırken elle dolaşmayı bitiriyor. Şema
-iOS Info.plist ve AndroidManifest'te kayıtlı — **değişirse native build**.
+### The `pati://` deep-link scheme
+`mobile/src/navigation/index.tsx` → `linking`. Infrastructure for share links
+and a way to jump straight to screens in development:
+`xcrun simctl openurl booted pati://add-animal` (or `pati://animal/12`,
+`pati://profile`). Ends manual navigation during screenshots. The scheme is
+registered in iOS Info.plist and AndroidManifest — **changing it needs a
+native build**.
 
-iOS simülatörü `openurl` için her seferinde "pati ile açılsın mı?" onayı
-istiyor ve bu komut satırından onaylanamıyor. Geliştirme kaçamağı: `__DEV__`
-modunda `linking.getInitialURL` AsyncStorage'daki `devInitialUrl` anahtarını
-okuyup siliyor. Kullanım (Metro çalışırken):
+The iOS simulator asks "open with pati?" for every `openurl` and it can't be
+confirmed from the CLI. Dev workaround: in `__DEV__`, `linking.getInitialURL`
+reads and clears the `devInitialUrl` key from AsyncStorage. Usage (with Metro
+running):
 
 ```bash
 D=booted; C=$(xcrun simctl get_app_container $D com.patiapp data)
@@ -246,302 +233,291 @@ node -e 'const f=process.argv[1];const m=JSON.parse(require("fs").readFileSync(f
 xcrun simctl terminate $D com.patiapp; xcrun simctl launch $D com.patiapp
 ```
 
-### Haritada kırmızı taban katmanı kaldırıldı
-Eskiden tüm Türkiye kırmızı bir çokgenle boyanıyor, bakım olan yerler yeşil
-dairelerle "temizleniyordu" (her yer alarm, iyi yerler istisna). Kaldırıldı:
-Apple Maps'in bej zemininde harita bulanıklaşıyor ve uygulamanın sakin tonuna
-aykırı bir gerginlik veriyordu. Amber ve terracotta denendi, zeminde
-kaybolduğu için değmedi. Şimdi: bakılmamış yer sade harita, bakılan yer tok
-yeşil daire (`MapScreen.tsx` → `MAX_GREEN_ALPHA` 0.30 → 0.50), "buralarda
-mama yok" mesajını banner ve bildirim veriyor. Kural aynı kaldı: yeşil
-dairenin dışındaysanız uyarılırsınız.
+### The red base layer was removed from the map
+Originally all of Türkiye was painted with a red polygon and cared-for spots
+"cleaned" it with green circles (everything alarmed, good spots the
+exception). Removed: it muddied Apple Maps' beige ground and radiated a
+tension foreign to the app's calm tone. Amber and terracotta were tried and
+drowned in the ground. Now: uncared area is plain map, cared area is a solid
+green circle (`MapScreen.tsx` → `MAX_GREEN_ALPHA` 0.30 → 0.50), and the
+"no food around here" message moved to the banner and notifications. The rule
+is unchanged: outside a green circle you get warned.
 
-### Web'de konum alınamazsa kayıt engellenmiyor
-Mobil uygulama mama/su ve hayvan kaydında gerçek cihaz konumunu şart koşuyor.
-Web (`web/`) daha esnek: konum alınamazsa (http adresi — tarayıcı güvensiz
-bağlamda hiç sormadan reddediyor —, izin yok, masaüstü) mama/su kaydı
-**haritanın ortasına**, hayvan kaydı **Kadıköy merkezine** düşüyor ve nedeni
-kullanıcıya söyleniyor (`web/src/location.ts` → `LocationError`, mesaj sebebe
-göre: http / izin yok / bulunamadı). Gerekçe: aynı Wi‑Fi'daki `http://<ip>`
-adresinde kullanıcı izin verse bile konum gelmiyor; "izin ver" demek yanıltıcı,
-akışı kesmek de denemeyi imkânsız kılıyordu. Yayında (https) tarayıcı normal
-şekilde soruyor; reddedilirse yine bu esneklik geçerli.
+### The web doesn't block records when location is unavailable
+Mobile requires the real device location for food/water and animal records.
+Web (`web/`) is softer: when location fails (http origin — browsers refuse
+without even asking in insecure contexts —, permission denied, desktop), a
+food/water record lands at **the map center** and an animal record at the
+Kadıköy center, and the user is told why (`web/src/location.ts` →
+`LocationError`, message by cause). Rationale: on `http://<ip>` over shared
+Wi-Fi no permission dialog can help; saying "grant permission" misleads, and
+blocking the flow made testing impossible. In production (https) the browser
+asks normally; if denied, the same softness applies.
 
-### Web'de bakım uyarıları yalnızca sekme açıkken
-`web/src/careAlerts.ts` mobil kuralın aynısını (100 m'de mama/su yoksa, 6 sa
-soğuma) tarayıcı Notification API'siyle uyguluyor; arka plan push yok — sekme
-kapalıyken uyarı gelmez. iOS Safari'de Notification API yalnızca ana ekrana
-eklenmiş PWA'da var; desteklenmiyorsa hiç sorulmaz. Gerçek arka plan bildirimi
-mobil uygulamanın işi; web push (VAPID + service worker) yayına yakın karar.
+### Web care alerts only while the tab is open
+`web/src/careAlerts.ts` applies the same rule as mobile (no food/water within
+100 m, 6 h cooldown) via the browser Notification API; there is no background
+push — no alerts with the tab closed. On iOS Safari the Notification API only
+exists for installed PWAs; unsupported means never asked. Real background
+notifications are the mobile app's job; web push (VAPID + service worker) is
+a near-launch decision.
 
-### Haritada hayvanlar 200 m ve yalnızca iyice yaklaşınca
-Mobil `ANIMAL_RADIUS_METERS = 200`, `ANIMAL_VISIBLE_MAX_DELTA = 0.004`; web
-`ANIMAL_RADIUS_METERS = 200`, `ANIMAL_VISIBLE_MIN_ZOOM = 17`. Kullanıcının işi
-bulunduğu sokaktaki hayvanlarla; 10 km'lik çekim ve şehir ölçeğinde çizim
-haritayı avatarla dolduruyordu. Kutlama yakınlaşması (`CELEBRATE_ZOOM_*`)
-görünürlük eşiğinin içinde kalmalı, yoksa kalpler çıkmadan avatarlar gizlenir.
+### Map animals: 200 m, and only when zoomed right in
+Mobile `ANIMAL_RADIUS_METERS = 200`, `ANIMAL_VISIBLE_MAX_DELTA = 0.004`; web
+`ANIMAL_RADIUS_METERS = 200`, `ANIMAL_VISIBLE_MIN_ZOOM = 17`. The user's
+business is with the animals on their own street; a 10 km fetch drawn at city
+scale filled the map with avatars. The celebration zoom (`CELEBRATE_ZOOM_*`)
+must stay inside the visibility threshold or hearts fire while avatars hide.
 
-### Telefondan deneme: aynı Wi‑Fi (http) ve tünel (https)
-`web/vite.config.ts` dış arayüzlerde dinliyor (`host: true`); aynı Wi‑Fi'da
-`http://<mac-ip>:5175` açılır ama iOS http'de konum vermez. Gerçek deneme için
-`TUNNEL=1 npm run dev` + `cloudflared tunnel --url http://localhost:5175`
-(quick tunnel, hesapsız; adres her başlatmada değişir). API `/api` proxy'siyle
-aynı adresten geçtiği için tek tünel yetiyor. `TUNNEL=1` HMR'ı 443/wss'e
-bağlar — onsuz sayfa açılır ama canlı yenileme kopar.
+### Trying it from a phone: same Wi-Fi (http) and tunnel (https)
+`web/vite.config.ts` listens on external interfaces (`host: true`); on the
+same Wi-Fi `http://<mac-ip>:5175` opens, but iOS gives no location over http.
+For a real test: `TUNNEL=1 npm run dev` +
+`cloudflared tunnel --url http://localhost:5175` (quick tunnel, no account;
+the URL changes each start). The API rides the `/api` proxy, so one tunnel is
+enough. `TUNNEL=1` binds HMR to 443/wss — without it the page opens but live
+reload breaks.
 
-## 2. Teknik kararlar
+## 2. Technical decisions
 
-### Leaderboard set-based hesaplanıyor
-Kullanıcı başına sorgu atmak yerine `user_id = ANY($1)` ile tüm kullanıcılar
-tek sorguda hesaplanıyor. 100 demo kullanıcıda sabit sayıda sorgu çalışıyor.
-Ölçek sınırı için bkz. Bilinen Sınırlar #1.
+### The leaderboard is computed set-based
+Instead of a query per user, all users are computed in one query set with
+`user_id = ANY($1)`. With 100 demo users the query count is constant. For the
+scale limit see Known Limits #1.
 
-### Seri hesabı "gaps and islands" ile
-Ardışık gün serisi, `d - ROW_NUMBER()` farkının sabit kaldığı grupları sayan
-klasik gaps-and-islands deseniyle çıkarılıyor. Uygulama tarafında döngü
-kurmaya gerek kalmıyor.
+### Streaks via "gaps and islands"
+The consecutive-day streak comes from the classic gaps-and-islands pattern
+(groups where `d - ROW_NUMBER()` stays constant) — no app-side loops.
 
-### `react-native-maps` 1.14.0'a sabitlendi
-Daha yeni sürümler React ≥ 18.3.1 istiyor, proje React 18.2.0 / RN 0.74.5
-üzerinde. React/RN yükseltmeden harita kütüphanesi yükseltilemez.
+### `react-native-maps` pinned to 1.14.0
+Newer versions demand React ≥ 18.3.1; the project is React 18.2.0 /
+RN 0.74.5. The map library can't upgrade before React/RN do.
 
-### Harita etkileşimi
-- Zoom `animateCamera({zoom})` ile değil `animateToRegion` (delta) ile
-  yapılıyor — Apple Maps altında `animateCamera` güvenilir çalışmadı.
-- Marker'a dokunulduğunda `MapView.onPress` de tetikleniyor. Android'de
-  `event.nativeEvent.action === 'marker-press'` ile ayırt ediliyor, ama bu alan
-  iOS'ta yok — iOS için zaman damgası tabanlı bir koruma (`MARKER_PRESS_GUARD_MS`)
-  eklendi.
-- Harita hazır olmadan `animateToRegion` çağrısı sessizce düşüyor; `onMapReady`
-  + bekleyen merkez tekrar denemesi bu yüzden var.
+### Map interaction
+- Zoom uses `animateToRegion` (delta), not `animateCamera({zoom})` — the
+  latter was unreliable on Apple Maps.
+- Tapping a marker also fires `MapView.onPress`. Android disambiguates via
+  `event.nativeEvent.action === 'marker-press'`, but iOS lacks that field —
+  a timestamp guard (`MARKER_PRESS_GUARD_MS`) covers iOS.
+- `animateToRegion` before the map is ready silently drops; hence
+  `onMapReady` + a pending-center retry.
 
-### Simülatörde kamera yok
-`launchCamera` simülatörde `camera_unavailable` döndürüyor. `__DEV__`
-derlemelerde bu hata görüldüğünde galeriye (`launchImageLibrary`) düşülüyor;
-prod'da fotoğraf zorunluluğu aynen geçerli.
+### No camera in the simulator
+`launchCamera` returns `camera_unavailable` in the simulator. `__DEV__`
+builds fall back to the gallery (`launchImageLibrary`); production keeps the
+photo requirement as is.
 
-### Docker imajı `imresamu/postgis:16-3.4`
-Resmi `postgis/postgis` imajının arm64 sürümü yok; Apple Silicon'da emülasyonla
-çalışıp uyarı veriyor. `imresamu/postgis` çoklu mimari topluluk sürümü, native
-çalışıyor. Host portu 5433 seçildi çünkü 5432 Mac'lerde genelde önceden kurulu
-bir PostgreSQL tarafından tutuluyor.
+### Docker image `imresamu/postgis:16-3.4`
+The official `postgis/postgis` has no arm64 build; it emulates on Apple
+Silicon with warnings. `imresamu/postgis` is the multi-arch community build
+and runs natively. Host port 5433 because 5432 is usually taken by a
+preinstalled PostgreSQL on Macs.
 
-### 401 → otomatik çıkış
-API istemcisinde bir interceptor 401 gördüğünde token'ı silip kullanıcıyı
-giriş ekranına atıyor. Gerekçe: veritabanı sıfırlandığında elde kalan eski
-token yüzünden uygulamanın "ne giriş yapabilir ne çıkış yapabilir" durumuna
-düşmesi yaşandı.
+### 401 → automatic logout
+An API-client interceptor clears the token and drops the user at the login
+screen on 401. Rationale: after a database reset, a stale token once left the
+app unable to either log in or log out.
 
-### Yazı tipi ağırlığı `fontWeight` ile değil dosyayla veriliyor
-Nunito dört ayrı dosya olarak gömüldü (Regular/SemiBold/Bold/ExtraBold) ve
-tipografi token'ları `fontFamily: 'Nunito-Bold'` yazıyor, `fontWeight`
-yazmıyor. İkisi birlikte kullanıldığında Android sahte kalın (synthetic bold)
-üretip harfleri kalınlaştırarak bozuyor. Dosya adları PostScript adlarıyla
-birebir aynı tutuldu; Android font ailesini dosya adından, iOS PostScript
-adından okuduğu için ancak böyle tek bir `fontFamily` değeri iki platformda
-da çalışıyor.
+### Font weight comes from files, not `fontWeight`
+Nunito ships as four files and typography tokens write
+`fontFamily: 'Nunito-Bold'`, never `fontWeight`. Using both makes Android
+synthesize a fake bold over an already-bold file. Filenames match PostScript
+names exactly; Android resolves the family from the filename and iOS from the
+PostScript name — only a matching pair lets one `fontFamily` work on both.
 
-### Font `@expo-google-fonts`'tan alındı ama paket bağımlılık değil
-React Native `.ttf` istiyor. `@fontsource/nunito` yalnızca `.woff/.woff2`
-veriyor ve alfabelere göre parçalanmış — Türkçe karakterler `latin-ext`
-altında olduğu için tek bir parça alındığında ı/ğ/ş eksik kalıyordu.
-`@expo-google-fonts/nunito` tam ve bölünmemiş `.ttf` dosyalarını içerdiği için
-dosyalar oradan kopyalandı, paketin kendisi bağımlılık listesine eklenmedi
-(Expo çalışma zamanına ihtiyacımız yok). Lisans `mobile/assets/OFL-Nunito.txt`
-olarak birlikte taşınıyor — SIL OFL bunu şart koşuyor.
+### Fonts came from `@expo-google-fonts` without depending on it
+React Native wants `.ttf`. `@fontsource/nunito` ships only `.woff/.woff2`,
+split per alphabet — Turkish characters live in `latin-ext`, so single files
+were missing ı/ğ/ş. `@expo-google-fonts/nunito` contains complete `.ttf`
+files, so they were copied out; the package itself is not a dependency (no
+Expo runtime needed). The license travels along as
+`mobile/assets/OFL-Nunito.txt` — SIL OFL requires it.
 
-### Emoji yerine SVG ikon
-Sekme, buton ve liste ikonları `components/brand/Icon.tsx` altında SVG olarak
-çiziliyor. Emoji her cihazda/OS sürümünde farklı çiziliyor, marka rengini
-alamıyor ve boyutu tipografiye bağlı. İstisna bilinçli: rozet kademeleri
-(🥇🥈🥉💎) ve seviye amblemleri emoji kaldı — onlar zaten "madalya" olarak
-okunuyor ve sunucudan geliyor.
+### SVG icons instead of emoji
+Tab, button, and list icons are SVG in `components/brand/Icon.tsx`. Emoji
+render differently per device/OS, can't take the brand color, and size with
+typography. The deliberate exceptions were badge tiers (🥇🥈🥉💎) and level
+marks — both have since moved to custom SVG as well.
 
-### `fontSize` ezilirken `lineHeight` de verilmeli
-Tipografi varyantları `fontSize` ve `lineHeight`'ı çift olarak taşıyor. Bir
-çağıran yalnızca `fontSize`'ı ezerse ikisi kopuyor ve **iOS yazıyı satır
-kutusuna sığdıramayıp kırpıyor** — giriş ekranındaki 46 punto "pati" yazısı
-varyanttan gelen 22 punto satıra sıkışıp yarıdan kesilmişti.
+### Overriding `fontSize` requires `lineHeight` too
+Typography variants carry `fontSize` and `lineHeight` as a pair. Overriding
+only `fontSize` breaks the pair and **iOS clips the text** — the 46 pt "pati"
+wordmark once squeezed into a 22 pt line box and got cut in half.
 
-İki katmanlı çözüldü: `ui/Text` çağıranın `fontSize` verip `lineHeight`
-vermediğini görürse varyantın satır yüksekliğini düşürüyor (kırpma bir daha
-sessizce oluşamıyor); `Wordmark`, `Avatar` ve `Button` ise ikisini birlikte
-yazıyor, çünkü oralarda ölçünün öngörülebilir olması gerekiyor.
+Solved in two layers: `ui/Text` lowers the variant's line height when a
+caller sets `fontSize` without `lineHeight` (clipping can't silently recur);
+`Wordmark`, `Avatar`, and `Button` set both explicitly because their metrics
+must be predictable.
 
-### `StyleSheet.create` yerine `makeStyles`
-Karanlık mod eklenince stil sayfalarının temaya bağlanması gerekti.
-`StyleSheet.create` modül yüklenirken bir kez çalıştığı için renkler ilk temaya
-donup kalıyordu. `theme/makeStyles.ts` bunun yerine bir fabrika döndürüyor:
-stil sayfası **tema başına bir kez** üretilip saklanıyor, bileşen
-`const styles = useStyles()` ile alıyor. Tema iki tane olduğu için önbellek
-sınırsız büyümüyor.
+### `makeStyles` instead of `StyleSheet.create`
+Dark mode required theme-bound stylesheets. `StyleSheet.create` runs once at
+module load, freezing colors on the first theme. `theme/makeStyles.ts`
+returns a factory instead: the sheet is built **once per theme** and cached;
+components call `const styles = useStyles()`. With two themes the cache is
+bounded.
 
-Aynı sebeple `navigationTheme` / `screenOptions` / `tabBarOptions` da sabit
-nesne değil, temayı parametre alan fonksiyon.
+For the same reason `navigationTheme` / `screenOptions` / `tabBarOptions`
+are functions of the theme, not static objects.
 
-### Tema seçimi üç durumlu ve cihazda saklanıyor
-`system` (varsayılan) / `light` / `dark`. `system` telefonun ayarını takip
-ediyor (`useColorScheme`). Seçim `AsyncStorage`'da (`pati.themeMode`) tutuluyor;
-okunamazsa sessizce sistem temasına düşüyor — tema tercihi kritik veri değil.
+### Theme choice is tri-state and stored on device
+`system` (default) / `light` / `dark`. `system` follows the OS
+(`useColorScheme`). Stored in `AsyncStorage` (`pati.themeMode`); unreadable
+storage silently falls back to system — a theme preference isn't critical data.
 
-### Uygulama ikonu koddan üretiliyor
-`mobile/scripts/generate-icons.mjs`, `Logo.tsx` ile birebir aynı SVG
-yollarından bütün ikon boyutlarını üretiyor (`npm run icons`). Elle PNG dışa
-aktarmak yerine script olmasının sebebi: logo değişirse tek komutla hepsi
-yenilenebiliyor ve uygulama içindeki logo ile ana ekran ikonu ayrışmıyor.
-App Store 1024 px ikonunda alfa kanalı kabul etmediği için kare ikonlar opak,
-yalnızca yuvarlak Android varyantı ile açılış logosu saydam üretiliyor.
+### The app icon is generated from code
+`mobile/scripts/generate-icons.mjs` produces every icon size from the same
+SVG paths as `Logo.tsx` (`npm run icons`). A script rather than manual PNG
+exports because a logo change regenerates everything with one command and the
+in-app logo can't drift from the home-screen icon. The App Store rejects
+alpha in the 1024 px icon, so square icons are opaque; only the Android round
+variant and the launch logo are transparent.
 
-### Sekme çubuğuna sabit yükseklik verilmedi
-`tabBarStyle` içinde `height` yok. `@react-navigation/bottom-tabs` alt güvenli
-alanı kendisi ekliyor; sabit yükseklik verildiğinde çentikli/ana-çubuklu
-telefonlarda etiketler kırpılıyor.
+### No fixed height on the tab bar
+`tabBarStyle` has no `height`. `@react-navigation/bottom-tabs` adds the
+bottom safe area itself; a fixed height clips labels on notched phones.
 
-### Hazır avatarlar `avatar_url` kolonunda, ayrı kolonda değil
-Kullanıcının profil görseli iki şeyden **biri**: yüklediği fotoğraf ya da
-seçtiği hazır avatar. İkisi aynı soruya cevap veriyor ve aynı anda ikisi birden
-geçerli olamıyor — yani iki bağımsız alan değil, etiketli bir birleşim. Bu
-yüzden hazır avatar da aynı kolona `pati-avatar:f3` biçiminde yazılıyor.
+### Built-in avatars live in `avatar_url`, not a separate column
+A user's picture is **one of two things**: an uploaded photo or a chosen
+built-in avatar. They answer the same question and can't both be valid — a
+tagged union, not two independent fields. So built-in avatars are written
+into the same column as `pati-avatar:f3`.
 
-Kazanç: kullanıcının görselini döndüren onlarca sorgunun (yorumlar, arkadaş
-listesi, sıralama, bakım verenler, arama sonuçları) hiçbiri değişmedi. Bedel:
-`avatar_url` artık her zaman bir URL değil. Tek kural, değeri doğrudan
-`<img src>` içine koymamak — mobilde `ui/Avatar` ayrımı kendisi yapıyor, admin
-panelinde ise açık bir kontrol var.
+Win: none of the dozens of queries returning user pictures (comments,
+friends, leaderboard, carers, search) changed. Cost: `avatar_url` is no
+longer always a URL. The single rule is never to put the value straight into
+`<img src>` — mobile's `ui/Avatar` disambiguates itself and the admin panel
+has an explicit check.
 
-Alternatif olan `avatar_key` kolonu daha "temiz" görünüyordu ama 8'den fazla
-sorguya ve üç istemci tipine dokunmayı gerektiriyordu; iki alanın aynı anda
-dolu olması ihtimalini de şemada engelleyemiyordu.
+The "cleaner-looking" `avatar_key` column alternative required touching 8+
+queries and three client types, and the schema still couldn't prevent both
+fields being set at once.
 
-### 20 avatar, 20 görsel dosyası değil
-Yüzler birkaç parametreden çiziliyor (ten, saç rengi, saç modeli, gözlük/sakal,
-zemin). Uygulama boyutu artmıyor, yeni bir yüz eklemek tek satır ve hepsi aynı
-çizim diline uyuyor. Aynı yaklaşım rozet madalyonlarında ve seviye
-amblemlerinde de kullanılıyor.
+### 20 avatars, not 20 image files
+Faces are drawn from a few parameters (skin, hair color, hairstyle,
+glasses/beard, background). App size doesn't grow, a new face is one line,
+and everything shares one drawing language. The same approach powers badge
+medallions and level marks.
 
-### İki PWA yüzeyi var — dağıtımda birleştirilmeli
-`backend/public/` kök adreste ana ekrana eklenebilir bir **tanıtım sayfası**
-(yerel oturumun işi), `web/` ise tam uygulama istemcisi. İkisi de `/`,
-`/manifest.webmanifest` ve `/sw.js` adreslerini istiyor; aynı origin'de ikisi
-birden yaşayamaz. Dağıtım kararı: uygulama yayınlanırken `/` web/dist'e
-verilmeli, tanıtım içeriği ya uygulamanın giriş ekranına katılmalı ya da ayrı
-bir yola (`/tanitim`) taşınmalı. Şimdilik ikisi de duruyor — karar verilmeden
-biri silinmedi.
+### Two PWA surfaces existed — merged at deployment
+`backend/public/` was an installable **landing page** at the root (the Ops
+session's work); `web/` is the full app client. Both claimed `/`,
+`/manifest.webmanifest`, and `/sw.js` — they can't share an origin.
+Deployment decision: production gives `/` to `web/dist` and the landing page
+moved to `/tanitim` (see the entry above).
 
-### Web (PWA) kalıcı üçüncü istemci olarak eklendi
-Mağaza uygulamasının *yanında* yaşayan bir web sürümü (bilinçli tercih; hızlı
-pilot aracı seçeneği de değerlendirildi). Kopya büyütmemek için: web, sözlüğü
-ve avatar tanımlarını `@mobile/taxonomy` / `@mobile/avatars` alias'larıyla
-mobilden doğrudan import ediyor; SVG üreticileri `shared/` altında admin ile
-ortak. Service worker yalnızca uygulama kabuğunu önbelleğe alıyor — API asla
-önbelleklenmiyor, bayat bakım verisi haritada yalan söyler.
+### The web PWA joined as a permanent third client
+A web version living *alongside* the store app (deliberate choice; a
+quick-pilot-tool variant was also considered). To avoid copies: web imports
+the taxonomy and avatar definitions straight from mobile via the
+`@mobile/taxonomy` / `@mobile/avatars` aliases; SVG generators are shared
+with admin under `shared/`. The service worker caches the app shell only —
+the API is never cached; stale care data lies on the map.
 
-Bilinen sınırlar: iOS'ta web push yalnızca ana ekrana eklenmiş PWA'da çalışır
-(bildirimler şimdilik yalnızca mobil uygulamada). Harita altlığı
-tile.openstreetmap.org — OSMF karo sunucusunun kullanım politikası yoğun
-üretim trafiğine uygun değil; yayına çıkarken ücretli/kendi karo sunucusuna
-geçilmeli (yol haritasında).
+Known limits: on iOS, web push works only for installed PWAs (notifications
+remain mobile-only for now). The map tiles come from tile.openstreetmap.org —
+the OSMF tile server's usage policy doesn't fit heavy production traffic;
+switch to a paid/own tile server before launch (on the roadmap).
 
 ---
 
-## 3. Bilinen sınırlar ve teknik borç
+## 3. Known limits and technical debt
 
-Üretime çıkmadan önce kapatılması gerekenler. Kabaca öncelik sırasıyla:
+To close before production, in rough priority order:
 
-1. **Leaderboard her istekte sıfırdan hesaplanıyor.** 100 demo kullanıcıyla
-   sorunsuz (tek sorgu seti, kullanıcı başına sorgu yok), ama kullanıcı sayısı
-   binlere çıkarsa her açılışta tüm rozet ve yorum tablosunu taramak
-   sürdürülemez. Çözüm: puanları periyodik bir işle (cron / materialized view)
-   bir tabloya yazıp oradan okumak. Şimdilik erken optimizasyon olacağı için
-   yapılmadı — **ölçek büyüdüğünde ilk bakılacak yer burası.**
+1. **The leaderboard recomputes per request.** Fine with 100 demo users (one
+   query set, none per user), unsustainable when users reach thousands —
+   scanning every badge and comment on each open won't hold. Fix: write
+   points to a table periodically (cron / materialized view) and read from
+   there. Left undone as premature optimization — **first place to look when
+   scale grows.**
 
-2. **Fotoğraflar backend'in yerel diskinde** (`backend/uploads/`, `/uploads`
-   altında statik servis ediliyor). Yedeği yok, konteyner yeniden
-   oluşturulunca kayboluyor, birden fazla sunucu instance'ı ile çalışmıyor.
-   Üretim için S3 / R2 / GCS + CDN şart. Yükleme boyutu 10MB ile sınırlı ama
-   **görseller yeniden boyutlandırılmıyor** — her fotoğraf tam boyutta
-   saklanıyor ve indiriliyor.
+2. **Photos on the backend's local disk** (`backend/uploads/`, served under
+   `/uploads`). No backups, gone when the container is rebuilt, incompatible
+   with multiple instances. Production needs S3 / R2 / GCS + CDN. Uploads cap
+   at 10 MB but **images are never resized** — every photo is stored and
+   downloaded full-size.
 
-3. **Tek migrasyon dosyası** (`001_init.sql`). Artımlı migrasyon yok; şema
-   değişince veritabanını sıfırlamak gerekiyor. Gerçek kullanıcı verisi
-   girmeden önce bir migrasyon aracına (node-pg-migrate, Knex vb.) geçilmeli.
+3. **Single migration file** (`001_init.sql`). No incremental migrations; a
+   schema change means resetting the database. Move to a migration tool
+   (node-pg-migrate, Knex…) before real user data.
 
-4. **Fotoğraf kanıtı doğrulanmıyor.** Kullanıcı herhangi bir fotoğraf çekip
-   mama bıraktığını iddia edebilir; yalnızca konum mesafesi kontrol ediliyor.
-   Ayrıca hız limiti (rate limit) yok — bir kullanıcı dakikada yüzlerce kayıt
-   girebilir. Moderasyon (admin panelinde fotoğraf inceleme) ve rate limit
-   gerekiyor.
+4. **Photo evidence isn't validated.** A user can photograph anything and
+   claim a food drop; only the location distance is checked. There's also no
+   rate limiting beyond auth — a user could post hundreds of records a
+   minute. Moderation (admin photo review) exists; rate limiting is needed.
 
-5. **Otomatik test kapsamı çok düşük.** Mobilde tek bir test (AuthContext),
-   backend'de hiç otomatik test yok — doğrulama curl ile uçtan uca manuel
-   yapıldı. CI de yok. Backend'e en azından auth, care-action mesafe kontrolü,
-   rozet hesaplama ve leaderboard sıralaması için test yazılmalı.
+5. **Automated test coverage is very low.** One mobile test (AuthContext), no
+   backend tests — verification was manual, end to end, with curl. CI now
+   gates builds (`.github/workflows/ci.yml`), but the backend needs tests for
+   auth, the care-action distance check, badge computation, and leaderboard
+   ordering at minimum.
 
-6. **Bildirimler yalnızca uygulama çalışırken geliyor.** 30 dakikalık zamanlayıcı
-   + uygulama öne geldiğinde kontrol var; iOS uygulamayı arka planda bir süre
-   sonra askıya aldığı için gerçek anlamda "kapalıyken" bildirim gelmiyor.
-   Çözüm: sunucu tarafı push (APNs/FCM) veya işletim sistemi geofencing'i.
+6. **Notifications only arrive while the app runs.** A 30-minute timer plus a
+   foreground check; iOS suspends the app in the background, so truly-closed
+   delivery doesn't happen. Fix: server-side push (APNs/FCM) or OS geofencing.
 
-7. **JWT iptal edilemiyor.** Süresi 7 gün (`JWT_EXPIRES_IN`), ama çıkış
-   yapıldığında veya hesap askıya alındığında token sunucu tarafında
-   geçersizleştirilemiyor. Admin panelinde "kullanıcıyı banla" özelliği
-   gelecekse bir refresh-token / denylist mekanizması gerekecek.
+7. **JWTs can't be revoked.** Expiry is 7 days (`JWT_EXPIRES_IN`), but logout
+   or suspension can't invalidate a token server-side. (Suspension still
+   blocks access — every request re-checks the account.) A refresh-token /
+   denylist mechanism will be needed for a true "ban" feature.
 
-8. **`MAX_DISTANCE_TO_PIN_METERS` iki yerde tanımlı** (backend + mobil).
-   Ortak bir yapılandırma uç noktasından okunması daha doğru olur.
+8. **`MAX_DISTANCE_TO_PIN_METERS` is defined twice** (backend + mobile). A
+   shared config endpoint would be sounder.
 
-9. **Rozet kutlaması aksiyon yanıtına bağlı.** Popup, puan kazandıran uç
-   noktaların yanıtındaki `newBadges` alanından besleniyor; kaçırılanlar profil
-   ekranı açıldığında `/users/me/badge-awards` ile toplanıyor. Kullanıcı hiç
-   profiline girmezse kutlama gecikir. Gerçek zamanlı olması istenirse push
-   bildirimi gerekir.
+9. **Badge celebrations ride on action responses.** The popup feeds off
+   `newBadges` in point-earning responses; missed ones are collected on the
+   profile screen via `/users/me/badge-awards`. A user who never opens their
+   profile sees celebrations late. Real-time delivery would need push.
 
-10. **Admin paneli korumasız bir adreste.** Panel `/api/admin` üzerinden rol
-    kontrolü yapıyor ama panelin kendisi (statik dosyalar) herkese açık bir
-    adreste sunulursa giriş ekranı internete açılmış olur. Üretimde IP kısıtı
-    veya en azından iki aşamalı doğrulama düşünülmeli. Ayrıca panelde henüz
-    rate limit yok — parola deneme saldırısına karşı korumasız.
+10. **The admin panel sits on an unprotected address.** `/api/admin` checks
+    roles, but the panel itself (static files) exposes a login screen to the
+    internet. Consider IP allowlisting or at least 2FA in production. Auth
+    rate limiting (30/15 min) now covers the login endpoint.
 
-11. **Konum override kodu repoda.** `__DEV__` ile korunuyor ama üretime
-    çıkmadan önce tamamen kaldırılmalı (`mobile/src/location.ts`).
+11. **The location-override code is in the repo.** Guarded by `__DEV__`, but
+    it must be removed entirely before production
+    (`mobile/src/location.ts`).
 
-12. **CORS herkese açık** (`app.use(cors())`). Üretimde origin kısıtlanmalı.
+12. **CORS is wide open** (`app.use(cors())`). Restrict origins in production.
 
-13. **Turuncu üstünde beyaz yazı WCAG AA'yı geçmiyor.** Marka turuncusu
-    `#F47A4A` üzerinde beyaz yazının kontrast oranı **2,7:1**; normal boy yazı
-    için gereken 4,5:1. Birincil butonların tamamı bu kombinasyonu kullanıyor.
-    Marka kimliği böyle verildiği için değiştirilmedi — ama yayına çıkmadan
-    karar verilmeli: ya buton dolgusu koyulaştırılır (~`#C2551F`, 4,6:1) ya da
-    turuncu butonda koyu yazıya geçilir (`#2B2B2B`, 5,3:1).
+13. **White on orange fails WCAG AA.** White on brand orange `#F47A4A`
+    measures **2.7:1** (4.5:1 required for body text). All primary buttons
+    use the combination. Kept because the brand identity specifies it —
+    decide before launch: darken the fill (~`#C2551F`, 4.6:1) or switch to
+    dark text (`#2B2B2B`, 5.3:1). The web studio-aesthetic gradient buttons
+    inherit the same question.
 
-14. **Erişilebilirlik denetimi tamamlanmadı.** Dokunma alanları 44 pt, butonlarda
-    `accessibilityRole` var; ekran okuyucu etiketleri uçtan uca test edilmedi.
+14. **The accessibility audit is incomplete.** Touch targets are 44 pt and
+    buttons have `accessibilityRole`; screen-reader labels aren't tested end
+    to end.
 
-15. **Admin paneli mobil paletle hizalı değil.** Mobil "pati" kimliğine taşındı,
-    `admin/src/styles.css` hâlâ kendi renk değişkenlerinde (`--moss`, `--clay`).
+15. **The admin panel isn't aligned with the brand palette.** Mobile moved to
+    the "pati" identity; `admin/src/styles.css` still uses its own variables
+    (`--moss`, `--clay`).
 
 ---
 
-## 4. Geliştirme ortamı tuzakları
+## 4. Development-environment pitfalls
 
-Daha önce vakit kaybettiren, tekrar karşılaşılabilecek durumlar:
+Things that cost time before and will come up again:
 
-- **Font ve ikon değişiklikleri native build ister.** Yazı tipi ve uygulama
-  ikonu native tarafta yükleniyor; sadece Metro'yu yeniden başlatmak yetmez,
-  `npm run ios` / `npm run android` ile yeniden derlemek gerekir.
-- **`npm install` sonrası `pod install` şart.** Native bağımlılık (konum,
-  kamera, bildirim) eklendiği için atlanırsa "The package '...' doesn't seem to
-  be linked" hatası alınır.
-- **Xcode `unable to attach DB: database is locked`**: DerivedData silmek
-  yetmiyor, `~/Library/Caches/com.apple.dt.XCBuild` ve
-  `~/Library/Caches/com.apple.dt.Xcode` de silinmeli.
-- **macOS'un sistem Ruby'si (2.6.x) CocoaPods için çok eski** — Homebrew Ruby
-  gerekiyor.
-- **`EADDRINUSE :::3000`**: eski bir `nodemon` süreci ayakta kalmış oluyor.
-- **Android emülatörü `localhost`'u kendi üzerinde arar** — backend'e
-  `10.0.2.2:3000` üzerinden bağlanılıyor. Demo verisini Android'de test
-  edecekseniz `PUBLIC_BASE_URL=http://10.0.2.2:3000 npm run seed`.
-- **Google Maps API key yalnızca Android için gerekli**; iOS Apple Maps
-  kullandığı için anahtarsız çalışıyor.
-- **Seed script iki kere çalışmaz** — mevcut demo veriyi görünce durur.
-  Sıfırdan üretmek için veritabanını sıfırlayıp `npm run migrate && npm run seed`.
+- **Font and icon changes require a native build.** They load natively;
+  restarting Metro is not enough — rebuild with `npm run ios` /
+  `npm run android`.
+- **`pod install` is mandatory after `npm install`.** Skipping it (native
+  deps: location, camera, notifications) produces "The package '…' doesn't
+  seem to be linked".
+- **Xcode `unable to attach DB: database is locked`**: deleting DerivedData
+  isn't enough; also delete `~/Library/Caches/com.apple.dt.XCBuild` and
+  `~/Library/Caches/com.apple.dt.Xcode`.
+- **macOS's system Ruby (2.6.x) is too old for CocoaPods** — Homebrew Ruby
+  required.
+- **`EADDRINUSE :::3000`**: an old `nodemon` process is still alive.
+- **The Android emulator resolves `localhost` to itself** — reach the backend
+  via `10.0.2.2:3000`. Testing demo data on Android:
+  `PUBLIC_BASE_URL=http://10.0.2.2:3000 npm run seed`.
+- **The Google Maps API key is Android-only**; iOS uses Apple Maps and needs
+  no key.
+- **The seed script wipes everything on every run** (TRUNCATE, admins
+  included) and regenerates fresh data — never point it at production; the
+  production-safe alternative is `scripts/seed-rehber.js`.
