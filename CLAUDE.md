@@ -1,167 +1,175 @@
-# pati — Claude Code için proje notları
+# pati — project notes for Claude Code
 
-Sokak hayvanlarının bakımını koordine eden mobil uygulama. Harita üzerinde
-mama/su bırakılan noktalar, hayvan profilleri, sağlık kaydı, rozet ve sıralama.
+Mobile app coordinating street-animal care: a map of food/water drop points,
+animal profiles, health records, badges, and a leaderboard.
 
-Bu dosya her oturumda otomatik yükleniyor; **kısa tutun.** Ayrıntı burada değil,
-`docs/` altında:
+This file is auto-loaded in every session; **keep it short.** Details live in
+`docs/`, not here:
 
-| Konu | Dosya |
+| Topic | File |
 | --- | --- |
-| Projenin bütünü | [docs/PROJE.md](docs/PROJE.md) |
-| Kalan işler, karar bekleyenler | [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md) |
-| Tasarım sistemi | [docs/TASARIM.md](docs/TASARIM.md) |
-| **Kararların gerekçesi, bilinen sınırlar, ortam tuzakları** | [docs/NOTLAR.md](docs/NOTLAR.md) |
-| Yayın (Fly.io) adımları | [docs/YAYIN.md](docs/YAYIN.md) |
+| Project overview | [docs/PROJECT.md](docs/PROJECT.md) |
+| Remaining work, open decisions | [docs/ROADMAP.md](docs/ROADMAP.md) |
+| Design system | [docs/DESIGN.md](docs/DESIGN.md) |
+| **Decision rationale, known limits, environment pitfalls** | [docs/NOTES.md](docs/NOTES.md) |
+| Deployment (Fly.io) steps | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 
-Bir karar verip gerekçesini bir yere yazmanız gerekiyorsa yeri `docs/NOTLAR.md`.
+When you make a decision and need to record the rationale, it goes in
+`docs/NOTES.md`.
 
-## Depo
+## Repository
 
 ```
 backend/   Node.js + Express, PostgreSQL 16 + PostGIS, JWT + bcrypt
-mobile/    React Native 0.74 + TypeScript  ← ana uygulama
-web/       React 18 + Vite PWA (kalıcı üçüncü istemci, Leaflet harita)
-admin/     React 18 + Vite + TypeScript (yönetim paneli)
-shared/    Web tarafı SVG üreticileri (insan + hayvan avatarları; admin ve web ortak)
+mobile/    React Native 0.74 + TypeScript  ← primary app
+web/       React 18 + Vite PWA (permanent third client, Leaflet map)
+admin/     React 18 + Vite + TypeScript (admin panel)
+shared/    Plain-SVG generators for the web side (human + animal avatars; shared by admin and web)
 ```
 
-## Zarar vermemek için bilinmesi gerekenler
+## Things to know before you break something
 
-- **PostGIS taşıyıcı bir bileşen, süs değil.** Uygulamanın çekirdeği coğrafi
-  sorgu: `ST_DWithin` ile "100 m içinde bakım var mı", `ST_MakeEnvelope` ile
-  harita penceresi, GIST indeksleri. Başka bir veritabanına geçme önerisi
-  gelirse önce bunun bedelini söyleyin.
-- **Mobil taraf React Native**, web React değil. Web React yalnızca `admin/`.
-- **Tek migrasyon dosyası** (`backend/migrations/001_init.sql`). Artımlı
-  migrasyon yok; şema değişince veritabanı sıfırlanıyor. `CREATE TABLE IF NOT
-  EXISTS` mevcut tabloda sessizce hiçbir şey yapmaz — kolon eklerken dikkat.
-- **`users.avatar_url` iki şey tutuyor**: yüklenmiş fotoğrafın adresi ya da
-  `pati-avatar:f3` gibi hazır avatar anahtarı (bkz. `backend/src/utils/avatars.js`).
-  Doğrudan `<img src>` / `<Image uri>` içine koymayın; mobilde `ui/Avatar` bunu
-  zaten ayırt ediyor.
-- **Sözlük iki yerde kopya**: `backend/src/utils/taxonomy.js` ve
-  `mobile/src/taxonomy.ts` (desen, renk, hastalık, yaralanma, aşı listeleri).
-  Birini değiştiren diğerini de değiştirir; sunucu doğrulamayı istemciye
-  bırakamaz. **web/ kopya tutmaz** — `@mobile/taxonomy` ve `@mobile/avatars`
-  alias'larıyla mobildeki dosyaları doğrudan import eder.
-- **Avatar çizimleri iki teknolojide**: mobil react-native-svg bileşenleri
-  (`mobile/src/components/avatars/`), web düz SVG string üreticileri
-  (`shared/`). Yüz değişirse ikisi birlikte güncellenir.
+- **PostGIS is load-bearing, not decorative.** The app's core is geo queries:
+  `ST_DWithin` for "is there care within 100 m", `ST_MakeEnvelope` for the map
+  viewport, GIST indexes. If anyone proposes switching databases, state the
+  cost of losing this first.
+- **The mobile side is React Native**, not React for web. Web React is only
+  `admin/` and `web/`.
+- **Single migration file** (`backend/migrations/001_init.sql`). No incremental
+  migrations; schema changes mean resetting the database. `CREATE TABLE IF NOT
+  EXISTS` silently does nothing on an existing table — beware when adding columns.
+- **`users.avatar_url` holds two kinds of values**: the URL of an uploaded
+  photo, or a built-in avatar key like `pati-avatar:f3` (see
+  `backend/src/utils/avatars.js`). Never put it straight into `<img src>` /
+  `<Image uri>`; on mobile `ui/Avatar` already disambiguates.
+- **The taxonomy exists in two copies**: `backend/src/utils/taxonomy.js` and
+  `mobile/src/taxonomy.ts` (pattern, color, illness, injury, vaccine lists).
+  Changing one means changing the other; the server cannot delegate validation
+  to the client. **web/ keeps no copy** — it imports the mobile files directly
+  via the `@mobile/taxonomy` and `@mobile/avatars` aliases.
+- **Avatar art exists in two technologies**: mobile uses react-native-svg
+  components (`mobile/src/components/avatars/`), web uses plain SVG string
+  generators (`shared/`). If a face changes, both change together.
 
-## Doğrulama
+## Verification
 
 ```bash
 cd mobile   && npx tsc --noEmit && npx jest && npx react-native bundle \
   --platform ios --dev false --entry-file index.js --bundle-output /tmp/b.js
 cd admin    && npx tsc --noEmit && npm run build
 cd web      && npx tsc --noEmit && npm run build
-cd backend  && node -e "require('./src/app.js')"   # test yok, aşağıya bakın
+cd backend  && node -e "require('./src/app.js')"   # no tests, see below
 ```
 
-**Backend'de otomatik test yok.** Değişiklikler elle curl ile doğrulanıyor.
-Test yazılması yol haritasında; bir backend değişikliği yaptıysanız uçtan uca
-doğrulamayı gerçekten çalıştırın, "muhtemelen çalışır" demeyin.
+**The backend has no automated tests.** Changes are verified manually with
+curl. Writing tests is on the roadmap; if you touched the backend, actually run
+the end-to-end verification — never say "it probably works".
 
-## Yazım kuralları
+## Language and writing conventions
 
-- **Kullanıcıya görünen her metin ve tüm dokümanlar Türkçe.** Commit mesajları
-  da Türkçe, gövdesinde *neden* yazılır.
-- Yorumlar "ne yaptığını" değil **"neden böyle yapıldığını"** anlatır.
+- **Code, comments, docs, commit messages, and tooling are in English** with
+  standard industry terms (the repo is a portfolio piece).
+- **Product-facing text stays Turkish**: UI strings, API error messages,
+  seeded demo content, and app routes (`/hayvanlar`) — the product serves
+  Turkish users. Don't "fix" these into English.
+- Comments explain **why**, not what.
+- Commit bodies state the reasoning, in English, from this point on. Older
+  Turkish history is intentionally left as is (rewriting would force-push).
 
-### Mobil arayüz (ayrıntı: docs/TASARIM.md)
+### Mobile UI (details: docs/DESIGN.md)
 
-- Stil sayfası **`makeStyles(({ colors: c }) => ({...}))`**, asla
-  `StyleSheet.create` — karanlık modda renkler donar.
-- **`fontWeight` yazmayın.** Ağırlık dosya seçimiyle geliyor
-  (`fontFamily: 'Nunito-Bold'`); ikisi birlikte Android'de sahte kalın üretir.
-- **`fontSize` ezerken `lineHeight` de verin.** Yalnız biri verilirse iOS yazıyı
-  kırpar (giriş ekranındaki logo bu yüzden bozulmuştu).
-- Ekran dosyalarında **hex renk yok**; hepsi `src/theme/` altından.
-- Emoji yerine `components/brand/Icon`. Rozet madalyonları ve seviye amblemleri
-  de artık SVG: `components/badges/{BadgeSymbol,LevelMark}`.
+- Stylesheets via **`makeStyles(({ colors: c }) => ({...}))`**, never
+  `StyleSheet.create` — colors freeze in dark mode otherwise.
+- **Never write `fontWeight`.** Weight comes from file selection
+  (`fontFamily: 'Nunito-Bold'`); combining both produces faux bold on Android.
+- **When overriding `fontSize`, also set `lineHeight`.** Setting only one makes
+  iOS clip text (this broke the login-screen logo once).
+- **No hex colors in screen files**; everything comes from `src/theme/`.
+- Use `components/brand/Icon` instead of emoji. Badge medallions and level
+  marks are SVG too: `components/badges/{BadgeSymbol,LevelMark}`.
 
-## Geliştirme ortamı tuzakları
+## Development environment pitfalls
 
-- `npm install` sonrası **`pod install` şart** (native bağımlılıklar var).
-- **Font ve uygulama ikonu değişiklikleri native build ister** — Metro'yu
-  yeniden başlatmak yetmez, `npm run ios` / `npm run android` gerekir.
-- Android emülatörü backend'e `10.0.2.2:3000` üzerinden bağlanır.
-- Seed script her çalıştırmada **tüm veriyi siler** (TRUNCATE, admin dahil) ve
-  taze üretir; bugünün mama/su kayıtları son 1 saate düşer ki harita canlı
-  doğsun. Üretim veritabanında asla çalıştırmayın.
+- **`pod install` is mandatory after `npm install`** (native dependencies).
+- **Font and app-icon changes require a native build** — restarting Metro is
+  not enough; run `npm run ios` / `npm run android`.
+- The Android emulator reaches the backend via `10.0.2.2:3000`.
+- The seed script **wipes all data on every run** (TRUNCATE, admins included)
+  and regenerates it fresh; today's food/water actions land within the last
+  hour so the map is born alive. Never run it against production.
 
-## Oturum rolleri (iki Claude Code çalışanı)
+## Session roles (two Claude Code workers)
 
-Aynı depoda iki oturum çalışıyor; fark **çalıştıkları yer**:
+Two sessions work on the same repo; the difference is **where they run**:
 
-- **Operasyon** — kullanıcının Mac'inde koşan yerel oturum. Elinde: iOS
-  simülatörü/Metro, Vite, Docker'daki yerel DB, Fly girişi (`fly`), Namecheap
-  DNS, sırlar (`~/.config/pati/`), Claude Design senkronu (`/design-sync`).
-  İşi: yerel ortamı ayakta tutmak, `main`'in son halini **canlıya almak**
-  (`fly deploy`), veritabanı/seed/sertifika bakımı, çapraz kesen altyapı
-  (rate limit, CORS, migrasyon). "Çalıştır / canlıya al / simülatörde bak"
-  istekleri buraya.
-- **Geliştirici** — claude.ai/code bulut oturumu. Depoyu görür, özellik yazar,
-  kendi sandbox'ında tsc/build/Playwright ile doğrular, `main`'e push eder.
-  Kullanıcının makinesine, cihazına, Fly hesabına, yerel DB'ye **erişemez**;
-  cihaz/ortam gerektiren doğrulamayı Operasyon'a bırakır.
+- **Ops** — the local session on the user's Mac. Has: the iOS simulator/Metro,
+  Vite, the local DB in Docker, Fly login (`fly`), Namecheap DNS, secrets
+  (`~/.config/pati/`), Claude Design sync (`/design-sync`). Its job: keep the
+  local environment running, **ship `main` to production** (`fly deploy`),
+  database/seed/certificate upkeep, cross-cutting infrastructure (rate limit,
+  CORS, migrations). "Run it / ship it / check the simulator" requests go here.
+- **Developer** — the claude.ai/code cloud session. Sees the repo, builds
+  features, verifies in its own sandbox with tsc/build/Playwright, pushes to
+  `main`. It **cannot reach** the user's machine, device, Fly account, or the
+  local DB; verification that needs a device or environment is handed to Ops.
 
-Kurallar: aynı anda aynı dosyaya iki oturum dokunmasın; devir teslim git ile
-(push → "son halini canlıya al"); ortam/hesap/sır gerektiren her iş Operasyon'a.
-Rol, yeteneği değil erişimi anlatır — Operasyon boşsa kod da yazar.
+Rules: the two sessions must not touch the same file at the same time;
+handoffs happen through git (push → "ship the latest"); anything requiring the
+environment, accounts, or secrets goes to Ops. Roles describe access, not
+ability — when Ops is idle it writes code too.
 
-## Çalışma ilkeleri (tüm agent'lar için)
+## Working principles (all agents)
 
-Kullanıcının açık talebi — her oturum ve subagent buna uyar:
+An explicit request from the user — every session and subagent follows these:
 
-1. **Kullanıcıyı sorgula.** Sipariş alıcı değil meslektaşsın: isteğin amacını
-   anlamadan uygulamaya başlama; bedeli, riski ya da daha iyi bir yolu
-   görüyorsan işe başlamadan söyle. Kalibrasyon: gerçek bedeli olan kararları
-   tartış (mimari, veri, para, kullanıcıya görünen davranış); zevk
-   meselelerinde tartışma, uygula. İtirazın en fazla bir tur: söyle,
-   kullanıcı yine de isterse yap ve neden uyardığını kayda düşür.
-2. **Agentic yapıyı güçlendir ve öğret.** Bilgi sohbete değil depoya yazılır:
-   iki kez tekrarlanan talimat `.claude/` altına dosyalaşmalı — öner ve yap.
-   Önemli işlerde kullanıcıya "bu nasıl kurumsallaşır"ı bir cümleyle göster
-   (hangi skill/subagent/CI adımı bunu kalıcı kılardı). Aynı işi yapan ikinci
-   aracı ekleme; önce mevcut listeye bak, çakışıyorsa birleştir.
-3. **Her zaman dürüst ol.** "Muhtemelen çalışır" yasak: doğrulamadıysan
-   "doğrulamadım" de. Test kırmızıysa kırmızı de; yapamadıysan yapamadım de;
-   hata yaptıysan ilk sen söyle. Kullanıcının fikri kötüyse pohpohlamadan
-   söyle — nezaket üslupta, dürüstlük içerikte. "Bitti" demek kanıt ister:
-   çalışan komut çıktısı, ekran görüntüsü ya da canlı kontrol.
+1. **Challenge the user.** You are a colleague, not an order-taker: don't start
+   executing before you understand the intent; if you see a cost, a risk, or a
+   better path, say so before starting. Calibration: argue decisions that carry
+   real cost (architecture, data, money, user-visible behavior); don't argue
+   matters of taste — just build them. One round of pushback at most: state it,
+   and if the user still wants it, do it and record why you objected.
+2. **Strengthen and teach the agentic setup.** Knowledge goes into the repo,
+   not the chat: an instruction repeated twice should become a file under
+   `.claude/` — propose it and do it. On significant work, show the user in one
+   sentence how it could be institutionalized (which skill/subagent/CI step
+   would make it permanent). Never add a second tool for the same job; check
+   the existing list first and merge on overlap.
+3. **Always be honest.** "It probably works" is banned: if you didn't verify,
+   say "not verified". If tests are red, say red; if you failed, say you
+   failed; if you made a mistake, be the first to say it. If the user's idea is
+   bad, say so without flattery — politeness in tone, honesty in content.
+   "Done" requires evidence: command output, a screenshot, or a live check.
 
-## Yardımcılar: skill'ler, subagent'lar, CI
+## Helpers: skills, subagents, CI
 
-Depoda hazır (`.claude/`), her oturum ve subagent açılışta görür:
+Ready in the repo (`.claude/`); every session and subagent sees them at startup:
 
-- **Komutlar:** `/calistir` (ortamı ayağa kaldır), `/dogrula` (doğrulama bataryası)
-- **Skill'ler:** `yayina-al` (Fly deploy + canlı doğrulama), `simulatorde-bak`
-  (derin bağlantıyla ekran aç + görüntü), `web-ekran` (PWA ekran görüntüsü)
-- **Subagent'lar:** `kod-gozden-gecirici` (salt okunur inceleme),
-  `test-yazici` (test yazar/çalıştırır), `yayin-denetcisi` (sprint denetimi),
-  `ekran-dogrulayici` (görsel doğrulama; yalnız Operasyon),
-  `tasarim-bekcisi` (UI diff'lerini docs/tasarim handoff'una karşı denetler)
-- **CI:** `.github/workflows/ci.yml` her push'ta web/admin/mobil/backend/docker
-  kapısı. Kırmızıysa deploy etme.
+- **Commands:** `/start` (bring the environment up), `/verify` (verification battery)
+- **Skills:** `deploy` (Fly deploy + live verification), `simulator-view`
+  (open a screen via deep link + screenshot), `web-screenshot` (PWA screenshot)
+- **Subagents:** `code-reviewer` (read-only review), `test-writer` (writes/runs
+  tests), `release-auditor` (release-sprint audit), `screen-verifier` (visual
+  verification; Ops only), `design-guardian` (audits UI diffs against the
+  docs/design handoff)
+- **CI:** `.github/workflows/ci.yml` gates web/admin/mobile/backend/docker on
+  every push. If it's red, don't deploy.
 
-Bir özellik bitince tipik akış: `kod-gozden-gecirici` → gerekirse
-`test-yazici` → push → CI yeşil → Operasyon `yayina-al`.
+Typical flow when a feature lands: `code-reviewer` → `test-writer` if needed →
+push → CI green → Ops runs `deploy`.
 
-## Çalışma şekli
+## How we work
 
-- `main` üzerinde çalışılıyor, PR akışı yok. Commit + push serbest.
-- Ekran görüntüsü ya da görsel çıktı üretilebiliyorsa üretin — bu projede
-  gözle görülmeyen hatalar (kırpılma, kayma) testlerden kaçıyor. Simülatörde
-  ekrana doğrudan gitmek için `pati://` derin bağlantıları var:
-  `xcrun simctl openurl booted pati://add-animal` (yollar:
+- Work happens on `main`; no PR flow. Commit + push freely.
+- If a change can produce a screenshot or visual output, produce it — in this
+  project the bugs that escape tests are the visual ones (clipping, drift).
+  Deep links jump straight to a screen in the simulator:
+  `xcrun simctl openurl booted pati://add-animal` (paths:
   `mobile/src/navigation/index.tsx` → `linking`).
 
-## Kalıcı hatırlatma
+## Standing reminder
 
-🚀 **Yayına çıkma sprint'i.** Her büyük iş bitiminde kullanıcıya hatırlatın:
-fotoğrafların nesne depolamaya taşınması, artımlı migrasyon, rate limit,
-moderasyon, KVKK metinleri, deploy ve pilot. Ayrıntı
-[docs/YOL_HARITASI.md](docs/YOL_HARITASI.md) içinde. Bu, kullanıcının açıkça
-istediği bir hatırlatma — atlanmaması gerekiyor.
+🚀 **Launch sprint.** At the end of every major task, remind the user:
+photos to object storage, incremental migrations, rate limiting, moderation,
+KVKK (privacy) texts, deployment, pilot. Details in
+[docs/ROADMAP.md](docs/ROADMAP.md). The user explicitly asked for this
+reminder — do not skip it.
