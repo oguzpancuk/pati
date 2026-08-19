@@ -527,6 +527,12 @@ duruyor. Tahmini süre: 1–2 hafta.
 **Hukuk / mağaza:**
 - [ ] KVKK: aydınlatma metni, gizlilik politikası, veri silme akışı
 - [ ] Mağaza hazırlığı: ikon, ekran görüntüleri, gizlilik beyanı
+- [ ] **İç adları pati'ye çevir (mağaza öncesi ŞART):** iOS proje/target
+      `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace, scheme, Podfile),
+      Android paket/uygulama adı, backend log metni "Stray API", Docker
+      konteyneri `stray-db` ve veritabanı/rol adı `stray`, `.env.example`.
+      Native build + veritabanı sıfırlama gerektirir; bundle id `com.patiapp`
+      zaten doğru.
 - [ ] Konum override kodunu kaldır (`mobile/src/location.ts`)
 
 **Kalite:**
