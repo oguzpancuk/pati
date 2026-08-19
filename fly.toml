@@ -17,6 +17,10 @@ primary_region = "fra"
   ADMIN_DIST_DIR = "/app/admin-dist"
   # Bu ana bilgisayar adından gelen istekler yönetim panelini alır (admin/dist).
   ADMIN_HOST = "admin.pati-app.com"
+  # Rehber (demo) bölgelerinin haritasını canlı tutar: sunucu saatte bir,
+  # rehber hesaplar adına birkaç taze mama/su ekler. Rehber verisi kaldırılınca
+  # (seed-rehber --temizle) bu satır da silinebilir; verisiz zararsızdır.
+  DEMO_REHBER_TAZELE = "1"
 
 [http_service]
   internal_port = 3000

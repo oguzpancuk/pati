@@ -22,6 +22,28 @@ PostGIS: `postgres-flex` imajında hazır; `001_init.sql` içindeki
 İlk admin: uygulamadan kayıt ol, sonra
 `fly ssh console --app pati-app -C "node scripts/make-admin.js eposta@adres"`.
 
+## Rehber (demo) verisi
+
+Uygulama boş haritayla açılmasın diye İstanbul merkez ilçeleri, İzmir merkez
+ilçeleri ve Antalya/Kaş'a "rehber" kullanıcılar eklenebilir: her ilçede 10
+hesap, bir aylık organik kullanım geçmişiyle (haftada ~3 hayvan, gün aşırı
+mama/su, sohbet, aşı/sağlık kayıtları). Bot oldukları gizlenmez — adları
+"… · pati rehberi", her hayvanın ilk yorumu kaydın örnek olduğunu söyler;
+yorumlar aynı zamanda uygulamanın nasıl kullanıldığını anlatır.
+
+```bash
+fly ssh console --app pati-app -C "node scripts/seed-rehber.js"            # kur
+fly ssh console --app pati-app -C "node scripts/seed-rehber.js --tazele"   # taze mama/su
+fly ssh console --app pati-app -C "node scripts/seed-rehber.js --temizle"  # tamamen geri al
+```
+
+Script yalnızca EKLER (`seed-demo.js`'in aksine TRUNCATE yok); mevcut
+kullanıcı/hayvan/admin verisine dokunmaz, bu yüzden üretimde güvenlidir.
+Rehber hesapların şifresi her kurulumda rastgele üretilir ve yalnızca script
+çıktısında görünür. Haritanın yeşili 4-6 saatte solduğundan `fly.toml`'daki
+`DEMO_REHBER_TAZELE = "1"` sunucuya saatte bir taze mama/su ekletir (rehber
+verisi silinince kendiliğinden işlevsizleşir).
+
 ## Alan adı bağlama
 ```bash
 fly certs add app.ALANADIN.com --app pati-app   # çıktıdaki CNAME/A kayıtlarını DNS'e ekle
