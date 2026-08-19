@@ -21,19 +21,21 @@ import { AdBanner } from '../components/AdBanner';
 import { HeartBurst, HEART_BURST_MS } from '../components/HeartBurst';
 import { InstallBanner } from '../install';
 
-// Mobil MapScreen ile aynı kurallar: Türkiye sınır kutusu, 100 m daireler,
-// ağırlığa göre solan yeşil, sokak ölçeğinde görünen hayvanlar. Kırmızı taban
-// katmanı mobille birlikte kaldırıldı ("her yer alarm" hissi veriyordu);
-// eksiklik mesajını üstteki banner taşıyor, yeşil buna karşılık daha tok.
+// Same rules as mobile's MapScreen: Turkey bounding box, 100 m circles,
+// green fading with weight, animals visible at street scale. The red base
+// layer was removed together with mobile (it felt like "everywhere is an
+// alarm"); the shortage message moved to the top banner, and the green is
+// bolder in exchange.
 const TURKEY_BOUNDS = { minLat: 35.8, maxLat: 42.1, minLng: 25.6, maxLng: 44.8 };
 const ACTION_CIRCLE_RADIUS_METERS = 100;
-// Hayvanlar yalnızca kullanıcının yakın çevresinde (200 m) ve harita iyice
-// yaklaştırılınca (sokak/bina ölçeği) çiziliyor: uzaktan onlarca avatar
-// haritayı kapatıyordu, kullanıcının işi zaten bulunduğu sokaktaki hayvanlarla.
+// Animals are drawn only near the user (200 m) and once the map is zoomed
+// well in (street/building scale): from afar, dozens of avatars covered the
+// map, and the user's business is with the animals on their own street
+// anyway.
 const ANIMAL_RADIUS_METERS = 200;
 const ANIMAL_VISIBLE_MIN_ZOOM = 17;
-// Mama/su bırakılınca haritanın odaklandığı ölçek: 100 m'lik daire ve içindeki
-// hayvanlar görünsün.
+// The scale the map focuses to after leaving food/water: the 100 m circle
+// and the animals inside it should be visible.
 const CELEBRATE_ZOOM = 18;
 
 type ViewType = 'food' | 'water';
@@ -44,8 +46,8 @@ export default function MapPage() {
   const mapRef = useRef<L.Map | null>(null);
   const circlesRef = useRef<L.LayerGroup | null>(null);
   const animalsRef = useRef<L.LayerGroup | null>(null);
-  // Son çekilen hayvan listesi: kalp animasyonu için hangileri etki alanında
-  // diye bakılıyor (katmandaki marker'lardan geri okumak yerine).
+  // The last fetched animal list: consulted for which ones are in range for
+  // the heart animation (instead of reading back from the layer's markers).
   const animalsDataRef = useRef<Animal[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const { celebrate } = useBadgeAwards();
@@ -61,7 +63,7 @@ export default function MapPage() {
 
   const typeLabel = viewType === 'food' ? 'mama' : 'su';
 
-  // Harita bir kez kuruluyor; veri katmanları ayrı efektlerde tazeleniyor.
+  // The map is built once; data layers refresh in separate effects.
   useEffect(() => {
     if (!mapEl.current || mapRef.current) return;
     const map = L.map(mapEl.current, { zoomControl: false }).setView(
@@ -72,7 +74,7 @@ export default function MapPage() {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap',
     }).addTo(map);
-    // Zoom kontrolü yok (handoff): dokunmatik sıkıştırma ve çift dokunma yetiyor.
+    // No zoom control (handoff): pinch and double-tap are enough.
 
     circlesRef.current = L.layerGroup().addTo(map);
     animalsRef.current = L.layerGroup().addTo(map);
@@ -82,13 +84,14 @@ export default function MapPage() {
 
     getCurrentLocation()
       .then((loc) => {
-        // Konum, sayfadan çıkıldıktan sonra da gelebilir; kaldırılmış haritada
-        // setView çağırmak Leaflet'i patlatıyor (_leaflet_pos hatası).
+        // The location can arrive after leaving the page; calling setView on
+        // a removed map blows Leaflet up (the _leaflet_pos error).
         if (mapRef.current !== map) return;
         setMyLocation(loc);
         map.setView([loc.lat, loc.lng], 16);
-        // Kullanıcı konumu: kömür nokta + beyaz halka + 200 m'lik kesikli
-        // daire (hayvanların çizildiği yakın çevre — handoff'taki gösterim).
+        // The user's location: charcoal dot + white ring + a dashed 200 m
+        // circle (the near range where animals draw — the handoff's
+        // depiction).
         L.circleMarker([loc.lat, loc.lng], {
           radius: 7,
           color: '#fff',
@@ -107,12 +110,12 @@ export default function MapPage() {
         }).addTo(map);
       })
       .catch(() => {
-        /* Konum yoksa Kadıköy'de kalınır; kayıt eklerken tekrar istenir. */
+        /* Without a location we stay on Kadıköy; asked again when adding a record. */
       });
 
     return () => {
-      // Süren pan/zoom animasyonu varken remove() Leaflet'i patlatıyor
-      // (_leaflet_pos): önce animasyonu durdur.
+      // remove() blows Leaflet up while a pan/zoom animation is running
+      // (_leaflet_pos): stop the animation first.
       map.stop();
       map.remove();
       mapRef.current = null;
@@ -126,8 +129,9 @@ export default function MapPage() {
     layer.clearLayers();
     actions.forEach((action, i) => {
       const [lng, lat] = action.location.coordinates;
-      // Stüdyo dili: yumuşak dolgu + aynı tonda 1.5px kontur + merkez noktası.
-      // Tazelik yine dolguda: yeni kayıt daha tok (0.09-0.22 aralığı).
+      // Studio language: soft fill + a 1.5px outline in the same tone + a
+      // center dot. Freshness still lives in the fill: newer records are
+      // bolder (0.09-0.22 range).
       const weight = Math.min(Math.max(Number(action.weight), 0), 1);
       const circle = L.circle([lat, lng], {
         radius: ACTION_CIRCLE_RADIUS_METERS,
@@ -139,7 +143,7 @@ export default function MapPage() {
         interactive: false,
         className: 'nefes',
       }).addTo(layer);
-      // "Nefes" hep birlikte alınmasın: üç grupta kademeli gecikme (handoff).
+      // Don't let everything "breathe" in unison: staggered delay in three groups (handoff).
       const el = circle.getElement() as HTMLElement | null;
       if (el) el.style.animationDelay = `${(i % 3) * 1.5}s`;
       L.circleMarker([lat, lng], {
@@ -163,8 +167,8 @@ export default function MapPage() {
       for (const animal of animals) {
         const [lng, lat] = animal.location.coordinates;
         const icon = L.divIcon({
-          // divIcon ile hayvanın desen avatarı doğrudan marker oluyor —
-          // 42px beyaz daire içinde avatar (handoff ölçüsü).
+          // With divIcon the animal's pattern avatar becomes the marker
+          // itself — the avatar in a 42px white circle (handoff size).
           html: `<div class="animal-marker">${animalAvatarSvg(animal.species, animal.breed, 30)}</div>`,
           className: '',
           iconSize: [42, 42],
@@ -186,8 +190,8 @@ export default function MapPage() {
     loadAnimals().catch(() => {});
   }, [loadAnimals]);
 
-  // Hayvanlar yalnızca sokak ölçeğinde: şehir ölçeğinde marker'lar üst üste
-  // binip haritayı kapatıyordu (mobil ile aynı gerekçe).
+  // Animals only at street scale: at city scale the markers piled up and
+  // covered the map (same rationale as mobile).
   useEffect(() => {
     const layer = animalsRef.current;
     const map = mapRef.current;
@@ -204,9 +208,9 @@ export default function MapPage() {
   }, [myLocation, viewType]);
 
   /**
-   * Bırakılan mama/suyun etki alanındaki (100 m) hayvanların avatarından
-   * kalpler çıkar. Harita önce o alana yaklaşır (avatarlar ancak yakında
-   * çiziliyor); ekran noktaları hareket bitince (moveend) hesaplanır.
+   * Hearts rise from the avatars of the animals within range (100 m) of the
+   * dropped food/water. The map zooms to that area first (avatars only draw
+   * up close); screen points are computed once movement ends (moveend).
    */
   function celebrateNearbyAnimals(origin: Coordinates) {
     const map = mapRef.current;
@@ -231,14 +235,15 @@ export default function MapPage() {
     map.flyTo(here, CELEBRATE_ZOOM, { duration: 0.4 });
   }
 
-  /** Fotoğraf seçildi → konumu al → kaydı bulunulan noktaya bırak. */
+  /** Photo picked → get the location → drop the record at the current spot. */
   async function handlePhotoPicked(file: File) {
     setBusy(true);
     setError(null);
     try {
-      // Konum alınamazsa (http adresi, izin yok) kullanıcıyı engellemek yerine
-      // haritanın ortası kullanılıyor ve nedeni söyleniyor: kişi zaten baktığı
-      // yere bırakıyor. Mobil uygulama gerçek konumu şart koşuyor; web daha
+      // Without a location (http origin, no permission), instead of blocking
+      // the user we use the map center and state the reason: people drop at
+      // the spot they're looking at anyway. The mobile app requires the real
+      // location; web is more
       // esnek (bkz. docs/NOTLAR.md).
       let usedFallback: string | null = null;
       const loc = await getCurrentLocation().catch((err) => {
@@ -279,12 +284,12 @@ export default function MapPage() {
           ))}
         </div>
         {error && <div className="banner">{error}</div>}
-        {/* Ana ekrana ekle daveti: ana ekrandan açıldıysa ya da "sonra"
-            denildiyse görünmez (install.tsx). */}
+        {/* The add-to-home-screen invite: hidden when opened from the home
+            screen or after "later" (install.tsx). */}
         <InstallBanner compact />
       </div>
 
-      {/* Sağ altta yeni hayvan kaydı FAB'ı (alt sayfanın üstünde durur). */}
+      {/* Bottom-right FAB for registering a new animal (sits above the bottom sheet). */}
       <button
         className="fab"
         aria-label="Yeni hayvan ekle"
@@ -294,8 +299,8 @@ export default function MapPage() {
         +
       </button>
 
-      {/* Alt sayfa: bölge durumu + eyleme çağrı (handoff 3b). Durum yokken de
-          düğme durur — kayıt bırakmak her zaman mümkün. */}
+      {/* Bottom sheet: area status + call to action (handoff 3b). The button
+          stays even without a status — dropping a record is always possible. */}
       <div className="map-bottom">
         <div className="map-sheet">
           <div className="sheet-handle" />
@@ -363,7 +368,7 @@ export default function MapPage() {
             >
               Vazgeç
             </button>
-            {/* Mama haritasında mama markası, su haritasında su markası. */}
+            {/* A food brand on the food map, a water brand on the water map. */}
             <AdBanner
               slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
               visible={confirmOpen}

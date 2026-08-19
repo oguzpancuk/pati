@@ -24,8 +24,8 @@ const STATUS_META = {
   recovered: { label: 'iyileşti', cls: 'success' },
 } as const;
 
-// Mobil AnimalProfileScreen ile aynı sayılar: sohbet açılışta son 3 yorum,
-// "öncekileri yükle" 20'lik sayfalar; kayıt kartları 2'de katlanıyor.
+// Same numbers as mobile's AnimalProfileScreen: chat opens with the last 3
+// comments, "load earlier" pages by 20; record cards fold at 2.
 const COMMENT_PREVIEW = 3;
 const COMMENT_PAGE = 20;
 const RECORD_PREVIEW = 2;
@@ -40,8 +40,9 @@ function formatDate(iso: string) {
 }
 
 /**
- * Listeden seç ya da "Diğer (belirtiniz)" ile yaz — mobil ChoiceField'in web
- * karşılığı. Seçenekler @mobile/taxonomy'den doğrudan geliyor, kopya yok.
+ * Pick from the list or type via "Diğer (belirtiniz)" (other, specify) —
+ * the web counterpart of mobile's ChoiceField. Options come straight from
+ * @mobile/taxonomy, no copies.
  */
 function ChoiceChips({
   options,
@@ -103,8 +104,8 @@ export default function AnimalPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // Hayvan ekleme akışından "adayı incele" ile gelindi mi? Sorgu parametresi
-  // sayfa yenilense de hayatta kalsın diye state yerine URL'de taşınıyor.
+  // Did we arrive via "review candidate" from the add-animal flow? Carried
+  // in the URL instead of state so it survives a page refresh.
   const matchReview = searchParams.get('inceleme') === '1';
   const animalId = Number(id);
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
@@ -128,7 +129,7 @@ export default function AnimalPage() {
   const [vaccineNote, setVaccineNote] = useState('');
   const [saving, setSaving] = useState(false);
   const { celebrate } = useBadgeAwards();
-  // Bir sağlık kaydına dokununca yalnızca o kayda bağlı yorumlar listelenir.
+  // Tapping a health record lists only the comments bound to that record.
   const [logRecord, setLogRecord] = useState<HealthRecord | null>(null);
   const [logComments, setLogComments] = useState<AnimalComment[]>([]);
 
@@ -136,7 +137,7 @@ export default function AnimalPage() {
     try {
       const [detail, commentPage] = await Promise.all([
         fetchAnimal(animalId),
-        // Açılışta sadece son birkaç yorum: sohbet uzadıkça ilk boya ağırlaşmasın.
+        // Only the last few comments at open: first paint must not grow with the chat.
         fetchComments(animalId, { limit: COMMENT_PREVIEW }),
       ]);
       setAnimal(detail);
@@ -158,8 +159,9 @@ export default function AnimalPage() {
         limit: COMMENT_PAGE,
         offset: comments.length,
       });
-      // mergeById: "yükle"ye basılırken yeni yorum düştüyse aynı id iki kez
-      // listelenmesin. Eski sayfa listenin başına eklenir (kronolojik akış).
+      // mergeById: if a new comment landed while "load" was pressed, the
+      // same id must not list twice. The older page is prepended
+      // (chronological flow).
       setComments((prev) => mergeById(prev, page.comments, 'start'));
       setCommentTotal(page.total);
     } catch (err) {
@@ -225,7 +227,7 @@ export default function AnimalPage() {
 
   async function openLog(record: HealthRecord) {
     try {
-      // Kayıt sohbeti kısa (tek konu); tek sayfada tamamı yeterli.
+      // Record chat is short (single topic); one full page is enough.
       const page = await fetchComments(animalId, { healthRecordId: record.id, limit: 100 });
       setLogComments(page.comments);
       setLogRecord(record);
@@ -243,7 +245,7 @@ export default function AnimalPage() {
       return;
     try {
       const updated = await markHealthRecordRecovered(animalId, record.id);
-      // Yoruma bağlanmak için seçiliyse seçimi kaldır: kapanmış kayda yorum gönderilemez.
+      // If selected as the comment target, deselect: a closed record takes no comments.
       setLinkedRecord((prev) => (prev?.id === record.id ? null : prev));
       await load();
       celebrate(updated);
@@ -263,8 +265,8 @@ export default function AnimalPage() {
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
 
-  // Fotoğraf sırası hep 3'ün katına tamamlanır: gerçek kareler + kesikli
-  // "fotoğraf" placeholder'ları (handoff 3c) — boş profil bile davet eder.
+  // The photo row always fills to a multiple of 3: real frames + dashed
+  // "photo" placeholders (handoff 3c) — even an empty profile invites.
   const photoSlots = Math.max(3, Math.ceil(animal.photos.length / 3) * 3);
 
   return (
@@ -319,7 +321,7 @@ export default function AnimalPage() {
         })}
       </div>
 
-      {/* Aşı sağlık kaydının üstünde: sokakta ilk soru "aşılı mı". */}
+      {/* Vaccinations above health records: on the street the first question is "vaccinated?". */}
       <div className="hairline row" style={{ justifyContent: 'space-between' }}>
         <div className="label" style={{ margin: 0 }}>
           aşı kayıtları
@@ -461,8 +463,9 @@ export default function AnimalPage() {
       ))}
 
       {matchReview ? (
-        /* Hayvan ekleme akışından bakılıyor: kullanıcı fotoğraflara ve
-           kayıtlara bakıp karar versin. Karar AddAnimalPage'e state ile döner. */
+        /* Viewed from the add-animal flow: let the user study the photos
+           and records and decide. The decision returns to AddAnimalPage via
+           state. */
         <div className="card" style={{ position: 'sticky', bottom: 0 }}>
           <p className="muted" style={{ margin: '0 0 8px', textAlign: 'center' }}>
             Eklemek istediğin hayvan bu mu?
@@ -482,7 +485,7 @@ export default function AnimalPage() {
           </div>
         </div>
       ) : (
-        /* Sabit yorum satırı (handoff): krem giriş + degrade "Gönder". */
+        /* Fixed comment row (handoff): cream input + gradient send button. */
         <form
           onSubmit={sendComment}
           style={{
@@ -569,7 +572,7 @@ export default function AnimalPage() {
             >
               Vazgeç
             </button>
-            {/* Sağlık kaydı açılırken veteriner/klinik reklamı. */}
+            {/* Vet/clinic ad while opening a health record. */}
             <AdBanner slot="vet_health_record" visible={recordOpen} />
           </div>
         </div>

@@ -3,8 +3,8 @@ export interface Coordinates {
   lng: number;
 }
 
-// Kadıköy: konum alınamadığında (izin yok / masaüstü) harita boş Türkiye
-// yerine seed verisinin olduğu bölgeye açılsın diye.
+// Kadıköy: when no location is available (no permission / desktop), the map
+// opens on the seeded area instead of an empty Turkey.
 export const FALLBACK_CENTER: Coordinates = { lat: 40.9905, lng: 29.0277 };
 
 export type LocationFailure = 'insecure' | 'denied' | 'unavailable' | 'unsupported';
@@ -18,10 +18,11 @@ export class LocationError extends Error {
 }
 
 /**
- * Tarayıcıdan konum ister. Reddedilirse *neden* de söylenir; en sık takılınan
- * durum http adresi: tarayıcı güvensiz bağlamda konumu hiç sormadan reddediyor
- * (aynı Wi‑Fi'daki `http://<ip>:5175` böyle). Bunu "izin ver" diye göstermek
- * kullanıcıyı yanıltıyordu — verebileceği bir izin yok, https gerekiyor.
+ * Requests the location from the browser. On rejection the *reason* is
+ * reported too; the most common trap is an http origin: the browser rejects
+ * without ever asking in an insecure context (`http://<ip>:5175` on the same
+ * Wi-Fi does this). Presenting that as "grant permission" misled users —
+ * there is no permission they could grant, https is required.
  */
 export function getCurrentLocation(): Promise<Coordinates> {
   return new Promise((resolve, reject) => {

@@ -3,9 +3,9 @@ import { BadgeAward, fetchUnseenBadgeAwards, markBadgeAwardsSeen, WithNewBadges 
 import { BadgeAwardModal } from './badges';
 
 interface Value {
-  /** Puan kazandıran bir isteğin yanıtındaki rozetleri kuyruğa alır. */
+  /** Queues the badges found in a point-earning request's response. */
   celebrate: (response: WithNewBadges | null | undefined) => void;
-  /** Kaçırılmış rozetleri (sekme kapalıyken kazanılmış) sunucudan çeker. */
+  /** Fetches missed badges (earned while the tab was closed) from the server. */
   checkPending: () => Promise<void>;
 }
 
@@ -13,13 +13,13 @@ const Ctx = createContext<Value>({ celebrate: () => {}, checkPending: async () =
 export const useBadgeAwards = () => useContext(Ctx);
 
 /**
- * Rozet kutlamasını tek yerden yönetir (mobildeki BadgeAwardContext ile aynı
- * mantık): rozet birçok sayfadaki aksiyondan kazanılabildiği için popup
- * navigasyonun üstünde tek bir kuyruk.
+ * Manages the badge celebration from one place (same logic as mobile's
+ * BadgeAwardContext): badges can be earned from actions on many pages, so
+ * the popup is a single queue above navigation.
  */
 export function BadgeAwardProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<BadgeAward[]>([]);
-  // Aynı rozet hem aksiyon yanıtından hem checkPending'den gelebilir.
+  // The same badge can arrive both from an action response and from checkPending.
   const queued = useRef<Set<number>>(new Set());
 
   const enqueue = useCallback((awards: BadgeAward[]) => {
@@ -40,15 +40,15 @@ export function BadgeAwardProvider({ children }: { children: React.ReactNode }) 
     try {
       enqueue(await fetchUnseenBadgeAwards());
     } catch {
-      // İkincil özellik; ağ hatasında sessizce geç.
+      // Secondary feature; skip silently on network errors.
     }
   }, [enqueue]);
 
   const dismiss = useCallback(() => {
     setQueue((prev) => {
       const [shown, ...rest] = prev;
-      // Görüldü işaretini beklemiyoruz: başarısız olursa rozet bir sonraki
-      // açılışta tekrar gösterilir — kaybolmasından iyi.
+      // We don't await the seen-mark: if it fails, the badge shows again on
+      // the next launch — better than losing it.
       if (shown) markBadgeAwardsSeen([shown.id]).catch(() => {});
       return rest;
     });

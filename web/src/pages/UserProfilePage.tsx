@@ -27,7 +27,7 @@ function formatDate(iso: string) {
   });
 }
 
-/** Başkasının profili (mobildeki PublicProfileScreen). */
+/** Someone else's profile (mobile's PublicProfileScreen). */
 export default function UserProfilePage() {
   const { id } = useParams();
   const userId = Number(id);
@@ -51,7 +51,7 @@ export default function UserProfilePage() {
   }, [userId]);
 
   useEffect(() => {
-    // Kendi profilin ayrı sayfa; buraya kendi id'nle gelirsen oraya git.
+    // Your own profile is a separate page; arriving here with your own id redirects there.
     if (me && me.id === userId) navigate('/profil', { replace: true });
     else load();
   }, [load, me, userId, navigate]);

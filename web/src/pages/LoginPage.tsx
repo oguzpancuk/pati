@@ -3,9 +3,9 @@ import { useAuth } from '../auth';
 import { Wordmark } from '../brand';
 
 /**
- * Giriş + kayıt tek ekranda (handoff 3a): dikey ortalanmış logo + kelime
- * işareti, slogan yok; alanların etiketi kutunun içinde. Kayıt olan
- * kullanıcıya sunucu rastgele bir avatar atar — alttaki soluk not bunu söyler.
+ * Login + registration on one screen (handoff 3a): vertically centered logo
+ * + wordmark, no tagline; field labels live inside the box. The server
+ * assigns a random avatar to new users — the faint note below says so.
  */
 export default function LoginPage() {
   const { login, register } = useAuth();

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Ad, AdSlot, fetchAd, recordAdClick, recordAdImpression } from '../api';
 
 /**
- * Yerleşime göre tek reklam bandı (mobil AdBanner ile aynı kurallar): yayında
- * reklam yoksa hiç çizilmez; gösterim gerçekten ekrana gelince bildirilir.
+ * One ad banner per placement (same rules as mobile's AdBanner): never
+ * renders when no ad is live; the impression is reported only when it
+ * actually reaches the screen.
  */
 export function AdBanner({ slot, visible = true }: { slot: AdSlot; visible?: boolean }) {
   const [ad, setAd] = useState<Ad | null>(null);
@@ -40,7 +41,7 @@ export function AdBanner({ slot, visible = true }: { slot: AdSlot; visible?: boo
       rel="noopener noreferrer"
       onClick={() => recordAdClick(ad.id).catch(() => {})}
     >
-      {/* "REKLAM" etiketi zorunlu: içerik ile reklam ayırt edilebilmeli. */}
+      {/* The "REKLAM" (ad) label is mandatory: content and ads must be distinguishable. */}
       <span className="subtle" style={{ letterSpacing: '0.08em' }}>
         reklam
       </span>

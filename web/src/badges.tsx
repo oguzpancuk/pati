@@ -18,10 +18,10 @@ import {
 import { badgeSymbolSvg, levelMarkSvg } from '@shared/badgeSvg';
 
 /**
- * Rozet/seviye görselleri ve modalları. Sözlük ve yardımcılar mobilden
- * (`@mobile/badges`, saf TS) doğrudan; çizimler `shared/badgeSvg.ts`'ten.
- * SVG string'leri kendi ürettiğimiz statik işaretleme — dangerouslySetInnerHTML
- * güvenli (kullanıcı girdisi karışmıyor).
+ * Badge/level visuals and modals. The vocabulary and helpers come straight
+ * from mobile (`@mobile/badges`, pure TS); the drawings from
+ * `shared/badgeSvg.ts`. The SVG strings are static markup we generate —
+ * dangerouslySetInnerHTML is safe (no user input mixed in).
  */
 
 export function BadgeSymbol({
@@ -43,7 +43,7 @@ export function BadgeSymbol({
 }
 
 export function LevelMark({ level, size = 44 }: { level: number; size?: number }) {
-  // Renkler CSS değişkenlerinden okunuyor ki koyu temada da uysun.
+  // Colors are read from CSS variables so they fit the dark theme too.
   const [colors, setColors] = useState({
     brand: '#F47A4A',
     brandTint: '#FFF0E7',
@@ -66,12 +66,12 @@ export function LevelMark({ level, size = 44 }: { level: number; size?: number }
   );
 }
 
-/** Seviye çubuğu: amblem + başlık + ilerleme + "X için N puan daha". */
+/** Level bar: emblem + title + progress + "N more points for X". */
 export function LevelBar({ level, points }: { level: UserLevel; points: number }) {
   const remaining =
     level.nextLevelPoints !== null ? Math.max(0, level.nextLevelPoints - points) : 0;
-  // Handoff 3d: seviye kartı = unvan + "N puan sonra: sonraki unvan" +
-  // 4px degrade ilerleme çubuğu. Madalyon ve puan, istatistik şeridinde.
+  // Handoff 3d: level card = title + "in N points: next title" + a 4px
+  // gradient progress bar. The medallion and points live in the stat strip.
   return (
     <div className="levelbar">
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -90,8 +90,8 @@ export function LevelBar({ level, points }: { level: UserLevel; points: number }
 const GROUP_ORDER: BadgeGroup[] = ['streak', 'breed', 'count'];
 
 /**
- * Rozet kataloğu. Seçim modu yalnızca kendi profilinde (öne çıkacak 3 rozet);
- * başkasının profilinde salt görüntüleme.
+ * The badge catalog. Selection mode only on your own profile (the 3 badges
+ * to feature); read-only on other people's profiles.
  */
 export function BadgeCatalogModal({
   open,
@@ -114,7 +114,7 @@ export function BadgeCatalogModal({
   const [saving, setSaving] = useState(false);
   const signature = featuredKeys.join('|');
   useEffect(() => {
-    // Modal her açıldığında mevcut seçimle başlasın.
+    // Start from the current selection every time the modal opens.
     setSelection(signature ? signature.split('|') : []);
   }, [signature, open]);
 
@@ -225,7 +225,7 @@ function rankLine(award: BadgeAward): string {
     : `${award.rankBefore}. → ${award.rankAfter}.`;
 }
 
-/** Yeni rozet kutlaması. Kuyruk BadgeAwardProvider'da. */
+/** The new-badge celebration. The queue lives in BadgeAwardProvider. */
 export function BadgeAwardModal({
   award,
   remaining,

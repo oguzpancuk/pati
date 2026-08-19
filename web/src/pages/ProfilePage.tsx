@@ -25,7 +25,7 @@ import { mergeById } from '@mobile/paging';
 import { applyThemeMode, readThemeMode, type ThemeMode } from '../theme';
 import { InstallBanner } from '../install';
 
-// Profil bir özet ekranı: her bölümden 3 satır, gerisi "daha fazla göster".
+// The profile is a summary screen: 3 rows per section, the rest behind "show more".
 const PREVIEW = 3;
 const PAGE = 20;
 
@@ -67,7 +67,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     load();
-    // Sekme kapalıyken kazanılmış rozetler burada yakalanır.
+    // Badges earned while the tab was closed are caught here.
     checkPending();
   }, [load, checkPending]);
 
@@ -105,7 +105,7 @@ export default function ProfilePage() {
       {error && <div className="error">{error}</div>}
       <InstallBanner />
 
-      {/* Başlık (handoff 3d): avatar + isim + e-posta + turuncu mikro etiket */}
+      {/* Header (handoff 3d): avatar + name + email + orange micro label */}
       <div
         className="row"
         role="button"
@@ -122,7 +122,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* İstatistik şeridi: puan / sıra / seviye — sıralamaya götürür. */}
+      {/* Stat strip: points / rank / level — links to the leaderboard. */}
       <Link
         to="/siralama"
         className="statstrip"

@@ -1,8 +1,9 @@
 import { logoSvg } from '@shared/logoSvg';
 
 /**
- * pati logosu (stüdyo estetiği). Dolgu degrade, kalp boşluğu zeminin rengi —
- * SVG doğrudan CSS değişkeni okuduğu için tema değişince kendiliğinden uyar.
+ * The pati logo (studio aesthetic). Gradient fill, heart cutout in the
+ * background color — the SVG reads the CSS variable directly, so it adapts
+ * by itself when the theme changes.
  */
 export function Logo({
   size = 64,
@@ -28,8 +29,9 @@ const SIZES = {
 } as const;
 
 /**
- * Logo + "pati" kelime işareti: logo üstte, yazı hemen altında hafif bindirme
- * ile (handoff: −8px). 600 ağırlık, .14em harf aralığı, kömür renk; slogan yok.
+ * Logo + the "pati" wordmark: logo on top, the text right below with a
+ * slight overlap (handoff: −8px). Weight 600, .14em letter spacing,
+ * charcoal color; no tagline.
  */
 export function Wordmark({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const s = SIZES[size];

@@ -1,7 +1,6 @@
 /**
- * Backend istemcisi. Uç noktalar ve tipler mobil taraftaki
- * mobile/src/api/*.ts ile aynı sözleşmeyi kullanıyor; web yalnızca ihtiyacı
- * olan alt kümeyi taşıyor.
+ * The backend client. Endpoints and types follow the same contract as the
+ * mobile side's mobile/src/api/*.ts; web carries only the subset it needs.
  */
 import type { Badge, BadgeTier } from '@mobile/badges';
 
@@ -92,8 +91,8 @@ export interface UserStats {
   animalCount: number;
 }
 
-// Kullanıcının bir hayvana yaptığı yorum; hangi hayvana olduğu da geliyor ki
-// listeden doğrudan profile gidilebilsin.
+// A user's comment on an animal; the animal comes along too so the list can
+// link straight to its profile.
 export interface UserComment {
   id: number;
   body: string;
@@ -106,7 +105,7 @@ export interface UserComment {
   animal_photo_url: string | null;
 }
 
-// Rozet kazanıldığı anın kaydı; kutlama popup'ı bunu gösteriyor.
+// The record of the moment a badge was earned; the celebration popup shows it.
 export interface BadgeAward {
   id: number;
   badgeKey: string;
@@ -122,7 +121,7 @@ export interface BadgeAward {
   createdAt: string;
 }
 
-/** Puan kazandıran uç noktaların yanıtına eklenen alan. */
+/** Field appended to the responses of point-earning endpoints. */
 export interface WithNewBadges {
   newBadges?: BadgeAward[];
 }
@@ -311,7 +310,7 @@ export interface AnimalDetail extends Animal {
   isCarer: boolean;
 }
 
-// ---------------------------------------------------------------- çağrılar
+// ---------------------------------------------------------------- calls
 
 export const login = (email: string, password: string) =>
   api.post<{ user: User; token: string }>('/auth/login', { email, password });
@@ -387,7 +386,7 @@ export function addAnimalPhoto(animalId: number, file: File) {
   return api.postForm<AnimalPhoto>(`/animals/${animalId}/photos`, form);
 }
 
-/** Sohbet sayfalı: sunucu en yeniden geriye `limit/offset` ile dönüyor. */
+/** Chat is paginated: the server returns newest-first with `limit/offset`. */
 export const fetchComments = (
   animalId: number,
   opts: { limit?: number; offset?: number; healthRecordId?: number } = {}
@@ -421,9 +420,10 @@ export const addVaccination = (animalId: number, vaccineType: string, note?: str
   api.post<Vaccination & WithNewBadges>(`/animals/${animalId}/vaccinations`, { vaccineType, note });
 
 /**
- * Yeni kayıt açmadan önce "bu hayvan zaten kayıtlı mı?" adayları. Sunucu 1 km
- * içindeki aynı türden hayvanları desen/renk ve mesafeye göre yüksek/orta/
- * düşük benzerlikle sıralıyor (sayısal yüzde yok, bilerek).
+ * "Is this animal already registered?" candidates before opening a new
+ * record. The server ranks same-species animals within 1 km by pattern/color
+ * and distance as high/medium/low similarity (no numeric percentage, on
+ * purpose).
  */
 export const matchAnimals = (input: {
   lat: number;
@@ -442,12 +442,12 @@ export const matchAnimals = (input: {
   return api.get<{ candidates: AnimalMatch[]; radiusMeters: number }>(`/animals/match?${q}`);
 };
 
-// Kayıtlı hayvanı yeniden gördüğünü bildirir: konumunu taşır, bildireni
-// bakım listesine ekler.
+// Reports a sighting of a registered animal: moves its location and adds the
+// reporter to the care list.
 export const reportSighting = (animalId: number, lat: number, lng: number) =>
   api.post<Animal>(`/animals/${animalId}/sightings`, { lat, lng });
 
-// ---------------------------------------------------------------- kullanıcı / sosyal
+// ---------------------------------------------------------------- user / social
 
 export const setFeaturedBadges = async (keys: string[]) => {
   const data = await api.put<{ featuredBadges: Badge[] }>('/users/me/featured-badges', { keys });
@@ -459,8 +459,8 @@ export const searchUsers = (q: string) =>
 
 export const fetchUserProfile = (id: number) => api.get<PublicProfile>(`/users/${id}`);
 
-// Profildeki "bakım verdiği hayvanlar" sayfalı: ilk 3 profille geliyor, gerisi
-// buradan "daha fazla göster" ile.
+// The profile's "animals cared for" list is paginated: the first 3 arrive
+// with the profile, the rest comes from here via "show more".
 export const fetchUserAnimals = (userId: number | 'me', limit: number, offset: number) =>
   api.get<AnimalPage>(
     `/users/${userId}/animals?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
@@ -489,16 +489,16 @@ export const removeFriendship = (friendshipId: number) =>
 
 // ---------------------------------------------------------------- reklam
 
-/** Yerleşim için sıradaki reklam; yayında yoksa null — bant hiç çizilmez. */
+/** The next ad for a placement; null when none is live — the banner never renders. */
 export const fetchAd = async (slot: AdSlot) => {
   const data = await api.get<{ ad: Ad | null }>(`/ads?${new URLSearchParams({ slot })}`);
   return data.ad;
 };
-// Gösterim ve tıklama ayrı: getirilip gösterilmeyen reklam faturaya yazılmasın.
+// Impressions and clicks are separate: a fetched-but-never-shown ad must not be billed.
 export const recordAdImpression = (adId: number) => api.post<void>(`/ads/${adId}/impression`);
 export const recordAdClick = (adId: number) => api.post<void>(`/ads/${adId}/click`);
 
-// ---------------------------------------------------------------- sağlık kaydı
+// ---------------------------------------------------------------- health records
 
 export const markHealthRecordRecovered = (animalId: number, recordId: number) =>
   api.post<HealthRecord & WithNewBadges>(`/animals/${animalId}/health-records/${recordId}/recover`);

@@ -3,14 +3,15 @@ import { fetchCareStatus, getToken } from './api';
 import { getCurrentLocation } from './location';
 
 /**
- * Bakım uyarıları (mobildeki careAlerts ile aynı kural): kullanıcının 100 m
- * çevresinde mama/su kalmadıysa tarayıcı bildirimi. Konum cihazda kalıyor,
- * sunucuya "kime bildirim gönder" denmiyor.
+ * Care alerts (same rule as mobile's careAlerts): a browser notification
+ * when no food/water remains within 100 m of the user. The location stays on
+ * the device; the server is never told "who to notify".
  *
- * Sınırlar: bildirim yalnızca sekme açıkken/PWA çalışırken (arka plan push
- * yok); iOS Safari'de Notification API yalnızca ana ekrana eklenmiş PWA'da
- * var — desteklenmiyorsa sessizce hiç sorulmaz. Konum alınamıyorsa (http
- * adresi) da atlanır; hata gösterilmez, arka plan işi.
+ * Limits: notifications only while the tab is open / the PWA is running (no
+ * background push); on iOS Safari the Notification API only exists in a PWA
+ * added to the home screen — when unsupported we silently never ask. Also
+ * skipped when the location can't be read (http origin); no error shown,
+ * it's a background job.
  */
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const COOLDOWN_MS = 6 * 60 * 60 * 1000;
@@ -64,14 +65,14 @@ export function useCareAlerts(enabled: boolean) {
       try {
         await checkCareAndNotify();
       } catch {
-        // konum/ağ hatası: sessizce geç
+        // location/network error: skip silently
       } finally {
         running.current = false;
       }
     }
 
     async function start() {
-      // İzin yalnızca bir kez sorulur; reddedildiyse tekrar sormayız.
+      // Permission is asked once; if denied we don't ask again.
       if (Notification.permission === 'default') {
         try {
           await Notification.requestPermission();

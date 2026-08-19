@@ -6,7 +6,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
-/** Profildeki "son yorumlar" bloğu: 3 önizleme + "Tümünü gör (N)". */
+/** The profile's "recent comments" block: 3 previews + "see all (N)". */
 export function RecentComments({
   comments,
   total,

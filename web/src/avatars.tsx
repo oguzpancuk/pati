@@ -2,10 +2,10 @@ import { animalAvatarSvg } from '@shared/animalAvatarSvg';
 import { patiAvatarSvg } from '@shared/avatarSvg';
 
 /**
- * SVG string üreticilerinin React sarmalayıcıları. İçerik tamamen kendi
- * ürettiğimiz statik işaretleme olduğu için dangerouslySetInnerHTML güvenli:
- * kullanıcı girdisi HTML'e karışmıyor (tanınmayan avatar anahtarı null döner,
- * baş harfe düşülür).
+ * React wrappers around the SVG string generators. The content is entirely
+ * static markup we generate ourselves, so dangerouslySetInnerHTML is safe:
+ * no user input reaches the HTML (an unrecognized avatar key returns null
+ * and falls back to the initial letter).
  */
 export function AnimalAvatar({
   species,

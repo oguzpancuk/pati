@@ -1,6 +1,6 @@
 /**
- * Sayfalı listelerin ortak "devamını getir" düğmesi (mobildeki ui/LoadMoreButton
- * ile aynı): kullanıcı nerede bittiğini ve kaç tane daha olduğunu görsün.
+ * The shared "load more" button for paginated lists (same as mobile's
+ * ui/LoadMoreButton): the user sees where it ended and how many remain.
  */
 export function LoadMoreButton({
   remaining,

@@ -15,7 +15,7 @@ function formatDate(iso: string) {
   });
 }
 
-/** Bir kullanıcının tüm yorumları; :id yoksa kendi yorumlarımız. */
+/** All of a user's comments; without :id, our own. */
 export default function UserCommentsPage() {
   const { id } = useParams();
   const userId: number | 'me' = id ? Number(id) : 'me';

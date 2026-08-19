@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import { Logo } from './brand';
 
 /**
- * "Ana ekrana ekle" akışı. İki dünya var:
- *  - Android/Chrome: tarayıcı `beforeinstallprompt` verir; saklayıp düğmeye
- *    bağlarız, gerçek yükleme penceresi açılır.
- *  - iOS Safari: API yok; düğme yönerge sayfası açar (Paylaş → Ana Ekrana Ekle).
- * Ana ekrandan açıldıysa (standalone) hiç görünmez. "Sonra" 7 gün gizler.
+ * The "add to home screen" flow. Two worlds:
+ *  - Android/Chrome: the browser fires `beforeinstallprompt`; we stash it,
+ *    wire it to the button, and the real install dialog opens.
+ *  - iOS Safari: no API; the button opens an instruction page
+ *    (Share → Add to Home Screen).
+ * Never shown when opened from the home screen (standalone). "Later" hides
+ * it for 7 days.
  */
 const DISMISS_KEY = 'pati-install-dismissed';
 const DISMISS_DAYS = 7;
@@ -68,11 +70,11 @@ export function useInstallPrompt() {
   return { hidden, canPrompt, install, dismiss };
 }
 
-/** Yönerge sayfası: iOS'ta (ve prompt vermeyen tarayıcılarda) adımlar. */
+/** Instruction page: the steps on iOS (and browsers without the prompt). */
 export function InstallSheet({ mode, onClose }: { mode: 'ios' | 'manual'; onClose: () => void }) {
-  // Portal: banner harita üst katmanı gibi kendi yığın bağlamı olan bir
-  // kutunun içinde durabiliyor; sayfa body'ye taşınmazsa o kutunun z-index'ine
-  // hapsolup harita düğmelerinin altında kalıyor.
+  // Portal: the banner can sit inside a box with its own stacking context
+  // (like the map's top layer); unless the page moves to body it gets trapped
+  // in that box's z-index and ends up under the map buttons.
   return createPortal(
     <div className="backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
@@ -109,8 +111,8 @@ export function InstallSheet({ mode, onClose }: { mode: 'ios' | 'manual'; onClos
 }
 
 /**
- * Kart: logo + "Ana ekrana ekle" + "Sonra". `compact` harita üstündeki dar
- * şerit; Profilim'de tam kart.
+ * The card: logo + "add to home screen" + "later". `compact` is the narrow
+ * strip over the map; the full card lives on the profile page.
  */
 export function InstallBanner({ compact = false }: { compact?: boolean }) {
   const { hidden, install, dismiss } = useInstallPrompt();

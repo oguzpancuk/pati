@@ -6,7 +6,7 @@ import { AnimalAvatar } from '../avatars';
 import { LoadMoreButton } from '../components/LoadMoreButton';
 import { Coordinates, FALLBACK_CENTER, getCurrentLocation } from '../location';
 
-// 1 km (mobille aynı): yürüyerek gidilip bakılabilecek mesafe; 20'şer sayfa.
+// 1 km (same as mobile): a walkable care distance; pages of 20.
 const NEARBY_RADIUS_METERS = 1000;
 const PAGE_SIZE = 20;
 
@@ -24,7 +24,7 @@ export default function AnimalsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  // Sonraki sayfalar aynı merkezden istenmeli; konum ilk sayfada saklanıyor.
+  // Later pages must use the same center; the location is kept from page one.
   const locationRef = useRef<Coordinates>(FALLBACK_CENTER);
 
   async function loadMore() {

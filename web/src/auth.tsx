@@ -8,7 +8,7 @@ interface AuthValue {
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
-  /** Avatar değişimi gibi Me döndüren çağrıların sonucunu yerinde uygular. */
+  /** Applies the result of Me-returning calls (like avatar changes) in place. */
   applyMe: (me: Me) => void;
 }
 

@@ -28,7 +28,7 @@ function TabIcon({ d }: { d: string }) {
   );
 }
 
-// Mobil uygulamadaki brand/Icon path'leriyle aynı dil: ince çizgi, yuvarlak uç.
+// Same language as the mobile app's brand/Icon paths: thin stroke, round caps.
 const ICONS = {
   map: 'M12 21c0 0 7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z M12 12.6a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z',
   paw: 'M6.4 12.7a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2Z M9.9 9.4a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4Z M14.1 9.4a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4Z M17.6 12.7a2.1 2.1 0 1 0 0-4.2 2.1 2.1 0 0 0 0 4.2Z M12 12.2c2.6 0 5 2.1 5 4.5 0 1.8-1.4 2.9-3 2.9-.9 0-1.4-.4-2-.4s-1.1.4-2 .4c-1.6 0-3-1.1-3-2.9 0-2.4 2.4-4.5 5-4.5Z',
@@ -59,7 +59,7 @@ function Shell() {
 
 export default function App() {
   const { me, loading } = useAuth();
-  // Bakım uyarıları yalnızca giriş yapılmışken çalışır.
+  // Care alerts only run while signed in.
   useCareAlerts(!!me);
 
   if (loading) {
@@ -79,8 +79,8 @@ export default function App() {
   }
 
   return (
-    // Rozet kutlaması navigasyonun üstünde: hangi sayfada kazanılırsa
-    // kazanılsın aynı yerden gösterilir.
+    // The badge celebration sits above navigation: whichever page it is
+    // earned on, it shows from the same place.
     <BadgeAwardProvider>
       <Routes>
         <Route path="/" element={<Shell />}>

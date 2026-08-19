@@ -1,16 +1,17 @@
 /**
- * pati tasarım sistemi girişi (Claude Design senkronu için).
+ * The pati design system entry (for the Claude Design sync).
  *
- * Uygulamanın kendisi bunu import etmiyor; `/design-sync` bu dosyayı esbuild
- * ile tek bir pakete derleyip claude.ai/design'a yüklüyor, oradaki tasarım
- * ajanı da bu bileşenlerle tasarlıyor. Buradan çıkarılan her şey web'in gerçek
- * bileşeni — kopya ya da yeniden yazım yok. Bileşen ekleyince
- * `.design-sync/config.json` → `componentSrcMap`'e de yol eklenmeli.
+ * The app itself doesn't import this; `/design-sync` compiles this file into
+ * a single bundle with esbuild and uploads it to claude.ai/design, where the
+ * design agent designs with these components. Everything exported here is
+ * the web client's real component — no copies, no rewrites. When adding a
+ * component, also add its path to `.design-sync/config.json` →
+ * `componentSrcMap`.
  *
- * Bilerek dışarıda: AdBanner (ağ isteyen reklam bandı), sayfalar ve admin/
- * bileşenleri — yönetim paneli ayrı bir görsel dil (kendi :root/button
- * kuralları, yosun yeşili palet); pati markasıyla karışmasın diye ayrı bir
- * proje olarak senkronlanabilir.
+ * Deliberately left out: AdBanner (an ad strip that needs the network),
+ * pages, and the admin/ components — the admin panel is a separate visual
+ * language (its own :root/button rules, moss-green palette); it can sync as
+ * its own project so it doesn't blend into the pati brand.
  */
 export { Logo, Wordmark } from './brand';
 export { AnimalAvatar, UserAvatar } from './avatars';
@@ -18,5 +19,5 @@ export { BadgeSymbol, LevelMark, LevelBar, BadgeCatalogModal, BadgeAwardModal } 
 export { LoadMoreButton } from './components/LoadMoreButton';
 export { HeartBurst } from './components/HeartBurst';
 export { RecentComments } from './components/RecentComments';
-// Önizlemeler için router sağlayıcısı: RecentComments <Link> kullanıyor.
+// Router provider for the previews: RecentComments uses <Link>.
 export { MemoryRouter as PatiRouter } from 'react-router-dom';

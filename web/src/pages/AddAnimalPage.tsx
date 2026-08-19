@@ -22,8 +22,9 @@ import {
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
 
-// Sunucu genelde anında dönüyor; "yapay zekâ eşleştiriyor" ekranı en az bu
-// kadar görünsün ki kullanıcı taramanın yapıldığını algılasın (mobil ile aynı).
+// The server usually responds instantly; show the "AI matching" screen for
+// at least this long so the user perceives that a scan happened (same as
+// mobile).
 const MIN_MATCHING_MS = 2000;
 
 const SIMILARITY_LABEL: Record<SimilarityLevel, string> = {
@@ -42,9 +43,9 @@ const REASON_LABEL: Record<SimilarityReason, string> = {
   distance: 'Aynı sokakta',
 };
 
-// "Profiline bak" sayfadan ayrılınca form state'i ölür; metin alanları ve konum
-// buraya yazılıp dönüşte geri okunuyor. Fotoğraflar (File) serileştirilemediği
-// için taşınamıyor — dönüşte yeniden eklenmeleri gerekiyor.
+// Leaving the page via "view profile" kills the form state; text fields and
+// the location are written here and read back on return. Photos (File) can't
+// be serialized so they don't survive — they must be re-added on return.
 const DRAFT_KEY = 'pati.yeniHayvanTaslak';
 
 interface Draft {
@@ -133,7 +134,7 @@ export default function AddAnimalPage() {
   const routerLocation = useLocation();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Profil incelemesinden dönüşte taslak varsa form ondan açılır.
+  // If a draft exists on return from the profile review, the form opens from it.
   const [draft] = useState(readDraft);
   const [species, setSpecies] = useState<Species>(draft?.species ?? 'cat');
   const [breed, setBreed] = useState<string | null>(draft?.breed ?? null);
@@ -142,8 +143,9 @@ export default function AddAnimalPage() {
   const [markings, setMarkings] = useState(draft?.markings ?? '');
   const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // Form açılır açılmaz konum deneniyor: alınamıyorsa (http adresi, izin yok)
-  // kullanıcı kaydetmeden önce görsün, tarayıcı izin soracaksa şimdi sorsun.
+  // The location is tried as soon as the form opens: if unavailable (http
+  // origin, no permission) the user sees it before saving, and if the browser
+  // will ask for permission, it asks now.
   const [locationNote, setLocationNote] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -156,16 +158,17 @@ export default function AddAnimalPage() {
   }, []);
   const [busy, setBusy] = useState(false);
 
-  // Akış: form → (kaydet) → eşleştirme beklemesi → adaylar → yeni kayıt ya da
-  // mevcut profil. Mobil AddAnimalScreen ile aynı; mükerrer kayıt önleme
-  // form doldurulduktan sonra yapılıyor ki karşılaştıracak bilgi olsun.
+  // Flow: form → (save) → matching wait → candidates → new record or an
+  // existing profile. Same as mobile's AddAnimalScreen; duplicate prevention
+  // runs after the form is filled so there is something to compare.
   const [step, setStep] = useState<Step>('form');
   const [candidates, setCandidates] = useState<AnimalMatch[]>([]);
   const [matchRadius, setMatchRadius] = useState(1000);
   const [location, setLocation] = useState<Coordinates | null>(draft?.location ?? null);
 
-  // Profildeki "Bu o — eşleştir" butonu bizi router state ile buraya düşürür:
-  // görülme bildir, profile dön. Konum taslakta saklanmıştı.
+  // The profile's "that's the one — match" button drops us here via router
+  // state: report the sighting, return to the profile. The location was kept
+  // in the draft.
   const confirmedAnimalId: number | undefined = routerLocation.state?.confirmedAnimalId;
   useEffect(() => {
     if (!confirmedAnimalId) return;
@@ -177,8 +180,9 @@ export default function AddAnimalPage() {
       try {
         if (loc) await reportSighting(confirmedAnimalId, loc.lat, loc.lng);
       } catch {
-        // Görülme kaydı düşmese de kullanıcıyı profile götürmek daha doğru;
-        // eşleştirme kararı verildi, akışı hatayla kesmeye değmez.
+        // Even if the sighting fails to record, taking the user to the
+        // profile is right; the match decision is made, not worth breaking
+        // the flow with an error.
       }
       navigate(`/hayvanlar/${confirmedAnimalId}`, { replace: true });
     })();
@@ -187,12 +191,12 @@ export default function AddAnimalPage() {
 
   function changeSpecies(next: Species) {
     setSpecies(next);
-    // Desen ve renk listeleri türe göre değişiyor; eski seçim anlamsız kalır.
+    // Pattern and color lists change per species; the old pick becomes meaningless.
     setBreed(null);
     setColor(null);
   }
 
-  /** Form gönderildi: önce eşleştir, sonra karar ver. */
+  /** Form submitted: match first, decide after. */
   async function submit() {
     if (photos.length < MIN_PHOTOS) {
       setError(`En az ${MIN_PHOTOS} fotoğraf eklemelisin.`);
@@ -202,13 +206,14 @@ export default function AddAnimalPage() {
     setStep('matching');
     const startedAt = Date.now();
     try {
-      // Konum alınamazsa (http adresi, izin yok) kayıt varsayılan merkeze
-      // düşüyor; nedeni formda zaten yazıyor (locationNote), akış kesilmiyor.
+      // Without a location (http origin, no permission) the record falls to
+      // the default center; the reason already shows on the form
+      // (locationNote), the flow isn't interrupted.
       const loc = await getCurrentLocation().catch(() => FALLBACK_CENTER);
       setLocation(loc);
       const result = await matchAnimals({ lat: loc.lat, lng: loc.lng, species, breed, color });
 
-      // Bekleme ekranı en az MIN_MATCHING_MS görünsün.
+      // Show the waiting screen for at least MIN_MATCHING_MS.
       const elapsed = Date.now() - startedAt;
       if (elapsed < MIN_MATCHING_MS) {
         await new Promise((resolve) => setTimeout(resolve, MIN_MATCHING_MS - elapsed));
@@ -217,7 +222,7 @@ export default function AddAnimalPage() {
       setCandidates(result.candidates);
       setMatchRadius(result.radiusMeters);
       if (result.candidates.length === 0) {
-        // Yakında aynı türden kayıt yok: soracak bir şey yok, doğrudan kaydet.
+        // No same-species records nearby: nothing to ask, save directly.
         await createNewAnimal(loc);
       } else {
         setStep('results');
@@ -252,15 +257,15 @@ export default function AddAnimalPage() {
     }
   }
 
-  /** Adaya dokununca profili inceleme modunda aç; taslağı saklayıp git. */
+  /** Tapping a candidate opens its profile in review mode; stash the draft and go. */
   function reviewCandidate(animal: AnimalMatch) {
     const toSave: Draft = { species, breed, color, name, markings, location };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(toSave));
     navigate(`/hayvanlar/${animal.id}?inceleme=1`);
   }
 
-  /** Adaylar listesinden "bu o" kararı olmadan doğrudan görülme bildirimi yok;
-      inceleme profil üzerinden yapılıyor, mobil ile aynı akış. */
+  /** No direct sighting report from the candidate list without a "that's the
+      one" decision; the review happens on the profile, same flow as mobile. */
 
   if (step === 'matching') {
     return (

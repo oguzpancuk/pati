@@ -1,8 +1,9 @@
 /**
- * Bir noktadan yukarı süzülüp sönen kalpler (mobildeki HeartBurst'ün CSS
- * animasyonlu karşılığı). Mama/su bırakılınca etki alanındaki hayvanların
- * "teşekkürü". Konum ve süre CSS'te (`.hearts`, `.heart`); MapPage kutuyu
- * marker'ın ekran noktasına koyup HEART_BURST_MS sonra kaldırıyor.
+ * Hearts drifting up from a point and fading out (the CSS-animated
+ * counterpart of mobile's HeartBurst). The "thank you" of the animals within
+ * range when food/water is left. Position and duration live in CSS
+ * (`.hearts`, `.heart`); MapPage places the box at the marker's screen point
+ * and removes it after HEART_BURST_MS.
  */
 export const HEART_BURST_MS = 1500;
 
