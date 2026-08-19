@@ -9,7 +9,10 @@ COPY web/package.json web/package-lock.json web/
 RUN cd web && npm ci
 COPY web/ web/
 COPY shared/ shared/
-COPY mobile/src/taxonomy.ts mobile/src/avatars.ts mobile/src/badges.ts mobile/src/paging.ts mobile/src/
+# Whole mobile/src: web imports pure modules from it via @mobile/* (taxonomy,
+# avatars, badges, paging, reportReasons…); listing files one by one broke the
+# build every time a new shared module appeared.
+COPY mobile/src/ mobile/src/
 COPY mobile/assets/fonts/ mobile/assets/fonts/
 RUN cd web && npm run build
 
