@@ -261,6 +261,28 @@ adresinde kullanıcı izin verse bile konum gelmiyor; "izin ver" demek yanıltı
 akışı kesmek de denemeyi imkânsız kılıyordu. Yayında (https) tarayıcı normal
 şekilde soruyor; reddedilirse yine bu esneklik geçerli.
 
+### Web'de bakım uyarıları yalnızca sekme açıkken
+`web/src/careAlerts.ts` mobil kuralın aynısını (100 m'de mama/su yoksa, 6 sa
+soğuma) tarayıcı Notification API'siyle uyguluyor; arka plan push yok — sekme
+kapalıyken uyarı gelmez. iOS Safari'de Notification API yalnızca ana ekrana
+eklenmiş PWA'da var; desteklenmiyorsa hiç sorulmaz. Gerçek arka plan bildirimi
+mobil uygulamanın işi; web push (VAPID + service worker) yayına yakın karar.
+
+### Haritada hayvanlar 200 m ve yalnızca iyice yaklaşınca
+Mobil `ANIMAL_RADIUS_METERS = 200`, `ANIMAL_VISIBLE_MAX_DELTA = 0.004`; web
+`ANIMAL_RADIUS_METERS = 200`, `ANIMAL_VISIBLE_MIN_ZOOM = 17`. Kullanıcının işi
+bulunduğu sokaktaki hayvanlarla; 10 km'lik çekim ve şehir ölçeğinde çizim
+haritayı avatarla dolduruyordu. Kutlama yakınlaşması (`CELEBRATE_ZOOM_*`)
+görünürlük eşiğinin içinde kalmalı, yoksa kalpler çıkmadan avatarlar gizlenir.
+
+### Telefondan deneme: aynı Wi‑Fi (http) ve tünel (https)
+`web/vite.config.ts` dış arayüzlerde dinliyor (`host: true`); aynı Wi‑Fi'da
+`http://<mac-ip>:5175` açılır ama iOS http'de konum vermez. Gerçek deneme için
+`TUNNEL=1 npm run dev` + `cloudflared tunnel --url http://localhost:5175`
+(quick tunnel, hesapsız; adres her başlatmada değişir). API `/api` proxy'siyle
+aynı adresten geçtiği için tek tünel yetiyor. `TUNNEL=1` HMR'ı 443/wss'e
+bağlar — onsuz sayfa açılır ama canlı yenileme kopar.
+
 ## 2. Teknik kararlar
 
 ### Leaderboard set-based hesaplanıyor

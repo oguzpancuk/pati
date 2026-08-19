@@ -11,6 +11,7 @@ import FindFriendsPage from './pages/FindFriendsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import UserCommentsPage from './pages/UserCommentsPage';
 import { BadgeAwardProvider } from './badgeAwards';
+import { useCareAlerts } from './careAlerts';
 
 function TabIcon({ d }: { d: string }) {
   return (
@@ -58,6 +59,8 @@ function Shell() {
 
 export default function App() {
   const { me, loading } = useAuth();
+  // Bakım uyarıları yalnızca giriş yapılmışken çalışır.
+  useCareAlerts(!!me);
 
   if (loading) {
     return (

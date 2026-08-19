@@ -38,18 +38,22 @@ const TURKEY_REGION: MapRegion = {
 };
 
 const ACTION_CIRCLE_RADIUS_METERS = 100;
-const ANIMAL_RADIUS_METERS = 10000;
+// Hayvanlar yalnızca kullanıcının yakın çevresinde (200 m) çekiliyor:
+// kullanıcının işi bulunduğu sokaktaki hayvanlarla, uzaktakiler haritayı
+// kalabalıklaştırıyordu. (Web haritasıyla aynı kural.)
+const ANIMAL_RADIUS_METERS = 200;
 const USER_ZOOM_DELTA = 0.03;
 const MIN_DELTA = 0.001;
 const MAX_DELTA = 40;
 
-// Hayvan avatarları yalnızca sokak ölçeğine yakınlaşınca çizilir; şehir/ülke
-// ölçeğinde onlarca avatar üst üste binip haritayı tamamen kapatıyordu.
-const ANIMAL_VISIBLE_MAX_DELTA = 0.02;
+// Hayvan avatarları yalnızca bina/sokak ölçeğine iyice yaklaşınca çizilir
+// (~0.004° ≈ 450 m'lik ekran); daha uzaktan onlarca avatar üst üste binip
+// haritayı kapatıyordu.
+const ANIMAL_VISIBLE_MAX_DELTA = 0.004;
 
 // Mama/su bırakılınca haritanın odaklandığı ölçek: yeşil daire (100 m) ve
 // içindeki hayvanlar rahatça görünsün diye sokak ölçeğinin de biraz altı.
-const CELEBRATE_ZOOM_DELTA = 0.006;
+const CELEBRATE_ZOOM_DELTA = 0.003;
 const CELEBRATE_ZOOM_MS = 400;
 const ANIMAL_MARKER_SIZE = 36;
 const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
