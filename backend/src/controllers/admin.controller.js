@@ -752,6 +752,88 @@ async function deleteAdvertiser(req, res, next) {
 }
 
 // -------------------------------------------------------------------------
+// Content reports (moderation queue)
+// -------------------------------------------------------------------------
+
+// The queue joins a human-readable summary of the target so the admin can
+// judge most reports without opening anything: the comment's text, the
+// animal's name, the reported user's name. LEFT JOINs — a deleted target
+// still shows the report (summary null = "content already gone").
+const REPORT_LIST_SQL = `
+  SELECT r.id, r.target_type, r.target_id, r.reason, r.details, r.status,
+         r.created_at, r.resolved_at, r.resolution_note,
+         reporter.id AS reporter_id, reporter.name AS reporter_name,
+         resolver.name AS resolved_by_name,
+         CASE r.target_type
+           WHEN 'comment' THEN (SELECT left(c.body, 200) FROM animal_comments c WHERE c.id = r.target_id)
+           WHEN 'animal' THEN (SELECT concat_ws(' · ', a.name, a.species, a.breed) FROM animals a WHERE a.id = r.target_id)
+           WHEN 'user' THEN (SELECT u2.name FROM users u2 WHERE u2.id = r.target_id)
+           WHEN 'care_action' THEN (SELECT concat(ca.action_type, ' · ', to_char(ca.created_at, 'DD Mon YYYY')) FROM care_actions ca WHERE ca.id = r.target_id)
+         END AS target_summary
+  FROM content_reports r
+  JOIN users reporter ON reporter.id = r.reporter_id
+  LEFT JOIN users resolver ON resolver.id = r.resolved_by`;
+
+async function listReports(req, res, next) {
+  try {
+    const { limit, offset } = pagination(req);
+    const status = ['open', 'resolved', 'dismissed'].includes(req.query.status)
+      ? req.query.status
+      : 'open';
+
+    const [rows, total] = await Promise.all([
+      pool.query(
+        `${REPORT_LIST_SQL}
+         WHERE r.status = $1
+         ORDER BY r.created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [status, limit, offset]
+      ),
+      pool.query('SELECT count(*)::int AS count FROM content_reports WHERE status = $1', [status]),
+    ]);
+
+    res.json({ reports: rows.rows, total: total.rows[0].count });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Closes a report as resolved or dismissed. Deliberately does NOT delete the
+ * reported content itself: deletion already has its own endpoints with their
+ * own audit trail, and coupling the two would hide what the admin actually
+ * did. The panel offers both actions side by side instead.
+ */
+async function resolveReport(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    const { status, note } = req.body;
+    if (!['resolved', 'dismissed'].includes(status)) {
+      return res.status(400).json({ error: 'status resolved veya dismissed olmalıdır' });
+    }
+
+    const result = await pool.query(
+      `UPDATE content_reports
+       SET status = $1, resolved_by = $2, resolved_at = now(), resolution_note = $3
+       WHERE id = $4 AND status = 'open'
+       RETURNING id, target_type, target_id, reason, status`,
+      [status, req.user.userId, note ? String(note).trim() : null, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Açık şikayet bulunamadı' });
+    }
+
+    await writeAuditLog(req.user.userId, `report.${status}`, 'report', id, {
+      ...result.rows[0],
+      note: note || null,
+    });
+    res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// -------------------------------------------------------------------------
 // Audit log
 // -------------------------------------------------------------------------
 
@@ -793,5 +875,7 @@ module.exports = {
   updateAdvertiser,
   uploadAdvertiserImage,
   deleteAdvertiser,
+  listReports,
+  resolveReport,
   listAuditLog,
 };

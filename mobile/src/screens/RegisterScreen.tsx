@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
 import { Button, Input, Screen, Text } from '../components/ui';
 import { Wordmark } from '../components/brand';
-import { hitSlop, makeStyles, spacing } from '../theme';
+import { brand, hitSlop, makeStyles, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
@@ -75,6 +75,19 @@ export default function RegisterScreen({ navigation }: Props) {
           <Text variant="caption" color="textSubtle" center style={styles.note}>
             Kayıt olursan sana rastgele bir avatar atanır, profilden değiştirebilirsin.
           </Text>
+          <Pressable
+            onPress={() => Linking.openURL(brand.legalUrl).catch(() => {})}
+            hitSlop={hitSlop}
+            style={styles.legal}
+          >
+            <Text variant="caption" color="textSubtle" center>
+              Kayıt olarak{' '}
+              <Text variant="caption" color="brand">
+                Aydınlatma Metni ve Kullanım Koşulları
+              </Text>
+              {"'"}nı kabul etmiş olursun.
+            </Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </Screen>
@@ -88,4 +101,5 @@ const useStyles = makeStyles(() => ({
   lastField: { marginBottom: spacing.lg },
   link: { marginTop: spacing.lg },
   note: { marginTop: spacing.xl, paddingHorizontal: spacing.sm, lineHeight: 19 },
+  legal: { marginTop: spacing.md, paddingHorizontal: spacing.sm },
 }));

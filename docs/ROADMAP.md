@@ -370,11 +370,19 @@ These are not features; they are "become shippable" work. Rationale lives in
 - [ ] Rate limiting beyond auth (especially `POST /care-actions` and
       comments) — auth got 30/15 min on August 19
 - [x] Photo moderation — part of the admin panel (item 5)
+- [x] User reports + moderation queue — `content_reports` table,
+      `POST /api/reports` (rate-limited, one open report per user per
+      target), "şikayet et" on animals and comments in web+mobile, admin
+      "Şikayetler" screen with resolve/dismiss + audit log (Aug 19)
 - [x] User suspension + JWT rejection on every request
 - [ ] Restrict CORS
 
 **Legal / stores:**
-- [ ] KVKK: privacy notice, privacy policy, data-deletion flow
+- [x] KVKK: privacy notice + short terms live at `/gizlilik` (source:
+      `web/src/legal.ts`), linked from register screens, profile pages and
+      the landing page (Aug 19). Remaining: fill in the veri sorumlusu
+      name placeholder; a self-service data-deletion flow is still manual
+      (e-mail request)
 - [ ] Store prep: icon, screenshots, privacy declaration
 - [ ] **Rename internals to pati (REQUIRED before stores):** iOS
       project/target `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace,

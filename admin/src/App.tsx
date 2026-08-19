@@ -6,6 +6,7 @@ import Animals from './pages/Animals';
 import AuditLog from './pages/AuditLog';
 import CareActions from './pages/CareActions';
 import Comments from './pages/Comments';
+import Reports from './pages/Reports';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Users from './pages/Users';
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="care-actions" element={<CareActions />} />
         <Route path="vaccinations" element={<Vaccinations />} />
         <Route path="comments" element={<Comments />} />
+        <Route path="reports" element={<Reports />} />
         <Route path="advertisers" element={<Advertisers />} />
         <Route path="audit-log" element={<AuditLog />} />
       </Route>

@@ -116,6 +116,22 @@ export interface AdminVaccination {
   recorded_by_name: string;
 }
 
+export interface AdminReport {
+  id: number;
+  target_type: 'animal' | 'comment' | 'care_action' | 'user';
+  target_id: number;
+  reason: string;
+  details: string | null;
+  status: 'open' | 'resolved' | 'dismissed';
+  created_at: string;
+  resolved_at: string | null;
+  resolution_note: string | null;
+  reporter_id: number;
+  reporter_name: string;
+  resolved_by_name: string | null;
+  target_summary: string | null;
+}
+
 export interface AdminComment {
   id: number;
   body: string;

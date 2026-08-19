@@ -20,6 +20,8 @@ const {
   updateAdvertiser,
   uploadAdvertiserImage,
   deleteAdvertiser,
+  listReports,
+  resolveReport,
   listAuditLog,
 } = require('../controllers/admin.controller');
 
@@ -52,6 +54,9 @@ router.post('/advertisers', createAdvertiser);
 router.patch('/advertisers/:id', updateAdvertiser);
 router.post('/advertisers/:id/image', upload.single('image'), uploadAdvertiserImage);
 router.delete('/advertisers/:id', deleteAdvertiser);
+
+router.get('/reports', listReports);
+router.patch('/reports/:id', resolveReport);
 
 router.get('/audit-log', listAuditLog);
 

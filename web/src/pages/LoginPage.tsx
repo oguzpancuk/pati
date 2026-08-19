@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { Wordmark } from '../brand';
 
@@ -110,6 +111,13 @@ export default function LoginPage() {
           style={{ textAlign: 'center', marginTop: 40, lineHeight: 1.5, padding: '0 8px' }}
         >
           Kayıt olursan sana rastgele bir avatar atanır, profilden değiştirebilirsin.
+        </p>
+        <p className="subtle" style={{ textAlign: 'center', marginTop: 10 }}>
+          Kayıt olarak{' '}
+          <Link to="/gizlilik" style={{ color: 'var(--brand)' }}>
+            Aydınlatma Metni ve Kullanım Koşulları
+          </Link>
+          'nı kabul etmiş olursun.
         </p>
       </div>
     </div>

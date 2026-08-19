@@ -243,3 +243,26 @@ CREATE TABLE IF NOT EXISTS ad_events (
 -- placement, so this index sits on the hot path (every popup open).
 CREATE INDEX IF NOT EXISTS idx_ad_events_rotation ON ad_events (user_id, slot, type);
 CREATE INDEX IF NOT EXISTS idx_ad_events_report ON ad_events (advertiser_id, type);
+
+-- User reports on content (moderation). target_type/target_id are free-form
+-- like audit_log: no foreign key, so a new reportable entity type never
+-- changes the schema, and the report survives even if the target is deleted
+-- (the trail must stay answerable). One open report per user per target —
+-- repeat taps must not flood the admin queue.
+CREATE TABLE IF NOT EXISTS content_reports (
+    id SERIAL PRIMARY KEY,
+    reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('animal', 'comment', 'care_action', 'user')),
+    target_id INTEGER NOT NULL,
+    reason VARCHAR(30) NOT NULL CHECK (reason IN ('spam', 'abuse', 'wrong_info', 'animal_welfare', 'other')),
+    details TEXT,
+    status VARCHAR(12) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'dismissed')),
+    resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMPTZ,
+    resolution_note TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_content_reports_unique_open
+    ON content_reports (reporter_id, target_type, target_id) WHERE status = 'open';
+CREATE INDEX IF NOT EXISTS idx_content_reports_queue ON content_reports (status, created_at DESC);

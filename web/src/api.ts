@@ -447,6 +447,20 @@ export const matchAnimals = (input: {
 export const reportSighting = (animalId: number, lat: number, lng: number) =>
   api.post<Animal>(`/animals/${animalId}/sightings`, { lat, lng });
 
+// ---------------------------------------------------------------- reports
+
+import type { ReportReason, ReportTargetType } from '@mobile/reportReasons';
+export type { ReportReason, ReportTargetType };
+
+// One open report per user per target; the server answers a repeat with 409
+// and a friendly message, which the dialog shows as-is.
+export const createReport = (
+  targetType: ReportTargetType,
+  targetId: number,
+  reason: ReportReason,
+  details?: string
+) => api.post<{ id: number }>('/reports', { targetType, targetId, reason, details });
+
 // ---------------------------------------------------------------- user / social
 
 export const setFeaturedBadges = async (keys: string[]) => {

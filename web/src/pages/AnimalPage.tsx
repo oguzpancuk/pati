@@ -14,6 +14,7 @@ import {
   markHealthRecordRecovered,
 } from '../api';
 import { AnimalAvatar, UserAvatar } from '../avatars';
+import { ReportLink } from '../components/ReportDialog';
 import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 
@@ -294,6 +295,7 @@ export default function AnimalPage() {
               .filter(Boolean)
               .join(' · ')}
           </div>
+          <ReportLink targetType="animal" targetId={animal.id} style={{ marginTop: 4 }} />
         </div>
       </div>
 
@@ -451,6 +453,8 @@ export default function AnimalPage() {
             <div className="row" style={{ gap: 6 }}>
               <strong style={{ fontSize: 14 }}>{c.user_name}</strong>
               <span className="subtle">{formatDate(c.created_at)}</span>
+              <span className="grow" />
+              <ReportLink targetType="comment" targetId={c.id} />
             </div>
             {c.health_record_type && (
               <div className="subtle" style={{ color: 'var(--brand)', fontWeight: 700 }}>

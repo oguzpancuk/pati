@@ -8,6 +8,7 @@ const LINKS = [
   { to: '/care-actions', label: 'Bakım Kayıtları' },
   { to: '/vaccinations', label: 'Aşı Kayıtları' },
   { to: '/comments', label: 'Yorumlar' },
+  { to: '/reports', label: 'Şikayetler' },
   { to: '/advertisers', label: 'Reklamlar' },
   { to: '/audit-log', label: 'Denetim Kaydı' },
 ];

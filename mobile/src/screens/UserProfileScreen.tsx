@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, Linking, Pressable, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useAuth } from '../context/AuthContext';
@@ -40,7 +40,7 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import { makeStyles, radius, spacing, useTheme, useThemeMode, type ThemeMode } from '../theme';
+import { brand, makeStyles, radius, spacing, useTheme, useThemeMode, type ThemeMode } from '../theme';
 
 // The profile is a summary screen: 3 rows per section (same as comments),
 // the rest in pages of 20 via "show more".
@@ -410,6 +410,15 @@ export default function UserProfileScreen({ navigation }: any) {
           çıkış yap
         </Text>
       </Pressable>
+      <Pressable
+        onPress={() => Linking.openURL(brand.legalUrl).catch(() => {})}
+        style={styles.legal}
+        accessibilityRole="link"
+      >
+        <Text variant="caption" color="textSubtle" center>
+          gizlilik ve kullanım koşulları
+        </Text>
+      </Pressable>
     </Screen>
   );
 }
@@ -445,5 +454,6 @@ const useStyles = makeStyles(({ colors: c }) => ({
   },
   friendName: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
   themeRow: { flexDirection: 'row', gap: spacing.sm },
-  logout: { marginTop: spacing.xxl, marginBottom: spacing.lg, alignSelf: 'center' },
+  logout: { marginTop: spacing.xxl, alignSelf: 'center' },
+  legal: { marginTop: spacing.md, marginBottom: spacing.lg, alignSelf: 'center' },
 }));

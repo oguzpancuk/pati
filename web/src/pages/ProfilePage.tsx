@@ -308,6 +308,14 @@ export default function ProfilePage() {
         çıkış yap
       </button>
 
+      <Link
+        to="/gizlilik"
+        className="subtle"
+        style={{ display: 'block', textAlign: 'center', marginTop: 10 }}
+      >
+        gizlilik ve kullanım koşulları
+      </Link>
+
       <BadgeCatalogModal
         open={catalogOpen}
         onClose={() => setCatalogOpen(false)}

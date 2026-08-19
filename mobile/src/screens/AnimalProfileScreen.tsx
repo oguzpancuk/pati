@@ -28,6 +28,7 @@ import {
 } from '../api/animals';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
+import ReportLink from '../components/ReportSheet';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
   Avatar,
@@ -306,6 +307,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 .filter(Boolean)
                 .join(' · ')}
             </Text>
+            <ReportLink targetType="animal" targetId={animal.id} style={styles.reportLink} />
           </View>
         </View>
 
@@ -480,6 +482,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                     {comment.user_name}
                   </Text>
                   <Text variant="micro">{formatDate(comment.created_at)}</Text>
+                  <ReportLink targetType="comment" targetId={comment.id} />
                 </View>
                 {comment.health_record_type && (
                   <Text variant="captionStrong" color="brand" style={styles.commentTag}>
@@ -696,6 +699,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   olderComments: { marginBottom: spacing.sm },
   flex: { flex: 1, backgroundColor: c.background },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  reportLink: { marginTop: spacing.xs },
   headerText: { flex: 1, marginLeft: spacing.lg },
   photoList: { marginBottom: spacing.xs },
   photo: {

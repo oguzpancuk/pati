@@ -430,6 +430,16 @@ launch storyboards render before custom fonts register, and the wordmark in a
 system font looked broken. The old Nunito files stay linked (removing them
 means touching the Xcode project for no gain) but nothing references them.
 
+### Reports don't delete content; the queue and the knife are separate
+`content_reports` has no foreign key to its target (like audit_log) so a
+report survives the target's deletion, and closing a report never deletes
+content — deletion stays on each entity's own admin screen with its own
+audit trail. One *open* report per user per target (partial unique index)
+keeps repeat taps from flooding the queue while still allowing a re-report
+after a resolve. The legal text lives in `web/src/legal.ts` and is served at
+`/gizlilik`; mobile links to the hosted page instead of embedding a copy, so
+a legal edit ships without an app-store release.
+
 ## 3. Known limits and technical debt
 
 To close before production, in rough priority order:
