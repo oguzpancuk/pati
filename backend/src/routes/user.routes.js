@@ -27,7 +27,7 @@ router.get('/me/comments', requireAuth, getUserComments);
 router.get('/me/badge-awards', requireAuth, getMyBadgeAwards);
 router.post('/me/badge-awards/seen', requireAuth, markMyBadgeAwardsSeen);
 router.get('/search', requireAuth, searchUsers);
-// '/:id' ile başlayan yollar en sonda: yukarıdaki sabit '/me/...' yolları önce eşleşsin.
+// '/:id' routes go last so the literal '/me/...' paths above match first.
 router.get('/:id/comments', requireAuth, getUserComments);
 router.get('/:id/animals', requireAuth, getUserAnimals);
 router.get('/:id', requireAuth, getPublicProfile);

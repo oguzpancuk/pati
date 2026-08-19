@@ -7,9 +7,9 @@ const { avatarValueFor } = require('../utils/avatars');
 
 const MAX_FEATURED_BADGES = 3;
 
-// Öne çıkan rozet seçimi kullanıcının seçtiği anahtarları saklıyor; rozetin
-// kendisi türetilmiş veri olduğu için seçim yapıldıktan sonra kademe değişirse
-// (örn. gümüşten altına çıkınca) gösterim otomatik güncel kalıyor.
+// Featured-badge selection stores the keys the user picked; the badge itself
+// is derived data, so if the tier changes after the pick (e.g. silver to gold)
+// the display stays current automatically.
 function resolveFeatured(featuredKeys, badges) {
   const byKey = new Map(badges.map((b) => [b.key, b]));
   return (featuredKeys || []).map((key) => byKey.get(key)).filter((badge) => badge && badge.tier);
@@ -45,8 +45,8 @@ async function getMe(req, res, next) {
       countComments(req.user.userId),
     ]);
 
-    // Sıralama burada zaten hesaplandı; rozet popup'ının "önceki sıralaman"
-    // değeri "en son baktığında kaçıncıydın" anlamına gelsin diye tazeliyoruz.
+    // The rank was already computed here; refresh the snapshot so the badge
+    // popup's "previous rank" means "where you stood when you last looked".
     await refreshRankSnapshot(req.user.userId, rank ? rank.rank : null, badgeData.points.total);
 
     const user = result.rows[0];
@@ -97,9 +97,10 @@ async function setFeaturedBadges(req, res, next) {
 }
 
 /**
- * Profil görselini değiştirir ve getMe ile **aynı şekilde** yanıt döner.
- * İstemci bu yanıtı doğrudan mevcut profilin yerine koyuyor; eksik alan
- * dönersek profil ekranı yarım veriyle render edilmeye çalışıp çöküyor.
+ * Changes the profile image and responds in **exactly** the same shape as
+ * getMe. The client swaps this response in for the current profile; if we
+ * return missing fields, the profile screen tries to render half data and
+ * crashes.
  */
 async function setAvatarAndRespond(userId, avatarValue, res) {
   const result = await pool.query(
@@ -131,8 +132,8 @@ async function uploadAvatar(req, res, next) {
       return res.status(400).json({ error: 'Fotoğraf zorunludur' });
     }
     const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    // Fotoğraf yüklemek seçili hazır avatarın yerine geçiyor: ikisi aynı kolonda
-    // duruyor, çünkü aynı anda yalnızca biri geçerli olabilir.
+    // Uploading a photo replaces the selected built-in avatar: both live in
+    // the same column because only one can be active at a time.
     await setAvatarAndRespond(req.user.userId, avatarUrl, res);
   } catch (err) {
     if (req.file) {
@@ -143,9 +144,9 @@ async function uploadAvatar(req, res, next) {
 }
 
 /**
- * Hazır avatarlardan birini seçer. Fotoğrafı olmayan herkese rastgele bir yüz
- * atamak yerine seçtiriyoruz: kullanıcı kendini temsil eden bir şey seçebilsin,
- * sonradan fotoğraf yüklemek isterse de yolu açık kalsın.
+ * Picks one of the built-in avatars. Instead of assigning a random face to
+ * everyone without a photo, we let the user choose: they can pick something
+ * that represents them, and the path to uploading a photo later stays open.
  */
 async function setAvatarKey(req, res, next) {
   try {
@@ -159,7 +160,7 @@ async function setAvatarKey(req, res, next) {
   }
 }
 
-/** Görseli tamamen kaldırır; arayüz baş harfe döner. */
+/** Removes the image entirely; the UI falls back to the initial letter. */
 async function clearAvatar(req, res, next) {
   try {
     await setAvatarAndRespond(req.user.userId, null, res);
@@ -168,8 +169,8 @@ async function clearAvatar(req, res, next) {
   }
 }
 
-// Bakım verilen hayvanlar hem kendi profilinde hem başkasının profilinde aynı
-// şekilde (kapak fotoğrafıyla) listeleniyor; sorgu tek yerde dursun.
+// Cared-for animals are listed the same way (with a cover photo) on your own
+// profile and on other people's; keep the query in one place.
 const CARED_ANIMALS_SQL = `
   SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
          ST_AsGeoJSON(a.location)::json AS location,
@@ -183,10 +184,10 @@ const CARED_ANIMALS_SQL = `
   ORDER BY uac.created_at DESC
   LIMIT $2::int OFFSET $3::int`;
 
-// Profil ekranı önizleme gösteriyor (ilk 3 hayvan + toplam; yorumlarla aynı
-// sayı, profil bir özet); tam liste aynı sorgunun sayfalı hâliyle "daha fazla
-// göster" dedikçe geliyor. Böylece 40 hayvana bakan bir gönüllünün profili
-// kilometrelerce uzamıyor.
+// The profile screen shows a preview (first 3 animals + total; same count as
+// comments — a profile is a summary); the full list arrives page by page via
+// "show more" using the same query. A volunteer caring for 40 animals doesn't
+// get a mile-long profile.
 const PROFILE_ANIMAL_PREVIEW = 3;
 const MAX_ANIMAL_PAGE = 50;
 
@@ -203,8 +204,8 @@ async function countCaredAnimals(userId) {
   return result.rows[0].count;
 }
 
-// Profilde gösterilen "son yorumlar" listesi. Yorumun hangi hayvana yapıldığı da
-// dönüyor ki listeden doğrudan hayvanın profiline gidilebilsin.
+// The "recent comments" list shown on the profile. The animal each comment
+// belongs to is returned too, so the list can link straight to its profile.
 const USER_COMMENTS_SQL = `
   SELECT c.id, c.body, c.created_at, c.health_record_id,
          a.id AS animal_id, a.species AS animal_species,
@@ -234,8 +235,8 @@ async function countComments(userId) {
   return result.rows[0].count;
 }
 
-// Hem /me/animals hem /:id/animals buradan geçiyor; kendi profili için de
-// başkasınınki için de dönen şekil aynı ({ animals, total }).
+// Both /me/animals and /:id/animals go through here; the response shape is
+// the same ({ animals, total }) for your own profile and anyone else's.
 async function getUserAnimals(req, res, next) {
   try {
     const targetId = req.params.id ? Number(req.params.id) : req.user.userId;

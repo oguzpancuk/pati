@@ -1,28 +1,31 @@
 const pool = require('../config/db');
 const { CAT_PATTERNS, DOG_PATTERNS } = require('./taxonomy');
 
-// Rozet üretilebilen desenler. Serbest metin ("Diğer" seçilince yazılan) rozet
-// açmıyor: aksi hâlde her yazım hatası ayrı bir rozet olurdu.
+// Patterns that can produce a badge. Free text (typed when "Other" is picked)
+// earns no badge: otherwise every typo would become its own badge.
 const BADGEABLE_PATTERNS = new Set([...CAT_PATTERNS, ...DOG_PATTERNS]);
 
-// Rozet kademeleri ve puanları. Bir kere kazanılan rozet kalıcıdır (seri bozulsa
-// bile düşmez); leaderboard puanı yalnızca ulaşılan en yüksek kademeden gelir.
+// Badge tiers and their points. Once earned, a badge is permanent (it doesn't
+// drop even if the streak breaks); leaderboard points come only from the
+// highest tier reached.
 const TIER_POINTS = { bronze: 10, silver: 25, gold: 60, diamond: 150 };
 const TIER_ORDER = ['bronze', 'silver', 'gold', 'diamond'];
 
-// Üst üste gün serisine dayalı rozetler (mama/su/hayvan kaydetme).
+// Badges based on consecutive-day streaks (food/water/animal registration).
 const STREAK_THRESHOLDS = { bronze: 1, silver: 7, gold: 30, diamond: 365 };
-// Adet bazlı rozetler (cins dostlukları, yorum, sağlık takibi).
+// Count-based badges (breed friendships, comments, health tracking).
 const COUNT_THRESHOLDS = { bronze: 1, silver: 5, gold: 20, diamond: 100 };
 const COMMENT_THRESHOLDS = { bronze: 1, silver: 10, gold: 50, diamond: 200 };
 
-// Toplam puana göre seviye. Rozetlerden ve yorumlardan gelen puan tek bir
-// ilerleme çubuğunda toplansın diye var. Eşikler başta sık, sonra seyrek: ilk
-// günlerde hızlı ilerleme hissi olsun, üst seviyeler ise gerçekten anlam taşısın.
+// Level derived from total points, so that points from badges and comments
+// accumulate in a single progress bar. Thresholds are dense at first, then
+// sparse: fast progress in the early days, while upper levels carry real
+// meaning.
 //
-// İsimlendirme standardı: seviyeler bir **sorumluluk basamağı** anlatır.
-// Gönüllü → Sorumlu → Temsilci → Onur. Şaka yok, abartı yok; rozet isimleriyle
-// aynı kayıtta duruyor (bkz. STREAK_CATEGORIES).
+// Naming standard: levels describe a **ladder of responsibility** (in Turkish,
+// product-facing): Gönüllü (volunteer) → Sorumlu (steward) → Temsilci
+// (representative) → Onur (honorary). No jokes, no hyperbole; same register
+// as the badge names (see STREAK_CATEGORIES).
 const LEVELS = [
   { level: 1, title: 'Yeni Komşu', minPoints: 0 },
   { level: 2, title: 'Mahalle Gönüllüsü', minPoints: 40 },
@@ -42,18 +45,18 @@ function levelFor(points) {
   for (const entry of LEVELS) {
     if (safePoints >= entry.minPoints) current = entry;
   }
-  const next = LEVELS[current.level] || null; // LEVELS sıralı, index = level
+  const next = LEVELS[current.level] || null; // LEVELS is ordered, index = level
   const span = next ? next.minPoints - current.minPoints : 0;
   return {
     level: current.level,
     title: current.title,
-    // Seviye amblemi emoji değil: mobil taraf seviye numarasından prosedürel
-    // bir işaret çiziyor (bkz. components/badges/LevelMark). Böylece 10 ayrı
-    // görsel çizmek gerekmiyor ve ilerleme görsel olarak da bir seri oluşturuyor.
+    // The level emblem is not an emoji: the mobile side draws a procedural
+    // mark from the level number (see components/badges/LevelMark). No need to
+    // draw 10 separate images, and progression forms a visual series too.
     minPoints: current.minPoints,
     nextLevelPoints: next ? next.minPoints : null,
     nextTitle: next ? next.title : null,
-    // İlerleme çubuğu için 0-1 arası oran; en üst seviyede 1.
+    // 0-1 ratio for the progress bar; 1 at the top level.
     progress: next ? Math.min(1, (safePoints - current.minPoints) / span) : 1,
   };
 }
@@ -73,20 +76,23 @@ function nextThresholdFor(tier, thresholds) {
 }
 
 //
-// ## Rozet isimlendirme standardı
+// ## Badge naming standard (labels are Turkish, product-facing)
 //
-// İki kalıp var, üçüncüsü yok:
-//   1. Katkı rozetleri  →  "<Alan> Gönüllüsü"   (Mama Gönüllüsü, Aşı Gönüllüsü)
-//   2. Desen rozetleri  →  "<Desen> Dostu"      (Tekir Dostu, Kangal Melezi Dostu)
+// Two patterns, no third:
+//   1. Contribution badges →  "<Area> Gönüllüsü" ("<area> volunteer":
+//      Mama Gönüllüsü, Aşı Gönüllüsü)
+//   2. Pattern badges      →  "<Pattern> Dostu"  ("friend of <pattern>":
+//      Tekir Dostu, Kangal Melezi Dostu)
 //
-// Kademe sıfat olarak öne geliyor: "Altın Mama Gönüllüsü".
+// The tier goes in front as an adjective: "Altın Mama Gönüllüsü" (gold).
 //
-// Neden böyle: önceki isimler ("Mama Perisi", "Mahalle Dedikoducusu") her biri
-// ayrı bir şaka olduğu için ne bir arada durabiliyordu ne de yeni rozet
-// eklenince kalıbı belliydi. Bu iki kalıpla yeni kategori eklemek mekanik bir iş.
-// "Gönüllü" kelimesi ayrıca işin gerçeğini anlatıyor — bunlar gerçekten gönüllü.
+// Why: the earlier names ("Mama Perisi", "Mahalle Dedikoducusu") were each a
+// separate joke, so they neither sat well together nor suggested a pattern
+// when a new badge was added. With these two patterns, adding a category is
+// mechanical. "Gönüllü" (volunteer) also states the plain truth — these
+// people really are volunteers.
 //
-// `symbol` mobil tarafın hangi SVG'yi çizeceğini söylüyor (emoji kullanmıyoruz).
+// `symbol` tells the mobile side which SVG to draw (we don't use emoji).
 const STREAK_CATEGORIES = {
   feeder: { label: 'Mama Gönüllüsü', unit: 'gün', symbol: 'food' },
   water: { label: 'Su Gönüllüsü', unit: 'gün', symbol: 'water' },
@@ -114,9 +120,9 @@ const COUNT_CATEGORIES = {
   },
 };
 
-// Tek bir kullanıcı için, tüm kullanıcılar için hesaplama yapan sorgulardan
-// yararlanabilmek adına toplu (set-based) sorgular yazıyoruz: leaderboard 100+
-// kullanıcıyı kullanıcı başına sorgu atmadan hesaplayabilsin.
+// Queries are written set-based over many users so a single-user lookup and
+// the leaderboard share the same code path: the leaderboard can compute 100+
+// users without issuing a query per user.
 async function fetchStreakDays(userIds) {
   const result = await pool.query(
     `WITH events AS (
@@ -143,7 +149,7 @@ async function fetchStreakDays(userIds) {
   const map = new Map();
   for (const row of result.rows) {
     if (!map.has(row.user_id)) map.set(row.user_id, {});
-    // care_actions'ta tür 'food'/'water', rozet anahtarları 'feeder'/'water'.
+    // care_actions uses 'food'/'water'; badge keys are 'feeder'/'water'.
     const key =
       row.category === 'food' ? 'feeder' : row.category === 'water' ? 'water' : 'registrar';
     map.get(row.user_id)[key] = row.longest;
@@ -172,8 +178,8 @@ async function fetchCommentStats(userIds) {
     `SELECT user_id,
             count(*)::int AS total,
             count(DISTINCT animal_id)::int AS distinct_animals,
-            -- Aynı hayvana yığılan yorumların puana katkısı sınırlı olsun diye
-            -- hayvan başına en fazla 5 yorum sayılıyor (spam'i puana çevirmeyi zorlaştırır).
+            -- At most 5 comments per animal count toward points, so piling
+            -- comments onto one animal has limited value (harder to turn spam into points).
             SUM(LEAST(per_animal, 5))::int AS capped
      FROM (
        SELECT user_id, animal_id, count(*)::int AS per_animal
@@ -220,10 +226,10 @@ async function fetchHealthCounts(userIds) {
   return map;
 }
 
-// Desen rozetleri tek kalıpla üretiliyor: "<Desen> Dostu". Ayrı bir eşleme
-// tablosu yok — taksonomiye yeni desen eklenince rozeti kendiliğinden oluşuyor.
-// Tek istisna serbest metin: kullanıcının yazdığı "Diğer" değerleri rozet
-// üretmiyor, aksi hâlde her yazım hatası ayrı bir rozet açardı.
+// Pattern badges come from a single template: "<Pattern> Dostu". There is no
+// separate mapping table — a new pattern in the taxonomy gets its badge
+// automatically. The one exception is free text: user-typed "Other" values
+// produce no badge, otherwise every typo would open a new one.
 function breedBadgeLabel(breed) {
   return `${breed} Dostu`;
 }
@@ -235,16 +241,16 @@ function badgeEntry(key, label, unit, value, tier, thresholds, symbol) {
     unit,
     value,
     tier,
-    // Mobil taraf bu ada göre SVG sembolü çiziyor; emoji göndermiyoruz.
+    // The mobile side draws the SVG symbol from this name; no emoji sent.
     symbol,
     points: tier ? TIER_POINTS[tier] : 0,
     nextThreshold: nextThresholdFor(tier, thresholds),
   };
 }
 
-// Ağırlıklı yorum puanı: her yorum 1 puan (hayvan başına en fazla 5 sayılır),
-// ayrıca yorum yapılan her ayrı hayvan için 3 puan. Böylece tek bir hayvana
-// yüzlerce yorum atmak yerine çok sayıda hayvanla ilgilenmek ödüllendirilir.
+// Weighted comment points: 1 point per comment (max 5 counted per animal),
+// plus 3 points for each distinct animal commented on. Caring about many
+// animals is rewarded over posting hundreds of comments on one.
 function commentPoints(stats) {
   if (!stats) return 0;
   return stats.capped * 1 + stats.distinctAnimals * 3;

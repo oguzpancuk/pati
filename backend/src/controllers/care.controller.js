@@ -2,17 +2,17 @@ const fs = require('fs');
 const pool = require('../config/db');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 
-// Mama ve su farklı hızda tükeniyor: mama daha çabuk bitiyor/bozuluyor, su daha
-// uzun süre işe yarıyor. Haritadaki yeşil alanın solma süresi ile "bu bölgede
-// bakım eksik" uyarısının süresi aynı tutuluyor; aksi halde harita yeşilken
-// uyarı çıkması gibi tutarsızlıklar oluşuyor.
+// Food and water run out at different speeds: food finishes/spoils sooner,
+// water stays useful longer. The map-green fade time and the "care missing"
+// warning window are kept identical; otherwise inconsistencies appear, like
+// a warning firing while the map is still green.
 const WINDOW_HOURS = { food: 4, water: 6 };
 const DEFAULT_WINDOW_HOURS = Math.max(WINDOW_HOURS.food, WINDOW_HOURS.water);
 const DEFAULT_RADIUS_METERS = 3000;
-// "Bu bölgede bakım eksik mi?" yarıçapı, haritadaki yeşil dairenin yarıçapıyla
-// aynı (100m). Böylece kural tek cümleye iniyor: yeşil dairenin dışındaysanız
-// uyarı alırsınız, içindeyseniz almazsınız. Daha geniş bir yarıçap, iki sokak
-// ötedeki mamayı "buraya bakılıyor" saydığı için yanıltıcı oluyordu.
+// The "is care missing here?" radius equals the map's green-circle radius
+// (100 m). The rule collapses to one sentence: outside a green circle you get
+// warned, inside you don't. A wider radius counted food two streets away as
+// "this spot is covered", which misled.
 const DEFAULT_STATUS_RADIUS_METERS = 100;
 
 function windowHoursFor(actionType) {
@@ -20,10 +20,10 @@ function windowHoursFor(actionType) {
 }
 
 /**
- * Mama/su kaydı. Konum artık haritaya dokunarak seçilmiyor; uygulama alttaki
- * butonla kullanıcının **kendi** konumunu gönderiyor. Bu yüzden eskiden burada
- * duran "seçtiğin noktaya 20 m'den yakın mısın" kontrolü kalktı: karşılaştırma
- * artık cihazın konumunu kendisiyle karşılaştırmak anlamına geliyordu.
+ * Food/water record. The location is no longer picked by tapping the map; the
+ * app sends the user's **own** position via the bottom button. The old
+ * "are you within 20 m of your chosen point" check therefore went away: it
+ * had come to mean comparing the device's location with itself.
  */
 async function addCareAction(req, res, next) {
   try {
@@ -56,8 +56,8 @@ async function addCareAction(req, res, next) {
       [pinLng, pinLat, req.user.userId, actionType, photoUrl]
     );
 
-    // Yeni kazanılan rozetler yanıtla birlikte dönüyor ki istemci ayrı bir
-    // istek atmadan kutlama popup'ını gösterebilsin.
+    // Newly earned badges ride along in the response so the client can show
+    // the celebration popup without an extra request.
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
     res.status(201).json({ ...result.rows[0], newBadges });
   } catch (err) {
@@ -76,8 +76,8 @@ function actionTypeFilter(actionType, paramIndex) {
   return { sql: `AND action_type = $${paramIndex}`, param: actionType };
 }
 
-// Pencere satır bazında kendi aksiyon türünden geliyor; böylece mama ve su
-// birlikte listelendiğinde de her biri kendi süresine göre soluyor.
+// The window comes from each row's own action type, so food and water fade
+// at their own speeds even when listed together.
 const WINDOW_HOURS_SQL = `(CASE action_type
     WHEN 'food' THEN ${WINDOW_HOURS.food}
     WHEN 'water' THEN ${WINDOW_HOURS.water}

@@ -2,22 +2,22 @@ const pool = require('../config/db');
 
 const SLOTS = ['food_popup', 'water_popup', 'vet_health_record'];
 
-// Yayında olan reklamlar: aktif işaretli ve kampanya tarih aralığı içinde.
+// Live ads: marked active and inside the campaign date window.
 const LIVE_FILTER = `
   active = true
   AND (starts_at IS NULL OR starts_at <= now())
   AND (ends_at IS NULL OR ends_at >= now())`;
 
 /**
- * Bir yerleşim için sıradaki reklamı döndürür.
+ * Returns the next ad for a slot.
  *
- * Rotasyon: "her tıkta sıra bir sonraki markaya geçsin" isteniyordu. Sırayı ayrı
- * bir imleç tablosunda tutmak yerine, kullanıcının o yerleşimde kaç kez reklam
- * gördüğünden türetiyoruz — gösterimleri zaten faturalama için kaydediyoruz,
- * yani ekstra durum tutmadan hem kullanıcı bazında hem eşit dağılımlı bir sıra
- * elde ediyoruz. Kullanıcı pop-up'ı her açtığında bir sonraki markayı görür.
+ * Rotation: "each open shows the next brand" was the requirement. Instead of
+ * a cursor table, the position derives from how many impressions the user has
+ * in that slot — impressions are recorded for billing anyway, so we get a
+ * per-user, evenly distributed rotation with zero extra state. Every popup
+ * open shows the user the next brand.
  *
- * Reklam listesi değişirse (marka eklenir/çıkar) sıra kayar; bu kabul edilebilir.
+ * If the ad list changes (brands added/removed) the order shifts; acceptable.
  */
 async function getNextAd(req, res, next) {
   try {
@@ -34,7 +34,7 @@ async function getNextAd(req, res, next) {
       [slot]
     );
 
-    // Yayında reklam yoksa null dönüyoruz; istemci bandı hiç çizmiyor.
+    // With nothing live we return null; the client draws no banner at all.
     if (ads.rows.length === 0) {
       return res.json({ ad: null });
     }

@@ -1,11 +1,10 @@
 const pool = require('../config/db');
 const { getBadgesForUsers } = require('../utils/badges');
 
-// Sıralama tüm kullanıcılar üzerinden hesaplanıyor. Rozetler türetilmiş veri
-// olduğu için önceden saklanmıyor; bunun yerine rozet hesabı toplu (set-based)
-// sorgularla yapılıyor, yani kullanıcı sayısıyla birlikte sorgu sayısı artmıyor.
-// Kullanıcı sayısı çok büyüdüğünde bu tabloyu periyodik olarak önbelleğe almak
-// gerekir (şu anki ölçekte gerek yok).
+// The ranking is computed over all users. Badges are derived data and are
+// not stored; the badge computation runs as set-based queries, so the query
+// count doesn't grow with the user count. At much larger scale this table
+// will need periodic caching (unnecessary at the current size).
 async function computeLeaderboard() {
   const users = await pool.query('SELECT id, name, avatar_url FROM users');
   const userIds = users.rows.map((u) => u.id);
@@ -32,7 +31,7 @@ async function computeLeaderboard() {
 
   rows.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, 'tr'));
 
-  // Eşit puanlar aynı sırayı paylaşsın (1,2,2,4 gibi).
+  // Equal points share a rank (1, 2, 2, 4).
   let lastPoints = null;
   let lastRank = 0;
   rows.forEach((row, index) => {

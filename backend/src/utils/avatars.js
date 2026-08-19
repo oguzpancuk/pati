@@ -1,31 +1,29 @@
 /**
- * Hazır karikatür avatarları.
+ * Built-in cartoon avatars.
  *
- * ## Neden `avatar_url` kolonunda duruyor
- * Kullanıcının profil görseli iki şeyden **biri** olabiliyor: yüklediği bir
- * fotoğraf ya da seçtiği hazır avatar. İkisi aynı soruya cevap veriyor ("bu
- * kişi için ne çizilecek") ve ikisi aynı anda geçerli olamıyor — yani ayrı iki
- * kolon değil, etiketli bir birleşim (tagged union).
+ * ## Why they live in the `avatar_url` column
+ * A user's picture is **one of two things**: an uploaded photo or a chosen
+ * built-in avatar. Both answer the same question ("what do we draw for this
+ * person") and can't both be valid at once — a tagged union, not two columns.
  *
- * Bu yüzden hazır avatar da aynı kolona, `pati-avatar:` önekiyle yazılıyor:
+ * So built-in avatars are written into the same column with a prefix:
  *
- *     avatar_url = 'https://.../uploads/123.jpg'   → yüklenmiş fotoğraf
- *     avatar_url = 'pati-avatar:f3'                → hazır avatar
- *     avatar_url = NULL                            → baş harf
+ *     avatar_url = 'https://.../uploads/123.jpg'   → uploaded photo
+ *     avatar_url = 'pati-avatar:f3'                → built-in avatar
+ *     avatar_url = NULL                            → initials
  *
- * Böylece kullanıcının görselini döndüren onlarca sorgunun (yorumlar, arkadaş
- * listesi, sıralama, bakım verenler…) hiçbiri değişmek zorunda kalmıyor.
- * Karşılığında tek bir kural var: **`avatar_url`'i doğrudan `<img src>` içine
- * koymayın**, önce `isAvatarKey()` ile bakın (mobilde `ui/Avatar` bunu zaten
- * yapıyor).
+ * This way none of the dozens of queries returning user pictures (comments,
+ * friends, leaderboard, carers…) had to change. The single rule in return:
+ * **never put `avatar_url` straight into `<img src>`** — check
+ * `isAvatarKey()` first (mobile's `ui/Avatar` already does).
  *
- * Görsellerin kendisi burada değil: sunucu yalnızca geçerli anahtarları bilir,
- * çizim mobil tarafta SVG olarak yapılıyor (mobile/src/avatars.ts).
+ * The images aren't here: the server only knows the valid keys; drawing
+ * happens client-side as SVG (mobile/src/avatars.ts).
  */
 
 const AVATAR_PREFIX = 'pati-avatar:';
 
-/** 10 kadın + 10 erkek. Anahtarlar kalıcı: sıra değişse de f3 hep aynı yüz. */
+/** 10 female + 10 male. Keys are permanent: f3 is always the same face. */
 const AVATAR_KEYS = [
   'f1',
   'f2',
@@ -55,7 +53,7 @@ function isAvatarKey(value) {
   return typeof value === 'string' && value.startsWith(AVATAR_PREFIX);
 }
 
-/** Geçerliyse `pati-avatar:f3` biçimini döner, değilse null. */
+/** Returns the `pati-avatar:f3` form when valid, null otherwise. */
 function avatarValueFor(key) {
   if (typeof key !== 'string') return null;
   const clean = key.trim();

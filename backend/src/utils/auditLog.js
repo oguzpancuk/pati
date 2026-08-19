@@ -1,12 +1,12 @@
 const pool = require('../config/db');
 
 /**
- * Admin panelinden yapılan değişiklikleri kaydeder.
+ * Records changes made through the admin panel.
  *
- * Denetim kaydı yazılamazsa asıl işlem geri alınmıyor ama hata loglanıyor:
- * silme/düzenleme işlemi zaten gerçekleşmiş oluyor, kaydı yazamamak yüzünden
- * kullanıcıya hata döndürmek durumu daha da karıştırır. Yine de bu bir uyarı —
- * denetim kaydının sürekli düşmesi araştırılmalı.
+ * If the audit write fails, the primary action is not rolled back — only
+ * logged: the delete/edit has already happened, and failing the request over
+ * the log would make things worse. Still a warning: a consistently failing
+ * audit log deserves investigation.
  */
 async function writeAuditLog(actorId, action, targetType, targetId, details = {}) {
   try {
@@ -16,7 +16,7 @@ async function writeAuditLog(actorId, action, targetType, targetId, details = {}
       [actorId, action, targetType, targetId ?? null, JSON.stringify(details)]
     );
   } catch (err) {
-    console.error('Denetim kaydı yazılamadı:', action, targetType, targetId, err.message);
+    console.error('Audit log write failed:', action, targetType, targetId, err.message);
   }
 }
 

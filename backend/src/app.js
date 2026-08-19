@@ -17,17 +17,17 @@ const rateLimit = require('express-rate-limit');
 
 const app = express();
 
-// Fly/ters proxy arkasında: req.protocol ve IP proxy başlıklarından okunsun.
-// Fotoğraf adresleri req.protocol ile kuruluyor; bu olmadan https sitede
-// http:// fotoğraf linkleri üretilip tarayıcıda engelleniyordu.
+// Behind Fly / a reverse proxy: read req.protocol and the IP from proxy
+// headers. Photo URLs are built from req.protocol; without this an https
+// site produced http:// photo links that browsers blocked.
 app.set('trust proxy', 1);
 
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(UPLOADS_DIR));
 
-// Giriş/kayıt için kaba kuvvet freni. Yalnızca auth uçlarında: diğer uçlar
-// JWT ile korunuyor ve haritayı açan istemci kısa sürede çok istek atıyor.
+// Brute-force brake for login/registration. Auth endpoints only: the rest
+// are JWT-protected, and a client opening the map fires many requests fast.
 app.use(
   '/api/auth',
   rateLimit({
@@ -39,10 +39,10 @@ app.use(
   })
 );
 
-// Kök adres "ana ekrana eklenebilir" web sayfası (public/): manifest, service
-// worker ve ikonlar. Mobil uygulamanın web sürümü değil; kısayol + hızlı
-// "yakınımda mama/su var mı" bakışı. Service worker'ın önbelleğe alınmaması
-// önemli: tarayıcı sw.js'i eski sürümden okursa güncelleme hiç gelmez.
+// The installable landing page (public/): manifest, service worker, icons.
+// Not a web version of the app; a shortcut plus a quick "is there food/water
+// near me" glance. Keeping the service worker uncached matters: a browser
+// that reads an old sw.js never receives updates.
 app.use(
   '/tanitim',
   express.static(path.join(__dirname, '..', 'public'), {
@@ -63,11 +63,11 @@ app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Üretimde derlenmiş istemciler aynı Node sürecinden servis ediliyor: tek
-// deploy, /api aynı origin (proxy/CORS derdi yok). Hangi istemcinin verileceği
-// ana bilgisayar adına göre seçiliyor: ADMIN_HOST (admin.pati-app.com) →
-// yönetim paneli (admin/dist), diğer her şey → web PWA (web/dist).
-// Geliştirmede Vite kendi sunuyor; dist yoksa ilgili blok atlanır.
+// In production the built clients are served from this same Node process:
+// one deploy, /api on the same origin (no proxy/CORS hassle). Which client
+// is served depends on the host name: ADMIN_HOST (admin.pati-app.com) → the
+// admin panel (admin/dist); everything else → the web PWA (web/dist). In
+// development Vite serves itself; missing dist folders are skipped.
 const WEB_DIST_DIR = process.env.WEB_DIST_DIR || path.join(__dirname, '..', '..', 'web', 'dist');
 const ADMIN_DIST_DIR = process.env.ADMIN_DIST_DIR || path.join(__dirname, '..', '..', 'admin', 'dist');
 const ADMIN_HOST = process.env.ADMIN_HOST || null;
@@ -76,7 +76,7 @@ function serveSpa(distDir, match) {
   if (!fs.existsSync(path.join(distDir, 'index.html'))) return;
   const statics = express.static(distDir, {
     setHeaders(res, filePath) {
-      // sw.js ve index.html önbelleğe alınmasın; hash'li asset'ler uzun süre kalsın.
+      // Never cache sw.js and index.html; hashed assets can live long.
       if (filePath.endsWith('sw.js') || filePath.endsWith('index.html')) {
         res.setHeader('Cache-Control', 'no-cache');
       } else if (/\/assets\//.test(filePath)) {
@@ -85,8 +85,8 @@ function serveSpa(distDir, match) {
     },
   });
   app.use((req, res, next) => (match(req) ? statics(req, res, next) : next()));
-  // SPA fallback: /hayvanlar/12 gibi istemci rotaları index.html'e düşer;
-  // API ve dosya yolları yukarıda zaten eşleşmiş olur.
+  // SPA fallback: client routes like /hayvanlar/12 fall through to
+  // index.html; API and file paths matched earlier.
   app.get(/^\/(?!api\/|uploads\/).*/, (req, res, next) => {
     if (!match(req) || (req.headers.accept ?? '').indexOf('text/html') === -1) return next();
     res.sendFile(path.join(distDir, 'index.html'));

@@ -1,31 +1,30 @@
 /**
- * Uygulamanın ortak sözlüğü: desen, renk, hastalık, yaralanma, aşı listeleri.
+ * The app's shared taxonomy: pattern, color, illness, injury, vaccine lists.
+ * List VALUES are product content and stay Turkish.
  *
- * Tek kaynak burası. Mobil taraftaki `mobile/src/taxonomy.ts` bunun birebir
- * kopyası — iki dosyanın senkron kalması gerekiyor (bkz. docs/NOTLAR.md).
- * Sunucu tarafında da tutuluyor çünkü doğrulama istemciye bırakılamaz:
- * uygulamayı atlayıp API'ye doğrudan istek atan biri listede olmayan bir değer
- * yazabilmemeli.
+ * This is the source of truth. `mobile/src/taxonomy.ts` is an exact copy —
+ * the two files must stay in sync (see docs/NOTES.md). It also lives
+ * server-side because validation can't be left to the client: someone hitting
+ * the API directly must not be able to write values outside the list.
  *
- * ## Neden "cins" değil "desen"
- * Türkiye sokak kedileri bir ırka ait değil; "domestic shorthair" kategorisinde
- * ve halk arasındaki adları (tekir, sarman, smokin) ırk değil **post deseni**
- * belirtiyor. Köpekler de büyük ölçüde melez — "Kangal" değil "Kangal melezi".
- * Alan adı veritabanında `breed` kaldı (şema değişmesin diye) ama arayüzde
- * "Tür / Desen" olarak gösteriliyor.
+ * ## Why "pattern", not "breed"
+ * Turkish street cats aren't purebred; they're "domestic shorthair" and their
+ * folk names (tekir, sarman, smokin) describe **coat patterns**, not breeds.
+ * Dogs are mostly mixed too — "Kangal melezi", not "Kangal". The column is
+ * still `breed` (to keep the schema stable) but the UI says "Tür / Desen".
  *
- * ## "Diğer (belirtiniz)" nasıl çalışıyor
- * Kullanıcı OTHER'ı seçerse serbest metin alanı açılıyor ve veritabanına o
- * metin yazılıyor. Yani `breed` kolonunda ya listedeki bir değer ya da
- * kullanıcının yazdığı metin duruyor; ayrı bir "diğer" kolonu yok.
+ * ## How "Diğer (specify)" works
+ * Picking OTHER opens a free-text field and that text is stored. So `breed`
+ * holds either a listed value or the user's text; there is no separate
+ * "other" column.
  */
 
 const OTHER = 'Diğer';
 
-/** Sokakta en sık görülen kedi desenleri (yaygınlık sırasıyla). */
+/** The most common street-cat patterns, by prevalence. */
 const CAT_PATTERNS = ['Tekir', 'Sarman', 'Siyah', 'Üç renk (calico)', 'Smokin'];
 
-/** Sokak köpeği tipleri. Hepsi melez; saf ırk sokakta neredeyse görülmüyor. */
+/** Street-dog types. All mixed; purebreds are nearly absent on the street. */
 const DOG_PATTERNS = [
   'Kangal melezi',
   'Akbaş melezi',
@@ -34,7 +33,7 @@ const DOG_PATTERNS = [
   'Av/Terrier melezi',
 ];
 
-/** Ana gövde rengi. Desenle kısmen çakışıyor (sarman zaten turuncu). */
+/** Main body color. Partially overlaps the pattern (sarman is orange by definition). */
 const CAT_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah', 'Beyaz', 'Siyah-beyaz'];
 const DOG_COLORS = [
   'Sarı / kahverengi',
@@ -44,7 +43,7 @@ const DOG_COLORS = [
   'Alacalı / benekli',
 ];
 
-/** Sağlık kaydı yalnızca iki tip: hastalık ve yaralanma. Aşı ayrı tabloda. */
+/** Health records have exactly two types: illness and injury. Vaccines live in their own table. */
 const HEALTH_RECORD_TYPES = ['illness', 'injury'];
 
 const ILLNESSES = [
@@ -56,11 +55,10 @@ const ILLNESSES = [
 ];
 
 /**
- * Yaralanma başlıkları **nedeni değil yarayı** tarif ediyor: "trafik kazası"
- * gibi bir neden kaydı gören gönüllüye ne yapacağını söylemiyor ve çoğu zaman
- * tahminden ibaret (kimse kazayı görmedi). Yaranın nerede ve ne tür olduğu ise
- * hem gözle doğrulanabiliyor hem de "yaklaşılır mı, veteriner şart mı"
- * sorusunu cevaplıyor.
+ * Injury labels describe **the wound, not the cause**: a cause like "traffic
+ * accident" tells the next volunteer nothing actionable and is usually a
+ * guess (nobody saw the accident). Where the wound is and what kind it is can
+ * be verified by eye and answers "can I approach, is a vet mandatory".
  */
 const INJURIES = [
   'Bacak/pati yarası',
@@ -71,19 +69,19 @@ const INJURIES = [
 ];
 
 /**
- * Aşı türleri. Kuduz başta: 5199 sayılı kanun gereği zorunlu ve belediyeler
- * sokak hayvanlarına öncelikle onu yapıyor.
+ * Vaccine types. Rabies first: mandatory under Turkish law 5199, and it's the
+ * one municipalities administer to street animals first.
  */
 const VACCINE_TYPES = ['Kuduz', 'Karma', 'İç parazit', 'Dış parazit'];
 
-/** Seçenek listesine "Diğer" ekler; arayüzde son sırada görünür. */
+/** Appends "Diğer" (other) to an option list; renders last in the UI. */
 function withOther(options) {
   return [...options, OTHER];
 }
 
 /**
- * Değer geçerli mi? Listede yoksa "Diğer" olarak serbest metin kabul ediliyor,
- * ama boş/aşırı uzun metin reddediliyor.
+ * Is the value acceptable? Off-list values are allowed as "other" free text,
+ * but empty/overlong text is rejected.
  */
 function isValidChoice(value, options, { maxLength = 120 } = {}) {
   if (typeof value !== 'string') return false;
@@ -93,17 +91,17 @@ function isValidChoice(value, options, { maxLength = 120 } = {}) {
   return true;
 }
 
-/** Türe göre desen listesi. */
+/** Pattern list for a species. */
 function patternsFor(species) {
   return species === 'cat' ? CAT_PATTERNS : DOG_PATTERNS;
 }
 
-/** Türe göre renk listesi. */
+/** Color list for a species. */
 function colorsFor(species) {
   return species === 'cat' ? CAT_COLORS : DOG_COLORS;
 }
 
-/** Sağlık kaydı tipine göre başlık listesi. */
+/** Condition list for a health-record type. */
 function conditionsFor(recordType) {
   return recordType === 'illness' ? ILLNESSES : INJURIES;
 }

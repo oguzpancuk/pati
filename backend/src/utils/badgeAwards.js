@@ -2,20 +2,20 @@ const pool = require('../config/db');
 const { getUserBadges, levelFor } = require('./badges');
 
 /**
- * Kullanıcının kazandığı rozetleri veritabanındaki kayıtla karşılaştırır ve yeni
- * kazanılanları `user_badge_awards`'a yazar. Yeni rozet varsa o anki sıralamayı
- * hesaplayıp "önceki / yeni sıralama" bilgisini de kaydeder.
+ * Compares the badges the user has earned against the database records and
+ * writes newly earned ones to `user_badge_awards`. When there is a new badge,
+ * it also computes the current rank and stores the "previous / new rank" info.
  *
- * Neden saklıyoruz: rozetin kendisi türetilmiş veri (istediğimiz an yeniden
- * hesaplanabiliyor), ama "ne zaman kazandın, o an kaçıncı sıradaydın" bilgisi
- * geçmişe dönük hesaplanamaz — sıralama başkalarının puan kazanmasıyla da
- * değişiyor.
+ * Why we persist this: the badge itself is derived data (recomputable at any
+ * time), but "when did you earn it, and what rank were you at that moment"
+ * cannot be reconstructed after the fact — the rank also shifts as other
+ * people earn points.
  *
- * Maliyet: yeni rozet yoksa yalnızca rozet hesabı + tek bir SELECT çalışır;
- * sıralama (tüm kullanıcıları tarayan pahalı kısım) sadece gerçekten yeni bir
- * rozet kazanıldığında hesaplanır.
+ * Cost: with no new badge, only the badge computation + a single SELECT run;
+ * the rank (the expensive part that scans all users) is computed only when a
+ * badge is actually newly earned.
  *
- * @returns {Promise<Array>} yeni kazanılan rozet kayıtları (yoksa boş dizi)
+ * @returns {Promise<Array>} newly earned award records (empty array if none)
  */
 async function syncBadgeAwards(userId) {
   const badgeData = await getUserBadges(userId);
@@ -31,8 +31,8 @@ async function syncBadgeAwards(userId) {
 
   if (fresh.length === 0) return [];
 
-  // Döngüsel bağımlılığı önlemek için burada require ediyoruz: leaderboard
-  // controller'ı badges util'ini kullanıyor, biz de ikisini birden kullanıyoruz.
+  // Required here to avoid a circular dependency: the leaderboard controller
+  // uses the badges util, and we use both.
   const { getUserRank } = require('../controllers/leaderboard.controller');
 
   const snapshot = await pool.query('SELECT last_rank, last_points FROM users WHERE id = $1', [
@@ -80,9 +80,9 @@ async function syncBadgeAwards(userId) {
 }
 
 /**
- * Profil görüntülenirken sıralama zaten hesaplanmış oluyor; anlık görüntüyü
- * burada da tazeliyoruz ki popup'taki "önceki sıralaman" değeri "en son
- * baktığında kaçıncıydın" anlamına gelsin, aylar öncesinden kalmasın.
+ * The rank is already computed whenever the profile is viewed; refresh the
+ * snapshot here too so the popup's "previous rank" means "where you stood
+ * when you last looked", not something months stale.
  */
 async function refreshRankSnapshot(userId, rank, points) {
   await pool.query('UPDATE users SET last_rank = $1, last_points = $2 WHERE id = $3', [
@@ -130,15 +130,15 @@ async function markAwardsSeen(userId, ids) {
 }
 
 /**
- * Puan kazandıran bir işlemden sonra çağrılır. Rozet hesabı bir yan iş olduğu
- * için hata verirse asıl işlemi (mama bırakma, yorum yapma...) düşürmüyoruz —
- * kullanıcı açısından rozet gecikmesi, işlemin başarısız olmasından iyidir.
+ * Called after any action that earns points. Badge computation is a side job:
+ * if it fails we don't fail the main action (leaving food, commenting...) —
+ * from the user's perspective a delayed badge beats a failed action.
  */
 async function syncBadgeAwardsSafe(userId) {
   try {
     return await syncBadgeAwards(userId);
   } catch (err) {
-    console.error('Rozet senkronizasyonu başarısız:', err.message);
+    console.error('Badge sync failed:', err.message);
     return [];
   }
 }

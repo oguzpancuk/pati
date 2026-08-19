@@ -3,11 +3,11 @@ const pool = require('../config/db');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const { HEALTH_RECORD_TYPES, isValidChoice } = require('../utils/taxonomy');
 
-// Takip durumu ayrı bir kolon değil, mevcut veriden türetiliyor:
-//   iyileşti      -> recovered_at dolu
-//   tedavi başladı -> kayda bağlı en az bir yorum var
-//   başlanmadı     -> hiç yorum yok
-// Böylece durum ile yorumlar arasında tutarsızlık oluşamıyor.
+// Tracking state is not a column; it derives from existing data:
+//   recovered    -> recovered_at is set
+//   in_treatment -> at least one comment is linked to the record
+//   not_started  -> no comments
+// State and comments therefore can never disagree.
 const HEALTH_RECORD_SELECT_SQL = `
   SELECT h.id, h.record_type, h.description, h.vet_verified, h.recorded_by, h.recorded_at,
          h.recovered_at, h.recovered_by,
@@ -24,8 +24,8 @@ const HEALTH_RECORD_SELECT_SQL = `
   LEFT JOIN users ru ON ru.id = h.recovered_by
 `;
 
-// Aşı kayıtları sağlık kayıtlarından ayrı: "iyileşti" durumu yok, yerine bir
-// sonraki doz tarihi var. Yorum sayısı sağlık kaydındakiyle aynı mantıkta.
+// Vaccinations are separate from health records: no "recovered" state, a
+// next-due date instead. Comment counting follows the same logic.
 const VACCINATION_SELECT_SQL = `
   SELECT v.id, v.vaccine_type, v.note, v.vet_verified, v.administered_at, v.next_due_at,
          v.recorded_by, v.recorded_at,
@@ -40,8 +40,8 @@ const COVER_PHOTO_JOIN = `
   ) cover ON true
 `;
 
-// Sayfalama: `limit` verilmezse eski davranış korunuyor (harita tek seferde
-// çevredeki her şeyi çekiyor); liste ekranları ise küçük sayfalar istiyor.
+// Pagination: without `limit` the old behavior holds (the map pulls its
+// whole surroundings in one request); list screens ask for small pages.
 const DEFAULT_LIST_LIMIT = 200;
 const MAX_LIST_LIMIT = 500;
 
@@ -99,21 +99,22 @@ async function listAnimals(req, res, next) {
   }
 }
 
-// Yeni kayıt açılmadan önce "bu hayvan zaten kayıtlı mı?" sorusu. Yarıçap
-// bilerek dar (1 km): sokak hayvanı kendi bölgesinden pek çıkmaz, daha geniş
-// arama alakasız adayları öne çıkarıp gerçek eşleşmeyi gömüyordu.
+// "Is this animal already registered?" before opening a new record. The
+// radius is deliberately tight (1 km): street animals rarely leave their
+// area, and a wider search surfaced irrelevant candidates that buried the
+// real match.
 const MATCH_RADIUS_METERS = 1000;
 const MATCH_LIMIT = 20;
 
 /**
- * Benzerlik bir olasılık değil, seviye (yüksek/orta/düşük). Sayısal yüzde
- * göstermiyoruz çünkü elimizdeki sinyal yalnızca kullanıcının girdiği birkaç
- * alan; "%73 benzer" demek olmayan bir kesinlik vaat eder. Puanlama:
- *   desen aynı  +2 (en ayırt edici alan)
- *   renk aynı   +1
- *   200 m içinde +1 (aynı sokak/site)
- * Tür zaten filtre — kediyle köpek eşleşmez. Fotoğraf eşleştirme (yapay zekâ)
- * geldiğinde bu puana eklenecek; arayüz seviyeleri o zaman da aynı kalır.
+ * Similarity is a tier (high/medium/low), not a probability. We show no
+ * numeric percentage because the only signal is a few user-entered fields;
+ * "73% similar" would promise a precision that doesn't exist. Scoring:
+ *   same pattern +2 (the most discriminating field)
+ *   same color   +1
+ *   within 200 m +1 (same street/block)
+ * Species is already a filter — a cat never matches a dog. When photo
+ * matching (AI) arrives it adds to this score; the UI tiers stay the same.
  */
 function normalizeChoice(value) {
   return typeof value === 'string' ? value.trim().toLocaleLowerCase('tr-TR') : '';
@@ -232,9 +233,9 @@ async function getAnimal(req, res, next) {
   }
 }
 
-// Kayıtlı bir hayvanı yeniden gördüğünü bildirmek: hayvanın güncel konumunu
-// bildiren kişinin konumuna taşır ve bildireni bakım listesine ekler. Yeni bir
-// hayvan eklemeye çalışırken "bu zaten kayıtlı" denildiğinde de bu çağrılır.
+// Reporting a sighting of a registered animal: moves the animal's current
+// location to the reporter's position and adds the reporter as a carer. Also
+// called when "it's already registered" is chosen while adding a new animal.
 async function reportSighting(req, res, next) {
   try {
     const { lat, lng } = req.body;
@@ -275,9 +276,9 @@ async function createAnimal(req, res, next) {
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
-    // Desen ve renk listeden seçiliyor ama "Diğer" serbest metin yazdırıyor.
-    // Uzunluk kolonun sınırıyla (VARCHAR(120)) aynı; aksi halde kullanıcı
-    // anlamsız bir veritabanı hatası görüyor.
+    // Pattern and color come from a list, but "Diğer" lets users type free
+    // text. The length cap matches the column (VARCHAR(120)); otherwise the
+    // user sees a meaningless database error.
     if (breed && !isValidChoice(breed, null, { maxLength: 120 })) {
       return res.status(400).json({ error: 'Tür/desen en fazla 120 karakter olabilir' });
     }
@@ -345,19 +346,19 @@ async function isCarer(userId, animalId) {
 async function addHealthRecord(req, res, next) {
   try {
     const { recordType, description, vetVerified } = req.body;
-    // Tedavi/aşı/ilaç kayıt tipi kaldırıldı: aşı ayrı tabloda, tedavi ve ilaç
-    // ise zaten kayda bağlı yorumlarla takip ediliyor.
+    // Treatment/vaccine/medication record types were removed: vaccines live
+    // in their own table, and treatment/medication are tracked through
+    // record-linked comments anyway.
     if (!HEALTH_RECORD_TYPES.includes(recordType)) {
       return res.status(400).json({ error: 'recordType yalnızca illness veya injury olabilir' });
     }
-    // description ya listeden gelen bir başlık ya da "Diğer" seçilince yazılan
-    // serbest metin; ikisini de aynı kolonda tuttuğumuz için burada yalnızca
-    // boş/aşırı uzun olup olmadığına bakıyoruz.
+    // description is either a listed title or free text entered via "Diğer";
+    // both share one column, so we only check for empty/overlong here.
     if (!isValidChoice(description, null, { maxLength: 200 })) {
       return res.status(400).json({ error: 'description zorunludur (en fazla 200 karakter)' });
     }
 
-    // Sağlık kaydını yalnızca o hayvana bakım verenler ekleyebilir.
+    // Only the animal's carers may add health records.
     if (!(await isCarer(req.user.userId, req.params.id))) {
       return res.status(403).json({
         error: 'Sağlık kaydı ekleyebilmek için önce bu hayvana bakım veriyor olmalısınız',
@@ -380,8 +381,8 @@ async function addHealthRecord(req, res, next) {
   }
 }
 
-// Bir sağlık kaydını "iyileşti" olarak işaretler. İyileşen kayıtlar kapanır:
-// artık yorum eklenemez (bkz. addComment), böylece geçmiş takip kaydı sabit kalır.
+// Marks a health record as recovered. Recovered records close: no further
+// comments (see addComment), so the historical trail stays fixed.
 async function markRecovered(req, res, next) {
   try {
     if (!(await isCarer(req.user.userId, req.params.id))) {
@@ -415,8 +416,8 @@ async function markRecovered(req, res, next) {
   }
 }
 
-// Aşı kaydı. Sağlık kaydından iki farkı var: "iyileşti" yok, bir sonraki doz
-// tarihi var. Kim ekleyebilir sorusu aynı — yalnızca bakım verenler.
+// Vaccination record. Two differences from a health record: no "recovered",
+// a next-due date instead. Who may add is the same — carers only.
 async function addVaccination(req, res, next) {
   try {
     const { vaccineType, note, administeredAt, nextDueAt, vetVerified } = req.body;
@@ -430,8 +431,8 @@ async function addVaccination(req, res, next) {
       });
     }
 
-    // Veteriner onayını yalnızca veteriner/yönetici rolü verebilir; kullanıcı
-    // beyanı ile resmî kayıt aynı ağırlıkta görünmemeli.
+    // Only the vet/admin role can grant vet verification; a user's claim
+    // must not carry the same weight as an official record.
     const isVet = req.user.role === 'vet' || req.user.role === 'admin';
 
     const inserted = await pool.query(
@@ -469,9 +470,9 @@ const COMMENT_SELECT_SQL = `
   LEFT JOIN health_records h ON h.id = c.health_record_id
 `;
 
-// Sohbet en yeniden geriye sayfalanıyor: istemci önce son N yorumu alır,
-// "öncekileri yükle" dedikçe offset büyür. Sayfa istemciye kronolojik (eski →
-// yeni) sırayla dönüyor ki ekranda doğrudan alt alta dizilebilsin.
+// The chat paginates newest-backwards: the client takes the last N comments
+// first, and offset grows as it loads older ones. Pages return in
+// chronological (old → new) order so the screen can append them directly.
 const DEFAULT_COMMENT_LIMIT = 20;
 const MAX_COMMENT_LIMIT = 100;
 
@@ -532,8 +533,8 @@ async function addComment(req, res, next) {
       }
     }
 
-    // Yorum yapmak, kişiyi bu hayvanın bakım listesine de ekler: sohbete katılan
-    // herkes fiilen o hayvanla ilgileniyor demektir.
+    // Commenting also adds the person to the animal's carer list: anyone
+    // joining the chat is de facto involved with the animal.
     await pool.query(
       'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [req.user.userId, req.params.id]

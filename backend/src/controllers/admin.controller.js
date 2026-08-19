@@ -12,11 +12,10 @@ function pagination(req) {
 }
 
 /**
- * Filtre koşullarını $1'den başlayan yer tutucularla kurar. Aynı filtre hem
- * sayfalanmış listede hem toplam sayıda kullanılıyor; sayfalama parametreleri
- * (limit/offset) filtrenin *sonuna* eklendiği için iki sorgu aynı `where`
- * metnini paylaşabiliyor — böylece yer tutucuları elle yeniden numaralandırmak
- * gerekmiyor.
+ * Builds filter conditions with placeholders starting at $1. The same filter
+ * serves both the paginated list and the total count; pagination parameters
+ * (limit/offset) are appended *after* the filter, so both queries share the
+ * same `where` text — no manual renumbering of placeholders.
  */
 function filterBuilder() {
   const conditions = [];
@@ -32,7 +31,7 @@ function filterBuilder() {
     get params() {
       return params;
     },
-    // Sayfalanmış sorgu için: filtre parametreleri + limit/offset
+    // For the paginated query: filter parameters + limit/offset
     paged(limit, offset) {
       return {
         params: [...params, limit, offset],
@@ -43,7 +42,7 @@ function filterBuilder() {
 }
 
 // -------------------------------------------------------------------------
-// Gösterge paneli
+// Dashboard
 // -------------------------------------------------------------------------
 
 async function getStats(req, res, next) {
@@ -63,8 +62,8 @@ async function getStats(req, res, next) {
            (SELECT count(*) FROM vaccinations)::int AS vaccinations,
            (SELECT count(*) FROM vaccinations WHERE vet_verified)::int AS vet_verified_vaccinations`
       ),
-      // Son 30 günün günlük aktivitesi. generate_series ile boş günler de 0 olarak
-      // dönüyor; aksi halde grafikte günler atlanmış gibi görünüyor.
+      // Daily activity for the last 30 days. generate_series returns empty
+      // days as 0 too; otherwise the chart looks like days were skipped.
       pool.query(
         `SELECT d::date AS day,
                 COALESCE(ca.food, 0)::int AS food,
@@ -112,7 +111,7 @@ async function getStats(req, res, next) {
 }
 
 // -------------------------------------------------------------------------
-// Kullanıcılar
+// Users
 // -------------------------------------------------------------------------
 
 async function listUsers(req, res, next) {
@@ -154,8 +153,8 @@ async function updateUser(req, res, next) {
     if (role !== undefined && !['user', 'vet', 'admin'].includes(role)) {
       return res.status(400).json({ error: 'Geçersiz rol' });
     }
-    // Kendi yetkisini düşürmek veya kendini askıya almak, paneli kilitlenmiş
-    // duruma sokabildiği için engelleniyor.
+    // Demoting yourself or suspending yourself can lock the panel out
+    // entirely, so both are blocked.
     if (targetId === req.user.userId && (role !== undefined || suspended !== undefined)) {
       return res.status(400).json({ error: 'Kendi rolünüzü veya durumunuzu değiştiremezsiniz' });
     }
@@ -206,7 +205,7 @@ async function updateUser(req, res, next) {
 }
 
 // -------------------------------------------------------------------------
-// Hayvanlar
+// Animals
 // -------------------------------------------------------------------------
 
 async function listAnimals(req, res, next) {
@@ -292,8 +291,8 @@ async function deleteAnimal(req, res, next) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
     }
 
-    // Silinen kaydın içeriğini denetim kaydına yazıyoruz: satır artık yok, ama
-    // "ne silindi" sorusu cevaplanabilir kalmalı.
+    // The deleted record's content goes into the audit log: the row is gone,
+    // but "what was deleted" must stay answerable.
     await writeAuditLog(req.user.userId, 'animal.delete', 'animal', targetId, result.rows[0]);
     res.json({ deleted: true, animal: result.rows[0] });
   } catch (err) {
@@ -302,12 +301,12 @@ async function deleteAnimal(req, res, next) {
 }
 
 /**
- * İki hayvan kaydını birleştirir: kaynak kaydın fotoğrafları, yorumları, sağlık
- * kayıtları ve bakım verenleri hedefe taşınır, kaynak silinir.
+ * Merges two animal records: the source record's photos, comments, health
+ * records and carers move to the target, and the source is deleted.
  *
- * Mükerrer kayıt bugün elle çözülüyor (yapay zekâ eşleştirme gelene kadar), bu
- * yüzden panelin en çok kullanılacak işlevi burası olacak. Tek transaction'da
- * çalışıyor: yarım kalmış bir birleştirme iki bozuk kayıt bırakırdı.
+ * Duplicates are resolved by hand today (until AI matching lands), so this
+ * will be the panel's most-used function. It runs in a single transaction:
+ * a half-finished merge would leave two broken records.
  */
 async function mergeAnimals(req, res, next) {
   const client = await pool.connect();
@@ -343,8 +342,8 @@ async function mergeAnimals(req, res, next) {
       targetId,
       sourceId,
     ]);
-    // user_animal_care birleşik birincil anahtar kullanıyor; aynı kişi iki kayda
-    // da bakıyorsa çakışma olmasın diye ON CONFLICT gerekiyor.
+    // user_animal_care has a composite primary key; ON CONFLICT is needed in
+    // case the same person cares for both records.
     await client.query(
       `INSERT INTO user_animal_care (user_id, animal_id, created_at)
        SELECT user_id, $1, created_at FROM user_animal_care WHERE animal_id = $2
@@ -384,7 +383,7 @@ async function mergeAnimals(req, res, next) {
 }
 
 // -------------------------------------------------------------------------
-// Bakım kayıtları (fotoğraf moderasyonu)
+// Care actions (photo moderation)
 // -------------------------------------------------------------------------
 
 async function listCareActions(req, res, next) {
@@ -447,12 +446,13 @@ async function deleteCareAction(req, res, next) {
 }
 
 // -------------------------------------------------------------------------
-// Yorumlar
+// Comments
 // -------------------------------------------------------------------------
 
 /**
- * Aşı kayıtları moderasyonu. Not alanı serbest metin olduğu için kötüye
- * kullanılabiliyor; admin görüp silebilmeli. Silme audit_log'a yazılır.
+ * Vaccination record moderation. The note field is free text and can be
+ * abused; an admin must be able to see and delete it. Deletions are written
+ * to audit_log.
  */
 async function listVaccinations(req, res, next) {
   try {
@@ -567,11 +567,11 @@ async function deleteComment(req, res, next) {
 }
 
 // -------------------------------------------------------------------------
-// Reklamverenler
+// Advertisers
 // -------------------------------------------------------------------------
 
-// Listede gösterim/tıklama sayıları da dönüyor: markaya "şu kadar gösterim, şu
-// kadar tık" diyebilmek reklamın satılabilmesinin ön koşulu.
+// The list returns impression/click counts too: telling a brand "this many
+// impressions, this many clicks" is a precondition for selling the ad.
 const ADVERTISER_SELECT_SQL = `
   SELECT a.id, a.name, a.slot, a.headline, a.body, a.image_url, a.target_url,
          a.active, a.starts_at, a.ends_at, a.sort_order, a.created_at,
@@ -658,8 +658,9 @@ async function updateAdvertiser(req, res, next) {
       return res.status(400).json({ error: 'Hedef adres http:// veya https:// ile başlamalıdır' });
     }
 
-    // COALESCE ile kısmi güncelleme: gönderilmeyen alan olduğu gibi kalıyor.
-    // active ve tarih alanları bilerek NULL'lanabilir olduğu için ayrı ele alınıyor.
+    // Partial update via COALESCE: fields not sent stay unchanged. active and
+    // the date fields are handled separately because they can be deliberately
+    // set to NULL.
     const result = await pool.query(
       `UPDATE advertisers SET
          name = COALESCE($1, name),
@@ -741,8 +742,8 @@ async function deleteAdvertiser(req, res, next) {
       return res.status(404).json({ error: 'Reklam bulunamadı' });
     }
 
-    // ad_events.advertiser_id ON DELETE SET NULL: geçmiş rapor toplamları
-    // silinmiyor, yalnızca hangi markaya ait olduğu bağı kopuyor.
+    // ad_events.advertiser_id is ON DELETE SET NULL: historical report totals
+    // are kept; only the link to the brand is severed.
     await writeAuditLog(req.user.userId, 'advertiser.delete', 'advertiser', id, result.rows[0]);
     res.json({ deleted: true, advertiser: result.rows[0] });
   } catch (err) {
@@ -751,7 +752,7 @@ async function deleteAdvertiser(req, res, next) {
 }
 
 // -------------------------------------------------------------------------
-// Denetim kaydı
+// Audit log
 // -------------------------------------------------------------------------
 
 async function listAuditLog(req, res, next) {

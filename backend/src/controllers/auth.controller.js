@@ -6,10 +6,10 @@ const { AVATAR_KEYS, AVATAR_PREFIX } = require('../utils/avatars');
 const SALT_ROUNDS = 10;
 
 /**
- * Yeni hesaba rastgele bir hazır avatar. Boş (baş harfli) profillerle dolu bir
- * sohbet uygulamayı terk edilmiş gösteriyordu; rastgele atama bir başlangıç
- * değeri, dayatma değil — kullanıcı profilinden istediğine değiştirebilir ya
- * da fotoğraf yükleyebilir.
+ * New accounts get a random built-in avatar. A chat full of blank
+ * (initials-only) profiles made the app look abandoned; the random pick is a
+ * starting value, not an imposition — users can switch it or upload a photo
+ * from their profile.
  */
 function randomAvatarValue() {
   return `${AVATAR_PREFIX}${AVATAR_KEYS[Math.floor(Math.random() * AVATAR_KEYS.length)]}`;

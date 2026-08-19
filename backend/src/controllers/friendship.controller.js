@@ -25,7 +25,7 @@ async function sendRequest(req, res, next) {
         return res.status(409).json({ error: 'Zaten arkadaşsınız' });
       }
       if (row.requester_id === addresseeId) {
-        // Karşı taraf zaten bana istek göndermiş: karşılıklı istek otomatik kabul edilir.
+        // The other side already sent me a request: mutual requests auto-accept.
         const accepted = await pool.query(
           `UPDATE friendships SET status = 'accepted', responded_at = now() WHERE id = $1 RETURNING *`,
           [row.id]
@@ -62,8 +62,8 @@ async function acceptRequest(req, res, next) {
   }
 }
 
-// Bekleyen bir isteği reddetmek, gönderilmiş bir isteği geri çekmek ve kabul
-// edilmiş bir arkadaşlığı sonlandırmak (unfriend) için tek uç nokta.
+// One endpoint for rejecting a pending request, withdrawing a sent one,
+// and ending an accepted friendship (unfriend).
 async function removeFriendship(req, res, next) {
   try {
     const result = await pool.query(

@@ -19,7 +19,7 @@ const {
 const router = express.Router();
 
 router.get('/', listAnimals);
-// '/match' sabit yolu '/:id'den önce gelmeli, yoksa "match" bir id sanılır.
+// The literal '/match' path must precede '/:id', or "match" parses as an id.
 router.get('/match', requireAuth, matchAnimals);
 router.get('/:id', requireAuth, getAnimal);
 router.post('/', requireAuth, createAnimal);
