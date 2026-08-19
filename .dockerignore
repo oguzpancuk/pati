@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+backend/uploads
+mobile/ios
+mobile/android
+ds-bundle
+.ds-sync
+.design-sync
+docs
+spikes
+admin
+.git

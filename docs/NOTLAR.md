@@ -211,7 +211,13 @@ Yorumlar) FlatList `onEndReached` ile yüklüyor. Sunucu tarafı `limit/offset`;
 çevreyi çeksin. Yorum sohbeti en yeniden geriye sayfalanır ve sayfa kronolojik
 sırayla döner (`listComments`).
 
-### Kök adres bir PWA kabuğu, web sürümü değil
+### Yayında kökte web PWA, tanıtım sayfası /tanitim altında
+Karar (yayın hazırlığı): backend üretimde `web/dist`'i kökten servis ediyor
+(tek https adres, `/api` aynı origin, SPA fallback); `backend/public` tanıtım
+sayfası `/tanitim/`'e taşındı (yolları göreli yapıldı). Bkz. docs/YAYIN.md.
+Geliştirmede `web/dist` yoksa kökte hiçbir şey yok, tanıtım yine `/tanitim/`.
+
+### Kök adres bir PWA kabuğu, web sürümü değil (tarihçe)
 `backend/public/` altındaki sayfa "URL ile ana ekrana ekle" isteğinin
 karşılığı: manifest + service worker + ikonlar, tam ekran açılır, çevrimdışı
 kabuk. Halka açık `/api/care-actions/status` ile "yakınımda mama/su var mı"

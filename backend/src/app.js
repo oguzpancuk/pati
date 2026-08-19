@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -12,18 +13,38 @@ const adRoutes = require('./routes/ad.routes');
 const adminRoutes = require('./routes/admin.routes');
 const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
 const { UPLOADS_DIR } = require('./config/upload');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
+
+// Fly/ters proxy arkasında: req.protocol ve IP proxy başlıklarından okunsun.
+// Fotoğraf adresleri req.protocol ile kuruluyor; bu olmadan https sitede
+// http:// fotoğraf linkleri üretilip tarayıcıda engelleniyordu.
+app.set('trust proxy', 1);
 
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Giriş/kayıt için kaba kuvvet freni. Yalnızca auth uçlarında: diğer uçlar
+// JWT ile korunuyor ve haritayı açan istemci kısa sürede çok istek atıyor.
+app.use(
+  '/api/auth',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Çok fazla deneme; 15 dakika sonra tekrar deneyin.' },
+  })
+);
 
 // Kök adres "ana ekrana eklenebilir" web sayfası (public/): manifest, service
 // worker ve ikonlar. Mobil uygulamanın web sürümü değil; kısayol + hızlı
 // "yakınımda mama/su var mı" bakışı. Service worker'ın önbelleğe alınmaması
 // önemli: tarayıcı sw.js'i eski sürümden okursa güncelleme hiç gelmez.
 app.use(
+  '/tanitim',
   express.static(path.join(__dirname, '..', 'public'), {
     setHeaders(res, filePath) {
       if (filePath.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache');
@@ -41,6 +62,31 @@ app.use('/api/friendships', friendshipRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Üretimde web PWA'sı (web/dist) aynı kökten servis ediliyor: tek https adres,
+// /api aynı origin (proxy/CORS derdi yok). Geliştirmede web'i Vite kendi
+// sunuyor; dist yoksa bu blok atlanır ve kökte tanıtım sayfası (public/) kalır.
+const WEB_DIST_DIR = process.env.WEB_DIST_DIR || path.join(__dirname, '..', '..', 'web', 'dist');
+if (fs.existsSync(path.join(WEB_DIST_DIR, 'index.html'))) {
+  app.use(
+    express.static(WEB_DIST_DIR, {
+      setHeaders(res, filePath) {
+        // sw.js ve index.html önbelleğe alınmasın; hash'li asset'ler uzun süre kalsın.
+        if (filePath.endsWith('sw.js') || filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        } else if (/\/assets\//.test(filePath)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    })
+  );
+  // SPA fallback: /hayvanlar/12 gibi istemci rotaları index.html'e düşer;
+  // API ve dosya yolları yukarıda zaten eşleşmiş olur.
+  app.get(/^\/(?!api\/|uploads\/).*/, (req, res, next) => {
+    if (req.method !== 'GET' || (req.headers.accept ?? '').indexOf('text/html') === -1) return next();
+    res.sendFile(path.join(WEB_DIST_DIR, 'index.html'));
+  });
+}
 
 app.use(notFoundHandler);
 app.use(errorHandler);

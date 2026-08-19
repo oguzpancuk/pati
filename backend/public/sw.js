@@ -7,13 +7,14 @@
  * Sürüm adı değişince eski önbellek siliniyor; kabuk dosyalarını değiştirince
  * bunu artırın, aksi halde eski sayfa görünmeye devam eder.
  */
-const CACHE = 'pati-shell-v1';
+const CACHE = 'pati-tanitim-v2';
+// Yollar göreli: sayfa /tanitim/ altında servis ediliyor (kök web PWA'sının).
 const SHELL = [
-  '/',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/apple-touch-icon.png',
+  './',
+  './manifest.webmanifest',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -47,6 +48,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((hit) => hit || caches.match('/')))
+      .catch(() => caches.match(event.request).then((hit) => hit || caches.match('./')))
   );
 });

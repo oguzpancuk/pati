@@ -12,6 +12,7 @@ Bu dosya her oturumda otomatik yükleniyor; **kısa tutun.** Ayrıntı burada de
 | Kalan işler, karar bekleyenler | [docs/YOL_HARITASI.md](docs/YOL_HARITASI.md) |
 | Tasarım sistemi | [docs/TASARIM.md](docs/TASARIM.md) |
 | **Kararların gerekçesi, bilinen sınırlar, ortam tuzakları** | [docs/NOTLAR.md](docs/NOTLAR.md) |
+| Yayın (Fly.io) adımları | [docs/YAYIN.md](docs/YAYIN.md) |
 
 Bir karar verip gerekçesini bir yere yazmanız gerekiyorsa yeri `docs/NOTLAR.md`.
 

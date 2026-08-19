@@ -9,10 +9,10 @@
   <!-- Ana ekrana eklenebilir web uygulaması: manifest Android/Chrome için,
        apple-* etiketleri iOS Safari için (Safari manifest'i kısmen okuyor,
        ikon ve tam ekran davranışı hâlâ bu etiketlerden geliyor). -->
-  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#F47A4A" />
-  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -122,7 +122,7 @@
 
 <script>
   // API aynı kökten (backend hem sayfayı hem /api'yi servis ediyor).
-  const API = '/api';
+  const API = '/api'; // aynı kökteki backend
   let type = 'food';
   const status = document.getElementById('status');
   const check = document.getElementById('check');
@@ -200,7 +200,7 @@
   window.addEventListener('appinstalled', () => installCard.classList.remove('show'));
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 </script>
 </body>
