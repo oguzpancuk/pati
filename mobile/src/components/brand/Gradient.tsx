@@ -1,5 +1,5 @@
 import React, { useId } from 'react';
-import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, StyleProp, View, ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useTheme } from '../../theme';
 
@@ -31,14 +31,21 @@ export default function Gradient({ radius = 18, direction = 'diagonal', style }:
   const horizontal = direction === 'horizontal';
 
   return (
-    <Svg style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
-      <Defs>
-        <LinearGradient id={id} x1="0" y1="0" x2="1" y2={horizontal ? '0' : '1'}>
-          <Stop offset="0" stopColor={colors.gradStart} />
-          <Stop offset="1" stopColor={colors.gradEnd} />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" rx={radius} ry={radius} fill={`url(#${id})`} />
-    </Svg>
+    // The Svg sits inside a plain View that Yoga lays out (absoluteFill); the
+    // Svg itself gets explicit 100% width/height. A bare absoluteFill Svg
+    // measured itself once at mount and never grew with the parent (the
+    // label re-measures when Quicksand loads), so the gradient covered only a
+    // corner and white labels vanished on white.
+    <View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
+      <Svg width="100%" height="100%">
+        <Defs>
+          <LinearGradient id={id} x1="0" y1="0" x2="1" y2={horizontal ? '0' : '1'}>
+            <Stop offset="0" stopColor={colors.gradStart} />
+            <Stop offset="1" stopColor={colors.gradEnd} />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" rx={radius} ry={radius} fill={`url(#${id})`} />
+      </Svg>
+    </View>
   );
 }
