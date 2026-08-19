@@ -1,4 +1,4 @@
-import React, { useId } from 'react';
+import React, { useId, useState } from 'react';
 import { StyleSheet, StyleProp, View, ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useTheme } from '../../theme';
@@ -25,6 +25,11 @@ type Props = {
  */
 export default function Gradient({ radius = 18, direction = 'diagonal', style }: Props) {
   const { colors } = useTheme();
+  // SVG clamps rx to width/2 and ry to height/2 *independently*, so a pill
+  // radius (999) on a wide rect turned into an ellipse ("egg"). Measure the
+  // layer and clamp both to the same value: min(radius, half the short side).
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const r = Math.min(radius, size.w / 2, size.h / 2) || 0;
   // Several gradients can live on one screen; a per-instance id keeps their
   // <Defs> from colliding.
   const id = `pati-grad-${useId()}`;
@@ -36,7 +41,11 @@ export default function Gradient({ radius = 18, direction = 'diagonal', style }:
     // measured itself once at mount and never grew with the parent (the
     // label re-measures when Quicksand loads), so the gradient covered only a
     // corner and white labels vanished on white.
-    <View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
+    <View
+      style={[StyleSheet.absoluteFill, style]}
+      pointerEvents="none"
+      onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+    >
       <Svg width="100%" height="100%">
         <Defs>
           <LinearGradient id={id} x1="0" y1="0" x2="1" y2={horizontal ? '0' : '1'}>
@@ -44,7 +53,7 @@ export default function Gradient({ radius = 18, direction = 'diagonal', style }:
             <Stop offset="1" stopColor={colors.gradEnd} />
           </LinearGradient>
         </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" rx={radius} ry={radius} fill={`url(#${id})`} />
+        <Rect x="0" y="0" width="100%" height="100%" rx={r} ry={r} fill={`url(#${id})`} />
       </Svg>
     </View>
   );
