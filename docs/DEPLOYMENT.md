@@ -1,67 +1,76 @@
-# Yayın (Fly.io)
+# Deployment (Fly.io)
 
-Tek imaj: Node backend + derlenmiş web PWA (`/`), tanıtım sayfası `/tanitim/`,
-API `/api`. Fotoğraflar kalıcı Fly volume'da (`/data/uploads`); veritabanı
-PostGIS'li Fly Postgres. Yapılandırma: kökteki `Dockerfile`, `fly.toml`.
+Single image: Node backend + built web PWA (`/`), landing page (`/tanitim/`),
+API (`/api`). Photos live on a persistent Fly volume (`/data/uploads`); the
+database is Fly Postgres with PostGIS. Configuration: `Dockerfile` and
+`fly.toml` at the repo root.
 
-## İlk kurulum (bir kez)
+## First-time setup (once)
+
 ```bash
 brew install flyctl
-fly auth login                                  # tarayıcı açılır
-fly apps create pati-app                        # ad doluysa fly.toml'daki app'i değiştir
+fly auth login                                  # opens the browser
+fly apps create pati-app                        # if the name is taken, change app in fly.toml
 fly postgres create --name pati-db --region fra --vm-size shared-cpu-1x --initial-cluster-size 1 --volume-size 3
-fly postgres attach pati-db --app pati-app      # DATABASE_URL secret'ını yazar
+fly postgres attach pati-db --app pati-app      # writes the DATABASE_URL secret
 fly volumes create uploads --region fra --size 3 --app pati-app
 fly secrets set JWT_SECRET="$(openssl rand -hex 32)" JWT_EXPIRES_IN=7d --app pati-app
 fly deploy                                      # build + release_command (migrate) + start
 fly open                                        # https://pati-app.fly.dev
 ```
-PostGIS: `postgres-flex` imajında hazır; `001_init.sql` içindeki
-`CREATE EXTENSION IF NOT EXISTS postgis` release adımında koşar.
 
-İlk admin: uygulamadan kayıt ol, sonra
-`fly ssh console --app pati-app -C "node scripts/make-admin.js eposta@adres"`.
+PostGIS ships in the `postgres-flex` image; `CREATE EXTENSION IF NOT EXISTS
+postgis` in `001_init.sql` runs in the release step.
 
-## Rehber (demo) verisi
+First admin: register in the app, then
+`fly ssh console --app pati-app -C "node scripts/make-admin.js email@address"`.
 
-Uygulama boş haritayla açılmasın diye İstanbul merkez ilçeleri, İzmir merkez
-ilçeleri, Antalya/Kaş ve Milas/Güllük'e "rehber" kullanıcılar eklenebilir:
-her bölgede 10 hesap, bir aylık organik kullanım geçmişiyle (haftada ~3
-hayvan, gün aşırı mama/su, sohbet, aşı/sağlık kayıtları). Kayıtlar ilçe
-merkezine yığılmaz: her ilçe mahalle/semt çapalarıyla tanımlı ve her rehber
-kendi "ev mahallesinde" yaşar (bkz. scripts/seed-rehber.js DISTRICTS). Bot oldukları gizlenmez — adları
-"… · pati rehberi", her hayvanın ilk yorumu kaydın örnek olduğunu söyler;
-yorumlar aynı zamanda uygulamanın nasıl kullanıldığını anlatır.
+## Guide (demo) data
+
+So the app doesn't open onto an empty map, "guide" users can be seeded into
+Istanbul's central districts, İzmir's central districts, Antalya/Kaş, and
+Milas/Güllük: 10 accounts per area with a month of organic usage history
+(~3 animals per week, food/water every other day, chats, vaccination and
+health records). Records don't pile up at district centers: each district is
+defined by neighborhood anchor points and every guide lives in a "home
+neighborhood" (see `DISTRICTS` in `scripts/seed-rehber.js`). Their bot nature
+is not hidden — names read "… · pati rehberi" and every animal's first comment
+says the record is an example; the comments double as a tutorial for how the
+app is used. (Seeded content itself is Turkish: it is product-facing.)
 
 ```bash
-fly ssh console --app pati-app -C "node scripts/seed-rehber.js"            # kur
-fly ssh console --app pati-app -C "node scripts/seed-rehber.js --tazele"   # taze mama/su
-fly ssh console --app pati-app -C "node scripts/seed-rehber.js --temizle"  # tamamen geri al
+fly ssh console --app pati-app -C "node scripts/seed-rehber.js"            # create
+fly ssh console --app pati-app -C "node scripts/seed-rehber.js --tazele"   # fresh food/water
+fly ssh console --app pati-app -C "node scripts/seed-rehber.js --temizle"  # remove entirely
 ```
 
-Script yalnızca EKLER (`seed-demo.js`'in aksine TRUNCATE yok); mevcut
-kullanıcı/hayvan/admin verisine dokunmaz, bu yüzden üretimde güvenlidir.
-Rehber hesapların şifresi her kurulumda rastgele üretilir ve yalnızca script
-çıktısında görünür. Haritanın yeşili 4-6 saatte solduğundan `fly.toml`'daki
-`DEMO_REHBER_TAZELE = "1"` sunucuya saatte bir taze mama/su ekletir (rehber
-verisi silinince kendiliğinden işlevsizleşir).
+The script only ADDS (unlike `seed-demo.js`, no TRUNCATE); it never touches
+existing users/animals/admins, so it is production-safe. Guide passwords are
+generated randomly per run and shown only in the script output. Because the
+map's green fades in 4-6 hours, `DEMO_REHBER_TAZELE = "1"` in `fly.toml` makes
+the server add a few fresh records hourly (harmlessly inert once the guide
+data is removed).
 
-## Alan adı bağlama
+## Custom domains
+
 ```bash
-fly certs add app.ALANADIN.com --app pati-app   # çıktıdaki CNAME/A kayıtlarını DNS'e ekle
-fly certs show app.ALANADIN.com --app pati-app  # "Ready" olunca https hazır
+fly certs add app.YOURDOMAIN.com --app pati-app   # add the printed CNAME/A records to DNS
+fly certs show app.YOURDOMAIN.com --app pati-app  # https is ready when it says "Ready"
 ```
 
-## Sonraki deploy'lar
-`git push` sonrası `fly deploy`. Şema `IF NOT EXISTS`'li tek dosya olduğu için
-migrate her deploy'da güvenle koşar; kolon eklemek artımlı migrasyon ister
-(YOL_HARITASI).
+## Subsequent deploys
 
-## Bilinen sınırlar (pilot)
-- Fotoğraflar tek makinenin diskinde: makine sayısı 1 kalmalı; nesne
-  depolamaya (R2/S3) geçiş yol haritasında.
-- `auto_stop_machines`: trafik yokken makine uyur, ilk istek ~1-2 sn gecikir.
-- Yönetim paneli aynı uygulamadan servis ediliyor: `ADMIN_HOST`
-  (admin.pati-app.com) adresinden gelen istekler `admin/dist`'i alır
-  (`fly certs add admin.pati-app.com` ile sertifika eklenmeli).
-- Rate limit yalnızca `/api/auth` (15 dk'da 30 deneme).
+`fly deploy` after `git push`. The schema is a single `IF NOT EXISTS` file, so
+migrate runs safely on every deploy; adding columns requires incremental
+migrations (see ROADMAP).
+
+## Known limits (pilot)
+
+- Photos sit on a single machine's disk: keep machine count at 1; moving to
+  object storage (R2/S3) is on the roadmap.
+- `auto_stop_machines`: the machine sleeps without traffic; the first request
+  takes ~1-2 s.
+- The admin panel is served from the same app: requests arriving at
+  `ADMIN_HOST` (admin.pati-app.com) get `admin/dist`
+  (add the certificate with `fly certs add admin.pati-app.com`).
+- Rate limiting covers only `/api/auth` (30 attempts / 15 min).

@@ -1,124 +1,130 @@
-# Sokak Hayvanları Takip Uygulaması — Ürün Gereksinim Belgesi (PRD)
+# Street Animal Care App — Product Requirements Document (PRD)
 
-Hazırlama Tarihi: 10.08.2026
+Prepared: 2026-08-10. (Historical document — the original product brief.
+Where the shipped product diverges, README.md and docs/PROJECT.md are
+authoritative.)
 
-## 1. Özet
+## 1. Summary
 
-Sokak Hayvanları Takip Uygulaması, Türkiye'deki sokak hayvanlarının refahını iyileştirmek
-için tasarlanmış bir sosyal etki platformudur. Uygulama, hayvan severler, veterinerler ve
-aktivistlerin sokak köpekleri ve kedilerinin beslenme, sağlık ve refah durumunu etkili bir
-şekilde koordine etmelerine olanak tanır.
+The Street Animal Care App is a social-impact platform designed to improve the
+welfare of street animals in Türkiye. It enables animal lovers, veterinarians,
+and activists to coordinate the feeding, health, and wellbeing of street dogs
+and cats effectively.
 
-## 2. Sorun Tanımı
+## 2. Problem
 
-Türkiye'deki sokak hayvanları, özellikle beslenme ve tıbbi bakım konusunda önemli
-sorunlarla karşı karşıyadır. Mevcut durumda:
+Street animals in Türkiye face significant problems, especially around feeding
+and medical care. Today:
 
-- Sokak hayvanlarını beslemek isteyen kişiler, hangi bölgelerin yeterince bakım aldığını bilmezler
-- Hayvan sağlık sorunları (hastalık, yaralanma) takip edilemiyor ve sistematik olarak kaydedilmiyor
-- Aynı hayvana birden fazla kişi bakıyor, bu da koordinasyon eksikliğine yol açıyor
-- Veteriner danışmanlığına kolay ulaşılamıyor ve tedavi bilgileri merkezi olarak saklanmıyor
+- People who want to feed street animals don't know which areas already
+  receive enough care
+- Animal health issues (illness, injury) are not tracked or recorded
+  systematically
+- Multiple people care for the same animal without coordination
+- Veterinary advice is hard to reach and treatment history is not stored
+  centrally
 
-## 3. Çözüm Yaklaşımı
+## 3. Approach
 
-Sokak Hayvanları Takip Uygulaması, etkileşimli harita, hayvan profil sistemi ve sosyal ağ
-bileşenlerini entegre ederek şunları sağlar:
+The app integrates an interactive map, an animal-profile system, and social
+components to provide:
 
-- Bölge bazlı takip ve koordinasyon sistematiği
-- Her hayvanın sağlık ve beslenme geçmişinin merkezi olarak saklanması
-- Kullanıcı topluluğunun sosyal olarak bağlanması ve işbirliğinin arttırılması
+- Systematic area-based tracking and coordination
+- A central record of each animal's health and feeding history
+- Social connection and increased collaboration across the community
 
-## 4. Temel Özellikler
+## 4. Core features
 
-### 4.1 İnteraktif Harita Sistemi
+### 4.1 Interactive map
 
-Uygulamanın ana sayfasında, Türkiye'nin bölgelere ayrılmış bir haritası yer alır. Her bölge,
-o bölgedeki hayvan popülasyonu ve bakım düzeyine göre renklendirilir.
+The home screen shows a map of Türkiye colored by animal population and care
+level per area.
 
-**Renk Kodlaması:**
+**Color coding (original concept):**
 
-- Yeşil: Yeterli mama/su ve bakım sağlanıyor
-- Sarı: Orta düzeyde bakım var
-- Kırmızı: Acil yardıma ihtiyaç var
+- Green: enough food/water and care
+- Yellow: moderate care
+- Red: urgent help needed
 
-Kullanıcılar, "Mama Bıraktım", "Su Bıraktım" veya "Hayvan Görüldü" gibi aksiyonları
-bölgeye ekleyebilirler. Her aksiyonda tarih, saat ve kullanıcı bilgisi kaydedilir.
+Users add actions like "left food", "left water", or "animal sighted"; each
+action records date, time, and user.
 
-### 4.2 Hayvan Profil Sistemi
+*(Shipped implementation: exact drop points with a 100 m green halo that fades
+over time; the red base layer was deliberately dropped — see docs/NOTES.md.)*
 
-Her kedi ve köpek, benzersiz bir profil sayfasına sahiptir. Bu profil, hayvanın:
+### 4.2 Animal profiles
 
-- Fotoğrafları ve tanımlayıcı bilgileri (renk, boy, işaretler)
-- Sağlık durumu (hastalık, yaralanma, tedavi geçmişi)
-- İlaçlandırma kaydı (ne, ne zaman, kim tarafından)
-- Beslenme ve su alma bilgileri
-- Kullanıcı yorumları ve gözlemleri
+Every cat and dog has a unique profile page holding:
 
-Veterinerlerin onayladığı tıbbi bilgiler, kullanıcı yorumlarından ayrı olarak gösterilir.
+- Photos and identifying details (color, size, markings)
+- Health status (illness, injury, treatment history)
+- Medication records (what, when, by whom)
+- Feeding and watering info
+- User comments and observations
 
-### 4.3 Hayvan Ekleme Sistemi
+Vet-verified medical information is displayed separately from user comments.
 
-Kullanıcılar, "Yeni Hayvan" sayfasında hayvanın fotoğraflarını çekerek uygulamaya
-yüklerler. Sistem, yapay zeka kullanarak hayvanı tanıyıp, daha önce kaydedilmiş bir
-hayvan olup olmadığını kontrol eder.
+### 4.3 Adding animals
 
-- Eğer ilk defa görülüyor: Yeni profil oluşturulur ve kullanıcı temel bilgileri (konum, tarih vb) ekler
-- Eğer daha önce kaydedilmiş: Hayvanın mevcut profiline yönlendirilir
+Users photograph an animal on the "new animal" page. The system uses AI to
+check whether it was already registered:
 
-### 4.4 Kullanıcı Profili ve Sosyal Ağ
+- First sighting: a new profile is created and the user adds the basics
+  (location, date, etc.)
+- Already registered: the user is redirected to the existing profile
 
-Her kullanıcının, bakım verdiği hayvanların listesini gösteren bir profili vardır. Kullanıcılar:
+### 4.4 User profiles and social network
 
-- Aynı hayvana bakan diğer kişileri görebilir ve onlarla bağlantı kurabilir
-- Doğrudan mesajlaşma yoluyla koordinasyon ve bilgi alışverişi yapabilir
-- Kendi bakım sayfasında, bakmakla yükümlü olduğu hayvanları ve deneyimlerini paylaşabilir
+Every user has a profile listing the animals they care for. Users can:
 
-### 4.5 Bildirim Sistemi
+- See and connect with others caring for the same animal
+- Coordinate via direct messaging
+- Share their animals and experiences on their care page
 
-Bir bölgenin durumu "Kırmızı" (acil yardıma ihtiyaç) olduğunda, o bölgede aktif olan tüm
-kullanıcılara anında bildirim gönderilir.
+### 4.5 Notifications
 
-## 5. MVP (Minimum Viable Product) Kapsamı
+When an area turns "red" (urgent help needed), all users active in that area
+receive an instant notification.
 
-İlk aşamada aşağıdaki özellikler sağlanacaktır:
+## 5. MVP scope
 
-- Kullanıcı kaydı ve giriş sistemi
-- İnteraktif harita ve bölge sistemi
-- Mama/Su ekleme ve takibi
-- Hayvan profili oluşturma (manuel)
-- Hayvan sağlık ve ilaç kaydı
-- Basit bildirim sistemi
+The first phase ships:
 
-**Sonraki Faz İçin Planlanan:** Yapay zeka hayvan tanıması, gelişmiş sosyal ağ özellikleri,
-oluşturulmuş raporlar ve analitikler.
+- User registration and login
+- Interactive map and area system
+- Food/water actions and tracking
+- Manual animal profiles
+- Animal health and medication records
+- Basic notifications
 
-## 6. Teknik Yaklaşım
+**Planned for later phases:** AI animal recognition, richer social features,
+reports and analytics.
 
-Uygulamada modern, skalabilir ve güvenilir teknolojiler kullanılacaktır:
+## 6. Technical approach
 
-- **Frontend:** Web ve mobil uygulama (React Native)
-- **Backend:** Node.js ve Express
-- **Veritabanı:** PostgreSQL ve PostGIS (coğrafi sorgular için)
-- **Harita:** Leaflet + OpenStreetMap
-- **Kimlik doğrulama:** JWT ve şifre şifrelemesi
+Modern, scalable, reliable technologies:
 
-## 7. Başarı Metrikleri
+- **Frontend:** web and mobile (React Native)
+- **Backend:** Node.js and Express
+- **Database:** PostgreSQL and PostGIS (for geospatial queries)
+- **Maps:** Leaflet + OpenStreetMap
+- **Auth:** JWT and password hashing
 
-Uygulamanın başarısı aşağıdaki göstergelerle ölçülecektir:
+## 7. Success metrics
 
-- Aktif kullanıcı sayısı ve aylık artış oranı
-- Kaydedilen hayvan sayısı ve takip kalitesi
-- Kızıl alarm saatleri cevap oranı
-- Kullanıcı katılım ve sosyal bağlantı kalitesi
-- Veteriner ve kuruluş ortaklık sayısı
+- Active users and month-over-month growth
+- Registered animals and tracking quality
+- Response rate during red-alert hours
+- User engagement and quality of social connections
+- Number of veterinary and organizational partnerships
 
-## 8. Sosyal Etki
+## 8. Social impact
 
-Bu uygulama, sokak hayvanlarının yaşam kalitesini doğrudan iyileştirmeyi amaçlar.
+The app aims to directly improve street animals' quality of life.
 
-**Hedefler:**
+**Goals:**
 
-- Beslenme ve bakım eksikliklerini azaltmak
-- Hayvan sağlık sorunlarının daha hızlı tespit edilmesini sağlamak
-- Veteriner hizmetlerine erişimi kolaylaştırmak
-- Sokak hayvanlarıyla ilgili toplum bilincini artırmak
+- Reduce feeding and care gaps
+- Detect animal health issues faster
+- Ease access to veterinary services
+- Raise public awareness of street animals
