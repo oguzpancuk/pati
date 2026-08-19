@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useAuth } from '../auth';
+import { Wordmark } from '../brand';
 
 /**
  * Giriş + kayıt tek ekranda. Mobil uygulamadaki akışla aynı: kayıt olan
@@ -31,31 +32,8 @@ export default function LoginPage() {
   return (
     <div className="app" style={{ justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 380, width: '100%', margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          {/* Pati logosu: mobil Logo.tsx ile aynı yuvarlak zemin + pati izi. */}
-          <span
-            className="round"
-            style={{
-              display: 'inline-flex',
-              width: 72,
-              height: 72,
-              background: 'var(--brand)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="#fff">
-              <circle cx="6.4" cy="10.6" r="2.1" />
-              <circle cx="9.9" cy="7.2" r="2.2" />
-              <circle cx="14.1" cy="7.2" r="2.2" />
-              <circle cx="17.6" cy="10.6" r="2.1" />
-              <path d="M12 12.2c2.6 0 5 2.1 5 4.5 0 1.8-1.4 2.9-3 2.9-.9 0-1.4-.4-2-.4s-1.1.4-2 .4c-1.6 0-3-1.1-3-2.9 0-2.4 2.4-4.5 5-4.5Z" />
-            </svg>
-          </span>
-          <h1 style={{ margin: '10px 0 2px', fontSize: 34, color: 'var(--brand)' }}>pati</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            Sokak dostlarına birlikte bakalım
-          </p>
+        <div style={{ marginBottom: 28 }}>
+          <Wordmark size="lg" tagline />
         </div>
 
         {error && <div className="error">{error}</div>}
