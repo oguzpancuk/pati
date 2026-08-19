@@ -6,9 +6,9 @@
   <title>pati — birlikte bakıyoruz</title>
   <meta name="description" content="Sokak hayvanları için mama, su ve bakım haritası. Yakınında mama/su var mı, hemen bak." />
 
-  <!-- Ana ekrana eklenebilir web uygulaması: manifest Android/Chrome için,
-       apple-* etiketleri iOS Safari için (Safari manifest'i kısmen okuyor,
-       ikon ve tam ekran davranışı hâlâ bu etiketlerden geliyor). -->
+  <!-- An installable web page: the manifest is for Android/Chrome, the
+       apple-* tags for iOS Safari (Safari reads the manifest partially; the
+       icon and fullscreen behavior still come from these tags). -->
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#F47A4A" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
@@ -19,7 +19,7 @@
   <meta name="apple-mobile-web-app-title" content="pati" />
 
   <style>
-    /* Renkler mobil temayla aynı (mobile/src/theme/colors.ts). */
+    /* Colors match the mobile theme (mobile/src/theme/colors.ts). */
     :root {
       --brand: #F47A4A; --brand-dark: #D9633A; --brand-tint: #FFF0E7;
       --bg: #FFF3E7; --surface: #FFFFFF; --text: #2B2B2B; --muted: #7A6E66;
@@ -70,7 +70,7 @@
 <main>
   <header class="hero">
     <div class="logo" aria-label="pati">
-      <!-- Logo.tsx ile aynı yollar. -->
+      <!-- Same paths as Logo.tsx. -->
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <g fill="#F47A4A">
           <ellipse cx="16" cy="42" rx="9" ry="12" transform="rotate(-22 16 42)"/>
@@ -86,8 +86,8 @@
     <p class="tagline">birlikte bakıyoruz</p>
   </header>
 
-  <!-- Canlı widget: uygulamanın halka açık "bu bölgede bakım var mı" ucunu
-       kullanıyor. Giriş gerektirmiyor; kısayolun ilk açılışta işe yaraması için. -->
+  <!-- Live widget: uses the app's public "is there care in this area"
+       endpoint. No sign-in required, so the shortcut is useful on first open. -->
   <section class="card" aria-labelledby="near-title">
     <h2 id="near-title">Yakınında mama / su var mı?</h2>
     <p>Bulunduğun noktanın 100 m çevresinde son saatlerde bırakılan mama ve suya bakar.</p>

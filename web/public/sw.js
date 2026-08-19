@@ -1,7 +1,6 @@
-// Bilinçli olarak küçük tutulan service worker: yalnızca uygulama kabuğunu
-// önbelleğe alır. API istekleri HİÇ önbelleklenmiyor — bakım verisi bayat
-// gösterilirse harita "burada mama var" diye yalan söyler; çevrimdışıyken
-// eksik görünmek, yanlış görünmekten iyi.
+// A deliberately small service worker: it caches only the app shell. API
+// requests are NEVER cached — stale care data would make the map lie about
+// "there's food here"; looking incomplete offline beats looking wrong.
 const CACHE = 'pati-shell-v1';
 
 self.addEventListener('install', (event) => {
@@ -21,7 +20,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/uploads')) return;
 
-  // Kabuk için önce ağ, düşerse önbellek: güncel sürüm her zaman öncelikli.
+  // Network-first for the shell, cache on failure: the fresh version always wins.
   event.respondWith(
     fetch(event.request)
       .then((res) => {

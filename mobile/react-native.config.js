@@ -1,7 +1,8 @@
 module.exports = {
-  // `npx react-native-asset` bu klasördeki fontları iOS ve Android projelerine
-  // bağlar. Dosya adları PostScript adlarıyla birebir aynı (Nunito-Regular vb.)
-  // çünkü Android font ailesini dosya adından, iOS ise PostScript adından
-  // okuyor; ikisinin eşleşmesi tek bir fontFamily değeri kullanmamızı sağlıyor.
+  // `npx react-native-asset` links the fonts in this folder into the iOS and
+  // Android projects. File names match the PostScript names exactly
+  // (Nunito-Regular etc.) because Android reads the font family from the
+  // file name and iOS from the PostScript name; matching both lets a single
+  // fontFamily value work.
   assets: ['./assets/fonts'],
 };

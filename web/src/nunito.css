@@ -1,8 +1,8 @@
 /*
- * Marka yazı tipi Nunito (SIL OFL, mobile/assets/fonts). Web uygulaması bu
- * dosyayı henüz yüklemiyor (sistem yazı tipine düşüyor); design-sync paketi
- * `extraFonts` ile bunu ve font dosyalarını taşıyor ki claude.ai/design'daki
- * tasarımlar mobille aynı yazı tipinde çıksın.
+ * The brand typeface Nunito (SIL OFL, mobile/assets/fonts). The web app
+ * doesn't load this file yet (it falls back to the system font); the
+ * design-sync package carries it and the font files via `extraFonts` so
+ * designs on claude.ai/design come out in the same typeface as mobile.
  */
 @font-face {
   font-family: 'Nunito';

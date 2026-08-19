@@ -84,7 +84,7 @@ textarea {
   color: var(--ink);
 }
 
-/* ---------------- düzen ---------------- */
+/* ---------------- layout ---------------- */
 
 .shell {
   display: grid;
@@ -166,7 +166,7 @@ h1 {
   flex: 1;
 }
 
-/* ---------------- kartlar ---------------- */
+/* ---------------- cards ---------------- */
 
 .stat-grid {
   display: grid;
@@ -197,7 +197,7 @@ h1 {
   color: var(--ink-soft);
 }
 
-/* Yan yana iki özet kartı (dar ekranda alt alta düşer). */
+/* Two summary cards side by side (stacking on narrow screens). */
 .two-col {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -219,7 +219,7 @@ h1 {
   margin: 0 0 12px;
 }
 
-/* ---------------- grafik ---------------- */
+/* ---------------- charts ---------------- */
 
 .chart {
   display: flex;
@@ -253,7 +253,7 @@ h1 {
   vertical-align: -1px;
 }
 
-/* ---------------- tablo ---------------- */
+/* ---------------- tables ---------------- */
 
 .table-wrap {
   overflow-x: auto;
@@ -291,8 +291,8 @@ td.num {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-/* İşlem sütunu sağa sabitlenir: tablo yatay kaydığında butonlar kenarda kesilip
-   erişilemez hale geliyordu. */
+/* The action column pins right: with horizontal table scroll the buttons
+   were getting cut off at the edge, unreachable. */
 td.actions,
 th.actions {
   white-space: nowrap;
@@ -386,7 +386,7 @@ td.actions button + button {
   margin-bottom: 14px;
 }
 
-/* ---------------- giriş ---------------- */
+/* ---------------- login ---------------- */
 
 .login-page {
   min-height: 100vh;
@@ -415,7 +415,7 @@ td.actions button + button {
   width: 100%;
 }
 
-/* ---------------- kip (modal) ---------------- */
+/* ---------------- modal ---------------- */
 
 .modal-backdrop {
   position: fixed;

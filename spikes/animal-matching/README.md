@@ -1,16 +1,17 @@
-# Spike: Yapay zekâ ile hayvan eşleştirme
+# Spike: AI-based animal matching
 
-Bu klasör, [YOL_HARITASI.md madde 1](../../docs/YOL_HARITASI.md) için yapılan
-ölçümlerin scriptlerini tutar. Amaç iki soruyu cevaplamak:
+This folder holds the measurement scripts for
+[ROADMAP.md item 1](../../docs/ROADMAP.md). The goal is to answer two
+questions:
 
-1. **Maliyet ve hız** — binlerce kullanıcıda ne kadar sürer, ne kadara mal olur?
-   → ✅ Ölçüldü, sonuçlar yol haritasında.
-2. **İsabet** — model sokak koşullarında aynı hayvanı tanıyabiliyor mu?
-   → ⏳ Henüz ölçülemedi (aşağıya bakın).
+1. **Cost and speed** — how long does it take and what does it cost with
+   thousands of users? → ✅ Measured; results are in the roadmap.
+2. **Accuracy** — can the model recognize the same animal under street
+   conditions? → ⏳ Not yet measured (see below).
 
-## 1. Gömme modeli hızı — `bench_embed.py`
+## 1. Embedding model speed — `bench_embed.py`
 
-Fotoğrafı vektöre çevirmenin CPU üzerinde ne kadar sürdüğünü ölçer.
+Measures how long turning a photo into a vector takes on CPU.
 
 ```bash
 python3 -m venv venv
@@ -18,65 +19,69 @@ python3 -m venv venv
 ./venv/bin/python bench_embed.py
 ```
 
-**Ağırlıklar rastgele.** Bu ölçüm için sorun değil: ileri geçişin süresi
-mimariye, girdi boyutuna ve donanıma bağlı — ağırlıkların eğitilmiş olup
-olmamasına değil. Yani buradaki milisaniyeler gerçek DINOv2/CLIP ağırlıklarıyla
-da aynı çıkar. **İsabet bu scriptle ölçülemez.**
+**The weights are random.** That's fine for this measurement: forward-pass
+time depends on the architecture, input size and hardware — not on whether
+the weights are trained. The milliseconds here come out the same with real
+DINOv2/CLIP weights. **Accuracy cannot be measured with this script.**
 
-Ölçülen (4 çekirdek CPU, GPU yok), kayıt başına 3 fotoğraf:
+Measured (4-core CPU, no GPU), 3 photos per record:
 
-| Model | 3 fotoğraf |
+| Model | 3 photos |
 | --- | --- |
-| ViT-B/16 (DINOv2 base sınıfı) | 335 ms |
-| ViT-B/32 (CLIP ViT-B/32 sınıfı) | 84 ms |
+| ViT-B/16 (DINOv2 base class) | 335 ms |
+| ViT-B/32 (CLIP ViT-B/32 class) | 84 ms |
 | ResNet-50 | 101 ms |
 | MobileNetV3-L | 28 ms |
 
-## 2. Vektör araması hızı — `bench_search.js`
+## 2. Vector search speed — `bench_search.js`
 
-Gerçek ölçekte "1 km içindeki adaylar arasında en benzer 5 hayvan" sorgusunun
-süresini ölçer. `pgvector` eklentisi gerekiyor.
+Measures the "top 5 most similar among candidates within 1 km" query at
+realistic scale. Requires the `pgvector` extension.
 
 ```bash
-# pgvector kurulu bir PostgreSQL gerekiyor:
+# Needs PostgreSQL with pgvector installed:
 #   apt-get install postgresql-16-pgvector
 #   psql -d stray -c "CREATE EXTENSION vector;"
 
 ANIMALS=25000 node bench_search.js
 ```
 
-Ölçülen (25.000 hayvan × 3 fotoğraf = 75.000 vektör, 768 boyut, 309 MB):
+Measured (25,000 animals × 3 photos = 75,000 vectors, 768 dimensions, 309 MB):
 
-| Aday kümesi | Vektör | Süre |
+| Candidate set | Vectors | Time |
 | --- | --- | --- |
-| 1 km yarıçap | ~300 | **4 ms** |
-| 3 km yarıçap | ~2.850 | 20 ms |
-| 10 km yarıçap | ~31.400 | 261 ms |
-| Coğrafi daraltma yok | 75.000 | 309 ms |
+| 1 km radius | ~300 | **4 ms** |
+| 3 km radius | ~2,850 | 20 ms |
+| 10 km radius | ~31,400 | 261 ms |
+| No geographic narrowing | 75,000 | 309 ms |
 
-**En önemli bulgu:** coğrafi daraltma 75 kat fark yaratıyor. PostGIS ile önce
-daraltmak mimarinin kritik parçası.
+**Key finding:** geographic narrowing makes a 75× difference. Narrowing
+first with PostGIS is a critical part of the architecture.
 
-## 3. İsabet ölçümü — henüz yapılmadı
+## 3. Accuracy measurement — not done yet
 
-Asıl risk maliyet değil, modelin **sokak koşullarında aynı hayvanı tanıyıp
-tanımaması**: kötü ışık, uzaktan çekim, hareket hâlindeki hayvan, farklı açı.
+The real risk isn't cost but whether the model **recognizes the same animal
+under street conditions**: bad light, distant shots, a moving animal,
+different angles.
 
-Bu ölçüm geliştirme ortamında yapılamadı — ağ politikası model ağırlığı ve veri
-seti sunucularını (huggingface.co, download.pytorch.org, GitHub release, GCS)
-engelliyor; yalnızca PyPI açık, yani paket kurulabiliyor ama eğitilmiş ağırlık
-indirilemiyor.
+This measurement couldn't be done in the development environment — the
+network policy blocks the model-weight and dataset hosts (huggingface.co,
+download.pytorch.org, GitHub releases, GCS); only PyPI is open, so packages
+install but trained weights can't be downloaded.
 
-**Yapılması gereken:** ağ erişimi olan bir makinede, gerçek ağırlıklarla:
+**What needs to happen:** on a machine with network access, with real
+weights:
 
-1. 10–20 hayvan × 3–4 fotoğraf (aynı hayvanın farklı zaman/açılardan çekilmiş
-   fotoğrafları) toplanır — gerçek sokak fotoğrafları tercih edilir, yoksa
-   kimlik etiketli açık veri setleri kullanılır
-2. Her fotoğrafın vektörü çıkarılır
-3. Her fotoğraf sırayla "sorgu" yapılır, kalanlar arasında en benzer 5 bulunur
-4. **Metrik:** aynı hayvanın başka bir fotoğrafı ilk 5'te çıkıyor mu? (top-5 isabet)
-5. Ayrıca farklı hayvanların skor dağılımına bakılır — eşik belirlemek için
+1. Collect 10–20 animals × 3–4 photos (photos of the same animal from
+   different times/angles) — real street photos preferred, otherwise
+   identity-labeled open datasets
+2. Extract each photo's vector
+3. Query with each photo in turn, find the top 5 most similar among the rest
+4. **Metric:** does another photo of the same animal appear in the top 5?
+   (top-5 hit rate)
+5. Also examine the score distribution across different animals — to pick a
+   threshold
 
-Sonuç yeterliyse `pgvector` + PostGIS ile tam entegrasyona geçilir. Yetersizse
-akış baştan farklı tasarlanır (örn. yalnızca "yakındakileri göster" listesini
-sıralamak, otomatik eşleştirme iddiası olmadan).
+If the result is good enough, proceed to full `pgvector` + PostGIS
+integration. If not, redesign the flow from scratch (e.g. only ranking the
+"show nearby" list, with no automatic-matching claim).

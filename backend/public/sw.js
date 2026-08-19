@@ -8,7 +8,8 @@
  * bunu artırın, aksi halde eski sayfa görünmeye devam eder.
  */
 const CACHE = 'pati-tanitim-v2';
-// Yollar göreli: sayfa /tanitim/ altında servis ediliyor (kök web PWA'sının).
+// Paths are relative: the page is served under /tanitim/ (the root belongs
+// to the web PWA).
 const SHELL = [
   './',
   './manifest.webmanifest',
@@ -39,8 +40,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) return;
 
-  // Kabuk için "önce ağ, düşerse önbellek": güncel sayfa gelir, ağ yoksa
-  // eldeki kopya açılır.
+  // "Network first, cache on failure" for the shell: the fresh page loads,
+  // and without a network the stored copy opens.
   event.respondWith(
     fetch(event.request)
       .then((response) => {

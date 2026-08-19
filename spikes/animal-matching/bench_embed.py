@@ -1,10 +1,10 @@
 """
-Gömme (embedding) modelinin CPU üzerindeki gecikmesini ölçer.
+Measures the embedding model's latency on CPU.
 
-Ağırlıklar rastgele — bu ölçüm için sorun değil: ileri geçişin süresi mimariye,
-girdi boyutuna ve donanıma bağlı, ağırlıkların eğitilmiş olup olmamasına değil.
-Yani buradaki milisaniyeler gerçek DINOv2/CLIP ağırlıklarıyla da aynı olur.
-İsabet (doğruluk) bu ölçümle DEĞERLENDİRİLEMEZ.
+The weights are random — fine for this measurement: forward-pass time
+depends on the architecture, input size and hardware, not on whether the
+weights are trained. The milliseconds here come out the same with real
+DINOv2/CLIP weights. Accuracy CANNOT be evaluated with this measurement.
 """
 import time
 import torch
@@ -14,10 +14,10 @@ torch.set_grad_enabled(False)
 torch.set_num_threads(4)
 
 MODELS = {
-    "ViT-B/16 (86M) — CLIP/DINOv2 base sinifi": lambda: tvm.vit_b_16(weights=None),
-    "ViT-B/32 (88M) — CLIP ViT-B/32 sinifi": lambda: tvm.vit_b_32(weights=None),
-    "ResNet-50 (25M) — hafif alternatif": lambda: tvm.resnet50(weights=None),
-    "MobileNetV3-L (5M) — en hafif": lambda: tvm.mobilenet_v3_large(weights=None),
+    "ViT-B/16 (86M) — CLIP/DINOv2 base class": lambda: tvm.vit_b_16(weights=None),
+    "ViT-B/32 (88M) — CLIP ViT-B/32 class": lambda: tvm.vit_b_32(weights=None),
+    "ResNet-50 (25M) — lighter alternative": lambda: tvm.resnet50(weights=None),
+    "MobileNetV3-L (5M) — lightest": lambda: tvm.mobilenet_v3_large(weights=None),
 }
 
 WARMUP = 3
@@ -34,11 +34,11 @@ def bench(model, batch):
         model(x)
         times.append((time.perf_counter() - t0) * 1000)
     times.sort()
-    return times[len(times) // 2]  # medyan
+    return times[len(times) // 2]  # median
 
 
-print(f"CPU: {torch.get_num_threads()} is parcacigi\n")
-print(f"{'Model':<44} {'1 foto':>10} {'3 foto (toplu)':>16} {'foto basi':>11}")
+print(f"CPU: {torch.get_num_threads()} threads\n")
+print(f"{'Model':<44} {'1 photo':>10} {'3 photos (batch)':>16} {'per photo':>11}")
 print("-" * 84)
 
 results = {}
@@ -50,6 +50,6 @@ for name, build in MODELS.items():
     print(f"{name:<44} {single:>8.0f}ms {batch3:>14.0f}ms {batch3 / 3:>9.0f}ms")
 
 print()
-print("Kayit basi toplam ek sure (3 fotograf, toplu islenirse):")
+print("Total added time per record (3 photos, processed as a batch):")
 for name, (_, batch3) in results.items():
-    print(f"  {name:<44} {batch3 / 1000:>5.2f} sn")
+    print(f"  {name:<44} {batch3 / 1000:>5.2f} s")

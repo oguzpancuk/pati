@@ -1,7 +1,8 @@
 /*
- * Stüdyo estetiğinin tek yazı ailesi: Quicksand (SIL OFL, Google Fonts'tan
- * indirilip gömüldü — src/fonts/). Kendi dosyamızdan servis ediyoruz ki PWA
- * çevrimdışı da marka tipografisiyle açılsın, üçüncü tarafa istek gitmesin.
+ * The studio aesthetic's single type family: Quicksand (SIL OFL, downloaded
+ * from Google Fonts and embedded — src/fonts/). Served from our own files so
+ * the PWA opens with the brand typography offline too, with no third-party
+ * request.
  */
 @font-face {
   font-family: 'Quicksand';

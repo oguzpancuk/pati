@@ -1,7 +1,7 @@
 {
   "name": "pati-backend",
   "version": "0.1.0",
-  "description": "Sokak Hayvanları Takip Uygulaması - API",
+  "description": "pati — street-animal care platform API",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",

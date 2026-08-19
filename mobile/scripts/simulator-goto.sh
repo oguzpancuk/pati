@@ -1,17 +1,17 @@
 #!/bin/zsh
-# Çalışan iOS simülatöründe pati uygulamasını verilen derin bağlantıda
-# (pati://add-animal, pati://animal/12, pati://profile …) açar ve ekran
-# görüntüsü alır. iOS `simctl openurl` her seferinde "pati ile açılsın mı?"
-# diye sorduğu için bağlantı, uygulamanın __DEV__ modunda okuduğu AsyncStorage
-# anahtarına yazılıyor (bkz. mobile/src/navigation/index.tsx → linking).
+# Opens the pati app in the running iOS simulator at the given deep link
+# (pati://add-animal, pati://animal/12, pati://profile …) and takes a
+# screenshot. iOS `simctl openurl` asks "open with pati?" every time, so the
+# link is written into the AsyncStorage key the app reads in __DEV__ mode
+# (see mobile/src/navigation/index.tsx → linking).
 #
-#   mobile/scripts/simulator-goto.sh pati://add-animal out.png [bekleme_sn]
+#   mobile/scripts/simulator-goto.sh pati://add-animal out.png [wait_seconds]
 #
-# Oturum gerekir: AsyncStorage'da token yoksa giriş ekranı açılır; token
-# eklemek için simulator-login.sh kullanın.
+# A session is required: without a token in AsyncStorage the login screen
+# opens; use simulator-login.sh to add one.
 set -e
 URL="$1"; OUT="$2"; WAIT="${3:-8}"
-[ -z "$URL" ] && { echo "kullanım: $0 pati://yol cikti.png [sn]"; exit 1; }
+[ -z "$URL" ] && { echo "usage: $0 pati://path out.png [seconds]"; exit 1; }
 D=$(xcrun simctl list devices booted -j | node -pe 'Object.values(JSON.parse(require("fs").readFileSync(0)).devices).flat().find(d=>d.state==="Booted").udid')
 C=$(xcrun simctl get_app_container "$D" com.patiapp data)
 M="$C/Library/Application Support/com.patiapp/RCTAsyncLocalStorage_V1/manifest.json"
@@ -20,4 +20,4 @@ node -e 'const [f,u]=process.argv.slice(1);const fs=require("fs");const m=JSON.p
 xcrun simctl terminate "$D" com.patiapp 2>/dev/null || true
 xcrun simctl launch "$D" com.patiapp >/dev/null
 sleep "$WAIT"
-[ -n "$OUT" ] && xcrun simctl io "$D" screenshot "$OUT" >/dev/null 2>&1 && echo "ekran: $OUT"
+[ -n "$OUT" ] && xcrun simctl io "$D" screenshot "$OUT" >/dev/null 2>&1 && echo "screenshot: $OUT"

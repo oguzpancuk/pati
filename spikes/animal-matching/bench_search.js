@@ -1,12 +1,13 @@
 /**
- * Arama tarafının gerçek ölçekte ne kadar sürdüğünü ölçer.
+ * Measures how long the search side takes at realistic scale.
  *
- * Senaryo: kullanıcı yeni hayvan kaydediyor. Sunucu önce PostGIS ile 1 km
- * içindeki hayvanları daraltıyor, sonra bu adaylar arasında kosinüs benzerliğine
- * göre en benzeyen 5 hayvanı buluyor.
+ * Scenario: a user registers a new animal. The server first narrows to the
+ * animals within 1 km via PostGIS, then finds the 5 most similar among
+ * those candidates by cosine similarity.
  *
- * Vektörler rastgele — arama SÜRESİ vektörlerin anlamlı olup olmamasına bağlı
- * değil, sayısına ve boyutuna bağlı. İsabet bu ölçümle değerlendirilemez.
+ * The vectors are random — search TIME depends on their count and
+ * dimension, not on whether they are meaningful. Accuracy cannot be
+ * evaluated with this measurement.
  */
 const { Client } = require('/workspace/stray/backend/node_modules/pg');
 
@@ -15,7 +16,7 @@ const ANIMALS = Number(process.env.ANIMALS || 25000);
 const PHOTOS_PER_ANIMAL = 3;
 const RUNS = 20;
 
-// Kadıköy merkezli, gerçekçi bir yayılım (İstanbul ölçeğinde ~15 km).
+// A realistic spread centered on Kadıköy (~15 km, Istanbul scale).
 const CENTER = { lat: 40.9905, lng: 29.0277 };
 const SPREAD = 0.14;
 
@@ -40,7 +41,7 @@ async function main() {
   const client = new Client({ connectionString: 'postgresql://stray:stray@localhost:5432/stray' });
   await client.connect();
 
-  console.log(`Kurulum: ${ANIMALS} hayvan x ${PHOTOS_PER_ANIMAL} fotograf = ${ANIMALS * PHOTOS_PER_ANIMAL} vektor (${DIM} boyut)\n`);
+  console.log(`Setup: ${ANIMALS} animals x ${PHOTOS_PER_ANIMAL} photos = ${ANIMALS * PHOTOS_PER_ANIMAL} vectors (${DIM} dims)\n`);
 
   await client.query('DROP TABLE IF EXISTS bench_embeddings');
   await client.query(`
@@ -51,7 +52,7 @@ async function main() {
       embedding vector(${DIM}) NOT NULL
     )`);
 
-  process.stdout.write('  veri yaziliyor');
+  process.stdout.write('  writing data');
   const BATCH = 500;
   for (let a = 0; a < ANIMALS; a += BATCH) {
     const values = [];
@@ -74,7 +75,7 @@ async function main() {
     );
     if ((a / BATCH) % 10 === 0) process.stdout.write('.');
   }
-  console.log(' tamam');
+  console.log(' done');
 
   await client.query('CREATE INDEX ON bench_embeddings USING GIST (location)');
   await client.query('ANALYZE bench_embeddings');
@@ -82,9 +83,9 @@ async function main() {
   const size = await client.query(
     "SELECT pg_size_pretty(pg_total_relation_size('bench_embeddings')) AS s"
   );
-  console.log(`  tablo boyutu: ${size.rows[0].s}\n`);
+  console.log(`  table size: ${size.rows[0].s}\n`);
 
-  // --- Sorgu: 1 km icindeki adaylar arasinda en benzer 5 hayvan ---
+  // --- Query: the 5 most similar animals among the candidates within 1 km ---
   const SQL = `
     WITH candidates AS (
       SELECT animal_id, embedding
@@ -119,11 +120,11 @@ async function main() {
       }
     }
     console.log(
-      `  ${String(radius / 1000).padStart(2)} km yaricap  ->  ~${String(candidateCount).padStart(5)} aday vektor   medyan ${median(times).toFixed(1)} ms`
+      `  ${String(radius / 1000).padStart(2)} km radius  ->  ~${String(candidateCount).padStart(5)} candidate vectors   median ${median(times).toFixed(1)} ms`
     );
   }
 
-  // Karsilastirma: hic cografi daraltma yapmadan tum veri tabaninda arama
+  // Comparison: searching the whole database with no geographic narrowing
   const allTimes = [];
   for (let r = 0; r < 5; r += 1) {
     const q = JSON.stringify(randomVector());
@@ -136,7 +137,7 @@ async function main() {
     allTimes.push(Number(process.hrtime.bigint() - t0) / 1e6);
   }
   console.log(
-    `  cografi daraltma YOK -> ${ANIMALS * PHOTOS_PER_ANIMAL} vektor        medyan ${median(allTimes).toFixed(0)} ms  (indekssiz tam tarama)`
+    `  NO geographic narrowing -> ${ANIMALS * PHOTOS_PER_ANIMAL} vectors        median ${median(allTimes).toFixed(0)} ms  (unindexed full scan)`
   );
 
   await client.query('DROP TABLE bench_embeddings');
