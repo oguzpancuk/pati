@@ -146,7 +146,7 @@ Order: database → backend → mobile → web/admin.
 ### 1. Clone
 
 ```bash
-git clone https://github.com/oguzpancuk/Pati.git
+git clone https://github.com/oguzpancuk/pati.git
 cd Pati
 ```
 

@@ -1,7 +1,7 @@
 # pati — Project Document
 
 **Last updated:** August 2026
-**Repo:** https://github.com/oguzpancuk/Pati
+**Repo:** https://github.com/oguzpancuk/pati
 
 This document describes the whole project in one place: what it does, how it
 works, where it stands, and what comes next. For details:
