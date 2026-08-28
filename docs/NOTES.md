@@ -673,7 +673,18 @@ decision and the provider trade-offs. Working notes:
   150 ms timer modulates the paint expression and the default 300 ms paint
   transition smooths it. Care-circle alphas were unified to mobile's bolder
   numbers (`MAX_GREEN_ALPHA` 0.5) — the old web fills were fainter.
-- Verified: web light+dark playwright screenshots (streets, POIs, Turkish
-  labels render; Kadıköy). In-app browser panes/screencast tools can throttle rAF until an
+- Verified: web light+dark playwright screenshots and iOS simulator
+  light+dark screenshots (streets, POIs, Turkish labels, care circles,
+  animal avatar markers; Kadıköy). Android not run — no Android SDK on this
+  machine; the map code is platform-shared, but check an emulator launch
+  (and that the removed Google Maps key breaks nothing) when one is
+  available. MapLibre-native quirks found on iOS: LineLayers reject
+  polygon geometry (outlines now use LineString rings from
+  `circleRing`), Camera `maxBounds` does not clamp programmatic
+  `setCamera` (centerOnUser skips locations outside Turkey — the
+  simulator's San Francisco default hit this), and a benign per-tile
+  "Invalid geometry" WARN is swallowed via `Logger.setLogCallback`
+  (mobile/src/map/styles.ts).
+- In-app browser panes/screencast tools can throttle rAF until an
   interaction — a MapLibre map can look "stuck blank" there while being
   fine in a real browser; trust playwright/simulator screenshots.
