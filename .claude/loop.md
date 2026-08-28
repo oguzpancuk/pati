@@ -8,7 +8,7 @@ yields real work, do it, then report and end the tick.
 3. Tidy: answer at most one stale open question in docs/NOTES.md from the
    code; then stop.
 
-Bounds: never start a second item in one tick; never deploy (Ops does that);
-anything needing the simulator, local DB, or Fly goes to Ops — write the
+Bounds: never start a second item in one tick; never deploy;
+anything needing the simulator, local DB, or Fly is out of scope — write the
 handoff into docs/NOTES.md instead of attempting it. If nothing is
 actionable, say "quiet tick" and stop — do not invent work.

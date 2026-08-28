@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# THE verification battery — single implementation (the /verify command and
+# THE verification battery — single implementation (CI, /deploy-checklist and
 # the push-gate hook both call this; CLAUDE.md "Verification" documents it).
 # Modes:
 #   quick (default) — mobile tsc+jest, admin tsc, web tsc, backend load.
 #     Used by the push-gate before every push: fast, catches whole classes.
 #   full — quick + RN release bundle + admin build + web build.
-#     Used by /verify and before deploys; mirrors CI.
-# Style matches /verify's contract: a failing step does NOT stop the run —
+#     Used by CI and before deploys.
+# Contract: a failing step does NOT stop the run —
 # everything is attempted, then reported together. Missing node_modules is a
 # FAILURE, not a skip: what cannot be verified is not verified.
 set -uo pipefail

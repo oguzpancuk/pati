@@ -20,6 +20,30 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-08-28 — pre-maya agent setup retired; only the maya layout remains
+
+The August-19 "agent factory" (`.claude/commands/{start,verify}`, agents
+design-guardian / release-auditor / screen-verifier / test-writer, skills
+deploy / simulator-view / web-screenshot, and the CLAUDE.md sections
+"Session roles", "Working principles", "Helpers", "How we work", "Standing
+reminder") is gone. Owner decision: one layout per product, the maya
+template, so /update-stack can diff it. Where the content went:
+- `/start` → `contracts/init.sh` (DB + backend + health check; `--ios` for
+  the simulator). `/verify` → the commands table in CLAUDE.md.
+- `deploy` skill → the product-steps section of the template's
+  `/deploy-checklist` (Fly commands, verification, rollback).
+- Screenshot skills → the scripts they wrapped, listed in the commands
+  table (`mobile/scripts/simulator-*.sh`, `web/scripts/shot.mjs`).
+- code-reviewer / evaluator-qa → template verbatim; project rules are read
+  from CLAUDE.md, not baked into the agent.
+- CI → the template shape: one `verify` job running `verify.sh full` (plus
+  the schema migrate step and the docker build, which the battery does not
+  cover).
+- Dropped without a successor, by owner decision: the Ops/Developer session
+  roles, the "working principles" trio (challenge / institutionalize /
+  honesty — the global maya CLAUDE.md carries honesty), and the launch-sprint
+  standing reminder (docs/ROADMAP.md is the reminder).
+
 ## 1. Product decisions and rationale
 
 ### Distance tolerance is 20 meters

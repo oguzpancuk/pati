@@ -1,0 +1,15 @@
+{
+  "_comment": "No MCP servers by default — each one costs context and trust. Copy to .mcp.json and uncomment per MEASURED need. Candidates below are the researched shortlist.",
+  "mcpServers": {
+    "_playwright_when_evaluator_work_starts": {
+      "_comment": "Browser driving for evaluator-qa / UI verification. Prefer a project screenshot script first (cheaper in context); adopt this when interactive driving is actually needed.",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "_postgres_if_db_spelunking_becomes_frequent": {
+      "_comment": "Read-only DB inspection. Until then, psql via Bash is enough.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"]
+    }
+  }
+}

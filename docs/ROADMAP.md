@@ -397,7 +397,7 @@ Developer side, done and verified in this repo:
 - [x] Guide (tutorial) data live with hourly refresh
 
 Ops/owner side, still open — the actual go/no-go gates:
-- [ ] `git pull` + `deploy` (ships everything above), then smoke-test
+- [ ] `git pull` + `/deploy-checklist` (ships everything above), then smoke-test
       /gizlilik, a report, and an account deletion against production
 - [ ] iletisim@pati-app.com mailbox or forward (KVKK requests must land)
 - [ ] Check Fly volume snapshots are enabled (photo files' only backup
@@ -437,7 +437,7 @@ Deliberately deferred, with reasons:
 **Quality:**
 - [x] CI (web/admin/mobile/backend/docker gates on every push —
       `.github/workflows/ci.yml`, August 19)
-- [ ] Backend tests (the `test-writer` subagent can bootstrap jest+supertest)
+- [ ] Backend tests (jest + supertest; none exist yet)
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
 **Distribution:**
