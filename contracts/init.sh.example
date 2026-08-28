@@ -7,7 +7,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 # [STACK: e.g.
 #   npm ci
-#   npm run dev &            # dev server in background
+#   # Background servers must leave the caller's process group: an agent's
+#   # shell tool waits on (and kills) the whole group, so a plain `… &`
+#   # hangs the tool or dies with it. perl ships on macOS and CI images.
+#   (perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' -- \
+#      nohup npm run dev >/tmp/app.log 2>&1 </dev/null &)
 #   sleep 3
 #   curl -sf http://localhost:3000/health   # smoke check — fail loudly
 # ]
