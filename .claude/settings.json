@@ -10,7 +10,6 @@
       "Bash(npm test:*)",
       "Bash(npm run lint:*)",
       "Bash(npm run migrate)",
-      "Bash(npm run seed)",
       "Bash(npx tsc:*)",
       "Bash(npx jest:*)",
       "Bash(npx prettier:*)",
