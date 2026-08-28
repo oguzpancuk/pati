@@ -33,8 +33,51 @@ fi
 
 # Force pushes: blocked here regardless of battery state. The settings.json
 # deny rules are prefix-matched best-effort; this is the real guard.
-if printf '%s' "$cmd" | grep -Eq '(^|[[:space:]])(--force(-with-lease(=[^[:space:]]*)?)?([[:space:]]|$)|-f([[:space:]]|$))' \
-   || printf '%s' "$cmd" | grep -Eq 'push[^;&|]*[[:space:]]\+[[:alnum:]_/-]'; then
+# Only the push command's OWN arguments are inspected: a shell-aware split
+# keeps quoted strings whole, so a commit message that mentions "git push -f"
+# on the same command line no longer trips the gate. Exit 1 = force push,
+# 0 = clean push, 3 = unbalanced quotes, 4 = no push segment recognised.
+force_rc=0
+printf '%s' "$cmd" | python3 -c '
+import shlex, sys
+cmd = sys.stdin.read()
+try:
+    toks = list(shlex.shlex(cmd, posix=True, punctuation_chars=True))
+except ValueError:
+    sys.exit(3)
+segs, cur = [], []
+for t in toks:
+    if t and all(c in ";&|()" for c in t):
+        if cur: segs.append(cur); cur = []
+    else:
+        cur.append(t)
+if cur: segs.append(cur)
+found = False
+for seg in segs:
+    if "git" not in seg: continue
+    j = seg.index("git") + 1
+    while j < len(seg) and seg[j].startswith("-"):
+        j += 2 if seg[j] in ("-C", "-c") else 1
+    if j >= len(seg) or seg[j] != "push": continue
+    found = True
+    for a in seg[j + 1:]:
+        if a == "--force" or a.startswith("--force-with-lease") or a.startswith("+"):
+            sys.exit(1)
+        if a.startswith("-") and not a.startswith("--") and "f" in a[1:]:
+            sys.exit(1)
+sys.exit(0 if found else 4)
+' || force_rc=$?
+case "$force_rc" in
+  0) ;;
+  4) # The regex saw a push the tokenizer did not (inside $(...) or backticks):
+     # fall back to scanning the whole line, erring on the side of blocking.
+     if printf '%s' "$cmd" | grep -Eq '(^|[[:space:]])(--force(-with-lease(=[^[:space:]]*)?)?([[:space:]]|$)|-f([[:space:]]|$))' \
+        || printf '%s' "$cmd" | grep -Eq 'push[^;&|]*[[:space:]]\+[[:alnum:]_/-]'; then
+       force_rc=1
+     fi ;;
+  *) force_rc=1 ;;  # a force push, or unparseable input -> fail closed
+esac
+if [ "$force_rc" -ne 0 ]; then
   echo "push-gate: force push BLOCKED. If truly intended, run it yourself in a terminal." >&2
   exit 2
 fi
