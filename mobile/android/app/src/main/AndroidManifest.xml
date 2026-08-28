@@ -16,10 +16,6 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme">
-      <!-- react-native-maps (Google Maps SDK) için gereklidir, bkz. android/app/src/main/res/values/google_maps_api.xml.example -->
-      <meta-data
-        android:name="com.google.android.geo.API_KEY"
-        android:value="@string/google_maps_key" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

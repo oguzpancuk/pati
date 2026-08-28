@@ -1,8 +1,20 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Circle, Marker, Region as MapRegion } from 'react-native-maps';
+import {
+  Camera,
+  CameraRef,
+  CircleLayer,
+  FillLayer,
+  LineLayer,
+  MapView,
+  MapViewRef,
+  MarkerView,
+  RegionPayload,
+  ShapeSource,
+} from '@maplibre/maplibre-react-native';
+import type { Feature, Point } from 'geojson';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import {
   addCareAction,
@@ -18,43 +30,52 @@ import HeartBurst, { HEART_BURST_DURATION_MS, heartRiseFor } from '../components
 import UserLocationMarker from '../components/UserLocationMarker';
 import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
+import { circlePolygon, circleRing, featureCollection, pointFeature } from '../map/geo';
+import { mapStyles } from '../map/styles';
 import { Button, Text } from '../components/ui';
 import { Gradient, Icon } from '../components/brand';
-import { caredFill, makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
+import { makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 
 // Turkey's approximate geographic bounding box (not an exact administrative
-// border). The map focuses on this area and the user can't pan far outside.
+// border). The map focuses on this area and the user can't pan far outside
+// (the Camera's maxBounds enforces it natively).
 const TURKEY_BOUNDS = {
   minLat: 35.8,
   maxLat: 42.1,
   minLng: 25.6,
   maxLng: 44.8,
 };
-const TURKEY_REGION: MapRegion = {
-  latitude: (TURKEY_BOUNDS.minLat + TURKEY_BOUNDS.maxLat) / 2,
-  longitude: (TURKEY_BOUNDS.minLng + TURKEY_BOUNDS.maxLng) / 2,
-  latitudeDelta: TURKEY_BOUNDS.maxLat - TURKEY_BOUNDS.minLat,
-  longitudeDelta: TURKEY_BOUNDS.maxLng - TURKEY_BOUNDS.minLng,
+const TURKEY_CAMERA_BOUNDS = {
+  ne: [TURKEY_BOUNDS.maxLng, TURKEY_BOUNDS.maxLat],
+  sw: [TURKEY_BOUNDS.minLng, TURKEY_BOUNDS.minLat],
 };
+const TURKEY_CENTER: [number, number] = [
+  (TURKEY_BOUNDS.minLng + TURKEY_BOUNDS.maxLng) / 2,
+  (TURKEY_BOUNDS.minLat + TURKEY_BOUNDS.maxLat) / 2,
+];
 
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 // Animals are fetched only near the user (200 m): their business is with
 // the animals on their own street, distant ones crowded the map. (Same rule
 // as the web map.)
 const ANIMAL_RADIUS_METERS = 200;
-const USER_ZOOM_DELTA = 0.03;
-const MIN_DELTA = 0.001;
-const MAX_DELTA = 40;
 
-// Animal avatars draw only when zoomed well into building/street scale
-// (~0.004° ≈ a 450 m viewport); from farther out dozens of avatars piled up
-// and covered the map.
-const ANIMAL_VISIBLE_MAX_DELTA = 0.004;
+// Zoom levels are shared numbers with web/src/pages/MapPage.tsx — the same
+// MapLibre zoom scale on every platform, so the three clients behave alike.
+// Change one, change the other.
+const COUNTRY_ZOOM = 5;
+const USER_ZOOM = 16;
+const MIN_ZOOM = 5;
+const MAX_ZOOM = 19;
+
+// Animal avatars draw only when zoomed well into building/street scale;
+// from farther out dozens of avatars piled up and covered the map.
+const ANIMAL_VISIBLE_MIN_ZOOM = 17;
 
 // The scale the map focuses to after leaving food/water: slightly below
 // street scale so the green circle (100 m) and the animals in it fit
 // comfortably.
-const CELEBRATE_ZOOM_DELTA = 0.003;
+const CELEBRATE_ZOOM = 18;
 const CELEBRATE_ZOOM_MS = 400;
 const ANIMAL_MARKER_SIZE = 36;
 const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
@@ -77,10 +98,11 @@ function weightToGreenAlpha(weight: number) {
 
 export default function MapScreen({ navigation }: any) {
   const styles = useStyles();
-  const { colors } = useTheme();
+  const { name: themeName, colors } = useTheme();
   const { celebrate } = useBadgeAwards();
-  const mapRef = useRef<MapView>(null);
-  const currentRegionRef = useRef<MapRegion>(TURKEY_REGION);
+  const mapRef = useRef<MapViewRef>(null);
+  const cameraRef = useRef<CameraRef>(null);
+  const currentZoomRef = useRef(COUNTRY_ZOOM);
   const mapReadyRef = useRef(false);
   const pendingCenterRef = useRef<Coordinates | null>(null);
   const hasCenteredOnUser = useRef(false);
@@ -112,22 +134,30 @@ export default function MapScreen({ navigation }: any) {
 
   function centerOnUser(loc: Coordinates) {
     if (hasCenteredOnUser.current) return;
+    // Outside the service area (e.g. the simulator's San Francisco default)
+    // the map stays on the Turkey overview; the Camera's maxBounds guards
+    // gestures but not programmatic moves like this one.
+    if (
+      loc.lat < TURKEY_BOUNDS.minLat ||
+      loc.lat > TURKEY_BOUNDS.maxLat ||
+      loc.lng < TURKEY_BOUNDS.minLng ||
+      loc.lng > TURKEY_BOUNDS.maxLng
+    ) {
+      return;
+    }
     if (!mapReadyRef.current) {
-      // animateToRegion can be silently ignored while the native map isn't
+      // A camera move can be silently ignored while the native map isn't
       // ready yet; the location is stored to retry once it is.
       pendingCenterRef.current = loc;
       return;
     }
     hasCenteredOnUser.current = true;
-    mapRef.current?.animateToRegion(
-      {
-        latitude: loc.lat,
-        longitude: loc.lng,
-        latitudeDelta: USER_ZOOM_DELTA,
-        longitudeDelta: USER_ZOOM_DELTA,
-      },
-      500
-    );
+    cameraRef.current?.setCamera({
+      centerCoordinate: [loc.lng, loc.lat],
+      zoomLevel: USER_ZOOM,
+      animationMode: 'flyTo',
+      animationDuration: 500,
+    });
   }
 
   function handleMapReady() {
@@ -173,20 +203,13 @@ export default function MapScreen({ navigation }: any) {
     }, [load])
   );
 
-  function handleRegionChangeComplete(region: MapRegion) {
-    currentRegionRef.current = region;
-    setAnimalsVisible(region.latitudeDelta <= ANIMAL_VISIBLE_MAX_DELTA);
+  function handleRegionDidChange(feature: Feature<Point, RegionPayload>) {
+    // No Turkey clamp here anymore: the Camera's maxBounds keeps the center
+    // inside the box natively.
+    const { zoomLevel } = feature.properties;
+    currentZoomRef.current = zoomLevel;
+    setAnimalsVisible(zoomLevel >= ANIMAL_VISIBLE_MIN_ZOOM);
     if (pendingHeartsRef.current) flushPendingHearts();
-
-    const { latitude, longitude } = region;
-    if (
-      latitude < TURKEY_BOUNDS.minLat ||
-      latitude > TURKEY_BOUNDS.maxLat ||
-      longitude < TURKEY_BOUNDS.minLng ||
-      longitude > TURKEY_BOUNDS.maxLng
-    ) {
-      mapRef.current?.animateToRegion(TURKEY_REGION, 300);
-    }
   }
 
   function handleAnimalPress(animalId: number) {
@@ -208,15 +231,12 @@ export default function MapScreen({ navigation }: any) {
         }) <= ACTION_CIRCLE_RADIUS_METERS
     );
 
-    mapRef.current?.animateToRegion(
-      {
-        latitude: origin.lat,
-        longitude: origin.lng,
-        latitudeDelta: CELEBRATE_ZOOM_DELTA,
-        longitudeDelta: CELEBRATE_ZOOM_DELTA,
-      },
-      CELEBRATE_ZOOM_MS
-    );
+    cameraRef.current?.setCamera({
+      centerCoordinate: [origin.lng, origin.lat],
+      zoomLevel: CELEBRATE_ZOOM,
+      animationMode: 'flyTo',
+      animationDuration: CELEBRATE_ZOOM_MS,
+    });
     setAnimalsVisible(true);
     if (affected.length === 0) return;
 
@@ -236,11 +256,11 @@ export default function MapScreen({ navigation }: any) {
 
     const bursts = await Promise.all(
       affected.map(async (animal) => {
-        const point = await map.pointForCoordinate({
-          latitude: animal.location.coordinates[1],
-          longitude: animal.location.coordinates[0],
-        });
-        return { id: animal.id, x: point.x, y: point.y };
+        const [x, y] = await map.getPointInView([
+          animal.location.coordinates[0],
+          animal.location.coordinates[1],
+        ]);
+        return { id: animal.id, x, y };
       })
     );
     setHearts((prev) => ({ bursts, round: prev.round + 1 }));
@@ -300,106 +320,155 @@ export default function MapScreen({ navigation }: any) {
     }
   }
 
-  function zoomBy(factor: number) {
-    const current = currentRegionRef.current;
-    const nextRegion: MapRegion = {
-      ...current,
-      latitudeDelta: Math.min(MAX_DELTA, Math.max(MIN_DELTA, current.latitudeDelta * factor)),
-      longitudeDelta: Math.min(MAX_DELTA, Math.max(MIN_DELTA, current.longitudeDelta * factor)),
-    };
-    currentRegionRef.current = nextRegion;
-    mapRef.current?.animateToRegion(nextRegion, 200);
+  function zoomBy(step: number) {
+    const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoomRef.current + step));
+    currentZoomRef.current = next;
+    cameraRef.current?.zoomTo(next, 200);
   }
 
   const sheetNeedsCare = !status || status.needsAttention;
+
+  // Care circles as one GeoJSON source: the fill carries freshness per
+  // feature (data-driven opacity), so hundreds of records are still a single
+  // native layer instead of hundreds of views.
+  const careShapes = useMemo(
+    () =>
+      featureCollection(
+        actions.map((action) => {
+          const alpha = weightToGreenAlpha(Number(action.weight));
+          return circlePolygon(
+            { lat: action.location.coordinates[1], lng: action.location.coordinates[0] },
+            ACTION_CIRCLE_RADIUS_METERS,
+            // Studio language: a soft fill with a thin outline in the same
+            // tone. Freshness still lives in the fill — newer records are
+            // bolder.
+            { alpha }
+          );
+        })
+      ),
+    [actions]
+  );
+  // Outlines as LineString rings — LineLayers reject polygon geometry on
+  // MapLibre native (see map/geo.ts).
+  const careStrokes = useMemo(
+    () =>
+      featureCollection(
+        actions.map((action) => {
+          const alpha = weightToGreenAlpha(Number(action.weight));
+          return circleRing(
+            { lat: action.location.coordinates[1], lng: action.location.coordinates[0] },
+            ACTION_CIRCLE_RADIUS_METERS,
+            { strokeAlpha: Math.min(alpha + 0.25, 0.75) }
+          );
+        })
+      ),
+    [actions]
+  );
+  const careCenters = useMemo(
+    () =>
+      featureCollection(
+        actions.map((action) =>
+          pointFeature({
+            lat: action.location.coordinates[1],
+            lng: action.location.coordinates[0],
+          })
+        )
+      ),
+    [actions]
+  );
+  // The dashed 200 m ring marks the range where animals are drawn — the
+  // depiction in the handoff.
+  const userRing = useMemo(
+    () => (myLocation ? circleRing(myLocation, ANIMAL_RADIUS_METERS) : null),
+    [myLocation]
+  );
 
   return (
     <View style={styles.container}>
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        mapType="standard"
-        initialRegion={TURKEY_REGION}
-        onMapReady={handleMapReady}
-        onRegionChangeComplete={handleRegionChangeComplete}
+        mapStyle={mapStyles[themeName]}
+        rotateEnabled={false}
+        pitchEnabled={false}
+        // OpenMapTiles + OSM attribution (required); top-left, clear of the
+        // floating controls. The MapLibre logo is optional and stays off.
+        attributionEnabled
+        attributionPosition={{ top: 64, left: 8 }}
+        onDidFinishLoadingMap={handleMapReady}
+        onRegionDidChange={handleRegionDidChange}
       >
-        {actions.map((action) => {
-          const alpha = weightToGreenAlpha(Number(action.weight));
-          const center = {
-            latitude: action.location.coordinates[1],
-            longitude: action.location.coordinates[0],
-          };
-          return (
-            <React.Fragment key={action.id}>
-              {/* Studio language: a soft fill with a thin outline in the same
-                  tone. Freshness still lives in the fill — newer records are
-                  bolder. */}
-              <Circle
-                center={center}
-                radius={ACTION_CIRCLE_RADIUS_METERS}
-                fillColor={caredFill(alpha)}
-                strokeColor={caredFill(Math.min(alpha + 0.25, 0.75))}
-                strokeWidth={1.5}
-              />
-              {/* The center dot only at street scale: from afar hundreds of
-                  dots would speckle the map for no gain. */}
-              {animalsVisible && (
-                <Circle
-                  center={center}
-                  radius={6}
-                  fillColor={mapColors.cared}
-                  strokeColor="transparent"
-                />
-              )}
-            </React.Fragment>
-          );
-        })}
+        <Camera
+          ref={cameraRef}
+          defaultSettings={{ centerCoordinate: TURKEY_CENTER, zoomLevel: COUNTRY_ZOOM }}
+          maxBounds={TURKEY_CAMERA_BOUNDS}
+          minZoomLevel={MIN_ZOOM}
+          maxZoomLevel={MAX_ZOOM}
+        />
 
-        {myLocation && (
-          <Marker
-            coordinate={{ latitude: myLocation.lat, longitude: myLocation.lng }}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
-          >
-            <UserLocationMarker />
-          </Marker>
+        <ShapeSource id="care-circles" shape={careShapes}>
+          <FillLayer
+            id="care-circles-fill"
+            style={{ fillColor: mapColors.cared, fillOpacity: ['get', 'alpha'] }}
+          />
+        </ShapeSource>
+        <ShapeSource id="care-strokes" shape={careStrokes}>
+          <LineLayer
+            id="care-circles-stroke"
+            style={{
+              lineColor: mapColors.cared,
+              lineOpacity: ['get', 'strokeAlpha'],
+              lineWidth: 1.5,
+            }}
+          />
+        </ShapeSource>
+        {/* The center dot only at street scale: from afar hundreds of dots
+            would speckle the map for no gain. */}
+        <ShapeSource id="care-centers" shape={careCenters}>
+          <CircleLayer
+            id="care-centers-dot"
+            minZoomLevel={ANIMAL_VISIBLE_MIN_ZOOM}
+            style={{ circleColor: mapColors.cared, circleRadius: 5 }}
+          />
+        </ShapeSource>
+
+        {userRing && (
+          <ShapeSource id="user-ring" shape={userRing}>
+            <LineLayer
+              id="user-ring-stroke"
+              minZoomLevel={ANIMAL_VISIBLE_MIN_ZOOM}
+              style={{
+                lineColor: mapColors.userRadiusStroke,
+                lineWidth: 1.2,
+                lineDasharray: [4, 6],
+              }}
+            />
+          </ShapeSource>
         )}
 
-        {/* The dashed 200 m ring marks the range where animals are drawn —
-            the depiction in the handoff. */}
-        {myLocation && animalsVisible && (
-          <Circle
-            center={{ latitude: myLocation.lat, longitude: myLocation.lng }}
-            radius={ANIMAL_RADIUS_METERS}
-            fillColor="transparent"
-            strokeColor={mapColors.userRadiusStroke}
-            strokeWidth={1.2}
-            lineDashPattern={[4, 6]}
-          />
+        {myLocation && (
+          <MarkerView coordinate={[myLocation.lng, myLocation.lat]} anchor={{ x: 0.5, y: 0.5 }}>
+            <UserLocationMarker />
+          </MarkerView>
         )}
 
         {animalsVisible &&
           animals.map((animal) => (
-            <Marker
+            <MarkerView
               key={`animal-${animal.id}`}
-              coordinate={{
-                latitude: animal.location.coordinates[1],
-                longitude: animal.location.coordinates[0],
-              }}
-              onPress={() => handleAnimalPress(animal.id)}
-              tracksViewChanges={false}
+              coordinate={[animal.location.coordinates[0], animal.location.coordinates[1]]}
               anchor={{ x: 0.5, y: 0.5 }}
             >
               {/* The avatar sits in a 42pt white disc (handoff size) so it
                   separates from the map ground at any zoom. */}
-              <View style={styles.animalMarker}>
+              <Pressable style={styles.animalMarker} onPress={() => handleAnimalPress(animal.id)}>
                 <AnimalAvatar
                   species={animal.species}
                   breed={animal.breed}
                   size={ANIMAL_MARKER_SIZE}
                 />
-              </View>
-            </Marker>
+              </Pressable>
+            </MarkerView>
           ))}
       </MapView>
 
@@ -472,14 +541,14 @@ export default function MapScreen({ navigation }: any) {
         <View style={styles.roundStack}>
           <Pressable
             style={styles.roundButton}
-            onPress={() => zoomBy(0.5)}
+            onPress={() => zoomBy(1)}
             accessibilityLabel="Yakınlaştır"
           >
             <Text style={styles.roundButtonText}>+</Text>
           </Pressable>
           <Pressable
             style={styles.roundButton}
-            onPress={() => zoomBy(2)}
+            onPress={() => zoomBy(-1)}
             accessibilityLabel="Uzaklaştır"
           >
             <Text style={styles.roundButtonText}>−</Text>

@@ -145,11 +145,7 @@ body,
 }
 
 body {
-  font-family:
-    'Quicksand',
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  font-family: 'Quicksand', -apple-system, 'Segoe UI', sans-serif;
   background: var(--background);
   color: var(--text);
   font-weight: 500;
@@ -644,7 +640,7 @@ strong {
   cursor: pointer;
 }
 
-/* Leaflet: the animal marker — the avatar in a 42px white circle */
+/* The animal marker — the avatar in a 42px white circle (a MapLibre DOM marker) */
 .animal-marker {
   width: 42px;
   height: 42px;
@@ -657,18 +653,15 @@ strong {
   box-shadow: var(--shadow-float);
 }
 
-/* The coverage rings' "breathing" animation (via className on the Leaflet path) */
-@keyframes patiNefes {
-  0%,
-  100% {
-    opacity: 0.42;
-  }
-  50% {
-    opacity: 0.72;
-  }
-}
-.nefes {
-  animation: patiNefes 4.5s ease-in-out infinite;
+/* The user's location: the familiar charcoal dot in a white ring. The ring
+   stays white in both themes — it sits on the map, not on the app surface. */
+.user-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #21201e;
+  border: 3px solid #fff;
+  box-shadow: var(--shadow-float);
 }
 
 .photo-strip {

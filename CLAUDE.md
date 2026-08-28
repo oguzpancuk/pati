@@ -17,7 +17,7 @@ Design system: `docs/DESIGN.md` · Deploy: `docs/DEPLOYMENT.md`
 ```
 backend/   Node.js + Express, PostgreSQL 16 + PostGIS, JWT + bcrypt
 mobile/    React Native 0.74 + TypeScript  ← primary app
-web/       React 18 + Vite PWA (permanent third client, Leaflet map)
+web/       React 18 + Vite PWA (permanent third client, MapLibre map)
 admin/     React 18 + Vite + TypeScript (admin panel)
 shared/    Plain-SVG generators (human + animal avatars) for admin and web
 ```
@@ -68,6 +68,11 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
 - **Avatar art exists in two technologies**: react-native-svg components
   (`mobile/src/components/avatars/`) and plain-SVG generators (`shared/`).
   A face changes in both or in neither.
+- **The basemap styles are generated files.** All three clients render
+  MapLibre with `mobile/src/map/styles/pati-{light,dark}.json`; never edit
+  those JSONs by hand — change `shared/mapstyle/build.mjs` and rerun it
+  (ADR-0002). Mobile's `@maplibre/maplibre-react-native` is pinned to
+  10.4.2 until the RN new-architecture upgrade.
 
 ### Mobile UI (details: docs/DESIGN.md)
 

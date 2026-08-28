@@ -12,6 +12,13 @@ export function readThemeMode(): ThemeMode {
   return v === 'light' || v === 'dark' ? v : 'system';
 }
 
+/** The theme actually in effect right now (mode "system" resolved via media query). */
+export function resolvedThemeName(): 'light' | 'dark' {
+  const mode = readThemeMode();
+  if (mode !== 'system') return mode;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export function applyThemeMode(mode: ThemeMode) {
   if (mode === 'system') {
     localStorage.removeItem(KEY);

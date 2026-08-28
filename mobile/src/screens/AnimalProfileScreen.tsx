@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import MapView, { Marker } from 'react-native-maps';
+import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
+import { mapStyles } from '../map/styles';
 import {
   addAnimalComment,
   addHealthRecord,
@@ -93,7 +94,7 @@ const RECORD_PREVIEW = 2;
 
 export default function AnimalProfileScreen({ route, navigation }: any) {
   const styles = useStyles();
-  const { colors } = useTheme();
+  const { name: themeName, colors } = useTheme();
   const { celebrate } = useBadgeAwards();
   const { animalId } = route.params;
   // When viewed from the add-animal flow as "is this the animal?", a
@@ -340,20 +341,19 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         <View style={styles.miniMapWrapper}>
           <MapView
             style={styles.miniMap}
-            region={{
-              latitude,
-              longitude,
-              latitudeDelta: 0.005,
-              longitudeDelta: 0.005,
-            }}
+            mapStyle={mapStyles[themeName]}
             scrollEnabled={false}
             zoomEnabled={false}
             pitchEnabled={false}
             rotateEnabled={false}
+            // A static thumbnail; the full map screen carries the required
+            // OpenMapTiles/OSM attribution.
+            attributionEnabled={false}
           >
-            <Marker coordinate={{ latitude, longitude }} anchor={{ x: 0.5, y: 0.5 }}>
+            <Camera defaultSettings={{ centerCoordinate: [longitude, latitude], zoomLevel: 16 }} />
+            <MarkerView coordinate={[longitude, latitude]} anchor={{ x: 0.5, y: 0.5 }}>
               <AnimalAvatar species={animal.species} breed={animal.breed} size={32} />
-            </Marker>
+            </MarkerView>
           </MapView>
         </View>
 

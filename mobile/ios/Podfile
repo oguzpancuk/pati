@@ -36,5 +36,7 @@ target 'StrayMobile' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    # Required by @maplibre/maplibre-react-native (see its React Native setup doc).
+    $MLRN.post_install(installer)
   end
 end
