@@ -451,6 +451,19 @@ after a resolve. The legal text lives in `web/src/legal.ts` and is served at
 `/gizlilik`; mobile links to the hosted page instead of embedding a copy, so
 a legal edit ships without an app-store release.
 
+### iOS lockfiles and the generated privacy manifest are committed; the pilot's financial model is not
+`Podfile.lock`, `Gemfile.lock` and `StrayMobile.xcworkspace` went untracked
+for months, which meant no other machine (or CI) could reproduce the exact
+pod set. They are now versioned like any lockfile. React Native 0.74's
+`pod install` post-install step rewrites `PrivacyInfo.xcprivacy` (merging
+the reasons the pods require, e.g. `3B52.1`) and links it into the target's
+Resources; that rewrite is deterministic and required by the App Store, so
+its output is committed rather than reverted after every install.
+`docs/pilot/` holds the pilot plan and the veterinary promo PDF (the plan's
+attachment); the revenue-model spreadsheet is gitignored because the repo
+is a portfolio piece that may go public and a binary spreadsheet in git
+history cannot be un-published later.
+
 ## 3. Known limits and technical debt
 
 To close before production, in rough priority order:

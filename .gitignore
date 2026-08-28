@@ -12,3 +12,6 @@ ds-bundle/
 .design-sync/node_modules
 orchestrator/
 __pycache__/
+
+# docs/pilot: internal financial model stays out of version control (see docs/NOTES.md)
+docs/pilot/*.xlsx
