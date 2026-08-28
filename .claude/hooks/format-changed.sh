@@ -19,9 +19,12 @@ except Exception:
 cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
 
 # Prettier, only if this project actually carries it (no global install use).
+# pati has no root package.json; prettier lives in mobile/ (root .prettierrc.json
+# still applies — prettier resolves config from the file's directory upward).
 if [ -x node_modules/.bin/prettier ]; then
   node_modules/.bin/prettier --write --ignore-unknown "$file_path" >/dev/null 2>&1 || true
+elif [ -x mobile/node_modules/.bin/prettier ]; then
+  mobile/node_modules/.bin/prettier --write --ignore-unknown "$file_path" >/dev/null 2>&1 || true
 fi
-# [STACK: add other formatters here, e.g. gofmt, ruff format, mix format]
 
 exit 0
