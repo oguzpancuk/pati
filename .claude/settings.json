@@ -18,14 +18,14 @@
       "Bash(pod install)",
       "Bash(xcrun simctl list:*)",
       "Bash(curl -s http://localhost:3000/*)",
-      "Read(**)",
-      "Grep(**)",
-      "Glob(**)"
+      "Read(**)"
     ],
     "deny": [
       "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
       "Bash(rm -rf:*)",
-      "Read(./backend/.env)"
+      "Read(**/.env)",
+      "Read(**/.env.*)"
     ]
   },
   "hooks": {

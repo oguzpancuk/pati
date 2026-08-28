@@ -16,7 +16,11 @@ When you make a decision or knowingly accept a limit, add a line here.
      inherit. /update-stack harvests this list monthly. Format:
      date · file · one-line what/why. Remove entries once upstreamed. -->
 
-(none yet)
+2026-08-28 · `.claude/hooks/format-changed.sh` · Monorepos without a root
+`package.json` never hit the prettier branch (pati keeps it in `mobile/`).
+Generalize the STACK slot: fall back to the nearest workspace
+`node_modules/.bin/prettier` instead of assuming the repo root.
+
 
 ---
 
