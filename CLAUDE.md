@@ -61,6 +61,11 @@ cd web      && npx tsc --noEmit && npm run build
 cd backend  && node -e "require('./src/app.js')"   # no tests, see below
 ```
 
+The battery's executable form is `bash .claude/hooks/verify.sh full`
+(what `/verify` runs). A `quick` mode (tsc x3 + jest + backend load) runs
+automatically before every `git push` via the push-gate hook — red battery
+means the push is blocked; force pushes are always blocked.
+
 **The backend has no automated tests.** Changes are verified manually with
 curl. Writing tests is on the roadmap; if you touched the backend, actually run
 the end-to-end verification — never say "it probably works".
@@ -150,7 +155,14 @@ Ready in the repo (`.claude/`); every session and subagent sees them at startup:
 - **Subagents:** `code-reviewer` (read-only review), `test-writer` (writes/runs
   tests), `release-auditor` (release-sprint audit), `screen-verifier` (visual
   verification; Ops only), `design-guardian` (audits UI diffs against the
-  docs/design handoff)
+  docs/design handoff), `evaluator-qa` (skeptical judge of "done" claims;
+  collects its own evidence, defaults to NEEDS_WORK)
+- **Hooks** (`.claude/hooks/`, wired in settings.json): format-on-edit;
+  push-gate (quick battery green required before any push; force push always
+  blocked). `verify.sh` is the battery's single implementation.
+- **Unattended runs:** `contracts/` (feature list + evidence gates, OFF by
+  default — see `contracts/README.md`). Maintenance tick: `.claude/loop.md`.
+  Instantiated-from: `.maya-version` (maya repo)
 - **CI:** `.github/workflows/ci.yml` gates web/admin/mobile/backend/docker on
   every push. If it's red, don't deploy.
 

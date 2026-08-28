@@ -9,6 +9,17 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+## Upstream candidates (maya)
+
+<!-- Improvements made HERE to files that came from the maya template
+     (.claude/hooks/, contracts/, evaluator-qa, loop.md) that maya should
+     inherit. /update-stack harvests this list monthly. Format:
+     date · file · one-line what/why. Remove entries once upstreamed. -->
+
+(none yet)
+
+---
+
 ## 1. Product decisions and rationale
 
 ### Distance tolerance is 20 meters

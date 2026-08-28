@@ -2,18 +2,15 @@
 description: Run the full verification battery (mobile tsc+jest+bundle, admin build, web build, backend load)
 ---
 
-Verify the whole project and report the result as a short table. In order:
+Run `bash .claude/hooks/verify.sh full` — the single implementation of the
+battery (the same script the push-gate hook runs in `quick` mode before every
+push, and CI mirrors). It attempts every step even after a failure and prints
+a combined summary.
 
-1. `cd mobile && npx tsc --noEmit && npx jest`
-2. `cd mobile && npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output /tmp/pati-bundle.js`
-3. `cd admin && npx tsc --noEmit && npm run build`
-4. `cd web && npx tsc --noEmit && npm run build`
-5. `cd backend && node -e "require('./src/app.js')"`
+Then report:
 
-Rules:
-
-- If a step fails, DO NOT stop — run the remaining steps too and report them
-  all together at the end (which step, which error, which file).
-- If there are errors, first state the root cause in one sentence, then
-  propose a fix; do not start fixing without my approval.
-- If everything is clean, one line is enough: "✅ 5/5 clean".
+- If there are errors: first state the root cause in one sentence, then
+  propose a fix; do not start fixing without my approval. List every failing
+  step (which step, which error, which file) — the script's summary table has
+  them all.
+- If everything is clean, one line is enough: "✅ 8/8 clean".
