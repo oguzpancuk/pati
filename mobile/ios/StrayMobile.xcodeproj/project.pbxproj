@@ -8,28 +8,29 @@
 
 /* Begin PBXBuildFile section */
 		00E356F31AD99517003FC87E /* StrayMobileTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 00E356F21AD99517003FC87E /* StrayMobileTests.m */; };
+		043FF3BF5B1644DF84661D98 /* Quicksand-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A32B666949ED410987C4B4A5 /* Quicksand-Regular.ttf */; };
 		0C80B921A6F3F58F76C31292 /* libPods-StrayMobile.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-StrayMobile.a */; };
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
-		7699B88040F8A987B510C191 /* libPods-StrayMobile-StrayMobileTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-StrayMobile-StrayMobileTests.a */; };
-		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
-		4E6BC12CD8E7465EB586DDA8 /* Nunito-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */; };
+		2B1D116F35F341ED97896A75 /* Quicksand-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5C6E12A334134108B82FA0A5 /* Quicksand-Bold.ttf */; };
+		36D1228732254307A1DBF538 /* Quicksand-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9B8613140CAB4981A4A59C42 /* Quicksand-SemiBold.ttf */; };
 		493F68EC69014190AD710A84 /* Nunito-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */; };
-		E879F3C5B6DC455D9E076746 /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */; };
+		4E6BC12CD8E7465EB586DDA8 /* Nunito-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */; };
+		7699B88040F8A987B510C191 /* libPods-StrayMobile-StrayMobileTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-StrayMobile-StrayMobileTests.a */; };
+		7BAA8CC083D24193A56E97DF /* Quicksand-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 475EC6FBD0E247A0A018F6DC /* Quicksand-Medium.ttf */; };
+		7C8C892BCE61410DA137D3C1 /* Quicksand-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9B8613140CAB4981A4A59C42 /* Quicksand-SemiBold.ttf */; };
+		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		831A959D82DDD8EEE2D2EC8A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C9CEAA7C77A8C1BDC80B3593 /* PrivacyInfo.xcprivacy */; };
 		87304EA3538C41E892EEE0E5 /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */; };
+		888E6A66603344AA82C335B0 /* Quicksand-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 475EC6FBD0E247A0A018F6DC /* Quicksand-Medium.ttf */; };
+		948C6BE79F584BA98A4F32AD /* Quicksand-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A32B666949ED410987C4B4A5 /* Quicksand-Regular.ttf */; };
 		DD6C8861EA3D4F4097643315 /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DFFFB3A31CFF46DBAE947CA0 /* Nunito-Regular.ttf */; };
 		E19D45B082FB41F4A6C5B678 /* Nunito-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DFFFB3A31CFF46DBAE947CA0 /* Nunito-Regular.ttf */; };
 		E41656121CD545A2B84BBB79 /* Nunito-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 88D20CE9712C42A29451D25C /* Nunito-ExtraBold.ttf */; };
+		E879F3C5B6DC455D9E076746 /* Nunito-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */; };
 		F2BBEB04B01141F881DCCC17 /* Nunito-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 88D20CE9712C42A29451D25C /* Nunito-ExtraBold.ttf */; };
-		2B1D116F35F341ED97896A75 /* Quicksand-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5C6E12A334134108B82FA0A5 /* Quicksand-Bold.ttf */; };
 		F4C1F383365B4214870CF6A0 /* Quicksand-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5C6E12A334134108B82FA0A5 /* Quicksand-Bold.ttf */; };
-		948C6BE79F584BA98A4F32AD /* Quicksand-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A32B666949ED410987C4B4A5 /* Quicksand-Regular.ttf */; };
-		043FF3BF5B1644DF84661D98 /* Quicksand-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A32B666949ED410987C4B4A5 /* Quicksand-Regular.ttf */; };
-		888E6A66603344AA82C335B0 /* Quicksand-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 475EC6FBD0E247A0A018F6DC /* Quicksand-Medium.ttf */; };
-		7BAA8CC083D24193A56E97DF /* Quicksand-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 475EC6FBD0E247A0A018F6DC /* Quicksand-Medium.ttf */; };
-		36D1228732254307A1DBF538 /* Quicksand-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9B8613140CAB4981A4A59C42 /* Quicksand-SemiBold.ttf */; };
-		7C8C892BCE61410DA137D3C1 /* Quicksand-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9B8613140CAB4981A4A59C42 /* Quicksand-SemiBold.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,20 +56,21 @@
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = StrayMobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		19F6CBCC0A4E27FBF8BF4A61 /* libPods-StrayMobile-StrayMobileTests.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-StrayMobile-StrayMobileTests.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B4392A12AC88292D35C810B /* Pods-StrayMobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StrayMobile.debug.xcconfig"; path = "Target Support Files/Pods-StrayMobile/Pods-StrayMobile.debug.xcconfig"; sourceTree = "<group>"; };
+		4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Nunito-Bold.ttf"; path = "../assets/fonts/Nunito-Bold.ttf"; sourceTree = "<group>"; };
+		475EC6FBD0E247A0A018F6DC /* Quicksand-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Quicksand-Medium.ttf"; path = "../assets/fonts/Quicksand-Medium.ttf"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-StrayMobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StrayMobile.release.xcconfig"; path = "Target Support Files/Pods-StrayMobile/Pods-StrayMobile.release.xcconfig"; sourceTree = "<group>"; };
 		5B7EB9410499542E8C5724F5 /* Pods-StrayMobile-StrayMobileTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StrayMobile-StrayMobileTests.debug.xcconfig"; path = "Target Support Files/Pods-StrayMobile-StrayMobileTests/Pods-StrayMobile-StrayMobileTests.debug.xcconfig"; sourceTree = "<group>"; };
+		5C6E12A334134108B82FA0A5 /* Quicksand-Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Quicksand-Bold.ttf"; path = "../assets/fonts/Quicksand-Bold.ttf"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-StrayMobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-StrayMobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Nunito-SemiBold.ttf"; path = "../assets/fonts/Nunito-SemiBold.ttf"; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = StrayMobile/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		88D20CE9712C42A29451D25C /* Nunito-ExtraBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Nunito-ExtraBold.ttf"; path = "../assets/fonts/Nunito-ExtraBold.ttf"; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-StrayMobile-StrayMobileTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StrayMobile-StrayMobileTests.release.xcconfig"; path = "Target Support Files/Pods-StrayMobile-StrayMobileTests/Pods-StrayMobile-StrayMobileTests.release.xcconfig"; sourceTree = "<group>"; };
+		9B8613140CAB4981A4A59C42 /* Quicksand-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Quicksand-SemiBold.ttf"; path = "../assets/fonts/Quicksand-SemiBold.ttf"; sourceTree = "<group>"; };
+		A32B666949ED410987C4B4A5 /* Quicksand-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Quicksand-Regular.ttf"; path = "../assets/fonts/Quicksand-Regular.ttf"; sourceTree = "<group>"; };
+		C9CEAA7C77A8C1BDC80B3593 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = StrayMobile/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		DFFFB3A31CFF46DBAE947CA0 /* Nunito-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = "Nunito-Regular.ttf"; path = "../assets/fonts/Nunito-Regular.ttf"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */ = {isa = PBXFileReference; name = "Nunito-SemiBold.ttf"; path = "../assets/fonts/Nunito-SemiBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */ = {isa = PBXFileReference; name = "Nunito-Bold.ttf"; path = "../assets/fonts/Nunito-Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		DFFFB3A31CFF46DBAE947CA0 /* Nunito-Regular.ttf */ = {isa = PBXFileReference; name = "Nunito-Regular.ttf"; path = "../assets/fonts/Nunito-Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		88D20CE9712C42A29451D25C /* Nunito-ExtraBold.ttf */ = {isa = PBXFileReference; name = "Nunito-ExtraBold.ttf"; path = "../assets/fonts/Nunito-ExtraBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		5C6E12A334134108B82FA0A5 /* Quicksand-Bold.ttf */ = {isa = PBXFileReference; name = "Quicksand-Bold.ttf"; path = "../assets/fonts/Quicksand-Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		A32B666949ED410987C4B4A5 /* Quicksand-Regular.ttf */ = {isa = PBXFileReference; name = "Quicksand-Regular.ttf"; path = "../assets/fonts/Quicksand-Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		475EC6FBD0E247A0A018F6DC /* Quicksand-Medium.ttf */ = {isa = PBXFileReference; name = "Quicksand-Medium.ttf"; path = "../assets/fonts/Quicksand-Medium.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
-		9B8613140CAB4981A4A59C42 /* Quicksand-SemiBold.ttf */ = {isa = PBXFileReference; name = "Quicksand-SemiBold.ttf"; path = "../assets/fonts/Quicksand-SemiBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -118,6 +120,7 @@
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				C9CEAA7C77A8C1BDC80B3593 /* PrivacyInfo.xcprivacy */,
 			);
 			name = StrayMobile;
 			sourceTree = "<group>";
@@ -176,7 +179,7 @@
 			sourceTree = "<group>";
 		};
 		FDED909ACF624070AB3E96FF /* Resources */ = {
-			isa = "PBXGroup";
+			isa = PBXGroup;
 			children = (
 				7038A254830D4EC1A7E6C97E /* Nunito-SemiBold.ttf */,
 				4491850ACA6D4561B1F45AB0 /* Nunito-Bold.ttf */,
@@ -188,8 +191,8 @@
 				9B8613140CAB4981A4A59C42 /* Quicksand-SemiBold.ttf */,
 			);
 			name = Resources;
-			sourceTree = "<group>";
 			path = "";
+			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
@@ -302,6 +305,7 @@
 				948C6BE79F584BA98A4F32AD /* Quicksand-Regular.ttf in Resources */,
 				888E6A66603344AA82C335B0 /* Quicksand-Medium.ttf in Resources */,
 				36D1228732254307A1DBF538 /* Quicksand-SemiBold.ttf in Resources */,
+				831A959D82DDD8EEE2D2EC8A /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -488,7 +492,7 @@
 					"-lc++",
 					"$(inherited)",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.patiapp.tests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.patiapp.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StrayMobile.app/StrayMobile";
 			};
@@ -512,7 +516,7 @@
 					"-lc++",
 					"$(inherited)",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.patiapp.tests";
+				PRODUCT_BUNDLE_IDENTIFIER = com.patiapp.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StrayMobile.app/StrayMobile";
 			};
@@ -537,7 +541,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.patiapp";
+				PRODUCT_BUNDLE_IDENTIFIER = com.patiapp;
 				PRODUCT_NAME = StrayMobile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -563,7 +567,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.patiapp";
+				PRODUCT_BUNDLE_IDENTIFIER = com.patiapp;
 				PRODUCT_NAME = StrayMobile;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -574,6 +578,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CC = "";
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -601,6 +606,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
+				CXX = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
@@ -620,6 +626,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
+				LD = "";
+				LDPLUSPLUS = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -639,7 +647,13 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -647,6 +661,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CC = "";
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -674,6 +689,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = YES;
+				CXX = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
@@ -686,6 +702,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.4;
+				LD = "";
+				LDPLUSPLUS = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -704,7 +722,13 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
