@@ -85,7 +85,8 @@ app.use('/api/admin', adminRoutes);
 // admin panel (admin/dist); everything else → the web PWA (web/dist). In
 // development Vite serves itself; missing dist folders are skipped.
 const WEB_DIST_DIR = process.env.WEB_DIST_DIR || path.join(__dirname, '..', '..', 'web', 'dist');
-const ADMIN_DIST_DIR = process.env.ADMIN_DIST_DIR || path.join(__dirname, '..', '..', 'admin', 'dist');
+const ADMIN_DIST_DIR =
+  process.env.ADMIN_DIST_DIR || path.join(__dirname, '..', '..', 'admin', 'dist');
 const ADMIN_HOST = process.env.ADMIN_HOST || null;
 
 function serveSpa(distDir, match) {
