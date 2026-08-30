@@ -1,25 +1,44 @@
-import type {
-  Feature,
-  FeatureCollection,
-  GeoJsonProperties,
-  Geometry,
-  LineString,
-  Point,
-  Polygon,
-  Position,
-} from 'geojson';
-
 /**
  * Tiny GeoJSON helpers for the map screens. The circles on the map are real
  * geographic areas (the 100 m care range, the 200 m animal range), so they
  * are drawn as polygons sized in meters — MapLibre's CircleLayer radius is
- * in pixels and would not scale with zoom. web/ imports these via the
- * `@mobile` alias (same pattern as taxonomy/avatars) — which is why this
- * file must stay free of react-native imports; the local LatLng type is
- * structurally the same as ../location's Coordinates.
+ * in pixels and would not scale with zoom.
+ *
+ * web/ imports this file via the `@mobile` alias (same pattern as
+ * taxonomy/avatars), and the deploy image compiles it WITHOUT mobile's
+ * node_modules — so it must stay free of ALL imports, `import type
+ * {...} from 'geojson'` included (that one broke the production build).
+ * The minimal structural types below are assignment-compatible with
+ * @types/geojson in both directions; LatLng matches ../location's
+ * Coordinates.
  */
 
 type LatLng = { lat: number; lng: number };
+
+export type Position = number[];
+export type GeoJsonProperties = { [name: string]: unknown } | null;
+export interface Polygon {
+  type: 'Polygon';
+  coordinates: Position[][];
+}
+export interface LineString {
+  type: 'LineString';
+  coordinates: Position[];
+}
+export interface Point {
+  type: 'Point';
+  coordinates: Position;
+}
+export type Geometry = Polygon | LineString | Point;
+export interface Feature<G extends Geometry = Geometry> {
+  type: 'Feature';
+  properties: GeoJsonProperties;
+  geometry: G;
+}
+export interface FeatureCollection<G extends Geometry = Geometry> {
+  type: 'FeatureCollection';
+  features: Feature<G>[];
+}
 
 const EARTH_RADIUS_M = 6371000;
 
