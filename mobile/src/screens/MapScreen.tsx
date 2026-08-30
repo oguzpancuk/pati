@@ -619,7 +619,7 @@ export default function MapScreen({ navigation }: any) {
               : 'Taze kayıt bölgeyi canlı tutar; sen de ekleyebilirsin.'}
           </Text>
           <Button
-            title={`Buraya ${typeLabel} bıraktım`}
+            title={viewType === 'food' ? 'Mama bırak' : 'Su bırak'}
             onPress={() => setConfirmOpen(true)}
             icon={
               <Icon
@@ -630,6 +630,16 @@ export default function MapScreen({ navigation }: any) {
             }
             fullWidth
           />
+          {/* "Buraya" used to read as "the point I'm looking at on the map";
+              the record actually lands at the device location. The hint keeps
+              that fact visible before the flow starts, not only in the
+              confirmation modal. */}
+          <View style={styles.sheetLocationHint}>
+            <Icon name="crosshair" size={14} color={colors.textMuted} />
+            <Text variant="micro" style={styles.sheetLocationHintText}>
+              Kayıt şu anki konumuna işlenir
+            </Text>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -764,6 +774,13 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   sheetMicro: { marginBottom: spacing.xs },
   sheetTitle: { marginBottom: 2 },
   sheetDesc: { marginBottom: spacing.md },
+  sheetLocationHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  sheetLocationHintText: { marginLeft: spacing.sm - 2 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: c.overlay,
