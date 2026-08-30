@@ -792,3 +792,36 @@ gone. Note: /gizlilik answers curl without an Accept: text/html header
 with the API 404 — the SPA fallback is header-gated; use a browser-like
 request when smoke-testing. Sprint remainder: S7 (Apple+Google login,
 needs owner-side console setup).
+
+## 2026-08-30 — sprint item 3 redone per pattern; full web parity closed
+
+- **Item 3 rework (owner correction: "tür" = the pattern, not the
+  species).** Cascade is species → pattern → ONLY that pattern's top-3
+  street colors + "Diğer" (no full palette). Orderings grounded by a
+  research pass: no accessible Turkish frequency data exists, so coat-color
+  genetics + breed standards decided (e.g. Kangal mixes lead with the
+  black-masked tan — the mask allele is dominant; Tekir leads grey-brown
+  wild-type; orange is elevated in Turkey per a paywalled Genetica study).
+  PATTERN_TOP_COLORS lives in BOTH taxonomy copies; values need not come
+  from CAT/DOG_COLORS (the column takes free text, the lists ARE the
+  picker). Vocabulary note: in owner requests "tür" maps to the app's
+  tür/desen field; ask when a sentence changes meaning under the other
+  reading.
+- **Web parity is now a standing rule** (CLAUDE.md Standards): every
+  feature lands on both clients in the same task, each with its own
+  screenshot; impossible-parity cases implement the closest equivalent and
+  say so. This session ported the sprint UX to web and then closed all six
+  gaps a full parity audit found: last-seen MiniMap on animal profiles
+  (attribution as a caption — the on-map control ate the thumbnail),
+  add-form avatar preview, multi-file photo picking with per-thumbnail
+  remove (capture attr dropped: it forced single-shot camera), app-wide
+  session-expiry logout (setSessionExpiredHandler), the map's zoom hint
+  pill, and the always-visible "Tümünü gör" comments link.
+- Review chains caught and fixed: stale color picks surviving a pattern
+  switch (what-you-see-is-not-what-you-submit, both clients), blob-URL
+  mint-in-render re-decoding photos per keystroke, colorsFor answering cat
+  colors for dog patterns. The maplibre worker workaround is hoisted to
+  web/src/mapSetup.ts — future map components import from there.
+- Simulator + playwright screenshots for every changed flow; battery green
+  on every commit. NOT pushed: the owner takes push decisions — see the
+  unpushed commit list at session end.
