@@ -114,6 +114,10 @@ export default function MapPage() {
   // it; a real model later gains the reject path here).
   const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
   const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
+  // Invalidates in-flight check timers: dismissing mid-check and reopening
+  // must not let the stale timer flip a fresh sheet to a photo-less
+  // "approved" (review finding). Bumped on open, cancel, and dismiss.
+  const aiCheckRunRef = useRef(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomHint, setZoomHint] = useState(false);
@@ -425,7 +429,9 @@ export default function MapPage() {
     setError(null);
     setPendingPhoto(file);
     setAiCheck('checking');
+    const run = ++aiCheckRunRef.current;
     await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS));
+    if (run !== aiCheckRunRef.current) return;
     setAiCheck('approved');
   }
 
@@ -525,6 +531,7 @@ export default function MapPage() {
               // A leftover 'approved' from the previous run would skip the
               // confirm content (state resets on open, not on close — see
               // handleConfirmDrop).
+              aiCheckRunRef.current++;
               setAiCheck('idle');
               setPendingPhoto(null);
               setConfirmOpen(true);
@@ -577,7 +584,14 @@ export default function MapPage() {
       </div>
 
       {confirmOpen && (
-        <div className="backdrop" onClick={() => !busy && setConfirmOpen(false)}>
+        <div
+          className="backdrop"
+          onClick={() => {
+            if (busy) return;
+            aiCheckRunRef.current++;
+            setConfirmOpen(false);
+          }}
+        >
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             {aiCheck !== 'idle' ? (
               /* The photo-check interstitial (placeholder AI — see
@@ -621,6 +635,7 @@ export default function MapPage() {
                       className="btn ghost full"
                       disabled={busy}
                       onClick={() => {
+                        aiCheckRunRef.current++;
                         setAiCheck('idle');
                         setPendingPhoto(null);
                         setError(null);

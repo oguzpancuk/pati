@@ -130,6 +130,10 @@ export default function MapScreen({ navigation }: any) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
   const [pendingPhoto, setPendingPhoto] = useState<PhotoAsset | null>(null);
+  // Invalidates in-flight check timers: closing mid-check (Android back)
+  // and reopening must not let the stale timer flip a fresh sheet to a
+  // photo-less "approved". Bumped on open, cancel, and close.
+  const aiCheckRunRef = useRef(0);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
@@ -350,7 +354,9 @@ export default function MapScreen({ navigation }: any) {
       // not auto-add).
       setPendingPhoto({ uri: asset.uri, type: asset.type, fileName: asset.fileName });
       setAiCheck('checking');
+      const run = ++aiCheckRunRef.current;
       await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS));
+      if (run !== aiCheckRunRef.current) return;
       setAiCheck('approved');
     } catch (err: any) {
       setAiCheck('idle');
@@ -669,6 +675,7 @@ export default function MapScreen({ navigation }: any) {
               // A leftover 'approved' from the previous run would skip the
               // confirm content (state resets on open, not on close — see
               // handleConfirmDrop).
+              aiCheckRunRef.current++;
               setAiCheck('idle');
               setPendingPhoto(null);
               setConfirmOpen(true);
@@ -698,7 +705,19 @@ export default function MapScreen({ navigation }: any) {
       {/* Only the open map's own action is offered: adding water while on
           the food map (or vice versa) is confusing and inconsistent with the
           displayed layer. */}
-      <Modal visible={confirmOpen} transparent animationType="fade">
+      <Modal
+        visible={confirmOpen}
+        transparent
+        animationType="fade"
+        // Android hardware back: close unless an upload is in flight — a
+        // mid-check close is safe (nothing has uploaded) and the run guard
+        // keeps its timer from resurfacing.
+        onRequestClose={() => {
+          if (submitting) return;
+          aiCheckRunRef.current++;
+          setConfirmOpen(false);
+        }}
+      >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             {aiCheck !== 'idle' ? (
@@ -737,6 +756,7 @@ export default function MapScreen({ navigation }: any) {
                       variant="ghost"
                       disabled={submitting}
                       onPress={() => {
+                        aiCheckRunRef.current++;
                         setAiCheck('idle');
                         setPendingPhoto(null);
                       }}
@@ -920,7 +940,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   modalPhoto: {
     width: 84,
     height: 84,
-    borderRadius: radius.lg ?? 14,
+    borderRadius: radius.lg,
     marginBottom: spacing.lg,
     alignSelf: 'center',
   },
