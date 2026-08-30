@@ -703,3 +703,39 @@ approval (authority tiers, global constitution; pati's "push freely"
 loosening retired in b81ecf1), the agent-roster rule is a standing
 instruction (ported from maya a005446), and three upstream candidates await
 the next /update-stack. Still open: Android emulator verification.
+
+## 2026-08-30 — improvement sprint S1+S2 (drop UX, permission shortcut, recovered undo)
+
+Sprint plan: ROADMAP "Improvement sprint". Landed this session:
+
+- **S1 — drop-at-current-location UX.** Map sheet CTA is now imperative
+  ("Mama bırak"/"Su bırak") with a persistent crosshair hint ("Kayıt şu
+  anki konumuna işlenir"); the confirm modal moved to the same voice
+  ("Bulunduğun yere mama bırak" → "Fotoğrafını çek"). Verified with
+  simulator screenshots (light/dark). **Item 6 closed by evidence:** with
+  theme=system and the OS in dark, map ground and app surfaces match (the
+  basemap migration had already fixed it). Pitfall for future sessions: the
+  simulator's AsyncStorage may hold a stale `pati.themeMode` from earlier
+  sessions — a "theme not following system" symptom can be that stored
+  preference, check it before debugging.
+- **S2 — location-permission shortcut + recovered undo.** Permission
+  denials throw `LocationPermissionError` (Android denial, iOS code 1) and
+  Map/Animals/AddAnimal screens offer "Ayarları aç" via
+  `Linking.openSettings()`; background flows stay silent. The "iyileşti"
+  button became an action-phrased outline and recovered records got a
+  carer-only "geri al" (`POST .../health-records/:recordId/reopen`).
+  Reopen clears `recovered_by`, which intentionally drops the marker's
+  derived health-count credit (a record that isn't recovered shouldn't
+  credit anyone); already-awarded badges stay (badges never demote). Both
+  recover and reopen use conditional UPDATEs (state in the WHERE clause)
+  against concurrent double-apply. Verified: curl e2e chain
+  (recover→409→reopen→409→404) and full UI flow screenshots.
+- **Process note:** the first S2 commit accidentally swept S1-fix hunks of
+  MapScreen into the earlier commit via a whole-file `git add`, leaving a
+  non-typechecking intermediate commit; caught by code review, fixed by an
+  owner-approved local history rewrite (392c251 + 8efaade), with the
+  intermediate commit re-typechecked in a throwaway worktree.
+- Legal research for the terms-of-use work (S8) landed in
+  docs/legal/terms-research.md — headline risks: Law 7527 (2024) changed
+  the street-dog regime, TBK 67 "bakımını üstlenen" liability is the main
+  clause to disclaim, medication logging is sensitive under Law 6343.
