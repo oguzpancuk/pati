@@ -653,14 +653,15 @@ export default function MapScreen({ navigation }: any) {
               <Icon name={viewType === 'food' ? 'food' : 'water'} size={26} color={colors.brand} />
             </View>
             <Text variant="heading" center>
-              Bulunduğun yere {typeLabel} bıraktın mı?
+              Bulunduğun yere {typeLabel} bırak
             </Text>
             <Text variant="body" center style={styles.modalDesc}>
-              Fotoğrafını çek, haritada herkes görsün. Kayıt şu anki konumuna düşecek.
+              {typeLabel === 'mama' ? 'Mamayı' : 'Suyu'} bırak ve fotoğrafını çek, haritada herkes
+              görsün. Kayıt şu anki konumuna düşecek.
             </Text>
 
             <Button
-              title={viewType === 'food' ? 'Mama bıraktım' : 'Su bıraktım'}
+              title="Fotoğrafını çek"
               onPress={() => handleChooseAction(viewType)}
               loading={submitting}
               icon={<Icon name="camera" size={18} color={colors.textOnBrand} />}
@@ -780,7 +781,10 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     justifyContent: 'center',
     marginTop: spacing.sm,
   },
-  sheetLocationHintText: { marginLeft: spacing.sm - 2 },
+  // flexShrink so the sentence wraps instead of clipping at the screen edge
+  // on narrow devices / scaled fonts (Text in a row does not shrink by
+  // default).
+  sheetLocationHintText: { marginLeft: spacing.sm - 2, flexShrink: 1, textAlign: 'center' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: c.overlay,
