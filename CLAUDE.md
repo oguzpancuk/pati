@@ -48,6 +48,12 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   portfolio piece); comments explain why, not what. **Product-facing text
   stays Turkish**: UI strings, API error messages, seeded demo content,
   routes (`/hayvanlar`). Don't "fix" these into English.
+- **Web and mobile stay in sync.** The web PWA is a full client, not a
+  companion: every feature/UX change lands on BOTH `mobile/` and `web/`
+  in the same task, each verified with its own screenshot. Where exact
+  parity is impossible (OS-only capabilities), implement the closest
+  equivalent and state the divergence in the report — never silently
+  skip the web side. (Owner rule, 2026-08-30.)
 
 ### Load-bearing facts
 
