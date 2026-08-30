@@ -1,6 +1,13 @@
 const fs = require('fs');
+const path = require('path');
 const pool = require('../config/db');
+const { UPLOADS_DIR } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
+
+// A record can only be deleted shortly after it was made: the feature exists
+// to fix a mistaken tap, not to rewrite history — older records are the
+// map's data and other users have already acted on them.
+const DELETE_WINDOW_MINUTES = 15;
 
 // Food and water run out at different speeds: food finishes/spoils sooner,
 // water stays useful longer. The map-green fade time and the "care missing"
@@ -172,4 +179,77 @@ async function getCareStatus(req, res, next) {
   }
 }
 
-module.exports = { addCareAction, listCareActions, getCareStatus };
+// The user's own drop history for the profile screen, newest first. `total`
+// rides along (window function) so the client's "show more" button can say
+// how much is left without a second query. `deletable` is computed
+// server-side against the server clock — the client must not re-derive it
+// from created_at with its own clock.
+async function listMyCareActions(req, res, next) {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const offset = Number(req.query.offset) || 0;
+    const result = await pool.query(
+      `SELECT id, action_type, photo_url, created_at,
+              ST_AsGeoJSON(location)::json AS location,
+              created_at > now() - interval '${DELETE_WINDOW_MINUTES} minutes' AS deletable,
+              count(*) OVER ()::int AS total
+       FROM care_actions
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [req.user.userId, limit, offset]
+    );
+    const total = result.rows[0]?.total ?? 0;
+    res.json({
+      total,
+      deleteWindowMinutes: DELETE_WINDOW_MINUTES,
+      actions: result.rows.map(({ total: _ignored, ...row }) => row),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Owner-only, inside the window; both conditions live in the DELETE's WHERE
+// clause so a concurrent request can't slip through a check-then-delete gap.
+async function deleteCareAction(req, res, next) {
+  try {
+    const deleted = await pool.query(
+      `DELETE FROM care_actions
+       WHERE id = $1 AND user_id = $2
+         AND created_at > now() - interval '${DELETE_WINDOW_MINUTES} minutes'
+       RETURNING photo_url`,
+      [req.params.id, req.user.userId]
+    );
+    if (deleted.rows.length === 0) {
+      const existing = await pool.query('SELECT user_id FROM care_actions WHERE id = $1', [
+        req.params.id,
+      ]);
+      // Someone else's record answers 404, not 403: whether a given id
+      // exists is nobody else's business.
+      if (existing.rows.length === 0 || Number(existing.rows[0].user_id) !== req.user.userId) {
+        return res.status(404).json({ error: 'Kayıt bulunamadı' });
+      }
+      return res.status(409).json({
+        error: `Silme süresi doldu — kayıtlar ilk ${DELETE_WINDOW_MINUTES} dakika içinde silinebilir`,
+      });
+    }
+
+    // Best-effort local file cleanup, same pattern as account deletion.
+    const uploadsMatch = /\/uploads\/([^/?#]+)/.exec(deleted.rows[0].photo_url ?? '');
+    if (uploadsMatch) {
+      fs.unlink(path.join(UPLOADS_DIR, path.basename(uploadsMatch[1])), () => {});
+    }
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  addCareAction,
+  listCareActions,
+  getCareStatus,
+  listMyCareActions,
+  deleteCareAction,
+};

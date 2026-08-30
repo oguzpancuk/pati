@@ -48,6 +48,33 @@ export async function fetchCareStatus(
   return data;
 }
 
+export interface MyCareAction {
+  id: number;
+  action_type: 'food' | 'water';
+  photo_url: string;
+  created_at: string;
+  location: GeoJSON.Point;
+  /** Computed server-side against the server clock — don't re-derive on device. */
+  deletable: boolean;
+}
+
+export interface MyCareActionsResponse {
+  total: number;
+  deleteWindowMinutes: number;
+  actions: MyCareAction[];
+}
+
+export async function fetchMyCareActions(limit = 20, offset = 0): Promise<MyCareActionsResponse> {
+  const { data } = await apiClient.get<MyCareActionsResponse>('/care-actions/mine', {
+    params: { limit, offset },
+  });
+  return data;
+}
+
+export async function deleteCareAction(id: number): Promise<void> {
+  await apiClient.delete(`/care-actions/${id}`);
+}
+
 export interface PhotoAsset {
   uri: string;
   type?: string;

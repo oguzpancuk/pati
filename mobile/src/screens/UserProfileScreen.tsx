@@ -18,6 +18,7 @@ import {
   setFeaturedBadges,
   uploadAvatar,
 } from '../api/users';
+import { deleteCareAction, fetchMyCareActions, MyCareAction } from '../api/care';
 import { badgeProgressText, badgeTitle } from '../badges';
 import { mergeById } from '../paging';
 import AnimalAvatar from '../components/AnimalAvatar';
@@ -56,6 +57,17 @@ import {
 const PROFILE_PREVIEW = 3;
 const PROFILE_PAGE = 20;
 
+// Drop-history rows show the time too: whether a record is still deletable
+// depends on how fresh it is, and a date alone hides that.
+function formatCareDate(iso: string) {
+  return new Date(iso).toLocaleString('tr-TR', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: 'sistem' },
   { key: 'light', label: 'açık' },
@@ -72,6 +84,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const [myAnimals, setMyAnimals] = useState<ProfileAnimal[]>([]);
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
+  const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
+  const [careTotal, setCareTotal] = useState(0);
+  const [loadingMoreCare, setLoadingMoreCare] = useState(false);
   // The friend list arrives in one request (it's short); revealed piecewise
   // client-side to keep the profile lean.
   const [visibleFriends, setVisibleFriends] = useState(PROFILE_PREVIEW);
@@ -83,15 +98,18 @@ export default function UserProfileScreen({ navigation, route }: any) {
 
   const load = useCallback(async () => {
     try {
-      const [meData, animalPage, friendshipsData] = await Promise.all([
+      const [meData, animalPage, friendshipsData, carePage] = await Promise.all([
         fetchMe(),
         fetchUserAnimals('me', PROFILE_PREVIEW, 0),
         fetchMyFriendships(),
+        fetchMyCareActions(PROFILE_PREVIEW, 0),
       ]);
       setMe(meData);
       setMyAnimals(animalPage.animals);
       setAnimalTotal(animalPage.total);
       setFriendships(friendshipsData);
+      setCareHistory(carePage.actions);
+      setCareTotal(carePage.total);
       setLoadError(null);
     } catch (err: any) {
       setLoadError(err?.response?.data?.error ?? err?.message ?? 'Profil yüklenemedi');
@@ -109,6 +127,45 @@ export default function UserProfileScreen({ navigation, route }: any) {
     } finally {
       setLoadingMoreAnimals(false);
     }
+  }
+
+  async function handleLoadMoreCare() {
+    setLoadingMoreCare(true);
+    try {
+      const page = await fetchMyCareActions(PROFILE_PAGE, careHistory.length);
+      setCareHistory((prev) => mergeById(prev, page.actions));
+      setCareTotal(page.total);
+    } catch (err: any) {
+      Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setLoadingMoreCare(false);
+    }
+  }
+
+  function handleDeleteCare(action: MyCareAction) {
+    const label = action.action_type === 'food' ? 'mama' : 'su';
+    Alert.alert('Kaydı sil', `Bu ${label} kaydı haritadan da kalkacak. Emin misin?`, [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteCareAction(action.id);
+            setCareHistory((prev) => prev.filter((item) => item.id !== action.id));
+            setCareTotal((prev) => Math.max(0, prev - 1));
+          } catch (err: any) {
+            Alert.alert(
+              'Silinemedi',
+              err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+            );
+            // The window may have expired since the list was fetched;
+            // refresh so stale "sil" buttons disappear.
+            await load();
+          }
+        },
+      },
+    ]);
   }
 
   useFocusEffect(
@@ -335,6 +392,42 @@ export default function UserProfileScreen({ navigation, route }: any) {
         onPress={handleLoadMoreAnimals}
       />
 
+      <SectionHeader title="Mama & su geçmişim" style={styles.sectionTop} />
+      {careHistory.length === 0 ? (
+        <Card variant="flat" style={styles.block}>
+          <Text variant="caption">Henüz mama veya su bırakmadın.</Text>
+        </Card>
+      ) : (
+        careHistory.map((action) => (
+          <Card key={action.id} variant="flat" padding="md" style={styles.careRow}>
+            <Icon
+              name={action.action_type === 'food' ? 'food' : 'water'}
+              size={20}
+              color={colors.brand}
+            />
+            <View style={styles.careText}>
+              <Text variant="bodyStrong">{action.action_type === 'food' ? 'Mama' : 'Su'}</Text>
+              <Text variant="caption">{formatCareDate(action.created_at)}</Text>
+            </View>
+            {/* Deletable only inside the server-computed window (mistake
+                correction, not history rewriting). */}
+            {action.deletable && (
+              <Button
+                title="sil"
+                size="sm"
+                variant="ghost"
+                onPress={() => handleDeleteCare(action)}
+              />
+            )}
+          </Card>
+        ))
+      )}
+      <LoadMoreButton
+        remaining={careTotal - careHistory.length}
+        loading={loadingMoreCare}
+        onPress={handleLoadMoreCare}
+      />
+
       <View style={styles.sectionTop}>
         <RecentComments
           comments={me.recentComments ?? []}
@@ -463,6 +556,12 @@ const useStyles = makeStyles(({ colors: c }) => ({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
+  careRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  careText: { flex: 1, marginLeft: spacing.md },
   friendName: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
   themeRow: { flexDirection: 'row', gap: spacing.sm },
   logout: { marginTop: spacing.xxl, alignSelf: 'center' },
