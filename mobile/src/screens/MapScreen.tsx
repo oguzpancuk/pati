@@ -360,8 +360,10 @@ export default function MapScreen({ navigation }: any) {
       }
       setAiCheck('approved');
       await new Promise((resolve) => setTimeout(resolve, AI_CHECK_RESULT_MS));
+      // aiCheck stays 'approved' through the fade-out (resetting here would
+      // flash the confirm buttons behind the dismissal); it resets when the
+      // modal next opens.
       setConfirmOpen(false);
-      setAiCheck('idle');
       const refreshed = await load();
       celebrateNearbyAnimals(device, refreshed ?? animals);
       celebrate(created);
@@ -370,7 +372,12 @@ export default function MapScreen({ navigation }: any) {
       if (err instanceof LocationPermissionError) {
         alertLocationPermission();
       } else {
-        Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+        Alert.alert(
+          'Eklenemedi',
+          err?.code === 'ECONNABORTED'
+            ? 'Bağlantı zaman aşımına uğradı. Tekrar dener misin?'
+            : err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+        );
       }
     } finally {
       setSubmitting(false);
@@ -652,7 +659,12 @@ export default function MapScreen({ navigation }: any) {
           </Text>
           <Button
             title={viewType === 'food' ? 'Mama bırak' : 'Su bırak'}
-            onPress={() => setConfirmOpen(true)}
+            onPress={() => {
+              // A leftover 'approved' from the previous run would skip the
+              // confirm content (see the fade-out note in handleChooseAction).
+              setAiCheck('idle');
+              setConfirmOpen(true);
+            }}
             icon={
               <Icon
                 name={viewType === 'food' ? 'food' : 'water'}

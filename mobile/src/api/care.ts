@@ -105,6 +105,10 @@ export async function addCareAction(
 
   const { data } = await apiClient.post<CareAction & WithNewBadges>('/care-actions', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    // The AI-check interstitial has no cancel button, so this request must
+    // be bounded: a stalled upload would otherwise spin forever (axios has
+    // no default timeout). 60 s covers a large photo on slow cellular.
+    timeout: 60000,
   });
   return data;
 }
