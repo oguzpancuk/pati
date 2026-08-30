@@ -16,8 +16,16 @@ When you make a decision or knowingly accept a limit, add a line here.
      inherit. /update-stack harvests this list monthly. Format:
      date · file · one-line what/why. Remove entries once upstreamed. -->
 
-- (none — the agent-roster workflow rule upstreamed to maya `a72d36a` and
-  ported back here, 2026-08-30)
+- 2026-08-30 · global/skills/update-stack/SKILL.md (step 4b) · Hybrid
+  template files (a generic half plus [STACK] slots, e.g. deploy-checklist)
+  should sync their generic sections PER HUNK mechanically, not fall into
+  the per-file "deliberately diverged → judge" branch. Case that motivates
+  it: maya 8e24c43 added the "yayınla" trigger to deploy-checklist's
+  generic description while adopting pati's "canlıya al" idea; the port
+  session judged the change "template-only" and pati never received the
+  word — caught only one cycle later by the harvest diff and restored in
+  pati 75c84b2. Rule sketch: for hunks outside [STACK] slots, template@HEAD
+  wins unless the product hunk carries its own NOTES-documented rationale.
 
 ---
 
