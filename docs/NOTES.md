@@ -29,6 +29,14 @@ When you make a decision or knowingly accept a limit, add a line here.
   still individually approved). Owner: "bana sormadan da boyle uzun
   istekler verdigimde bunun otomatik olmasini isterim" and "push onayi
   beklerken durmuyorsun, bu da cok iyi" (improvement-sprint session).
+- 2026-08-30 · global/CLAUDE.md (Working loop) · Mid-work questions get
+  answered immediately and visibly: when the owner sends a question while a
+  long task is running, the session must surface the answer in its next
+  user-visible (end-of-turn) message right away — text written between tool
+  calls is not reliably shown, so "answered mid-turn" counts as unanswered.
+  Owner asked twice why questions went unanswered, then asked for this to
+  be recorded ("sen is yaparken sorularima hemen cevap istedigimi de
+  upstream notlarina ekleyelim").
 
 ---
 
