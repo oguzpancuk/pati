@@ -20,3 +20,6 @@ docs/pilot/*.xlsx
 .claude/.session-reads.log
 .claude/settings.local.json
 .env.*
+
+# Agent worktrees (parallel-track sessions)
+.claude/worktrees/
