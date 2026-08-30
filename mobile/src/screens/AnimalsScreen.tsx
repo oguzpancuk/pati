@@ -2,7 +2,12 @@ import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
-import { Coordinates, getCurrentLocation } from '../location';
+import {
+  alertLocationPermission,
+  Coordinates,
+  getCurrentLocation,
+  LocationPermissionError,
+} from '../location';
 import { mergeById } from '../paging';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
 import AnimalAvatar from '../components/AnimalAvatar';
@@ -68,7 +73,11 @@ export default function AnimalsScreen({ navigation }: any) {
       setAnimals((prev) => (isFirstPage ? data : mergeById(prev, data)));
       setHasMore(data.length === PAGE_SIZE);
     } catch (err: any) {
-      Alert.alert('Hayvanlar yüklenemedi', err?.message ?? 'Bilinmeyen hata');
+      if (err instanceof LocationPermissionError) {
+        alertLocationPermission();
+      } else {
+        Alert.alert('Hayvanlar yüklenemedi', err?.message ?? 'Bilinmeyen hata');
+      }
     } finally {
       inFlightRef.current = false;
       setLoading(false);

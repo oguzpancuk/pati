@@ -13,7 +13,12 @@ import {
 import type { PhotoAsset } from '../api/care';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
-import { Coordinates, getCurrentLocation } from '../location';
+import {
+  alertLocationPermission,
+  Coordinates,
+  getCurrentLocation,
+  LocationPermissionError,
+} from '../location';
 import { Banner, Button, Card, Chip, ChoiceField, Input, Screen, Text } from '../components/ui';
 import { Icon } from '../components/brand';
 import { colorsFor, patternsFor, type Species } from '../taxonomy';
@@ -130,10 +135,14 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     } catch (err: any) {
       // Location or server error: instead of blocking the user we return
       // them to the form to retry.
-      Alert.alert(
-        'Eşleştirme yapılamadı',
-        err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
-      );
+      if (err instanceof LocationPermissionError) {
+        alertLocationPermission();
+      } else {
+        Alert.alert(
+          'Eşleştirme yapılamadı',
+          err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+        );
+      }
       setStep('form');
     }
   }

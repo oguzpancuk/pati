@@ -28,7 +28,13 @@ import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import HeartBurst, { HEART_BURST_DURATION_MS, heartRiseFor } from '../components/HeartBurst';
 import UserLocationMarker from '../components/UserLocationMarker';
-import { Coordinates, distanceMeters, getCurrentLocation } from '../location';
+import {
+  alertLocationPermission,
+  Coordinates,
+  distanceMeters,
+  getCurrentLocation,
+  LocationPermissionError,
+} from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import { circlePolygon, circleRing, featureCollection, pointFeature } from '../map/geo';
 import { mapStyles } from '../map/styles';
@@ -339,7 +345,11 @@ export default function MapScreen({ navigation }: any) {
       celebrateNearbyAnimals(device, refreshed ?? animals);
       celebrate(created);
     } catch (err: any) {
-      Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+      if (err instanceof LocationPermissionError) {
+        alertLocationPermission();
+      } else {
+        Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+      }
     } finally {
       setSubmitting(false);
     }

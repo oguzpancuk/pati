@@ -1,6 +1,34 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PermissionsAndroid, Platform } from 'react-native';
+import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+
+/**
+ * The one location failure the user can actually fix: the app lacks the
+ * permission. Screens catch this to offer the Settings shortcut instead of a
+ * dead-end error message.
+ */
+export class LocationPermissionError extends Error {
+  constructor() {
+    super('Konum izni verilmedi');
+    this.name = 'LocationPermissionError';
+  }
+}
+
+/**
+ * Permission-denied alert with a direct path to the app's own Settings page.
+ * Telling users to find the toggle themselves loses most of them —
+ * `Linking.openSettings()` lands on the exact screen with the switch.
+ */
+export function alertLocationPermission() {
+  Alert.alert(
+    'Konum izni gerekli',
+    'Bu işlem için konumun gerekli. İzni Ayarlar’dan verebilirsin.',
+    [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Ayarları aç', onPress: () => Linking.openSettings() },
+    ]
+  );
+}
 
 export interface Coordinates {
   lat: number;
@@ -100,7 +128,7 @@ export async function getCurrentLocation(): Promise<Coordinates> {
   if (Platform.OS === 'android') {
     const granted = await requestAndroidPermission();
     if (!granted) {
-      throw new Error('Konum izni verilmedi');
+      throw new LocationPermissionError();
     }
   }
 
@@ -112,7 +140,9 @@ export async function getCurrentLocation(): Promise<Coordinates> {
           lng: position.coords.longitude,
         });
       },
-      (error) => reject(new Error(error.message)),
+      // code 1 = PERMISSION_DENIED (the W3C geolocation error codes).
+      (error) =>
+        reject(error.code === 1 ? new LocationPermissionError() : new Error(error.message)),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
   });

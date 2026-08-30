@@ -168,9 +168,7 @@ async function matchAnimals(req, res, next) {
         const { level, score, reasons } = similarityFor(row, input);
         return { ...row, similarity: level, similarity_reasons: reasons, _score: score };
       })
-      .sort(
-        (a, b) => b._score - a._score || Number(a.distance_meters) - Number(b.distance_meters)
-      )
+      .sort((a, b) => b._score - a._score || Number(a.distance_meters) - Number(b.distance_meters))
       .slice(0, MATCH_LIMIT)
       .map(({ _score, ...rest }) => rest);
 
@@ -391,26 +389,67 @@ async function markRecovered(req, res, next) {
       });
     }
 
-    const existing = await pool.query(
-      'SELECT id, recovered_at FROM health_records WHERE id = $1 AND animal_id = $2',
-      [req.params.recordId, req.params.id]
+    // Conditional UPDATE instead of check-then-update: two concurrent
+    // requests must not both pass the state check. Zero rows then means
+    // "missing or already in that state" — one SELECT tells which.
+    const updated = await pool.query(
+      `UPDATE health_records SET recovered_at = now(), recovered_by = $1
+       WHERE id = $2 AND animal_id = $3 AND recovered_at IS NULL RETURNING id`,
+      [req.user.userId, req.params.recordId, req.params.id]
     );
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ error: 'Sağlık kaydı bulunamadı' });
-    }
-    if (existing.rows[0].recovered_at) {
+    if (updated.rows.length === 0) {
+      const existing = await pool.query(
+        'SELECT id FROM health_records WHERE id = $1 AND animal_id = $2',
+        [req.params.recordId, req.params.id]
+      );
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ error: 'Sağlık kaydı bulunamadı' });
+      }
       return res.status(409).json({ error: 'Bu kayıt zaten iyileşti olarak işaretlenmiş' });
     }
-
-    await pool.query(
-      'UPDATE health_records SET recovered_at = now(), recovered_by = $1 WHERE id = $2',
-      [req.user.userId, req.params.recordId]
-    );
     const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
       req.params.recordId,
     ]);
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
     res.json({ ...result.rows[0], newBadges });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Undoes markRecovered: a mis-tap or a premature call may be noticed much
+// later (the animal turns out to still be sick), so any carer can reopen at
+// any time — status is derived, so clearing the timestamp reopens comments
+// with nothing else to sync. Earned badges stay by design (badges never
+// demote), so no badge sync runs here.
+async function reopenRecord(req, res, next) {
+  try {
+    if (!(await isCarer(req.user.userId, req.params.id))) {
+      return res.status(403).json({
+        error: 'Durumu değiştirebilmek için bu hayvana bakım veriyor olmalısınız',
+      });
+    }
+
+    // Same conditional-UPDATE shape as markRecovered, for the same race.
+    const updated = await pool.query(
+      `UPDATE health_records SET recovered_at = NULL, recovered_by = NULL
+       WHERE id = $1 AND animal_id = $2 AND recovered_at IS NOT NULL RETURNING id`,
+      [req.params.recordId, req.params.id]
+    );
+    if (updated.rows.length === 0) {
+      const existing = await pool.query(
+        'SELECT id FROM health_records WHERE id = $1 AND animal_id = $2',
+        [req.params.recordId, req.params.id]
+      );
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ error: 'Sağlık kaydı bulunamadı' });
+      }
+      return res.status(409).json({ error: 'Bu kayıt zaten açık' });
+    }
+    const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
+      req.params.recordId,
+    ]);
+    res.json(result.rows[0]);
   } catch (err) {
     next(err);
   }
@@ -583,6 +622,7 @@ module.exports = {
   addHealthRecord,
   addVaccination,
   markRecovered,
+  reopenRecord,
   listComments,
   addComment,
   followAnimal,

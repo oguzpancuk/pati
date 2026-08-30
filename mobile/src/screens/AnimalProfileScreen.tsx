@@ -25,6 +25,7 @@ import {
   HealthRecordStatus,
   HealthRecordType,
   markHealthRecordRecovered,
+  reopenHealthRecord,
   Vaccination,
 } from '../api/animals';
 import AdBanner from '../components/AdBanner';
@@ -268,6 +269,30 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
     );
   }
 
+  function handleReopen(record: HealthRecord) {
+    Alert.alert(
+      'İyileşti işaretini geri al',
+      `"${record.description}" kaydı yeniden açılacak ve yorumlara izin verilecek. Emin misin?`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Geri al',
+          onPress: async () => {
+            try {
+              await reopenHealthRecord(animalId, record.id);
+              await load();
+            } catch (err: any) {
+              Alert.alert(
+                'Geri alınamadı',
+                err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
   if (!animal) {
     return (
       <Screen>
@@ -445,13 +470,26 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                     {record.recovered_by_name} iyileşti olarak işaretledi
                   </Text>
                 )}
+                {/* An action phrasing on a quiet outline: the old solid-green
+                    "iyileşti" read as a status tag, not a button, and was
+                    easy to take for the record's state. */}
                 {animal.isCarer && record.status !== 'recovered' && (
                   <Button
-                    title="iyileşti"
+                    title="iyileşti olarak işaretle"
                     size="sm"
-                    variant="success"
+                    variant="secondary"
                     onPress={() => handleMarkRecovered(record)}
-                    icon={<Icon name="check" size={15} color={colors.onSuccess} />}
+                    style={styles.recoverButton}
+                  />
+                )}
+                {/* Mis-taps happen and premature calls surface late; any
+                    carer can reopen (state is derived, nothing else desyncs). */}
+                {animal.isCarer && record.status === 'recovered' && (
+                  <Button
+                    title="geri al"
+                    size="sm"
+                    variant="ghost"
+                    onPress={() => handleReopen(record)}
                     style={styles.recoverButton}
                   />
                 )}

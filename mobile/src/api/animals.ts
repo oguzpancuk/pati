@@ -202,6 +202,17 @@ export async function markHealthRecordRecovered(
   return data;
 }
 
+/** Undoes a (possibly mistaken) recovered mark; the record reopens for comments. */
+export async function reopenHealthRecord(
+  animalId: number,
+  recordId: number
+): Promise<HealthRecord> {
+  const { data } = await apiClient.post<HealthRecord>(
+    `/animals/${animalId}/health-records/${recordId}/reopen`
+  );
+  return data;
+}
+
 export interface AddVaccinationInput {
   vaccineType: string;
   note?: string;
