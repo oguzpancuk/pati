@@ -126,25 +126,38 @@ export default function MapScreen({ navigation }: any) {
     round: number;
   }>({ bursts: [], round: 0 });
   const heartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadSeqRef = useRef(0);
   // The celebration waits for the zoom to finish; screen points are
   // computed once the map settles (points taken mid-motion land wrong).
   const pendingHeartsRef = useRef<Animal[] | null>(null);
 
   const typeLabel = viewType === 'food' ? 'mama' : 'su';
 
+  // The heart timer outlives celebrations; without this an unmount while a
+  // burst is pending would setHearts on a dead screen.
+  React.useEffect(
+    () => () => {
+      if (heartTimerRef.current) clearTimeout(heartTimerRef.current);
+    },
+    []
+  );
+
+  // The Camera's maxBounds guards gestures but not programmatic moves; every
+  // setCamera to a device location must check this itself (the simulator's
+  // San Francisco default is how it bites in dev).
+  function insideServiceArea(loc: Coordinates) {
+    return (
+      loc.lat >= TURKEY_BOUNDS.minLat &&
+      loc.lat <= TURKEY_BOUNDS.maxLat &&
+      loc.lng >= TURKEY_BOUNDS.minLng &&
+      loc.lng <= TURKEY_BOUNDS.maxLng
+    );
+  }
+
   function centerOnUser(loc: Coordinates) {
     if (hasCenteredOnUser.current) return;
-    // Outside the service area (e.g. the simulator's San Francisco default)
-    // the map stays on the Turkey overview; the Camera's maxBounds guards
-    // gestures but not programmatic moves like this one.
-    if (
-      loc.lat < TURKEY_BOUNDS.minLat ||
-      loc.lat > TURKEY_BOUNDS.maxLat ||
-      loc.lng < TURKEY_BOUNDS.minLng ||
-      loc.lng > TURKEY_BOUNDS.maxLng
-    ) {
-      return;
-    }
+    // Outside the service area the map stays on the Turkey overview.
+    if (!insideServiceArea(loc)) return;
     if (!mapReadyRef.current) {
       // A camera move can be silently ignored while the native map isn't
       // ready yet; the location is stored to retry once it is.
@@ -170,12 +183,17 @@ export default function MapScreen({ navigation }: any) {
   }
 
   const load = useCallback(async () => {
+    // Fast mama↔su toggles race: without the sequence check, whichever
+    // response lands LAST paints the map and the bottom sheet, even if it
+    // belongs to the deselected layer.
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     try {
       const [actionData, loc] = await Promise.all([
         fetchCareActionsInBounds(TURKEY_BOUNDS, viewType),
         getCurrentLocation().catch(() => null),
       ]);
+      if (seq !== loadSeqRef.current) return null;
       setActions(actionData);
       if (loc) {
         setMyLocation(loc);
@@ -183,15 +201,18 @@ export default function MapScreen({ navigation }: any) {
           fetchCareStatus(loc.lat, loc.lng, viewType),
           fetchAnimals({ lat: loc.lat, lng: loc.lng, radiusMeters: ANIMAL_RADIUS_METERS }),
         ]);
+        if (seq !== loadSeqRef.current) return null;
         setStatus(statusData);
         setAnimals(animalData);
         centerOnUser(loc);
         return animalData;
       }
     } catch (err: any) {
-      Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
+      if (seq === loadSeqRef.current) {
+        Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
+      }
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -223,6 +244,10 @@ export default function MapScreen({ navigation }: any) {
    * draw; the animals must become visible before the animation can be seen.
    */
   function celebrateNearbyAnimals(origin: Coordinates, currentAnimals: Animal[]) {
+    // Same programmatic-move guard as centerOnUser: never fly the camera
+    // outside the Turkey bounds (dev-only in practice, but once outside,
+    // gestures fight maxBounds).
+    if (!insideServiceArea(origin)) return;
     const affected = currentAnimals.filter(
       (animal) =>
         distanceMeters(origin, {
@@ -320,8 +345,12 @@ export default function MapScreen({ navigation }: any) {
     }
   }
 
-  function zoomBy(step: number) {
-    const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoomRef.current + step));
+  async function zoomBy(step: number) {
+    // Read the live zoom instead of currentZoomRef: the ref only updates on
+    // the debounced onRegionDidChange, so right after a programmatic fly it
+    // is stale and "+" would jump to a wildly different level.
+    const current = (await mapRef.current?.getZoom()) ?? currentZoomRef.current;
+    const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current + step));
     currentZoomRef.current = next;
     cameraRef.current?.zoomTo(next, 200);
   }

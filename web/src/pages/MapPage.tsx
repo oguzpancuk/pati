@@ -103,6 +103,10 @@ export default function MapPage() {
   const careCentersRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   const userRingRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   const animalMarkersRef = useRef<maplibregl.Marker[]>([]);
+  // Request generations for the racy loaders (see loadCircles).
+  const circlesSeqRef = useRef(0);
+  const animalsSeqRef = useRef(0);
+  const statusSeqRef = useRef(0);
   // The last fetched animal list: consulted for which ones are in range for
   // the heart animation (instead of reading back from the markers).
   const animalsDataRef = useRef<Animal[]>([]);
@@ -166,6 +170,9 @@ export default function MapPage() {
         [TURKEY_BOUNDS.minLng, TURKEY_BOUNDS.minLat],
         [TURKEY_BOUNDS.maxLng, TURKEY_BOUNDS.maxLat],
       ],
+      // Same ceiling as mobile's MAX_ZOOM; the default (22) overzooms into
+      // stretched vector tiles.
+      maxZoom: 19,
       attributionControl: { compact: true },
     });
     // No zoom control (handoff): pinch and double-tap are enough.
@@ -213,7 +220,13 @@ export default function MapPage() {
     };
     map.on('style.load', ensureLayers);
 
+    // Each tick restarts a paint transition, i.e. a full-map repaint — so
+    // breathe only when there is something to breathe and the tab is
+    // actually visible; otherwise this loop is a silent battery drain on
+    // phones (the PWA's main audience).
     const breathTimer = window.setInterval(() => {
+      if (document.hidden) return;
+      if (careDataRef.current.features.length === 0) return;
       if (!map.getLayer('care-fill')) return;
       const factors = breathFactors(Date.now());
       map.setPaintProperty('care-fill', 'fill-opacity', breathe('alpha', factors));
@@ -273,7 +286,11 @@ export default function MapPage() {
   const loadCircles = useCallback(async () => {
     const map = mapRef.current;
     if (!map) return;
+    // Fast mama↔su toggles race: without this, whichever response lands
+    // LAST paints the map, even if it belongs to the deselected layer.
+    const seq = ++circlesSeqRef.current;
     const actions = await fetchCareActionsInBounds(TURKEY_BOUNDS, viewType);
+    if (seq !== circlesSeqRef.current) return;
     // Studio language: soft fill + a 1.5px outline in the same tone + a
     // center dot. Freshness lives in the fill — newer records are bolder
     // (same numbers as mobile).
@@ -317,7 +334,9 @@ export default function MapPage() {
       const map = mapRef.current;
       if (!map) return;
       const center = around ?? myLocation ?? FALLBACK_CENTER;
+      const seq = ++animalsSeqRef.current;
       const animals: Animal[] = await fetchAnimals(center.lat, center.lng, ANIMAL_RADIUS_METERS);
+      if (seq !== animalsSeqRef.current) return;
       animalsDataRef.current = animals;
       for (const marker of animalMarkersRef.current) marker.remove();
       animalMarkersRef.current = animals.map((animal) => {
@@ -347,9 +366,14 @@ export default function MapPage() {
 
   useEffect(() => {
     const center = myLocation ?? FALLBACK_CENTER;
+    const seq = ++statusSeqRef.current;
     fetchCareStatus(center.lat, center.lng, viewType)
-      .then(setStatus)
-      .catch(() => setStatus(null));
+      .then((s) => {
+        if (seq === statusSeqRef.current) setStatus(s);
+      })
+      .catch(() => {
+        if (seq === statusSeqRef.current) setStatus(null);
+      });
   }, [myLocation, viewType]);
 
   /**

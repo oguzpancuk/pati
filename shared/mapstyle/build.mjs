@@ -135,7 +135,6 @@ const RULES = [
   [/^aeroway_fill$/, { 'fill-color': 'aeroway' }],
   [/^aeroway_(runway|taxiway)$/, { 'line-color': 'aerowayLine' }],
   [/^building$/, { 'fill-color': 'building', 'fill-outline-color': 'buildingOutline' }],
-  [/^building-3d$/, { 'fill-extrusion-color': 'building' }],
 
   // Roads: small streets stay white-on-cream with hairline casings; the
   // bigger the road, the warmer the fill (liberty's yellow/orange ramp,
@@ -209,8 +208,11 @@ function tint(base, theme) {
 }
 
 /** Colors the rules didn't reach, so palette gaps are visible at build time. */
-function reportUntouched(style) {
-  const known = new Set(Object.values(PALETTES.light).concat(Object.values(PALETTES.dark)));
+function reportUntouched(style, theme) {
+  // Only THIS theme's palette counts as "touched": merging both palettes
+  // would let a liberty literal that happens to equal a light token (e.g.
+  // #FFFFFF) hide a missed dark-theme rule.
+  const known = new Set(Object.values(PALETTES[theme]));
   const seen = new Map();
   for (const layer of style.layers) {
     for (const [prop, value] of Object.entries(layer.paint ?? {})) {
@@ -237,7 +239,7 @@ for (const theme of ['light', 'dark']) {
   const style = tint(base, theme);
   const out = join(OUT_DIR, `pati-${theme}.json`);
   writeFileSync(out, JSON.stringify(style, null, 2) + '\n');
-  const untouched = reportUntouched(style);
+  const untouched = reportUntouched(style, theme);
   console.log(`wrote ${out} (${style.layers.length} layers)`);
   for (const [where, color] of untouched) console.log(`  untouched: ${where} = ${color}`);
 }
