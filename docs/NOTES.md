@@ -16,27 +16,11 @@ When you make a decision or knowingly accept a limit, add a line here.
      inherit. /update-stack harvests this list monthly. Format:
      date · file · one-line what/why. Remove entries once upstreamed. -->
 
-- 2026-08-30 · global/CLAUDE.md (Working loop) · Plan-and-parallelize rule
-  for long multi-item requests: first write a short session plan into the
-  ROADMAP (grouping items into clusters), ask only the owner-level
-  decisions, then execute in parallel tracks BY DEFAULT — the main session
-  keeps clusters needing the shared simulator/database, an isolated
-  worktree agent takes independent clusters, research goes to background
-  researcher agents immediately; merge + verify battery + screenshots stay
-  in the main session. Authority tiers (per-push approval etc.) unchanged —
-  but waiting for a push/deploy approval must never idle the session: ask,
-  keep working on the next cluster, let unpushed commits queue (each push
-  still individually approved). Owner: "bana sormadan da boyle uzun
-  istekler verdigimde bunun otomatik olmasini isterim" and "push onayi
-  beklerken durmuyorsun, bu da cok iyi" (improvement-sprint session).
-- 2026-08-30 · global/CLAUDE.md (Working loop) · Mid-work questions get
-  answered immediately and visibly: when the owner sends a question while a
-  long task is running, the session must surface the answer in its next
-  user-visible (end-of-turn) message right away — text written between tool
-  calls is not reliably shown, so "answered mid-turn" counts as unanswered.
-  Owner asked twice why questions went unanswered, then asked for this to
-  be recorded ("sen is yaparken sorularima hemen cevap istedigimi de
-  upstream notlarina ekleyelim").
+- (upstreamed to maya `cd1a40d`, 2026-08-30: the plan-and-parallelize and
+  mid-work-question candidates — owner-refined: serial stays the default,
+  parallel tracks are opt-in via the new /parallel-tracks template skill,
+  questions preempt the turn. Parity-test candidate below stays parked by
+  owner decision.)
 - 2026-08-30 · verify.sh / template test seed · Parity-test candidate: the
   repo now has three comment-enforced mirrors (taxonomy backend↔mobile,
   badge thresholds backend↔mobile catalog display, MAX_DISTANCE_TO_PIN).
