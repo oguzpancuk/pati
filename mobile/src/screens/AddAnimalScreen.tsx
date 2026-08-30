@@ -32,7 +32,14 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import { colorsFor, isPresetChoice, OTHER, patternsFor, type Species } from '../taxonomy';
+import {
+  colorsFor,
+  fixedColorFor,
+  isPresetChoice,
+  OTHER,
+  patternsFor,
+  type Species,
+} from '../taxonomy';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
 
 const MIN_PHOTOS = 2;
@@ -95,8 +102,12 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   const [matchRadius, setMatchRadius] = useState(1000);
   const [location, setLocation] = useState<Coordinates | null>(null);
 
-  // The DB column value: preset picks and/or the "Diğer" text, joined.
-  const color = colorChoices.length > 0 ? colorChoices.join(MULTI_CHOICE_SEPARATOR) : null;
+  // The DB column value: a fixed-color pattern auto-stores its canonical
+  // color (no picker was shown); otherwise preset picks and/or the "Diğer"
+  // text, joined.
+  const fixedColor = species ? fixedColorFor(species, breed) : null;
+  const color =
+    fixedColor ?? (colorChoices.length > 0 ? colorChoices.join(MULTI_CHOICE_SEPARATOR) : null);
 
   function handleSpeciesChange(next: Species) {
     setSpecies(next);
@@ -384,7 +395,10 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             }
           />
 
-          {breed && (
+          {/* Fixed-color patterns (sarman, siyah, calico, smokin, akbaş)
+              show no color picker at all — the canonical color is stored
+              silently (owner decision). */}
+          {breed && !fixedColor && (
             <MultiChoiceField
               key={`renk-${species}-${isPresetChoice(breed, patternsFor(species)) ? breed : OTHER}`}
               label="renk (birden fazla seçebilirsin)"

@@ -47,48 +47,77 @@ export const DOG_COLORS = [
 ];
 
 /**
- * The three most common street colors per species in Türkiye — the fallback
- * ordering when no pattern is chosen or the pattern is free "Diğer" text.
+ * The most common street colors per species in Türkiye — the fallback
+ * choice list when the pattern is free "Diğer" text.
  */
 export const CAT_TOP_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah-beyaz'];
 export const DOG_TOP_COLORS = ['Sarı / kahverengi', 'Siyah-sarı (maskeli)', 'Siyah'];
 
 /**
- * The three most common street colors per PATTERN in Türkiye — the ONLY
- * choices offered besides "Diğer" (owner decision, 2026-08-30: "tür
- * seçilince o türün en fazla görülen 3 rengi", sadece 3 renk + Diğer).
- * Orderings grounded in coat-color genetics and breed standards (no Turkish
- * frequency data exists in accessible form); per-row rationale below.
- * Values need not come from CAT_COLORS/DOG_COLORS — the column takes free
- * text, and these lists ARE the picker.
+ * Patterns whose color is inherent get NO color picker at all (owner
+ * decision, 2026-08-30): a sarman is orange, a calico is white+orange+black
+ * by definition, an Akbaş is white by breed standard. The canonical color is
+ * auto-stored so profiles never say "Rengi belirtilmemiş" for them.
  */
-export const PATTERN_TOP_COLORS: Record<string, string[]> = {
-  // Wild-type grey-brown mackerel dominates Anatolian tabbies; brown is a
-  // continuum with it; orange tabby (elevated in Turkey) third.
-  Tekir: ['Gri / boz', 'Kahverengi', 'Sarı / turuncu'],
-  // Orange by definition; Mediterranean white-spotting makes orange-white
-  // the runner-up, dilute cream third.
-  Sarman: ['Sarı / turuncu', 'Sarı-beyaz', 'Krem'],
-  // White chest lockets are extremely common on black strays; dilute black
-  // (grey/blue) third.
-  Siyah: ['Siyah', 'Siyah-beyaz', 'Gri / boz'],
-  // Calico = white base + orange + black patches; white covers most area.
-  'Üç renk (calico)': ['Beyaz', 'Sarı / turuncu', 'Siyah'],
-  // Tuxedo is black-and-white by definition; blue/grey tuxedo the common
-  // dilute; tabby-and-white the frequent street variant.
-  Smokin: ['Siyah-beyaz', 'Gri / boz', 'Tekir-beyaz'],
-  // The black mask is dominant (E^m) and the breed standard, so it persists
-  // in mixes; maskless fawn second; pied chest markings from mixing third.
-  'Kangal melezi': ['Siyah-sarı (maskeli)', 'Sarı / kahverengi', 'Alacalı / benekli'],
-  // The breed is always white; mixes break to white-with-patches.
-  'Akbaş melezi': ['Beyaz', 'Alacalı / benekli', 'Sarı / kahverengi'],
-  // Village-dog surveys show fawn/sable dominance, then dominant black;
-  // black-masked fawn common in Anatolia via Kangal admixture.
-  'Sokak melezi (orta boy)': ['Sarı / kahverengi', 'Siyah', 'Siyah-sarı (maskeli)'],
-  'Kısa bacaklı melez': ['Sarı / kahverengi', 'Siyah', 'Alacalı / benekli'],
-  // Pointer/setter/spaniel ancestry: piebald/ticked signature look first.
-  'Av/Terrier melezi': ['Alacalı / benekli', 'Sarı / kahverengi', 'Beyaz'],
+export const PATTERN_FIXED_COLOR: Record<string, string> = {
+  Sarman: 'Sarı / turuncu',
+  Siyah: 'Siyah',
+  'Üç renk (calico)': 'Beyaz-sarı-siyah',
+  Smokin: 'Siyah-beyaz',
+  'Akbaş melezi': 'Beyaz',
 };
+
+/**
+ * Color choices for patterns with real variation — the ONLY options offered
+ * besides "Diğer", ordered by street frequency. Researched per pattern
+ * (2026-08-30) from Turkish pet sources, breed standards, and coat-color
+ * genetics; labels are what a lay Turkish user would say, deliberately NOT
+ * limited to the legacy CAT_COLORS/DOG_COLORS palette (the column takes
+ * free text — these lists ARE the picker). No label may contain the
+ * MULTI_CHOICE_SEPARATOR (", ").
+ */
+export const PATTERN_COLOR_CHOICES: Record<string, string[]> = {
+  // Tabby ground colors named by Turkish pet sources; grey the beloved
+  // default, tabby-with-white very common via Mediterranean white-spotting.
+  // "Sarı tekir" stays even though sarman is a separate pattern — orange
+  // tabbies filed under Tekir need an honest choice.
+  Tekir: ['Gri / boz tekir', 'Kahverengi tekir', 'Sarı tekir', 'Tekir-beyaz', 'Gümüş tekir'],
+  // Karabaş (fawn + dominant black mask) is the type-defining look; brindle
+  // and black are breed-standard-attested; mixing adds piebald.
+  'Kangal melezi': [
+    'Siyah maskeli sarı (karabaş)',
+    'Sarı / boz',
+    'Siyah-beyaz alacalı',
+    'Kaplan çizgili',
+    'Siyah',
+  ],
+  // "Sarı köpek" is the archetypal Turkish street dog; ordering reasoned
+  // from village-dog literature (no urban census exists).
+  'Sokak melezi (orta boy)': [
+    'Sarı',
+    'Siyah',
+    'Siyah-beyaz alacalı',
+    'Kahverengi',
+    'Sarı-siyah (maskeli)',
+  ],
+  // Dachshund-standard colors dominate this ancestry; red most common.
+  'Kısa bacaklı melez': ['Kızıl / sarı', 'Siyah-kahve', 'Çikolata', 'Krem', 'Alacalı'],
+  // Pointer/setter/spaniel piebald-ticked coats; Zerdava reinforces the
+  // white-brown speckle locally; tricolor from spaniel/hound lines.
+  'Av/Terrier melezi': [
+    'Beyaz-siyah benekli',
+    'Beyaz-kahve benekli',
+    'Üç renkli',
+    'Kahverengi',
+    'Sarı-beyaz',
+  ],
+};
+
+/** The auto-stored color of a fixed-color pattern, or null. */
+export function fixedColorFor(species: Species, pattern?: string | null): string | null {
+  if (!pattern || !patternsFor(species).includes(pattern)) return null;
+  return PATTERN_FIXED_COLOR[pattern] ?? null;
+}
 
 export const ILLNESSES = [
   'Üst solunum yolu enfeksiyonu',
@@ -129,17 +158,17 @@ export function patternsFor(species: Species): string[] {
 }
 
 /**
- * Color choices for a chosen pattern: ONLY that pattern's three most common
- * street colors (owner decision — the full palette is not offered; anything
- * else goes through the "Diğer" free text the picker appends itself).
- * Free-text ("Diğer") patterns fall back to the species top-3.
+ * Color choices for a chosen pattern. Empty for fixed-color patterns (no
+ * picker at all — see PATTERN_FIXED_COLOR); the researched per-pattern list
+ * otherwise; the species fallback for free-text ("Diğer") patterns. Maps
+ * are consulted only for the species' own patterns — colorsFor('dog',
+ * 'Tekir') must not answer with cat colors.
  */
 export function colorsFor(species: Species, pattern?: string | null): string[] {
-  // The map is consulted only for the species' own patterns — otherwise
-  // colorsFor('dog', 'Tekir') would answer with cat colors.
-  const patternTop =
-    pattern && patternsFor(species).includes(pattern) ? PATTERN_TOP_COLORS[pattern] : undefined;
-  return [...(patternTop ?? (species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS))];
+  if (fixedColorFor(species, pattern)) return [];
+  const choices =
+    pattern && patternsFor(species).includes(pattern) ? PATTERN_COLOR_CHOICES[pattern] : undefined;
+  return [...(choices ?? (species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS))];
 }
 
 export function conditionsFor(recordType: 'illness' | 'injury'): string[] {

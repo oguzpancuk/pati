@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -22,6 +22,7 @@ import {
   CareStatus,
   fetchCareActionsInBounds,
   fetchCareStatus,
+  PhotoAsset,
 } from '../api/care';
 import { Animal, fetchAnimals } from '../api/animals';
 import AdBanner from '../components/AdBanner';
@@ -99,13 +100,13 @@ const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 const MAX_GREEN_ALPHA = 0.5;
 
 // The "AI is checking the photo" interstitial is a deliberate placeholder,
-// the same pattern as AddAnimalScreen's MIN_MATCHING_MS: the record is
-// created regardless (it always approves), the wait makes the check feel
-// real and reserves the slot for an actual model. When one lands, it plugs
-// into this screen and gains a reject path; the minimum-wait constant goes.
+// the same pattern as AddAnimalScreen's MIN_MATCHING_MS: it always
+// approves, the wait makes the check feel real and reserves the slot for
+// an actual model. Nothing uploads during the check — after "uygun
+// görünüyor" the user explicitly confirms, and only that confirm creates
+// the record (owner decision). When a real model lands it plugs into this
+// screen and gains a reject path; the wait constant goes.
 const AI_CHECK_MIN_MS = 2000;
-// How long the "looks fine" result stays up before the flow completes.
-const AI_CHECK_RESULT_MS = 900;
 
 function weightToGreenAlpha(weight: number) {
   return Math.min(Math.max(weight, 0), 1) * MAX_GREEN_ALPHA;
@@ -128,6 +129,7 @@ export default function MapScreen({ navigation }: any) {
   const [viewType, setViewType] = useState<'food' | 'water'>('food');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
+  const [pendingPhoto, setPendingPhoto] = useState<PhotoAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
@@ -316,7 +318,7 @@ export default function MapScreen({ navigation }: any) {
    * **after** the photo is taken: the user may have walked while the camera
    * was open, and the record needs the freshest location to land right.
    */
-  async function handleChooseAction(actionType: 'food' | 'water') {
+  async function handleChooseAction() {
     try {
       let photoResult = await launchCamera({
         mediaType: 'photo',
@@ -342,33 +344,37 @@ export default function MapScreen({ navigation }: any) {
         return;
       }
 
-      setSubmitting(true);
-      // The upload runs while the interstitial shows; the minimum wait only
-      // pads what's left of it (same trick as AddAnimal's matching screen).
+      // The check is a placeholder and needs no server, so NOTHING uploads
+      // yet: after "uygun görünüyor" the user confirms explicitly and only
+      // then does the record get created (owner decision — the check must
+      // not auto-add).
+      setPendingPhoto({ uri: asset.uri, type: asset.type, fileName: asset.fileName });
       setAiCheck('checking');
-      const startedAt = Date.now();
-
-      const device = await getCurrentLocation();
-      const created = await addCareAction(device.lat, device.lng, actionType, {
-        uri: asset.uri,
-        type: asset.type,
-        fileName: asset.fileName,
-      });
-      const elapsed = Date.now() - startedAt;
-      if (elapsed < AI_CHECK_MIN_MS) {
-        await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS - elapsed));
-      }
+      await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS));
       setAiCheck('approved');
-      await new Promise((resolve) => setTimeout(resolve, AI_CHECK_RESULT_MS));
-      // aiCheck stays 'approved' through the fade-out (resetting here would
-      // flash the confirm buttons behind the dismissal); it resets when the
-      // modal next opens.
+    } catch (err: any) {
+      setAiCheck('idle');
+      setPendingPhoto(null);
+      Alert.alert('Fotoğraf alınamadı', err?.message ?? 'Bir hata oluştu');
+    }
+  }
+
+  /** The explicit "add it" after the AI check approved the photo. */
+  async function handleConfirmDrop(actionType: 'food' | 'water') {
+    if (!pendingPhoto) return;
+    setSubmitting(true);
+    try {
+      const device = await getCurrentLocation();
+      const created = await addCareAction(device.lat, device.lng, actionType, pendingPhoto);
+      // aiCheck/pendingPhoto reset when the modal next opens, not here:
+      // resetting before the close would flash the confirm content behind
+      // the fade-out.
       setConfirmOpen(false);
       const refreshed = await load();
       celebrateNearbyAnimals(device, refreshed ?? animals);
       celebrate(created);
     } catch (err: any) {
-      setAiCheck('idle');
+      // Stay on the approval step so the user can retry the confirm.
       if (err instanceof LocationPermissionError) {
         alertLocationPermission();
       } else {
@@ -661,8 +667,10 @@ export default function MapScreen({ navigation }: any) {
             title={viewType === 'food' ? 'Mama bırak' : 'Su bırak'}
             onPress={() => {
               // A leftover 'approved' from the previous run would skip the
-              // confirm content (see the fade-out note in handleChooseAction).
+              // confirm content (state resets on open, not on close — see
+              // handleConfirmDrop).
               setAiCheck('idle');
+              setPendingPhoto(null);
               setConfirmOpen(true);
             }}
             icon={
@@ -695,8 +703,8 @@ export default function MapScreen({ navigation }: any) {
           <View style={styles.modalCard}>
             {aiCheck !== 'idle' ? (
               /* The photo-check interstitial (placeholder AI — see
-                 AI_CHECK_MIN_MS above). No cancel: the record is already
-                 uploading behind it. */
+                 AI_CHECK_MIN_MS above). Nothing has uploaded yet; the
+                 approved step waits for an explicit confirm. */
               <>
                 <View style={styles.modalIcon}>
                   {aiCheck === 'checking' ? (
@@ -711,8 +719,32 @@ export default function MapScreen({ navigation }: any) {
                 <Text variant="body" center style={styles.modalDesc}>
                   {aiCheck === 'checking'
                     ? `Fotoğraftaki ${typeLabel} kontrol ediliyor…`
-                    : 'Kayıt haritaya işleniyor.'}
+                    : `Kayıt eklensin mi? Şu anki konumuna ${typeLabel} kaydı düşecek.`}
                 </Text>
+                {aiCheck === 'approved' && (
+                  <>
+                    {pendingPhoto?.uri && (
+                      <Image source={{ uri: pendingPhoto.uri }} style={styles.modalPhoto} />
+                    )}
+                    <Button
+                      title="Onayla ve ekle"
+                      onPress={() => handleConfirmDrop(viewType)}
+                      loading={submitting}
+                      fullWidth
+                    />
+                    <Button
+                      title="Vazgeç"
+                      variant="ghost"
+                      disabled={submitting}
+                      onPress={() => {
+                        setAiCheck('idle');
+                        setPendingPhoto(null);
+                      }}
+                      fullWidth
+                      style={styles.modalCancel}
+                    />
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -733,8 +765,7 @@ export default function MapScreen({ navigation }: any) {
 
                 <Button
                   title="Fotoğrafını çek"
-                  onPress={() => handleChooseAction(viewType)}
-                  loading={submitting}
+                  onPress={handleChooseAction}
                   icon={<Icon name="camera" size={18} color={colors.textOnBrand} />}
                   fullWidth
                 />
@@ -886,6 +917,13 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginBottom: spacing.md,
   },
   modalDesc: { marginTop: spacing.xs, marginBottom: spacing.lg },
+  modalPhoto: {
+    width: 84,
+    height: 84,
+    borderRadius: radius.lg ?? 14,
+    marginBottom: spacing.lg,
+    alignSelf: 'center',
+  },
   modalCancel: { marginTop: spacing.xs },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

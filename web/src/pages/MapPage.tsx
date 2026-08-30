@@ -1,7 +1,7 @@
 // The maplibre worker workaround and the shared style helper live in
 // mapSetup.ts — every map component imports from there.
 import { maplibregl, styleFor } from '../mapSetup';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { animalAvatarSvg } from '@shared/animalAvatarSvg';
 import { circlePolygon, circleRing, featureCollection, pointFeature } from '@mobile/map/geo';
@@ -59,10 +59,9 @@ const USER_RADIUS_STROKE = 'rgba(33, 32, 30, 0.35)';
 const BREATH_PERIOD_MS = 4500;
 const BREATH_TICK_MS = 150;
 
-// Same numbers as mobile MapScreen — the interstitial must feel identical
+// Same number as mobile MapScreen — the interstitial must feel identical
 // on every client. Change one, change the other.
 const AI_CHECK_MIN_MS = 2000;
-const AI_CHECK_RESULT_MS = 900;
 const BREATH_MIN = 0.78;
 
 type ViewType = 'food' | 'water';
@@ -114,9 +113,22 @@ export default function MapPage() {
   // constants as mobile MapScreen (always approves; the upload runs behind
   // it; a real model later gains the reject path here).
   const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
+  const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomHint, setZoomHint] = useState(false);
+  // Minted once per pending photo and revoked on replacement/unmount (the
+  // blob-URL-in-render lesson from the add form).
+  const pendingPhotoUrl = useMemo(
+    () => (pendingPhoto ? URL.createObjectURL(pendingPhoto) : null),
+    [pendingPhoto]
+  );
+  useEffect(
+    () => () => {
+      if (pendingPhotoUrl) URL.revokeObjectURL(pendingPhotoUrl);
+    },
+    [pendingPhotoUrl]
+  );
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   // Flips once the (rAF-deferred) map exists, so the data effects below
   // re-run instead of bailing out against a still-null mapRef.
@@ -404,14 +416,24 @@ export default function MapPage() {
     map.flyTo({ center: here, zoom: CELEBRATE_ZOOM, duration: 400 });
   }
 
-  /** Photo picked → get the location → drop the record at the current spot. */
+  /**
+   * Photo picked → the placeholder AI check runs (client-side only, nothing
+   * uploads) → the approved step waits for an explicit confirm (owner
+   * decision — the check must not auto-add).
+   */
   async function handlePhotoPicked(file: File) {
+    setError(null);
+    setPendingPhoto(file);
+    setAiCheck('checking');
+    await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS));
+    setAiCheck('approved');
+  }
+
+  /** The explicit "add it" after the AI check approved the photo. */
+  async function handleConfirmDrop() {
+    if (!pendingPhoto) return;
     setBusy(true);
     setError(null);
-    // The upload runs while the interstitial shows; the minimum wait only
-    // pads what's left of it (same trick as the add-animal matching screen).
-    setAiCheck('checking');
-    const startedAt = Date.now();
     try {
       // Without a location (http origin, no permission), instead of blocking
       // the user we use the map center and state the reason: people drop at
@@ -424,16 +446,10 @@ export default function MapPage() {
         return center ? { lat: center.lat, lng: center.lng } : FALLBACK_CENTER;
       });
       setMyLocation(loc);
-      const created = await addCareAction(loc.lat, loc.lng, viewType, file);
-      const elapsed = Date.now() - startedAt;
-      if (elapsed < AI_CHECK_MIN_MS) {
-        await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS - elapsed));
-      }
-      setAiCheck('approved');
-      await new Promise((resolve) => setTimeout(resolve, AI_CHECK_RESULT_MS));
+      const created = await addCareAction(loc.lat, loc.lng, viewType, pendingPhoto);
       if (usedFallback) setError(`${usedFallback} Kayıt haritanın ortasına düştü.`);
-      // aiCheck resets when the modal next opens, not here: resetting before
-      // the close would flash the confirm content behind it.
+      // aiCheck/pendingPhoto reset when the modal next opens, not here:
+      // resetting before the close would flash the confirm content behind it.
       setConfirmOpen(false);
       await Promise.all([loadCircles(), loadAnimals(loc)]);
       const s = await fetchCareStatus(loc.lat, loc.lng, viewType).catch(() => null);
@@ -441,7 +457,7 @@ export default function MapPage() {
       celebrateNearbyAnimals(loc);
       celebrate(created);
     } catch (err) {
-      setAiCheck('idle');
+      // Stay on the approval step so the user can retry the confirm.
       setError(err instanceof Error ? err.message : 'Eklenemedi');
     } finally {
       setBusy(false);
@@ -507,9 +523,10 @@ export default function MapPage() {
             className="btn full"
             onClick={() => {
               // A leftover 'approved' from the previous run would skip the
-              // confirm content (aiCheck resets on open, not on close — see
-              // handlePhotoPicked).
+              // confirm content (state resets on open, not on close — see
+              // handleConfirmDrop).
               setAiCheck('idle');
+              setPendingPhoto(null);
               setConfirmOpen(true);
             }}
           >
@@ -564,8 +581,8 @@ export default function MapPage() {
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             {aiCheck !== 'idle' ? (
               /* The photo-check interstitial (placeholder AI — see
-                 AI_CHECK_MIN_MS). No cancel: the record is already
-                 uploading behind it, bounded by the client's timeout. */
+                 AI_CHECK_MIN_MS). Nothing has uploaded yet; the approved
+                 step waits for an explicit confirm. */
               <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
                 <div
                   className="matching-stage"
@@ -583,8 +600,36 @@ export default function MapPage() {
                 <p className="muted">
                   {aiCheck === 'checking'
                     ? `Fotoğraftaki ${typeLabel} kontrol ediliyor…`
-                    : 'Kayıt haritaya işleniyor.'}
+                    : `Kayıt eklensin mi? Şu anki konumuna ${typeLabel} kaydı düşecek.`}
                 </p>
+                {aiCheck === 'approved' && (
+                  <>
+                    {error && <div className="error">{error}</div>}
+                    {pendingPhotoUrl && (
+                      <img
+                        src={pendingPhotoUrl}
+                        alt=""
+                        width={84}
+                        height={84}
+                        style={{ objectFit: 'cover', borderRadius: 14, margin: '4px auto 12px' }}
+                      />
+                    )}
+                    <button className="btn full" disabled={busy} onClick={handleConfirmDrop}>
+                      {busy ? 'Ekleniyor…' : 'Onayla ve ekle'}
+                    </button>
+                    <button
+                      className="btn ghost full"
+                      disabled={busy}
+                      onClick={() => {
+                        setAiCheck('idle');
+                        setPendingPhoto(null);
+                        setError(null);
+                      }}
+                    >
+                      Vazgeç
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <>

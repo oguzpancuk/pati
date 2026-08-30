@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   colorsFor,
+  fixedColorFor,
   isPresetChoice,
   MULTI_CHOICE_SEPARATOR,
   OTHER,
@@ -314,7 +315,10 @@ export default function AddAnimalPage() {
   }, [confirmedAnimalId]);
 
   // The DB column value: preset picks and/or the "Diğer" text, joined.
-  const color = colorChoices.length > 0 ? colorChoices.join(MULTI_CHOICE_SEPARATOR) : null;
+  // A fixed-color pattern auto-stores its canonical color (no picker shown).
+  const fixedColor = species ? fixedColorFor(species, breed) : null;
+  const color =
+    fixedColor ?? (colorChoices.length > 0 ? colorChoices.join(MULTI_CHOICE_SEPARATOR) : null);
 
   function changeSpecies(next: Species) {
     setSpecies(next);
@@ -572,7 +576,9 @@ export default function AddAnimalPage() {
             onChange={changeBreed}
           />
 
-          {breed && (
+          {/* Fixed-color patterns show no picker; the canonical color is
+              stored silently (owner decision). */}
+          {breed && !fixedColor && (
             <>
               <div className="label">renk (birden fazla seçebilirsin)</div>
               <MultiChips

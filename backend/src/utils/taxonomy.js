@@ -51,29 +51,61 @@ const DOG_COLORS = [
 ];
 
 /**
- * The three most common street colors per species in Türkiye — the fallback
- * ordering when no pattern is chosen or the pattern is free "Diğer" text.
+ * The most common street colors per species in Türkiye — the fallback
+ * choice list when the pattern is free "Diğer" text.
  */
 const CAT_TOP_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah-beyaz'];
 const DOG_TOP_COLORS = ['Sarı / kahverengi', 'Siyah-sarı (maskeli)', 'Siyah'];
 
 /**
- * The three most common street colors per PATTERN in Türkiye — the ONLY
- * choices offered besides "Diğer". Rationale lives with the mobile copy
+ * Patterns whose color is inherent get NO color picker; the canonical color
+ * is auto-stored. Rationale lives with the mobile copy
  * (mobile/src/taxonomy.ts); keep the two maps identical.
  */
-const PATTERN_TOP_COLORS = {
-  Tekir: ['Gri / boz', 'Kahverengi', 'Sarı / turuncu'],
-  Sarman: ['Sarı / turuncu', 'Sarı-beyaz', 'Krem'],
-  Siyah: ['Siyah', 'Siyah-beyaz', 'Gri / boz'],
-  'Üç renk (calico)': ['Beyaz', 'Sarı / turuncu', 'Siyah'],
-  Smokin: ['Siyah-beyaz', 'Gri / boz', 'Tekir-beyaz'],
-  'Kangal melezi': ['Siyah-sarı (maskeli)', 'Sarı / kahverengi', 'Alacalı / benekli'],
-  'Akbaş melezi': ['Beyaz', 'Alacalı / benekli', 'Sarı / kahverengi'],
-  'Sokak melezi (orta boy)': ['Sarı / kahverengi', 'Siyah', 'Siyah-sarı (maskeli)'],
-  'Kısa bacaklı melez': ['Sarı / kahverengi', 'Siyah', 'Alacalı / benekli'],
-  'Av/Terrier melezi': ['Alacalı / benekli', 'Sarı / kahverengi', 'Beyaz'],
+const PATTERN_FIXED_COLOR = {
+  Sarman: 'Sarı / turuncu',
+  Siyah: 'Siyah',
+  'Üç renk (calico)': 'Beyaz-sarı-siyah',
+  Smokin: 'Siyah-beyaz',
+  'Akbaş melezi': 'Beyaz',
 };
+
+/**
+ * Researched per-pattern color choices (labels are lay Turkish, not limited
+ * to the legacy palette; none may contain MULTI_CHOICE_SEPARATOR). Keep
+ * identical to the mobile copy.
+ */
+const PATTERN_COLOR_CHOICES = {
+  Tekir: ['Gri / boz tekir', 'Kahverengi tekir', 'Sarı tekir', 'Tekir-beyaz', 'Gümüş tekir'],
+  'Kangal melezi': [
+    'Siyah maskeli sarı (karabaş)',
+    'Sarı / boz',
+    'Siyah-beyaz alacalı',
+    'Kaplan çizgili',
+    'Siyah',
+  ],
+  'Sokak melezi (orta boy)': [
+    'Sarı',
+    'Siyah',
+    'Siyah-beyaz alacalı',
+    'Kahverengi',
+    'Sarı-siyah (maskeli)',
+  ],
+  'Kısa bacaklı melez': ['Kızıl / sarı', 'Siyah-kahve', 'Çikolata', 'Krem', 'Alacalı'],
+  'Av/Terrier melezi': [
+    'Beyaz-siyah benekli',
+    'Beyaz-kahve benekli',
+    'Üç renkli',
+    'Kahverengi',
+    'Sarı-beyaz',
+  ],
+};
+
+/** The auto-stored color of a fixed-color pattern, or null. */
+function fixedColorFor(species, pattern) {
+  if (!pattern || !patternsFor(species).includes(pattern)) return null;
+  return PATTERN_FIXED_COLOR[pattern] ?? null;
+}
 
 /** Health records have exactly two types: illness and injury. Vaccines live in their own table. */
 const HEALTH_RECORD_TYPES = ['illness', 'injury'];
@@ -133,11 +165,13 @@ function patternsFor(species) {
  * Derived (not a second hand-kept list) so the two orderings cannot drift.
  */
 function colorsFor(species, pattern) {
-  // The map is consulted only for the species' own patterns — otherwise
-  // colorsFor('dog', 'Tekir') would answer with cat colors.
-  const patternTop =
-    pattern && patternsFor(species).includes(pattern) ? PATTERN_TOP_COLORS[pattern] : undefined;
-  return [...(patternTop ?? (species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS))];
+  // Empty for fixed-color patterns (no picker); researched choices
+  // otherwise; species fallback for free-text patterns. Maps are consulted
+  // only for the species' own patterns.
+  if (fixedColorFor(species, pattern)) return [];
+  const choices =
+    pattern && patternsFor(species).includes(pattern) ? PATTERN_COLOR_CHOICES[pattern] : undefined;
+  return [...(choices ?? (species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS))];
 }
 
 /** Condition list for a health-record type. */
@@ -154,7 +188,9 @@ module.exports = {
   DOG_COLORS,
   CAT_TOP_COLORS,
   DOG_TOP_COLORS,
-  PATTERN_TOP_COLORS,
+  PATTERN_FIXED_COLOR,
+  PATTERN_COLOR_CHOICES,
+  fixedColorFor,
   HEALTH_RECORD_TYPES,
   ILLNESSES,
   INJURIES,
