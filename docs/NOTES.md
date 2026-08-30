@@ -23,9 +23,12 @@ When you make a decision or knowingly accept a limit, add a line here.
   keeps clusters needing the shared simulator/database, an isolated
   worktree agent takes independent clusters, research goes to background
   researcher agents immediately; merge + verify battery + screenshots stay
-  in the main session. Authority tiers (per-push approval etc.) unchanged.
-  Owner: "bana sormadan da boyle uzun istekler verdigimde bunun otomatik
-  olmasini isterim" (improvement-sprint session).
+  in the main session. Authority tiers (per-push approval etc.) unchanged —
+  but waiting for a push/deploy approval must never idle the session: ask,
+  keep working on the next cluster, let unpushed commits queue (each push
+  still individually approved). Owner: "bana sormadan da boyle uzun
+  istekler verdigimde bunun otomatik olmasini isterim" and "push onayi
+  beklerken durmuyorsun, bu da cok iyi" (improvement-sprint session).
 
 ---
 
