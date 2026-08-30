@@ -104,7 +104,9 @@ works".
   starting; update `docs/NOTES.md` (dated, append-only) when stopping.
   Decisions that constrain the future go to `docs/adr/`.
 - Every task states its stopping condition up front; when met, stop & report.
-- Work happens on `main`; no PR flow. Commit + push freely; CI must be green
+- Work happens on `main`; no PR flow. Commit freely; **ask before every
+  `git push`** — the owner approves each push (owner decision 2026-08-30:
+  the maya constitution's caution wins over convenience). CI must be green
   before any deploy.
 - Unattended runs (goal loops, overnight): follow `contracts/README.md` —
   one feature per session, default-FAIL feature list, evidence before
