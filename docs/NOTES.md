@@ -689,3 +689,17 @@ decision and the provider trade-offs. Working notes:
 - In-app browser panes/screencast tools can throttle rAF until an
   interaction — a MapLibre map can look "stuck blank" there while being
   fine in a real browser; trust playwright/simulator screenshots.
+
+---
+
+## 2026-08-30 — review fixes deployed; push authority moved to the global tiers
+
+Second production deploy (`18ebfa9`, bundle `index-DdBTg_Jo.js`): the
+code-review fixes (toggle-race guards, breath-timer battery fix, web
+maxZoom 19) are live; evaluator-qa PASSed post-deploy with a sha256 match
+between the live bundle and the local build, and a behavioral rapid-toggle
+test. Process changes this session: pushes now require per-instance owner
+approval (authority tiers, global constitution; pati's "push freely"
+loosening retired in b81ecf1), the agent-roster rule is a standing
+instruction (ported from maya a005446), and three upstream candidates await
+the next /update-stack. Still open: Android emulator verification.
