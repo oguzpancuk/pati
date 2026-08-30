@@ -55,21 +55,21 @@ real DINOv2/CLIP weights too.
 
 **Photo → vector (CPU, 3 photos per record, batched):**
 
-| Model | 1 photo | 3 photos | Per record |
-| --- | --- | --- | --- |
-| ViT-B/16 (86M) — DINOv2-base class | 136 ms | 335 ms | **0.33 s** |
-| ViT-B/32 (88M) — CLIP ViT-B/32 class | 49 ms | 84 ms | **0.08 s** |
-| ResNet-50 (25M) | 51 ms | 101 ms | 0.10 s |
-| MobileNetV3-L (5M) | 16 ms | 28 ms | 0.03 s |
+| Model                                | 1 photo | 3 photos | Per record |
+| ------------------------------------ | ------- | -------- | ---------- |
+| ViT-B/16 (86M) — DINOv2-base class   | 136 ms  | 335 ms   | **0.33 s** |
+| ViT-B/32 (88M) — CLIP ViT-B/32 class | 49 ms   | 84 ms    | **0.08 s** |
+| ResNet-50 (25M)                      | 51 ms   | 101 ms   | 0.10 s     |
+| MobileNetV3-L (5M)                   | 16 ms   | 28 ms    | 0.03 s     |
 
 **Vector search (pgvector 0.6; 25,000 animals × 3 photos = 75,000 vectors, 768-d):**
 
-| Candidate set | Vectors | Time |
-| --- | --- | --- |
-| 1 km radius | ~300 | **4 ms** |
-| 3 km radius | ~2,850 | 20 ms |
-| 10 km radius | ~31,400 | 261 ms |
-| No geo narrowing (full scan) | 75,000 | 309 ms |
+| Candidate set                | Vectors | Time     |
+| ---------------------------- | ------- | -------- |
+| 1 km radius                  | ~300    | **4 ms** |
+| 3 km radius                  | ~2,850  | 20 ms    |
+| 10 km radius                 | ~31,400 | 261 ms   |
+| No geo narrowing (full scan) | 75,000  | 309 ms   |
 
 **Storage:** 75,000 vectors + index = **309 MB**.
 
@@ -95,6 +95,7 @@ and dataset hosts (huggingface.co, download.pytorch.org, GitHub releases,
 GCS). Only PyPI was reachable — packages install, trained weights don't.
 
 **Needed for the accuracy measurement (either works):**
+
 - Photos of the same street animals at different times/angles (10–20 animals
   × 3–4 photos gives a first signal), **or**
 - Running the prepared script in a network-open environment (a local machine);
@@ -111,6 +112,7 @@ GCS). Only PyPI was reachable — packages install, trained weights don't.
 <summary>Full plan</summary>
 
 ### Desired flow
+
 "Add animal" opens the form directly. After fields and photos, AI shows the 5
 most similar registered animals nearby with similarity. Picking one adds the
 user to that animal's carers; picking none creates a new record.
@@ -126,6 +128,7 @@ user to that animal's carers; picking none creates a new record.
 > (`AddAnimalScreen.tsx` → `MIN_MATCHING_MS`) goes away.
 
 ### Suggested approach
+
 **Don't train a model.** A pretrained image-embedding model is sufficient and
 far cheaper:
 
@@ -144,8 +147,10 @@ far cheaper:
    and more accurate.
 
 ### The "probability" trap
+
 Cosine similarity is **not a probability**. Showing "87% the same animal"
 would mislead. Options:
+
 - **Easy path:** tiered labels ("very similar / similar / less similar"),
   no numbers.
 - **Right path:** calibrate scores with accumulated same/different decisions
@@ -155,6 +160,7 @@ would mislead. Options:
 Either way **the user makes the final call**; never auto-merge.
 
 ### Tasks
+
 - [ ] Spike: measure DINOv2/CLIP similarity on 20–30 real street-animal
       photos; is accuracy sufficient (2–3 days)
 - [ ] `pgvector` extension + `animal_photos.embedding` column + index
@@ -167,6 +173,7 @@ Either way **the user makes the final call**; never auto-merge.
 - [ ] Record user choices in `animal_match_feedback` (future calibration)
 
 ### Open decisions
+
 - ~~Where does the embedding service run; is CPU enough?~~ → **CPU is enough,
   no GPU** (spike: 0.33 s per record)
 - ~~Score as a number or a tier?~~ → **tier** (high/medium/low); no numbers
@@ -180,8 +187,8 @@ Either way **the user makes the final call**; never auto-merge.
 
 ## 2. Donations — ⏸️ deferred
 
-> **Status: deferred (August 18, 2026).** Decision: *"too many external
-> parties need settling."* Correct call — the blockers are not code: payment
+> **Status: deferred (August 18, 2026).** Decision: _"too many external
+> parties need settling."_ Correct call — the blockers are not code: payment
 > provider, legal entity, accountant/lawyer, store rules. Code written before
 > those settle would likely be thrown away.
 >
@@ -190,12 +197,12 @@ Either way **the user makes the final call**; never auto-merge.
 
 ### Must settle before any code
 
-| # | Decision | Why it blocks |
-| --- | --- | --- |
-| 1 | **Payment provider and model** — marketplace (split payment) or single account? | Data model and money flow depend on it. *Suggested: marketplace* |
-| 2 | **Legal entity** — is a company formed; whose name is on the merchant account? | Can't move past test environments |
-| 3 | **Legal review** — the 5% fee + donation-collection permits (Turkish law 2860) | Wrong model = unlicensed donation collection |
-| 4 | **Store rules** — Apple/Google charity rules (external payment, not IAP) | Wrong integration = store rejection |
+| #   | Decision                                                                        | Why it blocks                                                    |
+| --- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| 1   | **Payment provider and model** — marketplace (split payment) or single account? | Data model and money flow depend on it. _Suggested: marketplace_ |
+| 2   | **Legal entity** — is a company formed; whose name is on the merchant account?  | Can't move past test environments                                |
+| 3   | **Legal review** — the 5% fee + donation-collection permits (Turkish law 2860)  | Wrong model = unlicensed donation collection                     |
+| 4   | **Store rules** — Apple/Google charity rules (external payment, not IAP)        | Wrong integration = store rejection                              |
 
 **Why marketplace:** collecting money into your own account first and then
 forwarding it makes you a "donation collector", which is permit-gated in
@@ -207,7 +214,7 @@ operationally and legally.
 
 - How do organizations join — added by you, or applications?
   (sub-merchant onboarding needs their paperwork)
-- Recurring (monthly) donations? *Suggested: one-off only in v1*
+- Recurring (monthly) donations? _Suggested: one-off only in v1_
 - Amounts: fixed buttons, free entry, limits?
 - How is "donate to the app" explained? (not a charity donation — platform
   support; the 5% logic doesn't apply, it's all yours)
@@ -232,11 +239,13 @@ devalue donating — it just doesn't mix two kinds of contribution.
 <summary>Technical plan (opens when the decisions settle)</summary>
 
 ### Desired flow
+
 Organizations entered via the admin panel; users donate in-app; **5% stays
 with the platform**; direct-to-app donations appear at the top; total donated
 amount earns badges.
 
 ### Approach
+
 1. **Pick a provider.** iyzico and PayTR are the common Turkish options; both
    offer a marketplace / sub-merchant model. **That model matters**: automatic
    fee split, organization's share flows directly to them.
@@ -252,6 +261,7 @@ amount earns badges.
    reputationally sensitive — don't ship without accountant/lawyer sign-off.
 
 ### Data-model sketch
+
 ```
 donation_orgs      (id, name, logo_url, description, website, tax_id,
                     provider_submerchant_id, active, sort_order)
@@ -259,9 +269,11 @@ donations          (id, user_id, org_id NULL, amount, currency, platform_fee,
                     provider_payment_id, status, created_at)
                     -- org_id NULL = direct-to-app donation
 ```
+
 A new badge group in `badges.js`: tiers by total donated (`donation:total`).
 
 ### Tasks
+
 - [ ] Provider selection + account + sandbox
 - [ ] Legal review: fee model, permit requirements, user-facing texts
 - [ ] Schema: `donation_orgs`, `donations`
@@ -289,6 +301,7 @@ rejected: two users opening at once would both see the same brand.
 Full rationale in [NOTES.md](NOTES.md).
 
 **Remaining:**
+
 - [ ] Rate limiting on login/impression endpoints (against fake impressions)
 - [ ] Ad-free experience for donors (decided with item 2)
 - [ ] Whether the banner should be dismissible
@@ -317,11 +330,12 @@ Full rationale in [NOTES.md](NOTES.md).
   discipline.
 
 ### Remaining
+
 - [ ] **Accessibility: white on orange.** Measured contrast on `#F47A4A` is
       **2.7:1** (AA needs 4.5:1). Kept because the brand identity shows it;
       decide before launch (darker fill ~`#C2551F` at 4.6:1, or dark text at
-      5.3:1). *(The web studio aesthetic's gradient buttons have the same
-      question.)*
+      5.3:1). _(The web studio aesthetic's gradient buttons have the same
+      question.)_
 - [ ] **Screen-reader labels** untested end to end.
 - [ ] **Admin panel** still on its own palette; align with the brand.
 - [ ] **Mobile port of the studio aesthetic** — web is ahead of mobile now.
@@ -340,6 +354,7 @@ served in production from the same Fly app under `ADMIN_HOST`
 (admin.pati-app.com).
 
 **Remaining:**
+
 - [ ] Donation-org management and reports (with item 2)
 - [ ] IP allowlisting and/or 2FA for the panel — recommended for a panel
       that can manipulate data **(open)**
@@ -359,6 +374,7 @@ These are not features; they are "become shippable" work. Rationale lives in
 [NOTES.md](NOTES.md). Estimate: 1–2 weeks.
 
 **Data safety (no real data before these):**
+
 - [ ] Move photos to object storage (S3/R2) + image resizing — today they
       sit on the machine's disk (a persistent Fly volume, but single-node
       and unversioned)
@@ -367,6 +383,7 @@ These are not features; they are "become shippable" work. Rationale lives in
 - [x] Database backups — automatic with managed Fly Postgres
 
 **Abuse protection:**
+
 - [x] Rate limiting beyond auth — every content write is now capped
       **per user** (not per IP: Turkish carriers CGNAT thousands of users
       behind one address). Ceilings sized at ~3x the heaviest honest use:
@@ -388,6 +405,7 @@ These are not features; they are "become shippable" work. Rationale lives in
 **Pilot go/no-go — the single list (Aug 19):**
 
 Developer side, done and verified in this repo:
+
 - [x] Deploy pipeline, CI gate, DB backups, admin panel + roles
 - [x] Auth per-IP brake + per-user write ceilings on every content endpoint
 - [x] Moderation: user reports, admin queue, suspension
@@ -397,6 +415,7 @@ Developer side, done and verified in this repo:
 - [x] Guide (tutorial) data live with hourly refresh
 
 Ops/owner side, still open — the actual go/no-go gates:
+
 - [ ] `git pull` + `/deploy-checklist` (ships everything above), then smoke-test
       /gizlilik, a report, and an account deletion against production
 - [ ] iletisim@pati-app.com mailbox or forward (KVKK requests must land)
@@ -409,6 +428,7 @@ Ops/owner side, still open — the actual go/no-go gates:
       Xcode on the Mac — exact steps below under "Rename internals")
 
 Deliberately deferred, with reasons:
+
 - Object storage for photos: Fly volume snapshots cover the pilot's data
   risk; move before user count grows (the migration is cheap while the
   uploads folder is small)
@@ -416,6 +436,7 @@ Deliberately deferred, with reasons:
 - pgvector/AI matching: measured, blocked on accuracy testing (spikes/)
 
 **Legal / stores:**
+
 - [x] KVKK: privacy notice + short terms live at `/gizlilik` (source:
       `web/src/legal.ts`), linked from register screens, profile pages and
       the landing page (Aug 19). Veri sorumlusu filled in (Oğuz Pançuk).
@@ -435,13 +456,109 @@ Deliberately deferred, with reasons:
 - [ ] Remove the location-override code (`mobile/src/location.ts`)
 
 **Quality:**
+
 - [x] CI (web/admin/mobile/backend/docker gates on every push —
       `.github/workflows/ci.yml`, August 19)
 - [ ] Backend tests (jest + supertest; none exist yet)
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
 **Distribution:**
+
 - [x] Backend deployed (Fly.io single image + managed PostGIS + volume;
       docs/DEPLOYMENT.md, August 19)
 - [ ] TestFlight (iOS) and Play internal testing (Android) builds
 - [ ] Pilot with 10–20 real users in a single neighborhood
+
+---
+
+## 🔧 Improvement sprint (planned August 30, 2026)
+
+Twelve owner-reported improvements, grouped into eight sessions — one
+session per group, each ends with a code-reviewer pass. Owner decisions
+already made are recorded inline; nothing below needs a new decision to
+start. Interactive sessions, not the contracts loop (several items carry UX
+judgment).
+
+### S1 — Food/water drop UX (items 7, 8, 6)
+
+The bottom map button is ambiguous: users drop food/water **at their
+current location** (no map pinning), and the UI must say so. Rework the
+control: label becomes "Bıraktım" phrasing (product text stays Turkish),
+make the at-your-location semantics visible, add clear confirmation
+feedback.
+
+- Also verify item 6 here: with theme = system, map ground and app surfaces
+  must match (likely already fixed by the MapLibre migration — prove it,
+  don't assume it).
+- **Done when:** simulator screenshots of the reworked control (light,
+  dark, and system theme) — the system-theme shot closes item 6.
+
+### S2 — Quick wins (items 1, 10)
+
+- Item 1: when location permission is denied, the app offers "Ayarları aç"
+  via `Linking.openSettings()` instead of dead-ending.
+- Item 10: soften the "iyileşti" (recovered) action's tone — it currently
+  reads as a done deal and is easy to tap by mistake — and add an undo
+  (clear `recovered_at`; state is derived so nothing else desyncs).
+- **Done when:** screenshots of the denied-permission state and of the
+  recovered → undo flow.
+
+### S3 — Drop history + delete (items 9, 11)
+
+- **Decision:** history lives on the **profile** as a list (preview 3 +
+  `LoadMoreButton`, the existing pagination pattern).
+- **Decision:** a drop can be deleted only within a **15-minute window**
+  (mistake correction, not history rewriting).
+- Backend: history endpoint (limit/offset) + delete endpoint (ownership +
+  window check, rate-limited like other content writes). Map circles must
+  reflect a deletion.
+- **Done when:** curl end-to-end for both endpoints (backend has no tests),
+  screenshots of the profile section and delete flow.
+
+### S4 — Add-animal form colors (item 3)
+
+- Color multi-select stays hidden until a species is chosen.
+- **Decision:** per-species top-3 popular colors are **fixed in the
+  taxonomy** (research the actual most common street colors per existing
+  species in Türkiye first), shown first; plus a free-entry "diğer" option
+  like species selection has.
+- Taxonomy exists in two copies (backend + mobile) — change both.
+- **Done when:** screenshots (no species → no colors; species chosen →
+  top-3 + diğer), taxonomy parity check passes.
+
+### S5 — Badge catalog (item 4)
+
+A screen listing every obtainable badge and its tiers, browsable before
+earning. No decisions needed.
+
+- **Done when:** screenshot of the catalog.
+
+### S6 — Fake-AI check for food/water photos (item 5)
+
+After the photo upload, an interstitial "AI kontrol" screen using the same
+deliberate-wait pattern as AddAnimal matching (`MIN_MATCHING_MS`).
+
+- **Decision:** it **always approves** for now; the rejection path arrives
+  with the real model.
+- **Done when:** screenshot of the interstitial; NOTES entry marking the
+  placeholder (like the matching one).
+
+### S7 — Apple + Google sign-in (item 2)
+
+The largest item; its own session. Native modules (pod install + native
+build), new backend auth paths. App Store rule: offering Google sign-in
+makes **Sign in with Apple mandatory** — they ship together. Owner-side
+work: Apple Developer / Google Cloud console configuration.
+
+- **Done when:** both logins verified on the simulator end to end; token
+  flow checked with curl.
+
+### S8 — Terms of use (item 12)
+
+Legal research first (researcher agent): Law 5199 on animal protection and
+its 2021 amendments, liability around feeding/medicating street animals,
+relation to the existing KVKK text. Owner approves the final text; it
+extends the `/gizlilik` infrastructure (`web/src/legal.ts`), so it ships
+without an app-store release. Can run in parallel with any session.
+
+- **Done when:** owner-approved text is live and linked from the app.
