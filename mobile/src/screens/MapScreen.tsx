@@ -98,6 +98,15 @@ const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 // must remain readable.
 const MAX_GREEN_ALPHA = 0.5;
 
+// The "AI is checking the photo" interstitial is a deliberate placeholder,
+// the same pattern as AddAnimalScreen's MIN_MATCHING_MS: the record is
+// created regardless (it always approves), the wait makes the check feel
+// real and reserves the slot for an actual model. When one lands, it plugs
+// into this screen and gains a reject path; the minimum-wait constant goes.
+const AI_CHECK_MIN_MS = 2000;
+// How long the "looks fine" result stays up before the flow completes.
+const AI_CHECK_RESULT_MS = 900;
+
 function weightToGreenAlpha(weight: number) {
   return Math.min(Math.max(weight, 0), 1) * MAX_GREEN_ALPHA;
 }
@@ -118,6 +127,7 @@ export default function MapScreen({ navigation }: any) {
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [viewType, setViewType] = useState<'food' | 'water'>('food');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
@@ -333,6 +343,10 @@ export default function MapScreen({ navigation }: any) {
       }
 
       setSubmitting(true);
+      // The upload runs while the interstitial shows; the minimum wait only
+      // pads what's left of it (same trick as AddAnimal's matching screen).
+      setAiCheck('checking');
+      const startedAt = Date.now();
 
       const device = await getCurrentLocation();
       const created = await addCareAction(device.lat, device.lng, actionType, {
@@ -340,11 +354,19 @@ export default function MapScreen({ navigation }: any) {
         type: asset.type,
         fileName: asset.fileName,
       });
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < AI_CHECK_MIN_MS) {
+        await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS - elapsed));
+      }
+      setAiCheck('approved');
+      await new Promise((resolve) => setTimeout(resolve, AI_CHECK_RESULT_MS));
       setConfirmOpen(false);
+      setAiCheck('idle');
       const refreshed = await load();
       celebrateNearbyAnimals(device, refreshed ?? animals);
       celebrate(created);
     } catch (err: any) {
+      setAiCheck('idle');
       if (err instanceof LocationPermissionError) {
         alertLocationPermission();
       } else {
@@ -659,37 +681,66 @@ export default function MapScreen({ navigation }: any) {
       <Modal visible={confirmOpen} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <View style={styles.modalIcon}>
-              <Icon name={viewType === 'food' ? 'food' : 'water'} size={26} color={colors.brand} />
-            </View>
-            <Text variant="heading" center>
-              Bulunduğun yere {typeLabel} bırak
-            </Text>
-            <Text variant="body" center style={styles.modalDesc}>
-              {typeLabel === 'mama' ? 'Mamayı' : 'Suyu'} bırak ve fotoğrafını çek, haritada herkes
-              görsün. Kayıt şu anki konumuna düşecek.
-            </Text>
+            {aiCheck !== 'idle' ? (
+              /* The photo-check interstitial (placeholder AI — see
+                 AI_CHECK_MIN_MS above). No cancel: the record is already
+                 uploading behind it. */
+              <>
+                <View style={styles.modalIcon}>
+                  {aiCheck === 'checking' ? (
+                    <ActivityIndicator color={colors.brand} />
+                  ) : (
+                    <Icon name="check" size={26} color={colors.success} />
+                  )}
+                </View>
+                <Text variant="heading" center>
+                  {aiCheck === 'checking' ? 'Yapay zeka fotoğrafı inceliyor' : 'Uygun görünüyor'}
+                </Text>
+                <Text variant="body" center style={styles.modalDesc}>
+                  {aiCheck === 'checking'
+                    ? `Fotoğraftaki ${typeLabel} kontrol ediliyor…`
+                    : 'Kayıt haritaya işleniyor.'}
+                </Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.modalIcon}>
+                  <Icon
+                    name={viewType === 'food' ? 'food' : 'water'}
+                    size={26}
+                    color={colors.brand}
+                  />
+                </View>
+                <Text variant="heading" center>
+                  Bulunduğun yere {typeLabel} bırak
+                </Text>
+                <Text variant="body" center style={styles.modalDesc}>
+                  {typeLabel === 'mama' ? 'Mamayı' : 'Suyu'} bırak ve fotoğrafını çek, haritada
+                  herkes görsün. Kayıt şu anki konumuna düşecek.
+                </Text>
 
-            <Button
-              title="Fotoğrafını çek"
-              onPress={() => handleChooseAction(viewType)}
-              loading={submitting}
-              icon={<Icon name="camera" size={18} color={colors.textOnBrand} />}
-              fullWidth
-            />
-            <Button
-              title="Vazgeç"
-              variant="ghost"
-              onPress={() => setConfirmOpen(false)}
-              fullWidth
-              style={styles.modalCancel}
-            />
+                <Button
+                  title="Fotoğrafını çek"
+                  onPress={() => handleChooseAction(viewType)}
+                  loading={submitting}
+                  icon={<Icon name="camera" size={18} color={colors.textOnBrand} />}
+                  fullWidth
+                />
+                <Button
+                  title="Vazgeç"
+                  variant="ghost"
+                  onPress={() => setConfirmOpen(false)}
+                  fullWidth
+                  style={styles.modalCancel}
+                />
 
-            {/* A food brand on the food map, a water brand on the water map. */}
-            <AdBanner
-              slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
-              visible={confirmOpen}
-            />
+                {/* A food brand on the food map, a water brand on the water map. */}
+                <AdBanner
+                  slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
+                  visible={confirmOpen}
+                />
+              </>
+            )}
           </View>
         </View>
       </Modal>
