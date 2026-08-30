@@ -123,6 +123,8 @@ export default function ProfilePage() {
       const page = await fetchMyCareActions(PAGE, careHistory.length);
       setCareHistory((prev) => mergeById(prev, page.actions));
       setCareTotal(page.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Yüklenemedi');
     } finally {
       setLoadingMoreCare(false);
     }

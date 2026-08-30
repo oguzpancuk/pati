@@ -106,6 +106,22 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     setColorChoices([]);
   }
 
+  /**
+   * A pattern switch changes which three colors are on offer, so the picks
+   * reset with it — otherwise colors chosen under the previous pattern
+   * survive invisibly and get submitted (review finding on 205b9b0). The
+   * reset keys on the preset-pattern identity, not the raw text: free
+   * "Diğer" typing changes the value per keystroke and must not wipe picks.
+   */
+  function handleBreedChange(next: string | null) {
+    if (species) {
+      const prevKey = breed && isPresetChoice(breed, patternsFor(species)) ? breed : OTHER;
+      const nextKey = next && isPresetChoice(next, patternsFor(species)) ? next : OTHER;
+      if (prevKey !== nextKey) setColorChoices([]);
+    }
+    setBreed(next);
+  }
+
   async function handleAddPhotos() {
     const result = await launchImageLibrary({
       mediaType: 'photo',
@@ -362,7 +378,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             label="tür / desen"
             options={patternsFor(species)}
             value={breed}
-            onChange={setBreed}
+            onChange={handleBreedChange}
             otherPlaceholder={
               species === 'cat' ? 'Örn. Ankara kedisi kırması' : 'Örn. Golden kırması'
             }

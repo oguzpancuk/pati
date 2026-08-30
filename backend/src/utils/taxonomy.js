@@ -133,10 +133,11 @@ function patternsFor(species) {
  * Derived (not a second hand-kept list) so the two orderings cannot drift.
  */
 function colorsFor(species, pattern) {
-  return [
-    ...((pattern ? PATTERN_TOP_COLORS[pattern] : undefined) ??
-      (species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS)),
-  ];
+  // The map is consulted only for the species' own patterns — otherwise
+  // colorsFor('dog', 'Tekir') would answer with cat colors.
+  const patternTop =
+    pattern && patternsFor(species).includes(pattern) ? PATTERN_TOP_COLORS[pattern] : undefined;
+  return [...(patternTop ?? (species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS))];
 }
 
 /** Condition list for a health-record type. */

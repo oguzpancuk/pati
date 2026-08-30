@@ -597,6 +597,9 @@ export default function MapPage() {
             ) : (
               <>
                 <h2>Bulunduğun yere {typeLabel} bırak</h2>
+                {/* Upload failures must be visible HERE: the page-level
+                    banner sits behind the backdrop (review finding). */}
+                {error && <div className="error">{error}</div>}
                 <p className="muted">
                   {typeLabel === 'mama' ? 'Mamayı' : 'Suyu'} bırak ve fotoğrafını çek, haritada
                   herkes görsün. Kayıt şu anki konumuna düşecek.
