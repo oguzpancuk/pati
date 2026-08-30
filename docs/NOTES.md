@@ -16,8 +16,16 @@ When you make a decision or knowingly accept a limit, add a line here.
      inherit. /update-stack harvests this list monthly. Format:
      date · file · one-line what/why. Remove entries once upstreamed. -->
 
-- (none — the ratchet-scan and per-hunk hybrid-sync candidates upstreamed
-  to maya `c2919b9`, 2026-08-30)
+- 2026-08-30 · global/CLAUDE.md (Working loop) · Plan-and-parallelize rule
+  for long multi-item requests: first write a short session plan into the
+  ROADMAP (grouping items into clusters), ask only the owner-level
+  decisions, then execute in parallel tracks BY DEFAULT — the main session
+  keeps clusters needing the shared simulator/database, an isolated
+  worktree agent takes independent clusters, research goes to background
+  researcher agents immediately; merge + verify battery + screenshots stay
+  in the main session. Authority tiers (per-push approval etc.) unchanged.
+  Owner: "bana sormadan da boyle uzun istekler verdigimde bunun otomatik
+  olmasini isterim" (improvement-sprint session).
 
 ---
 
