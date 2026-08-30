@@ -16,14 +16,8 @@ When you make a decision or knowingly accept a limit, add a line here.
      inherit. /update-stack harvests this list monthly. Format:
      date · file · one-line what/why. Remove entries once upstreamed. -->
 
-- 2026-08-30 · CLAUDE.md (Workflow) · Add: "Before a feature reports done,
-  launch code-reviewer on the change; before any deploy (and at the end of
-  unattended runs), launch evaluator-qa — without being asked. Their agent
-  descriptions already say 'use at capability edges', but the builder
-  session skipped them until prompted (it weighed the generic 'don't spawn
-  agents unprompted' default above the project convention); make the
-  convention explicit so the roster is a standing instruction, not an
-  availability note.
+- (none — the agent-roster workflow rule upstreamed to maya `a72d36a` and
+  ported back here, 2026-08-30)
 
 ---
 

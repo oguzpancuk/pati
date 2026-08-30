@@ -109,6 +109,11 @@ works".
 - Unattended runs (goal loops, overnight): follow `contracts/README.md` —
   one feature per session, default-FAIL feature list, evidence before
   `passes: true`.
+- The agent roster is a standing instruction, not an availability note:
+  before reporting a feature done, launch code-reviewer on the change;
+  before any deploy, and at the end of an unattended run, launch
+  evaluator-qa — without being asked. No generic "don't spawn agents
+  unprompted" default outweighs this.
 
 ## Environment pitfalls
 
