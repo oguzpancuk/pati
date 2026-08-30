@@ -66,6 +66,11 @@ const USER_RADIUS_STROKE = 'rgba(33, 32, 30, 0.35)';
 // unison (handoff).
 const BREATH_PERIOD_MS = 4500;
 const BREATH_TICK_MS = 150;
+
+// Same numbers as mobile MapScreen — the interstitial must feel identical
+// on every client. Change one, change the other.
+const AI_CHECK_MIN_MS = 2000;
+const AI_CHECK_RESULT_MS = 900;
 const BREATH_MIN = 0.78;
 
 type ViewType = 'food' | 'water';
@@ -118,6 +123,10 @@ export default function MapPage() {
   const [viewType, setViewType] = useState<ViewType>('food');
   const [status, setStatus] = useState<CareStatus | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Placeholder "AI is checking the photo" interstitial — same pattern and
+  // constants as mobile MapScreen (always approves; the upload runs behind
+  // it; a real model later gains the reject path here).
+  const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
@@ -408,6 +417,10 @@ export default function MapPage() {
   async function handlePhotoPicked(file: File) {
     setBusy(true);
     setError(null);
+    // The upload runs while the interstitial shows; the minimum wait only
+    // pads what's left of it (same trick as the add-animal matching screen).
+    setAiCheck('checking');
+    const startedAt = Date.now();
     try {
       // Without a location (http origin, no permission), instead of blocking
       // the user we use the map center and state the reason: people drop at
@@ -421,7 +434,15 @@ export default function MapPage() {
       });
       setMyLocation(loc);
       const created = await addCareAction(loc.lat, loc.lng, viewType, file);
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < AI_CHECK_MIN_MS) {
+        await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS - elapsed));
+      }
+      setAiCheck('approved');
+      await new Promise((resolve) => setTimeout(resolve, AI_CHECK_RESULT_MS));
       if (usedFallback) setError(`${usedFallback} Kayıt haritanın ortasına düştü.`);
+      // aiCheck resets when the modal next opens, not here: resetting before
+      // the close would flash the confirm content behind it.
       setConfirmOpen(false);
       await Promise.all([loadCircles(), loadAnimals(loc)]);
       const s = await fetchCareStatus(loc.lat, loc.lng, viewType).catch(() => null);
@@ -429,6 +450,7 @@ export default function MapPage() {
       celebrateNearbyAnimals(loc);
       celebrate(created);
     } catch (err) {
+      setAiCheck('idle');
       setError(err instanceof Error ? err.message : 'Eklenemedi');
     } finally {
       setBusy(false);
@@ -489,7 +511,16 @@ export default function MapPage() {
               ? 'Taze kayıt bölgeyi canlı tutar; sen de ekleyebilirsin.'
               : 'İlk kaydı sen bırak, bölge yeşile dönsün.'}
           </p>
-          <button className="btn full" onClick={() => setConfirmOpen(true)}>
+          <button
+            className="btn full"
+            onClick={() => {
+              // A leftover 'approved' from the previous run would skip the
+              // confirm content (aiCheck resets on open, not on close — see
+              // handlePhotoPicked).
+              setAiCheck('idle');
+              setConfirmOpen(true);
+            }}
+          >
             <svg
               width="18"
               height="18"
@@ -502,45 +533,107 @@ export default function MapPage() {
               <path d="M4 12h16a8 8 0 0 1-16 0Z" />
               <path d="M9 9v3M15 8v4" />
             </svg>
-            Buraya {typeLabel} bıraktım
+            {viewType === 'food' ? 'Mama bırak' : 'Su bırak'}
           </button>
+          {/* "Buraya" used to read as "the point on the map"; the record
+              actually lands at the device location (or the stated fallback).
+              Same persistent hint as mobile. */}
+          <div
+            className="micro"
+            style={{
+              marginTop: 8,
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+            }}
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            >
+              <circle cx="12" cy="12" r="7.4" />
+              <circle cx="12" cy="12" r="2.2" />
+              <path d="M12 2.4v2.6M12 19v2.6M2.4 12H5M19 12h2.6" />
+            </svg>
+            Kayıt şu anki konumuna işlenir
+          </div>
         </div>
       </div>
 
       {confirmOpen && (
         <div className="backdrop" onClick={() => !busy && setConfirmOpen(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>Bulunduğun yere {typeLabel} bıraktın mı?</h2>
-            <p className="muted">
-              Fotoğrafını çek, haritada herkes görsün. Kayıt şu anki konumuna düşecek.
-            </p>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handlePhotoPicked(file);
-                e.target.value = '';
-              }}
-            />
-            <button className="btn full" disabled={busy} onClick={() => fileRef.current?.click()}>
-              {busy ? 'Gönderiliyor…' : `📷 Fotoğraf çek, ${typeLabel} bıraktım`}
-            </button>
-            <button
-              className="btn ghost full"
-              disabled={busy}
-              onClick={() => setConfirmOpen(false)}
-            >
-              Vazgeç
-            </button>
-            {/* A food brand on the food map, a water brand on the water map. */}
-            <AdBanner
-              slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
-              visible={confirmOpen}
-            />
+            {aiCheck !== 'idle' ? (
+              /* The photo-check interstitial (placeholder AI — see
+                 AI_CHECK_MIN_MS). No cancel: the record is already
+                 uploading behind it, bounded by the client's timeout. */
+              <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+                <div
+                  className="matching-stage"
+                  style={{ width: 88, height: 88, margin: '0 auto 12px', position: 'relative' }}
+                >
+                  {aiCheck === 'checking' ? (
+                    <span className="matching-ring" />
+                  ) : (
+                    <span style={{ fontSize: 44, color: 'var(--success)' }}>✓</span>
+                  )}
+                </div>
+                <h2 style={{ marginBottom: 4 }}>
+                  {aiCheck === 'checking' ? 'Yapay zeka fotoğrafı inceliyor' : 'Uygun görünüyor'}
+                </h2>
+                <p className="muted">
+                  {aiCheck === 'checking'
+                    ? `Fotoğraftaki ${typeLabel} kontrol ediliyor…`
+                    : 'Kayıt haritaya işleniyor.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <h2>Bulunduğun yere {typeLabel} bırak</h2>
+                <p className="muted">
+                  {typeLabel === 'mama' ? 'Mamayı' : 'Suyu'} bırak ve fotoğrafını çek, haritada
+                  herkes görsün. Kayıt şu anki konumuna düşecek.
+                </p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handlePhotoPicked(file);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  className="btn full"
+                  disabled={busy}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  📷 Fotoğrafını çek
+                </button>
+                <button
+                  className="btn ghost full"
+                  disabled={busy}
+                  onClick={() => setConfirmOpen(false)}
+                >
+                  Vazgeç
+                </button>
+                {/* A food brand on the food map, a water brand on the water map. */}
+                <AdBanner
+                  slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
+                  visible={confirmOpen}
+                />
+              </>
+            )}
           </div>
         </div>
       )}

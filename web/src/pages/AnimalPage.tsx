@@ -12,6 +12,7 @@ import {
   fetchComments,
   HealthRecord,
   markHealthRecordRecovered,
+  reopenHealthRecord,
 } from '../api';
 import { AnimalAvatar, UserAvatar } from '../avatars';
 import { ReportLink } from '../components/ReportDialog';
@@ -255,6 +256,23 @@ export default function AnimalPage() {
     }
   }
 
+  // Mis-taps happen and premature calls surface late; any carer can reopen
+  // (state is derived, nothing else desyncs). Same rules as mobile.
+  async function reopenRecord(record: HealthRecord) {
+    if (
+      !window.confirm(
+        `"${record.description}" kaydı yeniden açılacak ve yorumlara izin verilecek. Emin misin?`
+      )
+    )
+      return;
+    try {
+      await reopenHealthRecord(animalId, record.id);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Geri alınamadı');
+    }
+  }
+
   if (!animal) {
     return (
       <div className="page">
@@ -402,16 +420,30 @@ export default function AnimalPage() {
                   ? ` · ${r.recovered_by_name} iyileşti olarak işaretledi`
                   : ''}
               </div>
+              {/* Action phrasing on a quiet outline: the old solid-check
+                  "✓ iyileşti" read as a status tag (mobile parity). */}
               {animal.isCarer && r.status !== 'recovered' && (
                 <button
-                  className="btn outline-success"
+                  className="btn outline"
                   style={{ marginTop: 8 }}
                   onClick={(e) => {
                     e.stopPropagation();
                     markRecovered(r);
                   }}
                 >
-                  ✓ iyileşti
+                  iyileşti olarak işaretle
+                </button>
+              )}
+              {animal.isCarer && r.status === 'recovered' && (
+                <button
+                  className="btn ghost"
+                  style={{ marginTop: 8 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    reopenRecord(r);
+                  }}
+                >
+                  geri al
                 </button>
               )}
             </div>

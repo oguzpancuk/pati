@@ -54,9 +54,7 @@ export const api = {
   del: <T>(path: string, data?: unknown) =>
     request<T>(
       path,
-      data === undefined
-        ? { method: 'DELETE' }
-        : { method: 'DELETE', body: JSON.stringify(data) }
+      data === undefined ? { method: 'DELETE' } : { method: 'DELETE', body: JSON.stringify(data) }
     ),
 };
 
@@ -354,6 +352,26 @@ export function addCareAction(lat: number, lng: number, actionType: 'food' | 'wa
   return api.postForm<CareAction & WithNewBadges>('/care-actions', form);
 }
 
+export interface MyCareAction {
+  id: number;
+  action_type: 'food' | 'water';
+  photo_url: string;
+  created_at: string;
+  /** Computed server-side against the server clock — don't re-derive on device. */
+  deletable: boolean;
+}
+
+export interface MyCareActionsResponse {
+  total: number;
+  deleteWindowMinutes: number;
+  actions: MyCareAction[];
+}
+
+export const fetchMyCareActions = (limit = 20, offset = 0) =>
+  api.get<MyCareActionsResponse>(`/care-actions/mine?limit=${limit}&offset=${offset}`);
+
+export const deleteCareAction = (id: number) => api.del<void>(`/care-actions/${id}`);
+
 export const fetchAnimals = (
   lat?: number,
   lng?: number,
@@ -488,12 +506,18 @@ export const fetchUserProfile = (id: number) => api.get<PublicProfile>(`/users/$
 // with the profile, the rest comes from here via "show more".
 export const fetchUserAnimals = (userId: number | 'me', limit: number, offset: number) =>
   api.get<AnimalPage>(
-    `/users/${userId}/animals?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
+    `/users/${userId}/animals?${new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    })}`
   );
 
 export const fetchUserComments = (userId: number | 'me', limit = 30, offset = 0) =>
   api.get<UserCommentsResponse>(
-    `/users/${userId}/comments?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`
+    `/users/${userId}/comments?${new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    })}`
   );
 
 export const fetchUnseenBadgeAwards = () => api.get<BadgeAward[]>('/users/me/badge-awards');
@@ -527,3 +551,7 @@ export const recordAdClick = (adId: number) => api.post<void>(`/ads/${adId}/clic
 
 export const markHealthRecordRecovered = (animalId: number, recordId: number) =>
   api.post<HealthRecord & WithNewBadges>(`/animals/${animalId}/health-records/${recordId}/recover`);
+
+/** Undoes a (possibly mistaken) recovered mark; the record reopens for comments. */
+export const reopenHealthRecord = (animalId: number, recordId: number) =>
+  api.post<HealthRecord>(`/animals/${animalId}/health-records/${recordId}/reopen`);

@@ -5,10 +5,13 @@ import { badgeProgressText, badgeTitle } from '@mobile/badges';
 import { patiAvatarSvg } from '@shared/avatarSvg';
 import {
   acceptFriendRequest,
+  deleteCareAction,
+  fetchMyCareActions,
   fetchMyFriendships,
   fetchUserAnimals,
   FriendshipEntry,
   FriendshipsResponse,
+  MyCareAction,
   ProfileAnimal,
   removeFriendship,
   setAvatarKey,
@@ -30,6 +33,17 @@ import { InstallBanner } from '../install';
 const PREVIEW = 3;
 const PAGE = 20;
 
+// Drop-history rows show the time too: whether a record is still deletable
+// depends on how fresh it is, and a date alone hides that.
+function formatCareDate(iso: string) {
+  return new Date(iso).toLocaleString('tr-TR', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: 'sistem' },
   { key: 'light', label: 'açık' },
@@ -48,19 +62,25 @@ export default function ProfilePage() {
   const [animals, setAnimals] = useState<ProfileAnimal[]>([]);
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
+  const [careTotal, setCareTotal] = useState(0);
+  const [loadingMoreCare, setLoadingMoreCare] = useState(false);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [visibleFriends, setVisibleFriends] = useState(PREVIEW);
   const [theme, setTheme] = useState<ThemeMode>(readThemeMode());
 
   const load = useCallback(async () => {
     try {
-      const [page, fr] = await Promise.all([
+      const [page, fr, carePage] = await Promise.all([
         fetchUserAnimals('me', PREVIEW, 0),
         fetchMyFriendships(),
+        fetchMyCareActions(PREVIEW, 0),
       ]);
       setAnimals(page.animals);
       setAnimalTotal(page.total);
       setFriendships(fr);
+      setCareHistory(carePage.actions);
+      setCareTotal(carePage.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Profil yüklenemedi');
     }
@@ -94,6 +114,32 @@ export default function ProfilePage() {
       setAnimalTotal(page.total);
     } finally {
       setLoadingMore(false);
+    }
+  }
+
+  async function loadMoreCare() {
+    setLoadingMoreCare(true);
+    try {
+      const page = await fetchMyCareActions(PAGE, careHistory.length);
+      setCareHistory((prev) => mergeById(prev, page.actions));
+      setCareTotal(page.total);
+    } finally {
+      setLoadingMoreCare(false);
+    }
+  }
+
+  async function handleDeleteCare(action: MyCareAction) {
+    const label = action.action_type === 'food' ? 'mama' : 'su';
+    if (!window.confirm(`Bu ${label} kaydı haritadan da kalkacak. Emin misin?`)) return;
+    try {
+      await deleteCareAction(action.id);
+      setCareHistory((prev) => prev.filter((item) => item.id !== action.id));
+      setCareTotal((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Silinemedi');
+      // The window may have expired since the list was fetched; refresh so
+      // stale "sil" buttons disappear.
+      await load();
     }
   }
 
@@ -207,6 +253,53 @@ export default function ProfilePage() {
         remaining={animalTotal - animals.length}
         loading={loadingMore}
         onClick={loadMoreAnimals}
+      />
+
+      <h2 className="section">mama &amp; su geçmişim</h2>
+      {careHistory.length === 0 ? (
+        <div className="card flat">
+          <span className="muted">Henüz mama veya su bırakmadın.</span>
+        </div>
+      ) : (
+        careHistory.map((action) => (
+          <div key={action.id} className="card flat row">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--brand)"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              {action.action_type === 'food' ? (
+                <>
+                  <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z" />
+                  <path d="M7.5 8.5c0-1.4 1-1.9 1-2.9M12 8.5c0-1.4 1-1.9 1-2.9M16.5 8.5c0-1.4 1-1.9 1-2.9" />
+                </>
+              ) : (
+                <path d="M12 3.4s6.2 6.5 6.2 10.2a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.4 12 3.4Z" />
+              )}
+            </svg>
+            <div className="grow">
+              <strong>{action.action_type === 'food' ? 'Mama' : 'Su'}</strong>
+              <div className="muted">{formatCareDate(action.created_at)}</div>
+            </div>
+            {/* Deletable only inside the server-computed window (mistake
+                correction, not history rewriting). */}
+            {action.deletable && (
+              <button className="btn ghost" onClick={() => handleDeleteCare(action)}>
+                sil
+              </button>
+            )}
+          </div>
+        ))
+      )}
+      <LoadMoreButton
+        remaining={careTotal - careHistory.length}
+        loading={loadingMoreCare}
+        onClick={loadMoreCare}
       />
 
       <RecentComments

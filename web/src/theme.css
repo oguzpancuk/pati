@@ -325,6 +325,18 @@ strong {
   width: 100%;
 }
 
+/* Brand-outlined quiet action pill (e.g. "iyileşti olarak işaretle") */
+.btn.outline {
+  background: transparent;
+  color: var(--brand);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  box-shadow: none;
+  min-height: 34px;
+  padding: 6px 16px;
+  font-size: 13px;
+}
+
 /* Green-outlined confirmation pill ("✓ recovered") */
 .btn.outline-success {
   background: transparent;
