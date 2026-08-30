@@ -104,8 +104,10 @@ works".
   starting; update `docs/NOTES.md` (dated, append-only) when stopping.
   Decisions that constrain the future go to `docs/adr/`.
 - Every task states its stopping condition up front; when met, stop & report.
-- Work happens on `main`; no PR flow. Commit + push freely; CI must be green
-  before any deploy.
+- Work happens on `main`; no PR flow. Push/deploy authority comes from the
+  global constitution's authority tiers (ask per push); the old local
+  "push freely" loosening was retired 2026-08-30. CI must be green before
+  any deploy.
 - Unattended runs (goal loops, overnight): follow `contracts/README.md` —
   one feature per session, default-FAIL feature list, evidence before
   `passes: true`.
