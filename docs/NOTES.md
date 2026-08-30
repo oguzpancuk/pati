@@ -16,25 +16,8 @@ When you make a decision or knowingly accept a limit, add a line here.
      inherit. /update-stack harvests this list monthly. Format:
      date · file · one-line what/why. Remove entries once upstreamed. -->
 
-- 2026-08-30 · global/skills/update-stack/SKILL.md (new step) · The
-  authority-tiers ratchet ("a product CLAUDE.md may only tighten") has no
-  enforcer: global-layer changes are installed to the machine but never
-  reconciled against products — 4b only diffs TEMPLATE files. Add a scan:
-  when a global authority/policy rule changes, check every product
-  CLAUDE.md for lines that loosen it without a NOTES-recorded owner
-  decision, and flag them. Motivating case: authority tiers landed
-  (maya c091c7b) while pati still carried "commit + push freely"; no cycle
-  would ever have caught it — removed by hand in pati b81ecf1.
-- 2026-08-30 · global/skills/update-stack/SKILL.md (step 4b) · Hybrid
-  template files (a generic half plus [STACK] slots, e.g. deploy-checklist)
-  should sync their generic sections PER HUNK mechanically, not fall into
-  the per-file "deliberately diverged → judge" branch. Case that motivates
-  it: maya 8e24c43 added the "yayınla" trigger to deploy-checklist's
-  generic description while adopting pati's "canlıya al" idea; the port
-  session judged the change "template-only" and pati never received the
-  word — caught only one cycle later by the harvest diff and restored in
-  pati 75c84b2. Rule sketch: for hunks outside [STACK] slots, template@HEAD
-  wins unless the product hunk carries its own NOTES-documented rationale.
+- (none — the ratchet-scan and per-hunk hybrid-sync candidates upstreamed
+  to maya `c2919b9`, 2026-08-30)
 
 ---
 
