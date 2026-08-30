@@ -15,6 +15,7 @@ import {
   reopenHealthRecord,
 } from '../api';
 import { AnimalAvatar, UserAvatar } from '../avatars';
+import { MiniMap } from '../components/MiniMap';
 import { ReportLink } from '../components/ReportDialog';
 import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
@@ -340,6 +341,30 @@ export default function AnimalPage() {
           );
         })}
       </div>
+
+      {/* Last-seen mini map (mobile parity + PROJECT.md requirement): where
+          and when the animal was last recorded, as a static thumbnail. */}
+      <div className="label">en son görüldüğü yer</div>
+      <div className="muted" style={{ fontSize: 13, margin: '0 0 8px' }}>
+        {formatDate(animal.location_updated_at)}
+      </div>
+      <MiniMap
+        lat={animal.location.coordinates[1]}
+        lng={animal.location.coordinates[0]}
+        height={160}
+      >
+        <span
+          style={{
+            display: 'inline-flex',
+            padding: 4,
+            borderRadius: '50%',
+            background: 'var(--surface)',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)',
+          }}
+        >
+          <AnimalAvatar species={animal.species} breed={animal.breed} size={34} />
+        </span>
+      </MiniMap>
 
       {/* Vaccinations above health records: on the street the first question is "vaccinated?". */}
       <div className="hairline row" style={{ justifyContent: 'space-between' }}>

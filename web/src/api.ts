@@ -38,10 +38,26 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401) setToken(null);
+    if (res.status === 401) {
+      setToken(null);
+      // Whoever holds the auth state must hear about this (mobile parity):
+      // clearing only the token left the app in an authenticated-looking
+      // shell where every request fails until a manual reload.
+      sessionExpiredHandler?.();
+    }
     throw new ApiError(res.status, (body as { error?: string }).error || `HTTP ${res.status}`);
   }
   return body as T;
+}
+
+/**
+ * Called on any 401 after the stored token is cleared, so the auth context
+ * can drop the user to the login screen. Same mechanism as mobile's
+ * setSessionExpiredHandler.
+ */
+let sessionExpiredHandler: (() => void) | null = null;
+export function setSessionExpiredHandler(handler: (() => void) | null) {
+  sessionExpiredHandler = handler;
 }
 
 export const api = {

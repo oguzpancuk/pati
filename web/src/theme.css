@@ -325,6 +325,18 @@ strong {
   width: 100%;
 }
 
+/* Floating "zoom in to see the animals" pill on the map (mobile parity). */
+.zoom-hint {
+  align-self: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
 /* Brand-outlined quiet action pill (e.g. "iyileşti olarak işaretle") */
 .btn.outline {
   background: transparent;

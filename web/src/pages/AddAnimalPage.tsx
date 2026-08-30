@@ -497,6 +497,37 @@ export default function AddAnimalPage() {
         </div>
       )}
 
+      {/* Live avatar preview (mobile parity): the profile picture is
+          generated from species+pattern, so show it while the form fills. */}
+      <div style={{ textAlign: 'center', margin: '4px 0 14px' }}>
+        {species ? (
+          <AnimalAvatar species={species} breed={breed} size={96} />
+        ) : (
+          <div
+            aria-hidden
+            style={{
+              width: 96,
+              height: 96,
+              margin: '0 auto',
+              borderRadius: '50%',
+              border: '2px dashed var(--border-strong)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 34,
+              color: 'var(--text-muted)',
+            }}
+          >
+            🐾
+          </div>
+        )}
+        <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+          {species
+            ? 'Profil resmi tür ve desene göre otomatik oluşur'
+            : 'Önce tür seç; profil resmi tür ve desene göre oluşur'}
+        </div>
+      </div>
+
       <div className="label">tür</div>
       <div className="chiprow">
         {(
@@ -569,6 +600,29 @@ export default function AddAnimalPage() {
               height={64}
               style={{ objectFit: 'cover', borderRadius: 10 }}
             />
+            {/* Mobile parity: a mis-picked photo must be removable without
+                abandoning the form. */}
+            <button
+              aria-label="Fotoğrafı kaldır"
+              onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+              style={{
+                position: 'absolute',
+                top: -6,
+                right: -6,
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                border: 'none',
+                background: 'var(--danger, #ff5c5c)',
+                color: '#fff',
+                fontSize: 12,
+                lineHeight: '20px',
+                padding: 0,
+                cursor: 'pointer',
+              }}
+            >
+              ×
+            </button>
           </span>
         ))}
         {photos.length < MAX_PHOTOS && (
@@ -577,15 +631,17 @@ export default function AddAnimalPage() {
           </button>
         )}
       </div>
+      {/* `multiple`, no `capture`: several gallery photos in one pass, like
+          the mobile picker — capture forced the camera and single-shot. */}
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
-        capture="environment"
+        multiple
         hidden
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) setPhotos((prev) => [...prev, file].slice(0, MAX_PHOTOS));
+          const picked = Array.from(e.target.files ?? []);
+          if (picked.length) setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
           e.target.value = '';
         }}
       />

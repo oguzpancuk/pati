@@ -1,5 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { fetchMe, getToken, login as apiLogin, Me, register as apiRegister, setToken } from './api';
+import {
+  fetchMe,
+  getToken,
+  login as apiLogin,
+  Me,
+  register as apiRegister,
+  setSessionExpiredHandler,
+  setToken,
+} from './api';
 
 interface AuthValue {
   me: Me | null;
@@ -43,6 +51,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // An expired/revoked token anywhere in the app drops the user to the
+  // login screen (mobile parity — see api.ts setSessionExpiredHandler).
+  useEffect(() => {
+    setSessionExpiredHandler(() => setMe(null));
+    return () => setSessionExpiredHandler(null);
+  }, []);
 
   const login = useCallback(
     async (email: string, password: string) => {

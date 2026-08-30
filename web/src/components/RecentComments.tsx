@@ -24,7 +24,9 @@ export function RecentComments({
     <>
       <div className="row" style={{ justifyContent: 'space-between', marginTop: 18 }}>
         <h2 className="section">{title}</h2>
-        {total > comments.length && (
+        {/* Whenever any comment exists — mobile parity: with ≤3 comments the
+            full list was otherwise unreachable by clicking. */}
+        {total > 0 && (
           <Link to={seeAllTo} className="link">
             Tümünü gör ({total})
           </Link>

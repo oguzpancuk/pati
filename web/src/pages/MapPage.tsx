@@ -129,6 +129,7 @@ export default function MapPage() {
   const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [zoomHint, setZoomHint] = useState(false);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   // Flips once the (rAF-deferred) map exists, so the data effects below
   // re-run instead of bailing out against a still-null mapRef.
@@ -146,6 +147,9 @@ export default function MapPage() {
       if (zoomedInRef.current) marker.addTo(map);
       else marker.remove();
     }
+    // Mobile parity: when animals exist but the zoom gate hides them, say so
+    // — otherwise a zoomed-out map just looks empty.
+    setZoomHint(animalMarkersRef.current.length > 0 && !zoomedInRef.current);
   }, []);
 
   // The map is built once; data layers refresh in separate effects.
@@ -474,6 +478,7 @@ export default function MapPage() {
           ))}
         </div>
         {error && <div className="banner">{error}</div>}
+        {zoomHint && <div className="zoom-hint">Hayvanları görmek için yakınlaştır</div>}
         {/* The add-to-home-screen invite: hidden when opened from the home
             screen or after "later" (install.tsx). */}
         <InstallBanner compact />
