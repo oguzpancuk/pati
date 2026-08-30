@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { colorsFor, OTHER, patternsFor, type Species } from '@mobile/taxonomy';
+import {
+  colorsFor,
+  MULTI_CHOICE_SEPARATOR,
+  OTHER,
+  patternsFor,
+  type Species,
+} from '@mobile/taxonomy';
 import {
   addAnimalPhoto,
   AnimalMatch,
@@ -49,9 +55,10 @@ const REASON_LABEL: Record<SimilarityReason, string> = {
 const DRAFT_KEY = 'pati.yeniHayvanTaslak';
 
 interface Draft {
-  species: Species;
+  species: Species | null;
   breed: string | null;
-  color: string | null;
+  /** Selected colors; a non-listed element is the free "Diğer" text. */
+  colors: string[];
   name: string;
   markings: string;
   location: Coordinates | null;
@@ -126,6 +133,93 @@ function Chips({
   );
 }
 
+/**
+ * Multi-select sibling of Chips (same as mobile's MultiChoiceField): pick any
+ * number of listed options plus an optional "Diğer" free text. The parent
+ * flattens the array with MULTI_CHOICE_SEPARATOR into the single `color`
+ * column — no schema change.
+ */
+function MultiChips({
+  options,
+  value,
+  onChange,
+  maxTotalLength = 120,
+}: {
+  options: string[];
+  /** Listed options as-is; a non-listed element is the free "Diğer" text. */
+  value: string[];
+  onChange: (v: string[]) => void;
+  maxTotalLength?: number;
+}) {
+  const presets = value.filter((v) => options.includes(v));
+  const storedOther = value.find((v) => !options.includes(v)) ?? '';
+  const [otherMode, setOtherMode] = useState(!!storedOther);
+  const [otherText, setOtherText] = useState(storedOther);
+
+  // The free text shrinks as presets are added so the flattened string never
+  // exceeds the backend's 120-char column.
+  const presetsJoined = presets.join(MULTI_CHOICE_SEPARATOR);
+  const otherBudget = Math.max(
+    0,
+    maxTotalLength - presetsJoined.length - (presets.length > 0 ? MULTI_CHOICE_SEPARATOR.length : 0)
+  );
+
+  function emit(nextPresets: string[], nextOther: string) {
+    const trimmed = nextOther.trim();
+    onChange(trimmed ? [...nextPresets, trimmed] : nextPresets);
+  }
+
+  function togglePreset(option: string) {
+    const next = presets.includes(option)
+      ? presets.filter((p) => p !== option)
+      : // Options' own order, so the flattened string is stable regardless
+        // of click order.
+        options.filter((o) => presets.includes(o) || o === option);
+    emit(next, otherMode ? otherText : '');
+  }
+
+  return (
+    <>
+      <div className="chiprow">
+        {options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            className={`chip ${presets.includes(opt) ? 'selected' : ''}`}
+            onClick={() => togglePreset(opt)}
+          >
+            {opt}
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`chip ${otherMode ? 'selected' : ''}`}
+          onClick={() => {
+            const next = !otherMode;
+            setOtherMode(next);
+            emit(presets, next ? otherText : '');
+          }}
+        >
+          {OTHER} (belirtiniz)
+        </button>
+      </div>
+      {otherMode && (
+        <label className="field">
+          <input
+            value={otherText}
+            maxLength={otherBudget}
+            placeholder="Kendin yaz"
+            onChange={(e) => {
+              setOtherText(e.target.value);
+              emit(presets, e.target.value);
+            }}
+          />
+        </label>
+      )}
+    </>
+  );
+}
+
 type Step = 'form' | 'matching' | 'results';
 
 export default function AddAnimalPage() {
@@ -136,9 +230,14 @@ export default function AddAnimalPage() {
 
   // If a draft exists on return from the profile review, the form opens from it.
   const [draft] = useState(readDraft);
-  const [species, setSpecies] = useState<Species>(draft?.species ?? 'cat');
+  // No species preselected: the pattern and color pickers are species-bound
+  // and stay hidden until this choice is made (sprint item 3 decision).
+  const [species, setSpecies] = useState<Species | null>(draft?.species ?? null);
   const [breed, setBreed] = useState<string | null>(draft?.breed ?? null);
-  const [color, setColor] = useState<string | null>(draft?.color ?? null);
+  const [colorChoices, setColorChoices] = useState<string[]>(
+    // Older drafts stored a single `color` string; ignore those.
+    Array.isArray(draft?.colors) ? draft.colors : []
+  );
   const [name, setName] = useState(draft?.name ?? '');
   const [markings, setMarkings] = useState(draft?.markings ?? '');
   const [photos, setPhotos] = useState<File[]>([]);
@@ -189,15 +288,22 @@ export default function AddAnimalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmedAnimalId]);
 
+  // The DB column value: preset picks and/or the "Diğer" text, joined.
+  const color = colorChoices.length > 0 ? colorChoices.join(MULTI_CHOICE_SEPARATOR) : null;
+
   function changeSpecies(next: Species) {
     setSpecies(next);
     // Pattern and color lists change per species; the old pick becomes meaningless.
     setBreed(null);
-    setColor(null);
+    setColorChoices([]);
   }
 
   /** Form submitted: match first, decide after. */
   async function submit() {
+    if (!species) {
+      setError('Önce kedi mi köpek mi olduğunu seçmelisin.');
+      return;
+    }
     if (photos.length < MIN_PHOTOS) {
       setError(`En az ${MIN_PHOTOS} fotoğraf eklemelisin.`);
       return;
@@ -234,6 +340,7 @@ export default function AddAnimalPage() {
   }
 
   async function createNewAnimal(loc: Coordinates) {
+    if (!species) return; // unreachable: submit gates on species
     setBusy(true);
     try {
       const animal = await createAnimal({
@@ -259,7 +366,7 @@ export default function AddAnimalPage() {
 
   /** Tapping a candidate opens its profile in review mode; stash the draft and go. */
   function reviewCandidate(animal: AnimalMatch) {
-    const toSave: Draft = { species, breed, color, name, markings, location };
+    const toSave: Draft = { species, breed, colors: colorChoices, name, markings, location };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(toSave));
     navigate(`/hayvanlar/${animal.id}?inceleme=1`);
   }
@@ -267,7 +374,7 @@ export default function AddAnimalPage() {
   /** No direct sighting report from the candidate list without a "that's the
       one" decision; the review happens on the profile, same flow as mobile. */
 
-  if (step === 'matching') {
+  if (step === 'matching' && species) {
     return (
       <div className="page center-page">
         <div className="matching-stage">
@@ -283,7 +390,7 @@ export default function AddAnimalPage() {
     );
   }
 
-  if (step === 'results') {
+  if (step === 'results' && species) {
     return (
       <div className="page">
         <h1 style={{ marginTop: 0 }}>Benzer kayıtlar bulundu</h1>
@@ -377,16 +484,29 @@ export default function AddAnimalPage() {
         ))}
       </div>
 
-      <div className="label">tür / desen</div>
-      <Chips
-        key={`b-${species}`}
-        options={patternsFor(species)}
-        value={breed}
-        onChange={setBreed}
-      />
+      {/* Pattern and color only exist relative to a species, so both pickers
+          stay hidden until one is chosen. The `key` remounts them on a
+          species switch so their internal "Diğer" state resets with it. */}
+      {species && (
+        <>
+          <div className="label">tür / desen</div>
+          <Chips
+            key={`b-${species}`}
+            options={patternsFor(species)}
+            value={breed}
+            onChange={setBreed}
+          />
 
-      <div className="label">renk</div>
-      <Chips key={`c-${species}`} options={colorsFor(species)} value={color} onChange={setColor} />
+          {/* Ordered top-3 street colors first (see taxonomy colorsFor). */}
+          <div className="label">renk (birden fazla seçebilirsin)</div>
+          <MultiChips
+            key={`c-${species}`}
+            options={colorsFor(species)}
+            value={colorChoices}
+            onChange={setColorChoices}
+          />
+        </>
+      )}
 
       <label className="field">
         <span>isim (isteğe bağlı)</span>

@@ -8,6 +8,7 @@ export { default as Chip } from './Chip';
 export { default as Tag } from './Tag';
 export type { TagTone } from './Tag';
 export { default as ChoiceField } from './ChoiceField';
+export { default as MultiChoiceField, MULTI_CHOICE_SEPARATOR } from './MultiChoiceField';
 export { default as Banner } from './Banner';
 export { default as Avatar } from './Avatar';
 export { default as Divider } from './Divider';

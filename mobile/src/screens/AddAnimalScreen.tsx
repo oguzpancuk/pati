@@ -19,7 +19,18 @@ import {
   getCurrentLocation,
   LocationPermissionError,
 } from '../location';
-import { Banner, Button, Card, Chip, ChoiceField, Input, Screen, Text } from '../components/ui';
+import {
+  Banner,
+  Button,
+  Card,
+  Chip,
+  ChoiceField,
+  Input,
+  MULTI_CHOICE_SEPARATOR,
+  MultiChoiceField,
+  Screen,
+  Text,
+} from '../components/ui';
 import { Icon } from '../components/brand';
 import { colorsFor, patternsFor, type Species } from '../taxonomy';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
@@ -63,9 +74,14 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
-  const [species, setSpecies] = useState<Species>('cat');
+  // No species preselected: the pattern and color pickers are species-bound
+  // and stay hidden until this choice is made (sprint item 3 decision).
+  const [species, setSpecies] = useState<Species | null>(null);
   const [name, setName] = useState('');
-  const [color, setColor] = useState<string | null>(null);
+  // Animals are often multi-colored; the picks flatten into the single
+  // `color` column joined with MULTI_CHOICE_SEPARATOR (backend takes free
+  // text up to 120 chars, so no schema change).
+  const [colorChoices, setColorChoices] = useState<string[]>([]);
   const [breed, setBreed] = useState<string | null>(null);
   const [markings, setMarkings] = useState('');
   const [photos, setPhotos] = useState<PhotoAsset[]>([]);
@@ -79,12 +95,15 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   const [matchRadius, setMatchRadius] = useState(1000);
   const [location, setLocation] = useState<Coordinates | null>(null);
 
+  // The DB column value: preset picks and/or the "Diğer" text, joined.
+  const color = colorChoices.length > 0 ? colorChoices.join(MULTI_CHOICE_SEPARATOR) : null;
+
   function handleSpeciesChange(next: Species) {
     setSpecies(next);
     // Pattern and color lists change per species; a cat pick makes no sense
     // for a dog, so it resets.
     setBreed(null);
-    setColor(null);
+    setColorChoices([]);
   }
 
   async function handleAddPhotos() {
@@ -105,6 +124,10 @@ export default function AddAnimalScreen({ navigation, route }: any) {
 
   /** Form submitted: match first, decide after. */
   async function handleSubmit() {
+    if (!species) {
+      Alert.alert('Tür gerekli', 'Önce kedi mi köpek mi olduğunu seçmelisin.');
+      return;
+    }
     if (photos.length < MIN_PHOTOS) {
       Alert.alert('Fotoğraf gerekli', `En az ${MIN_PHOTOS} fotoğraf eklemelisin.`);
       return;
@@ -148,6 +171,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   }
 
   async function createNewAnimal(loc: Coordinates) {
+    if (!species) return; // unreachable: handleSubmit gates on species
     setSubmitting(true);
     try {
       const animal = await createAnimal({
@@ -208,7 +232,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     }
   }
 
-  if (step === 'matching') {
+  if (step === 'matching' && species) {
     return (
       <Screen>
         <MatchingState species={species} breed={breed} />
@@ -216,7 +240,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     );
   }
 
-  if (step === 'results') {
+  if (step === 'results' && species) {
     return (
       <Screen scroll>
         <Banner
@@ -289,9 +313,17 @@ export default function AddAnimalScreen({ navigation, route }: any) {
           species/pattern: the user sees what they're registering and knows
           in advance how it will look in lists/on the map. */}
       <View style={styles.previewWrap}>
-        <AnimalAvatar species={species} breed={breed} size={96} />
+        {species ? (
+          <AnimalAvatar species={species} breed={breed} size={96} />
+        ) : (
+          <View style={styles.previewPlaceholder}>
+            <Icon name="paw" size={40} color={colors.textSubtle} />
+          </View>
+        )}
         <Text variant="caption" center style={styles.previewCaption}>
-          Profil resmi tür ve desene göre otomatik oluşur
+          {species
+            ? 'Profil resmi tür ve desene göre otomatik oluşur'
+            : 'Önce tür seç; profil resmi tür ve desene göre oluşur'}
         </Text>
       </View>
 
@@ -313,24 +345,36 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         />
       </View>
 
-      {/* We don't say "breed": street cats belong to no breed, names like
-          tekir/sarman describe coat patterns; dogs are mixed too (see
-          taxonomy.ts). */}
-      <ChoiceField
-        label="tür / desen"
-        options={patternsFor(species)}
-        value={breed}
-        onChange={setBreed}
-        otherPlaceholder={species === 'cat' ? 'Örn. Ankara kedisi kırması' : 'Örn. Golden kırması'}
-      />
+      {/* Pattern and color only exist relative to a species, so both pickers
+          stay hidden until one is chosen. The `key` remounts them on a
+          species switch so their internal "Diğer" state resets with it. */}
+      {species && (
+        <>
+          {/* We don't say "breed": street cats belong to no breed, names like
+              tekir/sarman describe coat patterns; dogs are mixed too (see
+              taxonomy.ts). */}
+          <ChoiceField
+            key={`desen-${species}`}
+            label="tür / desen"
+            options={patternsFor(species)}
+            value={breed}
+            onChange={setBreed}
+            otherPlaceholder={
+              species === 'cat' ? 'Örn. Ankara kedisi kırması' : 'Örn. Golden kırması'
+            }
+          />
 
-      <ChoiceField
-        label="renk"
-        options={colorsFor(species)}
-        value={color}
-        onChange={setColor}
-        otherPlaceholder="Örn. Gri-beyaz alacalı"
-      />
+          {/* Ordered top-3 street colors first (see taxonomy colorsFor). */}
+          <MultiChoiceField
+            key={`renk-${species}`}
+            label="renk (birden fazla seçebilirsin)"
+            options={colorsFor(species)}
+            value={colorChoices}
+            onChange={setColorChoices}
+            otherPlaceholder="Örn. Gri-beyaz alacalı"
+          />
+        </>
+      )}
 
       <Input
         label="isim (isteğe bağlı)"
@@ -453,6 +497,19 @@ function MatchingState({ species, breed }: { species: Species; breed: string | n
 
 const useStyles = makeStyles(({ colors: c }) => ({
   previewWrap: { alignItems: 'center', marginBottom: spacing.xl },
+  // Same footprint as the 96px avatar so choosing a species doesn't shift
+  // the form below it.
+  previewPlaceholder: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: c.border,
+    backgroundColor: c.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   previewCaption: { marginTop: spacing.sm },
   resultsBanner: { marginBottom: spacing.lg },
   candidateRow: {
