@@ -11,6 +11,8 @@ import {
   TIER_LABELS,
   TIER_ORDER,
   TIER_POINTS,
+  tierLadderText,
+  withCatalogPlaceholders,
   type BadgeGroup,
 } from '../badges';
 import Button from './ui/Button';
@@ -60,7 +62,9 @@ export default function BadgeCatalogModal({
       breed: [],
       count: [],
     };
-    for (const badge of badges) map[badgeGroup(badge)].push(badge);
+    // The catalog shows every obtainable badge, so breed badges the server
+    // didn't send (no progress yet) appear as locked placeholders.
+    for (const badge of withCatalogPlaceholders(badges)) map[badgeGroup(badge)].push(badge);
     for (const key of GROUP_ORDER) map[key] = sortBadges(map[key]);
     return map;
   }, [badges]);
@@ -135,6 +139,11 @@ export default function BadgeCatalogModal({
                         <View style={styles.rowText}>
                           <Text variant="bodyStrong">{badgeTitle(badge)}</Text>
                           <Text variant="caption">{badgeProgressText(badge)}</Text>
+                          {/* Every tier's threshold, so the whole ladder is
+                              browsable before any of it is earned. */}
+                          <Text variant="micro" color="textSubtle" style={styles.rowLadder}>
+                            {tierLadderText(badge)}
+                          </Text>
                         </View>
                         {selected ? (
                           <Icon name="check" size={18} color={colors.brand} strokeWidth={2.4} />
@@ -208,5 +217,6 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   rowSelected: { backgroundColor: c.brandTint, borderColor: c.brand },
   symbol: { marginRight: spacing.md },
   rowText: { flex: 1, marginRight: spacing.sm },
+  rowLadder: { marginTop: 2 },
   secondary: { marginTop: spacing.xs },
 }));

@@ -15,6 +15,13 @@
 
 export const OTHER = 'Diğer';
 
+/**
+ * Separator used when a multi-select (e.g. colors) is flattened into its
+ * single free-text DB column. Lives here so mobile and web write the same
+ * string; no listed value may ever contain it.
+ */
+export const MULTI_CHOICE_SEPARATOR = ', ';
+
 export type Species = 'cat' | 'dog';
 
 /** The cat patterns most common on the street (in order of prevalence). */
@@ -38,6 +45,20 @@ export const DOG_COLORS = [
   'Siyah-sarı (maskeli)',
   'Alacalı / benekli',
 ];
+
+/**
+ * The three most common street colors per species in Türkiye, pinned first in
+ * the picker (owner decision, 2026-08-30 improvement sprint item 3).
+ *
+ * Cats: the archetypal Turkish street cat is the grey/brown tabby (tekir),
+ * then the orange tabby (sarman), then black-and-white bicolors (smokin) —
+ * urban colonies are dominated by these three coats.
+ * Dogs: street dogs are overwhelmingly Kangal/Anatolian-shepherd mixes, so
+ * tan/brown bodies come first, the kangal-type tan-with-black-mask second,
+ * and black/mostly-black mixes third (white Akbaş types are rarer in cities).
+ */
+export const CAT_TOP_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah-beyaz'];
+export const DOG_TOP_COLORS = ['Sarı / kahverengi', 'Siyah-sarı (maskeli)', 'Siyah'];
 
 export const ILLNESSES = [
   'Üst solunum yolu enfeksiyonu',
@@ -77,8 +98,14 @@ export function patternsFor(species: Species): string[] {
   return species === 'cat' ? CAT_PATTERNS : DOG_PATTERNS;
 }
 
+/**
+ * Color list for a species, top-3 street colors first, then the rest.
+ * Derived (not a second hand-kept list) so the two orderings cannot drift.
+ */
 export function colorsFor(species: Species): string[] {
-  return species === 'cat' ? CAT_COLORS : DOG_COLORS;
+  const all = species === 'cat' ? CAT_COLORS : DOG_COLORS;
+  const top = species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS;
+  return [...top, ...all.filter((color) => !top.includes(color))];
 }
 
 export function conditionsFor(recordType: 'illness' | 'injury'): string[] {

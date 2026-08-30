@@ -5,6 +5,8 @@
  * why the types are defined here; `api/users.ts` and `components/badges`
  * import from here.
  */
+import { CAT_PATTERNS, DOG_PATTERNS } from './taxonomy';
+
 export type BadgeTier = 'bronze' | 'silver' | 'gold' | 'diamond';
 
 /** The symbol at the medallion's center; arrives from the server as `badge.symbol`. */
@@ -45,6 +47,72 @@ export const TIER_POINTS: Record<BadgeTier, number> = {
 };
 
 export const TIER_ORDER: BadgeTier[] = ['bronze', 'silver', 'gold', 'diamond'];
+
+/**
+ * Per-tier thresholds, mirrored from `backend/src/utils/badges.js` for
+ * DISPLAY ONLY (the tier ladder in the badge catalog). Awarding always
+ * happens server-side; if the backend values change, change these with them.
+ */
+export const STREAK_THRESHOLDS: Record<BadgeTier, number> = {
+  bronze: 1,
+  silver: 7,
+  gold: 30,
+  diamond: 365,
+};
+export const COUNT_THRESHOLDS: Record<BadgeTier, number> = {
+  bronze: 1,
+  silver: 5,
+  gold: 20,
+  diamond: 100,
+};
+export const COMMENT_THRESHOLDS: Record<BadgeTier, number> = {
+  bronze: 1,
+  silver: 10,
+  gold: 50,
+  diamond: 200,
+};
+
+/** Threshold table for a badge key (same mapping the backend applies). */
+export function thresholdsFor(key: string): Record<BadgeTier, number> {
+  const [group, name] = key.split(':');
+  if (group === 'streak') return STREAK_THRESHOLDS;
+  if (name === 'commenter') return COMMENT_THRESHOLDS;
+  return COUNT_THRESHOLDS;
+}
+
+/**
+ * One-line tier ladder for the catalog: every reachable tier with its
+ * threshold, e.g. "Bronz 1 · Gümüş 7 · Altın 30 · Elmas 365 gün".
+ */
+export function tierLadderText(badge: Badge): string {
+  const thresholds = thresholdsFor(badge.key);
+  return `${TIER_ORDER.map((t) => `${TIER_LABELS[t]} ${thresholds[t]}`).join(' · ')} ${badge.unit}`;
+}
+
+/**
+ * The full obtainable-badge catalog. The server only sends breed ("<Pattern>
+ * Dostu") badges the user has started on, so browsing what exists needs the
+ * missing ones synthesized client-side as locked zero-progress entries.
+ * Display only — awarding stays on the server. Labels/keys mirror the
+ * backend's `breedBadgeLabel` / `breed:` key format; free-text patterns earn
+ * no badge there, so only listed patterns appear here.
+ */
+export function withCatalogPlaceholders(badges: Badge[]): Badge[] {
+  const known = new Set(badges.map((b) => b.key));
+  const placeholders: Badge[] = [...CAT_PATTERNS, ...DOG_PATTERNS]
+    .filter((pattern) => !known.has(`breed:${pattern}`))
+    .map((pattern) => ({
+      key: `breed:${pattern}`,
+      label: `${pattern} Dostu`,
+      unit: 'hayvan',
+      value: 0,
+      tier: null,
+      points: 0,
+      nextThreshold: COUNT_THRESHOLDS.bronze,
+      symbol: 'paw',
+    }));
+  return [...badges, ...placeholders];
+}
 
 // A badge's full name gains meaning with its tier: "Altın Tekir Dostu" (gold).
 export function badgeTitle(badge: Badge): string {
