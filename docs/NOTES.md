@@ -16,6 +16,15 @@ When you make a decision or knowingly accept a limit, add a line here.
      inherit. /update-stack harvests this list monthly. Format:
      date · file · one-line what/why. Remove entries once upstreamed. -->
 
+- 2026-08-30 · global/skills/update-stack/SKILL.md (new step) · The
+  authority-tiers ratchet ("a product CLAUDE.md may only tighten") has no
+  enforcer: global-layer changes are installed to the machine but never
+  reconciled against products — 4b only diffs TEMPLATE files. Add a scan:
+  when a global authority/policy rule changes, check every product
+  CLAUDE.md for lines that loosen it without a NOTES-recorded owner
+  decision, and flag them. Motivating case: authority tiers landed
+  (maya c091c7b) while pati still carried "commit + push freely"; no cycle
+  would ever have caught it — removed by hand in pati b81ecf1.
 - 2026-08-30 · global/skills/update-stack/SKILL.md (step 4b) · Hybrid
   template files (a generic half plus [STACK] slots, e.g. deploy-checklist)
   should sync their generic sections PER HUNK mechanically, not fall into
