@@ -1,6 +1,6 @@
 ---
 name: deploy-checklist
-description: Pre-deploy verification checklist — run before any production deploy, when asked to "deploy", "ship", "release", "canlıya al". Walks the generic gates, then the product's own deploy steps.
+description: Pre-deploy verification checklist — run before any production deploy, when asked to "deploy", "ship", "release", "canlıya al", or "yayınla". Walks the generic gates, then the product's own deploy steps.
 ---
 
 # /deploy-checklist
