@@ -39,6 +39,10 @@ const HOUR = 60 * 60 * 1000;
 const limits = {
   // A big feeding route: 40 spots/hour is one drop every 90 seconds, nonstop.
   careActions: userRateLimit({ windowMs: HOUR, limit: 40, action: 'mama/su kaydı' }),
+  // Deletes get their own bucket: a mistaken drop at the end of a full
+  // 40-drop route must still be correctable (sharing the create budget
+  // would 429 exactly then), and deletes must not eat create budget.
+  careDelete: userRateLimit({ windowMs: HOUR, limit: 20, action: 'kayıt silme' }),
   // Registering a whole colony in one sitting is ~15 animals.
   createAnimal: userRateLimit({ windowMs: HOUR, limit: 20, action: 'hayvan kaydı' }),
   // Chat is the loosest: a lively conversation is still under one/minute.

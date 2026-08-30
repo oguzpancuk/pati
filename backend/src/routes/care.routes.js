@@ -16,6 +16,6 @@ router.get('/', listCareActions);
 router.get('/status', getCareStatus);
 router.get('/mine', requireAuth, listMyCareActions);
 router.post('/', requireAuth, limits.careActions, upload.single('photo'), addCareAction);
-router.delete('/:id', requireAuth, limits.careActions, deleteCareAction);
+router.delete('/:id', requireAuth, limits.careDelete, deleteCareAction);
 
 module.exports = router;

@@ -199,7 +199,17 @@ async function listMyCareActions(req, res, next) {
        LIMIT $2 OFFSET $3`,
       [req.user.userId, limit, offset]
     );
-    const total = result.rows[0]?.total ?? 0;
+    // The window-function total rides on returned rows; with an offset past
+    // the end there are none, so fall back to a plain count instead of
+    // reporting a misleading 0.
+    let total = result.rows[0]?.total;
+    if (total === undefined) {
+      const count = await pool.query(
+        'SELECT count(*)::int AS total FROM care_actions WHERE user_id = $1',
+        [req.user.userId]
+      );
+      total = count.rows[0].total;
+    }
     res.json({
       total,
       deleteWindowMinutes: DELETE_WINDOW_MINUTES,
@@ -214,16 +224,22 @@ async function listMyCareActions(req, res, next) {
 // clause so a concurrent request can't slip through a check-then-delete gap.
 async function deleteCareAction(req, res, next) {
   try {
+    // A malformed id must be a 404, not a Postgres cast error surfacing as
+    // a 500 (int4 range included).
+    const recordId = Number(req.params.id);
+    if (!Number.isInteger(recordId) || recordId <= 0 || recordId > 2147483647) {
+      return res.status(404).json({ error: 'Kayıt bulunamadı' });
+    }
     const deleted = await pool.query(
       `DELETE FROM care_actions
        WHERE id = $1 AND user_id = $2
          AND created_at > now() - interval '${DELETE_WINDOW_MINUTES} minutes'
        RETURNING photo_url`,
-      [req.params.id, req.user.userId]
+      [recordId, req.user.userId]
     );
     if (deleted.rows.length === 0) {
       const existing = await pool.query('SELECT user_id FROM care_actions WHERE id = $1', [
-        req.params.id,
+        recordId,
       ]);
       // Someone else's record answers 404, not 403: whether a given id
       // exists is nobody else's business.
