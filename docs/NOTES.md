@@ -825,3 +825,34 @@ needs owner-side console setup).
 - Simulator + playwright screenshots for every changed flow; battery green
   on every commit. NOT pushed: the owner takes push decisions — see the
   unpushed commit list at session end.
+
+## 2026-08-30 — color model finalized, consent gate, drop confirm, history popups
+
+- **Colors, final form (owner):** fixed-color patterns (Sarman, Siyah, Üç
+  renk, Smokin; Akbaş melezi) show NO picker — `PATTERN_FIXED_COLOR`
+  auto-stores the canonical value. Variable patterns offer ONLY their
+  researched choice list + "Diğer" (`PATTERN_COLOR_CHOICES`), labels
+  deliberately unconstrained by the legacy palette. Research basis: no
+  published color census of Turkish street animals exists; orderings come
+  from coat-color genetics, breed standards (UKC Kangal/Akbash), and
+  Turkish pet-source terminology. No choice label may contain the
+  multi-select separator ", ".
+- **Register consent (owner):** both clients gate registration on a
+  checkbox accepting the terms (and acknowledging the KVKK notice — the
+  wording deliberately does NOT collect açık rıza, consistent with the
+  KVKK text's own claim). KVKK and terms are now separate pages
+  (/gizlilik, /kosullar) sharing one renderer. **Consent is client-side
+  only**: storing an acceptance timestamp + terms version server-side
+  needs a users column → schema change → DB reset, so it is parked for
+  the incremental-migrations work (launch-sprint item). A direct API call
+  can register without the checkbox until then.
+- **Drop flow (owner):** the placeholder AI check uploads nothing; after
+  "uygun görünüyor" the user must tap "Onayla ve ekle" (photo preview
+  shown) before the record is created. A run-id ref invalidates orphaned
+  check timers (dismiss mid-check + reopen used to leave a photo-less
+  approved step); Android back now closes the modal unless uploading.
+- **History rows open a location popup** (static mini map + type + time)
+  on both clients.
+- All flows screenshot-verified on simulator + playwright; battery green
+  per commit; three code-review passes' findings all closed. NOT pushed —
+  push decisions are the owner's.
