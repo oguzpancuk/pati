@@ -186,8 +186,10 @@ async function getCareStatus(req, res, next) {
 // from created_at with its own clock.
 async function listMyCareActions(req, res, next) {
   try {
-    const limit = Math.min(Number(req.query.limit) || 20, 100);
-    const offset = Number(req.query.offset) || 0;
+    // Clamp both ends: negatives reach Postgres as "OFFSET must not be
+    // negative" and surface as a raw 500 otherwise.
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
     const result = await pool.query(
       `SELECT id, action_type, photo_url, created_at,
               ST_AsGeoJSON(location)::json AS location,
