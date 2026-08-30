@@ -778,3 +778,17 @@ Sprint plan: ROADMAP "Improvement sprint". Landed this session:
 - Simulator evidence for interstitials: the flow completes in ~3 s, faster
   than a tap→screenshot round trip; the states were captured by temporarily
   lengthening the wait constants, then reverting them before commit.
+
+## 2026-08-30 — third production deploy: improvement sprint live
+
+Deployed `484964e` (range 18ebfa9..484964e — the full improvement sprint,
+terms of use, and review/QA fixes). Gates: full battery green, no schema
+changes, secrets scan clean, evaluator-qa functional PASS (its two
+findings closed pre-deploy: owner approved the terms text in-session; the
+negative-pagination 500 fixed in 0423fe1). Verified live: /health ok,
+root+admin 200, /gizlilik renders and the live bundle
+(index-BcseN9sE.js) contains the new terms with the old "(kısa)" heading
+gone. Note: /gizlilik answers curl without an Accept: text/html header
+with the API 404 — the SPA fallback is header-gated; use a browser-like
+request when smoke-testing. Sprint remainder: S7 (Apple+Google login,
+needs owner-side console setup).
