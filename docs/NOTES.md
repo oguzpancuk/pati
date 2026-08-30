@@ -37,6 +37,12 @@ When you make a decision or knowingly accept a limit, add a line here.
   Owner asked twice why questions went unanswered, then asked for this to
   be recorded ("sen is yaparken sorularima hemen cevap istedigimi de
   upstream notlarina ekleyelim").
+- 2026-08-30 · verify.sh / template test seed · Parity-test candidate: the
+  repo now has three comment-enforced mirrors (taxonomy backend↔mobile,
+  badge thresholds backend↔mobile catalog display, MAX_DISTANCE_TO_PIN).
+  A small jest test that `require`s the backend copies by relative path and
+  asserts equality would make the mirrors machine-checked (suggested by the
+  S4 code review).
 
 ---
 
@@ -758,3 +764,33 @@ Sprint plan: ROADMAP "Improvement sprint". Landed this session:
   docs/legal/terms-research.md — headline risks: Law 7527 (2024) changed
   the street-dog regime, TBK 67 "bakımını üstlenen" liability is the main
   clause to disclaim, medication logging is sensitive under Law 6343.
+
+## 2026-08-30 — improvement sprint S3–S6 (history+delete, form colors, badge catalog, AI interstitial)
+
+- **S3 — drop history + 15-minute delete.** Profile section "Mama & su
+  geçmişim" (preview 3 + show more); `GET /api/care-actions/mine` returns a
+  server-computed `deletable` flag (never re-derive on device);
+  `DELETE /api/care-actions/:id` is owner-only inside 15 minutes, both
+  conditions in the DELETE's WHERE clause, own rate bucket (20/h), photo
+  file cleaned up. Review findings fixed: malformed id → 404, offset-past-
+  end total, separate delete limiter. Verified by curl chain + UI flow.
+- **S4+S5 ran as a parallel worktree track** (B track) while S3/S6 ran on
+  main; merged cleanly. S4: species gates the pattern/color pickers,
+  per-species top-3 street colors fixed in BOTH taxonomy copies, colors are
+  now multi-select flattened into the single `color` column with ", " —
+  color-based match hits will be rarer against old single-color records
+  (tuning candidate). S5: BadgeCatalogModal shows every obtainable badge —
+  locked placeholders for all 10 patterns and full tier ladders; display
+  mirrors backend thresholds (see the parity-test upstream candidate).
+- **S6 — placeholder AI photo check.** After the food/water photo, the
+  confirm modal becomes an "AI inceliyor" interstitial (min 2 s padded
+  around the real upload, brief "Uygun görünüyor", always approves) — same
+  deliberate-placeholder pattern as `MIN_MATCHING_MS`; the real model later
+  plugs into this screen with a reject path. Review findings fixed: the
+  upload behind the cancel-less interstitial is now bounded (60 s axios
+  timeout — the client has NO default timeout, remember this for other
+  no-escape UIs) and the confirm content no longer flashes during fade-out
+  (aiCheck resets on modal open, not before close).
+- Simulator evidence for interstitials: the flow completes in ~3 s, faster
+  than a tap→screenshot round trip; the states were captured by temporarily
+  lengthening the wait constants, then reverting them before commit.
