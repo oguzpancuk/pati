@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   colorsFor,
+  isPresetChoice,
   MULTI_CHOICE_SEPARATOR,
   OTHER,
   patternsFor,
@@ -498,9 +499,12 @@ export default function AddAnimalPage() {
         ))}
       </div>
 
-      {/* Pattern and color only exist relative to a species, so both pickers
-          stay hidden until one is chosen. The `key` remounts them on a
-          species switch so their internal "Diğer" state resets with it. */}
+      {/* The pickers cascade (owner decision, sprint item 3 revision):
+          species opens the pattern list, and the COLOR list opens only once
+          a pattern is chosen — ordered by that pattern's most common street
+          colors. Keys remount so internal "Diğer" state resets; the color
+          field keys on the preset pattern only, because free "Diğer" text
+          changes per keystroke and would wipe the color picks mid-typing. */}
       {species && (
         <>
           <div className="label">tür / desen</div>
@@ -511,14 +515,17 @@ export default function AddAnimalPage() {
             onChange={setBreed}
           />
 
-          {/* Ordered top-3 street colors first (see taxonomy colorsFor). */}
-          <div className="label">renk (birden fazla seçebilirsin)</div>
-          <MultiChips
-            key={`c-${species}`}
-            options={colorsFor(species)}
-            value={colorChoices}
-            onChange={setColorChoices}
-          />
+          {breed && (
+            <>
+              <div className="label">renk (birden fazla seçebilirsin)</div>
+              <MultiChips
+                key={`c-${species}-${isPresetChoice(breed, patternsFor(species)) ? breed : OTHER}`}
+                options={colorsFor(species, breed)}
+                value={colorChoices}
+                onChange={setColorChoices}
+              />
+            </>
+          )}
         </>
       )}
 

@@ -47,18 +47,48 @@ export const DOG_COLORS = [
 ];
 
 /**
- * The three most common street colors per species in Türkiye, pinned first in
- * the picker (owner decision, 2026-08-30 improvement sprint item 3).
- *
- * Cats: the archetypal Turkish street cat is the grey/brown tabby (tekir),
- * then the orange tabby (sarman), then black-and-white bicolors (smokin) —
- * urban colonies are dominated by these three coats.
- * Dogs: street dogs are overwhelmingly Kangal/Anatolian-shepherd mixes, so
- * tan/brown bodies come first, the kangal-type tan-with-black-mask second,
- * and black/mostly-black mixes third (white Akbaş types are rarer in cities).
+ * The three most common street colors per species in Türkiye — the fallback
+ * ordering when no pattern is chosen or the pattern is free "Diğer" text.
  */
 export const CAT_TOP_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah-beyaz'];
 export const DOG_TOP_COLORS = ['Sarı / kahverengi', 'Siyah-sarı (maskeli)', 'Siyah'];
+
+/**
+ * The three most common street colors per PATTERN in Türkiye — the ONLY
+ * choices offered besides "Diğer" (owner decision, 2026-08-30: "tür
+ * seçilince o türün en fazla görülen 3 rengi", sadece 3 renk + Diğer).
+ * Orderings grounded in coat-color genetics and breed standards (no Turkish
+ * frequency data exists in accessible form); per-row rationale below.
+ * Values need not come from CAT_COLORS/DOG_COLORS — the column takes free
+ * text, and these lists ARE the picker.
+ */
+export const PATTERN_TOP_COLORS: Record<string, string[]> = {
+  // Wild-type grey-brown mackerel dominates Anatolian tabbies; brown is a
+  // continuum with it; orange tabby (elevated in Turkey) third.
+  Tekir: ['Gri / boz', 'Kahverengi', 'Sarı / turuncu'],
+  // Orange by definition; Mediterranean white-spotting makes orange-white
+  // the runner-up, dilute cream third.
+  Sarman: ['Sarı / turuncu', 'Sarı-beyaz', 'Krem'],
+  // White chest lockets are extremely common on black strays; dilute black
+  // (grey/blue) third.
+  Siyah: ['Siyah', 'Siyah-beyaz', 'Gri / boz'],
+  // Calico = white base + orange + black patches; white covers most area.
+  'Üç renk (calico)': ['Beyaz', 'Sarı / turuncu', 'Siyah'],
+  // Tuxedo is black-and-white by definition; blue/grey tuxedo the common
+  // dilute; tabby-and-white the frequent street variant.
+  Smokin: ['Siyah-beyaz', 'Gri / boz', 'Tekir-beyaz'],
+  // The black mask is dominant (E^m) and the breed standard, so it persists
+  // in mixes; maskless fawn second; pied chest markings from mixing third.
+  'Kangal melezi': ['Siyah-sarı (maskeli)', 'Sarı / kahverengi', 'Alacalı / benekli'],
+  // The breed is always white; mixes break to white-with-patches.
+  'Akbaş melezi': ['Beyaz', 'Alacalı / benekli', 'Sarı / kahverengi'],
+  // Village-dog surveys show fawn/sable dominance, then dominant black;
+  // black-masked fawn common in Anatolia via Kangal admixture.
+  'Sokak melezi (orta boy)': ['Sarı / kahverengi', 'Siyah', 'Siyah-sarı (maskeli)'],
+  'Kısa bacaklı melez': ['Sarı / kahverengi', 'Siyah', 'Alacalı / benekli'],
+  // Pointer/setter/spaniel ancestry: piebald/ticked signature look first.
+  'Av/Terrier melezi': ['Alacalı / benekli', 'Sarı / kahverengi', 'Beyaz'],
+};
 
 export const ILLNESSES = [
   'Üst solunum yolu enfeksiyonu',
@@ -99,13 +129,16 @@ export function patternsFor(species: Species): string[] {
 }
 
 /**
- * Color list for a species, top-3 street colors first, then the rest.
- * Derived (not a second hand-kept list) so the two orderings cannot drift.
+ * Color choices for a chosen pattern: ONLY that pattern's three most common
+ * street colors (owner decision — the full palette is not offered; anything
+ * else goes through the "Diğer" free text the picker appends itself).
+ * Free-text ("Diğer") patterns fall back to the species top-3.
  */
-export function colorsFor(species: Species): string[] {
-  const all = species === 'cat' ? CAT_COLORS : DOG_COLORS;
-  const top = species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS;
-  return [...top, ...all.filter((color) => !top.includes(color))];
+export function colorsFor(species: Species, pattern?: string | null): string[] {
+  return [
+    ...((pattern ? PATTERN_TOP_COLORS[pattern] : undefined) ??
+      (species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS)),
+  ];
 }
 
 export function conditionsFor(recordType: 'illness' | 'injury'): string[] {

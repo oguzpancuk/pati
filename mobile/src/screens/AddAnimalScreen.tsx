@@ -32,7 +32,7 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import { colorsFor, patternsFor, type Species } from '../taxonomy';
+import { colorsFor, isPresetChoice, OTHER, patternsFor, type Species } from '../taxonomy';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
 
 const MIN_PHOTOS = 2;
@@ -345,9 +345,13 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         />
       </View>
 
-      {/* Pattern and color only exist relative to a species, so both pickers
-          stay hidden until one is chosen. The `key` remounts them on a
-          species switch so their internal "Diğer" state resets with it. */}
+      {/* The pickers cascade (owner decision, sprint item 3 revision):
+          species opens the pattern list, and the COLOR list opens only once
+          a pattern is chosen — ordered by that pattern's most common street
+          colors. The `key` remounts them so internal "Diğer" state resets;
+          for the color field it keys on the preset pattern only, because
+          free "Diğer" text changes on every keystroke and would remount
+          (and wipe) the color picks mid-typing. */}
       {species && (
         <>
           {/* We don't say "breed": street cats belong to no breed, names like
@@ -364,15 +368,16 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             }
           />
 
-          {/* Ordered top-3 street colors first (see taxonomy colorsFor). */}
-          <MultiChoiceField
-            key={`renk-${species}`}
-            label="renk (birden fazla seçebilirsin)"
-            options={colorsFor(species)}
-            value={colorChoices}
-            onChange={setColorChoices}
-            otherPlaceholder="Örn. Gri-beyaz alacalı"
-          />
+          {breed && (
+            <MultiChoiceField
+              key={`renk-${species}-${isPresetChoice(breed, patternsFor(species)) ? breed : OTHER}`}
+              label="renk (birden fazla seçebilirsin)"
+              options={colorsFor(species, breed)}
+              value={colorChoices}
+              onChange={setColorChoices}
+              otherPlaceholder="Örn. Gri-beyaz alacalı"
+            />
+          )}
         </>
       )}
 

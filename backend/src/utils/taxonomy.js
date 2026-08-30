@@ -51,18 +51,29 @@ const DOG_COLORS = [
 ];
 
 /**
- * The three most common street colors per species in Türkiye, pinned first in
- * the picker (owner decision, 2026-08-30 improvement sprint item 3).
- *
- * Cats: the archetypal Turkish street cat is the grey/brown tabby (tekir),
- * then the orange tabby (sarman), then black-and-white bicolors (smokin) —
- * urban colonies are dominated by these three coats.
- * Dogs: street dogs are overwhelmingly Kangal/Anatolian-shepherd mixes, so
- * tan/brown bodies come first, the kangal-type tan-with-black-mask second,
- * and black/mostly-black mixes third (white Akbaş types are rarer in cities).
+ * The three most common street colors per species in Türkiye — the fallback
+ * ordering when no pattern is chosen or the pattern is free "Diğer" text.
  */
 const CAT_TOP_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah-beyaz'];
 const DOG_TOP_COLORS = ['Sarı / kahverengi', 'Siyah-sarı (maskeli)', 'Siyah'];
+
+/**
+ * The three most common street colors per PATTERN in Türkiye — the ONLY
+ * choices offered besides "Diğer". Rationale lives with the mobile copy
+ * (mobile/src/taxonomy.ts); keep the two maps identical.
+ */
+const PATTERN_TOP_COLORS = {
+  Tekir: ['Gri / boz', 'Kahverengi', 'Sarı / turuncu'],
+  Sarman: ['Sarı / turuncu', 'Sarı-beyaz', 'Krem'],
+  Siyah: ['Siyah', 'Siyah-beyaz', 'Gri / boz'],
+  'Üç renk (calico)': ['Beyaz', 'Sarı / turuncu', 'Siyah'],
+  Smokin: ['Siyah-beyaz', 'Gri / boz', 'Tekir-beyaz'],
+  'Kangal melezi': ['Siyah-sarı (maskeli)', 'Sarı / kahverengi', 'Alacalı / benekli'],
+  'Akbaş melezi': ['Beyaz', 'Alacalı / benekli', 'Sarı / kahverengi'],
+  'Sokak melezi (orta boy)': ['Sarı / kahverengi', 'Siyah', 'Siyah-sarı (maskeli)'],
+  'Kısa bacaklı melez': ['Sarı / kahverengi', 'Siyah', 'Alacalı / benekli'],
+  'Av/Terrier melezi': ['Alacalı / benekli', 'Sarı / kahverengi', 'Beyaz'],
+};
 
 /** Health records have exactly two types: illness and injury. Vaccines live in their own table. */
 const HEALTH_RECORD_TYPES = ['illness', 'injury'];
@@ -121,10 +132,11 @@ function patternsFor(species) {
  * Color list for a species, top-3 street colors first, then the rest.
  * Derived (not a second hand-kept list) so the two orderings cannot drift.
  */
-function colorsFor(species) {
-  const all = species === 'cat' ? CAT_COLORS : DOG_COLORS;
-  const top = species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS;
-  return [...top, ...all.filter((color) => !top.includes(color))];
+function colorsFor(species, pattern) {
+  return [
+    ...((pattern ? PATTERN_TOP_COLORS[pattern] : undefined) ??
+      (species === 'cat' ? CAT_TOP_COLORS : DOG_TOP_COLORS)),
+  ];
 }
 
 /** Condition list for a health-record type. */
@@ -141,6 +153,7 @@ module.exports = {
   DOG_COLORS,
   CAT_TOP_COLORS,
   DOG_TOP_COLORS,
+  PATTERN_TOP_COLORS,
   HEALTH_RECORD_TYPES,
   ILLNESSES,
   INJURIES,
