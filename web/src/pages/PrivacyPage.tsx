@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { LEGAL_MD } from '../legal';
+import { Link, useNavigate } from 'react-router-dom';
+import { KVKK_MD } from '../legal';
 
 /**
  * Renders the legal markdown with a deliberately tiny converter: the text is
@@ -62,14 +62,28 @@ function parse(md: string): Block[] {
 
 /** **bold** → <strong>; everything else stays plain text. */
 function rich(text: string) {
-  return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
-    i % 2 === 1 ? <strong key={i}>{part}</strong> : part
-  );
+  return text
+    .split(/\*\*(.+?)\*\*/g)
+    .map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part));
 }
 
-export default function PrivacyPage() {
+/**
+ * Shared shell for the two legal pages (KVKK at /gizlilik, terms at
+ * /kosullar) — same tiny renderer, different markdown and cross-link.
+ */
+export function LegalPage({
+  md,
+  micro,
+  crossTo,
+  crossLabel,
+}: {
+  md: string;
+  micro: string;
+  crossTo: string;
+  crossLabel: string;
+}) {
   const navigate = useNavigate();
-  const blocks = useMemo(() => parse(LEGAL_MD), []);
+  const blocks = useMemo(() => parse(md), [md]);
 
   return (
     <div className="page" style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -77,8 +91,14 @@ export default function PrivacyPage() {
         <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
           ←
         </button>
-        <div className="micro">gizlilik ve koşullar</div>
-        <span />
+        <div className="micro">{micro}</div>
+        <Link
+          to={crossTo}
+          className="link"
+          style={{ fontSize: 12, maxWidth: 110, textAlign: 'right', lineHeight: 1.3 }}
+        >
+          {crossLabel}
+        </Link>
       </div>
 
       <div style={{ lineHeight: 1.65, fontSize: 14.5 }}>
@@ -121,5 +141,16 @@ export default function PrivacyPage() {
         })}
       </div>
     </div>
+  );
+}
+
+export default function PrivacyPage() {
+  return (
+    <LegalPage
+      md={KVKK_MD}
+      micro="aydınlatma metni (kvkk)"
+      crossTo="/kosullar"
+      crossLabel="kullanım koşulları"
+    />
   );
 }

@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Linking, Pressable, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, View } from 'react-native';
+import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +20,7 @@ import {
   uploadAvatar,
 } from '../api/users';
 import { deleteCareAction, fetchMyCareActions, MyCareAction } from '../api/care';
+import { mapStyles } from '../map/styles';
 import { badgeProgressText, badgeTitle } from '../badges';
 import { mergeById } from '../paging';
 import AnimalAvatar from '../components/AnimalAvatar';
@@ -76,7 +78,7 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
 
 export default function UserProfileScreen({ navigation, route }: any) {
   const styles = useStyles();
-  const { colors } = useTheme();
+  const { name: themeName, colors } = useTheme();
   const { mode, setMode } = useThemeMode();
   const { logout } = useAuth();
   const { checkPending } = useBadgeAwards();
@@ -87,6 +89,8 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
   const [careTotal, setCareTotal] = useState(0);
   const [loadingMoreCare, setLoadingMoreCare] = useState(false);
+  // The tapped history row's detail popup: where the drop landed, on a map.
+  const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
   // The friend list arrives in one request (it's short); revealed piecewise
   // client-side to keep the profile lean.
   const [visibleFriends, setVisibleFriends] = useState(PROFILE_PREVIEW);
@@ -399,7 +403,13 @@ export default function UserProfileScreen({ navigation, route }: any) {
         </Card>
       ) : (
         careHistory.map((action) => (
-          <Card key={action.id} variant="flat" padding="md" style={styles.careRow}>
+          <Card
+            key={action.id}
+            variant="flat"
+            padding="md"
+            style={styles.careRow}
+            onPress={() => setCareDetail(action)}
+          >
             <Icon
               name={action.action_type === 'food' ? 'food' : 'water'}
               size={20}
@@ -513,21 +523,96 @@ export default function UserProfileScreen({ navigation, route }: any) {
           çıkış yap
         </Text>
       </Pressable>
-      <Pressable
-        onPress={() => Linking.openURL(brand.legalUrl).catch(() => {})}
-        style={styles.legal}
-        accessibilityRole="link"
-      >
-        <Text variant="caption" color="textSubtle" center>
-          gizlilik ve kullanım koşulları
+      <Text variant="caption" color="textSubtle" center style={styles.legal}>
+        <Text
+          variant="caption"
+          color="textSubtle"
+          onPress={() => Linking.openURL(brand.privacyUrl).catch(() => {})}
+        >
+          gizlilik (kvkk)
         </Text>
-      </Pressable>
+        {'   ·   '}
+        <Text
+          variant="caption"
+          color="textSubtle"
+          onPress={() => Linking.openURL(brand.termsUrl).catch(() => {})}
+        >
+          kullanım koşulları
+        </Text>
+      </Text>
       <DeleteAccountLink initialOpen={!!route?.params?.deleteAccount} />
+
+      {/* Drop-detail popup: where this record landed, as a static map. */}
+      <Modal
+        visible={!!careDetail}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCareDetail(null)}
+      >
+        <Pressable style={styles.careModalBackdrop} onPress={() => setCareDetail(null)}>
+          <Pressable style={styles.careModalCard} onPress={() => {}}>
+            {careDetail && (
+              <>
+                <Text variant="heading" center>
+                  {careDetail.action_type === 'food' ? 'Mama kaydı' : 'Su kaydı'}
+                </Text>
+                <Text variant="caption" color="textSubtle" center style={styles.careModalDate}>
+                  {formatCareDate(careDetail.created_at)}
+                </Text>
+                <View style={styles.careModalMap}>
+                  <MapView
+                    style={styles.careModalMapInner}
+                    mapStyle={mapStyles[themeName]}
+                    scrollEnabled={false}
+                    zoomEnabled={false}
+                    pitchEnabled={false}
+                    rotateEnabled={false}
+                    // A static thumbnail; the full map screen carries the
+                    // required OpenMapTiles/OSM attribution.
+                    attributionEnabled={false}
+                  >
+                    <Camera
+                      defaultSettings={{
+                        centerCoordinate: [
+                          careDetail.location.coordinates[0],
+                          careDetail.location.coordinates[1],
+                        ],
+                        zoomLevel: 16,
+                      }}
+                    />
+                    <MarkerView
+                      coordinate={[
+                        careDetail.location.coordinates[0],
+                        careDetail.location.coordinates[1],
+                      ]}
+                      anchor={{ x: 0.5, y: 0.5 }}
+                    >
+                      <View style={styles.careModalMarker}>
+                        <Icon
+                          name={careDetail.action_type === 'food' ? 'food' : 'water'}
+                          size={18}
+                          color={colors.brand}
+                        />
+                      </View>
+                    </MarkerView>
+                  </MapView>
+                </View>
+                <Button
+                  title="Kapat"
+                  variant="ghost"
+                  onPress={() => setCareDetail(null)}
+                  fullWidth
+                />
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
 
-const useStyles = makeStyles(({ colors: c }) => ({
+const useStyles = makeStyles(({ colors: c, shadow }) => ({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
   headerText: { flex: 1, marginLeft: spacing.lg },
   avatarHint: { marginTop: spacing.sm - 2 },
@@ -562,6 +647,36 @@ const useStyles = makeStyles(({ colors: c }) => ({
     marginBottom: spacing.sm,
   },
   careText: { flex: 1, marginLeft: spacing.md },
+  careModalBackdrop: {
+    flex: 1,
+    backgroundColor: c.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  careModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: c.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.xl,
+  },
+  careModalDate: { marginTop: 2 },
+  careModalMap: {
+    height: 180,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    marginVertical: spacing.lg,
+  },
+  careModalMapInner: { flex: 1 },
+  careModalMarker: {
+    padding: 6,
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
+    ...shadow.float,
+  },
   friendName: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
   themeRow: { flexDirection: 'row', gap: spacing.sm },
   logout: { marginTop: spacing.xxl, alignSelf: 'center' },

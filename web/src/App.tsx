@@ -11,6 +11,7 @@ import FindFriendsPage from './pages/FindFriendsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import UserCommentsPage from './pages/UserCommentsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import TermsPage from './pages/TermsPage';
 import { BadgeAwardProvider } from './badgeAwards';
 import { useCareAlerts } from './careAlerts';
 
@@ -74,8 +75,9 @@ export default function App() {
   if (!me) {
     return (
       <Routes>
-        {/* The register form links here, so it must open without a session. */}
+        {/* The register form links here, so both must open without a session. */}
         <Route path="/gizlilik" element={<PrivacyPage />} />
+        <Route path="/kosullar" element={<TermsPage />} />
         <Route path="*" element={<LoginPage />} />
       </Routes>
     );
@@ -98,6 +100,7 @@ export default function App() {
           <Route path="arkadas-bul" element={<FindFriendsPage />} />
           <Route path="siralama" element={<LeaderboardPage />} />
           <Route path="gizlilik" element={<PrivacyPage />} />
+          <Route path="kosullar" element={<TermsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

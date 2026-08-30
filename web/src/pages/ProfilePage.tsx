@@ -25,6 +25,7 @@ import { BadgeCatalogModal, BadgeSymbol, LevelBar } from '../badges';
 import { useBadgeAwards } from '../badgeAwards';
 import { LoadMoreButton } from '../components/LoadMoreButton';
 import { RecentComments } from '../components/RecentComments';
+import { MiniMap } from '../components/MiniMap';
 import { mergeById } from '@mobile/paging';
 import { applyThemeMode, readThemeMode, type ThemeMode } from '../theme';
 import { InstallBanner } from '../install';
@@ -32,6 +33,32 @@ import { InstallBanner } from '../install';
 // The profile is a summary screen: 3 rows per section, the rest behind "show more".
 const PREVIEW = 3;
 const PAGE = 20;
+
+/** The brand food-bowl / water-drop stroke icon, shared by the history row
+ * and the detail popup's map marker. */
+function CareIcon({ type, size = 20 }: { type: 'food' | 'water'; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--brand)"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      {type === 'food' ? (
+        <>
+          <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z" />
+          <path d="M7.5 8.5c0-1.4 1-1.9 1-2.9M12 8.5c0-1.4 1-1.9 1-2.9M16.5 8.5c0-1.4 1-1.9 1-2.9" />
+        </>
+      ) : (
+        <path d="M12 3.4s6.2 6.5 6.2 10.2a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.4 12 3.4Z" />
+      )}
+    </svg>
+  );
+}
 
 // Drop-history rows show the time too: whether a record is still deletable
 // depends on how fresh it is, and a date alone hides that.
@@ -65,6 +92,8 @@ export default function ProfilePage() {
   const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
   const [careTotal, setCareTotal] = useState(0);
   const [loadingMoreCare, setLoadingMoreCare] = useState(false);
+  // The clicked history row's detail popup: where the drop landed, on a map.
+  const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [visibleFriends, setVisibleFriends] = useState(PREVIEW);
   const [theme, setTheme] = useState<ThemeMode>(readThemeMode());
@@ -264,26 +293,14 @@ export default function ProfilePage() {
         </div>
       ) : (
         careHistory.map((action) => (
-          <div key={action.id} className="card flat row">
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--brand)"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              {action.action_type === 'food' ? (
-                <>
-                  <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z" />
-                  <path d="M7.5 8.5c0-1.4 1-1.9 1-2.9M12 8.5c0-1.4 1-1.9 1-2.9M16.5 8.5c0-1.4 1-1.9 1-2.9" />
-                </>
-              ) : (
-                <path d="M12 3.4s6.2 6.5 6.2 10.2a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.4 12 3.4Z" />
-              )}
-            </svg>
+          <div
+            key={action.id}
+            className="card flat row"
+            role="button"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setCareDetail(action)}
+          >
+            <CareIcon type={action.action_type} />
             <div className="grow">
               <strong>{action.action_type === 'food' ? 'Mama' : 'Su'}</strong>
               <div className="muted">{formatCareDate(action.created_at)}</div>
@@ -291,7 +308,13 @@ export default function ProfilePage() {
             {/* Deletable only inside the server-computed window (mistake
                 correction, not history rewriting). */}
             {action.deletable && (
-              <button className="btn ghost" onClick={() => handleDeleteCare(action)}>
+              <button
+                className="btn ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteCare(action);
+                }}
+              >
                 sil
               </button>
             )}
@@ -404,13 +427,15 @@ export default function ProfilePage() {
         çıkış yap
       </button>
 
-      <Link
-        to="/gizlilik"
-        className="subtle"
-        style={{ display: 'block', textAlign: 'center', marginTop: 10 }}
-      >
-        gizlilik ve kullanım koşulları
-      </Link>
+      <div className="subtle" style={{ textAlign: 'center', marginTop: 10 }}>
+        <Link to="/gizlilik" className="subtle">
+          gizlilik (kvkk)
+        </Link>
+        {' · '}
+        <Link to="/kosullar" className="subtle">
+          kullanım koşulları
+        </Link>
+      </div>
       <DeleteAccountLink />
 
       <BadgeCatalogModal
@@ -491,6 +516,45 @@ export default function ProfilePage() {
               Kendi fotoğrafımı yükle
             </button>
             <button className="btn ghost full" disabled={busy} onClick={() => setPickerOpen(false)}>
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Drop-detail popup: where this record landed, as a static map. */}
+      {careDetail && (
+        <div className="backdrop" onClick={() => setCareDetail(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ textAlign: 'center', marginBottom: 2 }}>
+              {careDetail.action_type === 'food' ? 'Mama kaydı' : 'Su kaydı'}
+            </h2>
+            <p className="muted" style={{ textAlign: 'center', margin: '0 0 12px' }}>
+              {formatCareDate(careDetail.created_at)}
+            </p>
+            <MiniMap
+              key={careDetail.id}
+              lat={careDetail.location.coordinates[1]}
+              lng={careDetail.location.coordinates[0]}
+              height={180}
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  padding: 6,
+                  borderRadius: '50%',
+                  background: 'var(--surface)',
+                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)',
+                }}
+              >
+                <CareIcon type={careDetail.action_type} size={18} />
+              </span>
+            </MiniMap>
+            <button
+              className="btn ghost full"
+              style={{ marginTop: 10 }}
+              onClick={() => setCareDetail(null)}
+            >
               Kapat
             </button>
           </div>

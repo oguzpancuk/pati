@@ -16,6 +16,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Registration requires an explicit terms acceptance (owner decision);
+  // the checkbox links to both legal pages.
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -73,7 +76,42 @@ export default function LoginPage() {
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
           </label>
-          <button className="btn full" style={{ marginTop: 6 }} disabled={busy}>
+          {mode === 'register' && (
+            <label
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+                margin: '10px 2px 4px',
+                fontSize: 13.5,
+                lineHeight: 1.5,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                required
+                style={{ marginTop: 3, accentColor: 'var(--brand)' }}
+              />
+              <span>
+                <Link to="/kosullar" style={{ color: 'var(--brand)' }}>
+                  Kullanım Koşulları
+                </Link>
+                &apos;nı okudum, kabul ediyorum;{' '}
+                <Link to="/gizlilik" style={{ color: 'var(--brand)' }}>
+                  Aydınlatma Metni
+                </Link>
+                &apos;ni okudum.
+              </span>
+            </label>
+          )}
+          <button
+            className="btn full"
+            style={{ marginTop: 6 }}
+            disabled={busy || (mode === 'register' && !termsAccepted)}
+          >
             {busy ? 'Bekleyin…' : mode === 'login' ? 'Giriş yap' : 'Kayıt ol'}
           </button>
         </form>
@@ -113,11 +151,13 @@ export default function LoginPage() {
           Kayıt olursan sana rastgele bir avatar atanır, profilden değiştirebilirsin.
         </p>
         <p className="subtle" style={{ textAlign: 'center', marginTop: 10 }}>
-          Kayıt olarak{' '}
-          <Link to="/gizlilik" style={{ color: 'var(--brand)' }}>
-            Aydınlatma Metni ve Kullanım Koşulları
+          <Link to="/kosullar" style={{ color: 'var(--brand)' }}>
+            Kullanım Koşulları
           </Link>
-          'nı kabul etmiş olursun.
+          {' · '}
+          <Link to="/gizlilik" style={{ color: 'var(--brand)' }}>
+            Aydınlatma Metni (KVKK)
+          </Link>
         </p>
       </div>
     </div>

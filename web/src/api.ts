@@ -373,6 +373,7 @@ export interface MyCareAction {
   action_type: 'food' | 'water';
   photo_url: string;
   created_at: string;
+  location: { type: 'Point'; coordinates: [number, number] };
   /** Computed server-side against the server clock — don't re-derive on device. */
   deletable: boolean;
 }

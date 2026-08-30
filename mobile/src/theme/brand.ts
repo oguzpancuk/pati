@@ -5,7 +5,8 @@
 export const brand = {
   name: 'pati',
   tagline: 'birlikte bakıyoruz',
-  // The hosted privacy notice + terms; mobile links out instead of
-  // embedding a copy, so a legal edit ships without an app update.
-  legalUrl: 'https://pati-app.com/gizlilik',
+  // The hosted legal pages; mobile links out instead of embedding copies,
+  // so a legal edit ships without an app update.
+  privacyUrl: 'https://pati-app.com/gizlilik',
+  termsUrl: 'https://pati-app.com/kosullar',
 } as const;

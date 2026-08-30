@@ -1,208 +1,417 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="tr">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>pati — birlikte bakıyoruz</title>
-  <meta name="description" content="Sokak hayvanları için mama, su ve bakım haritası. Yakınında mama/su var mı, hemen bak." />
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>pati — birlikte bakıyoruz</title>
+    <meta
+      name="description"
+      content="Sokak hayvanları için mama, su ve bakım haritası. Yakınında mama/su var mı, hemen bak."
+    />
 
-  <!-- An installable web page: the manifest is for Android/Chrome, the
+    <!-- An installable web page: the manifest is for Android/Chrome, the
        apple-* tags for iOS Safari (Safari reads the manifest partially; the
        icon and fullscreen behavior still come from these tags). -->
-  <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#F47A4A" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="pati" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#F47A4A" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="pati" />
 
-  <style>
-    /* Colors match the mobile theme (mobile/src/theme/colors.ts). */
-    :root {
-      --brand: #F47A4A; --brand-dark: #D9633A; --brand-tint: #FFF0E7;
-      --bg: #FFF3E7; --surface: #FFFFFF; --text: #2B2B2B; --muted: #7A6E66;
-      --subtle: #A2948A; --border: #F0DCC8;
-      --success: #34A853; --success-soft: #E3F3E7; --on-success: #22703A;
-      --danger: #FF5C5C; --danger-soft: #FFE8E8; --on-danger: #C93B3B;
-      --info-soft: #E5EFFE; --on-info: #2A5FB0;
-    }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
-      font-family: -apple-system, "SF Pro Rounded", "Nunito", system-ui, sans-serif; }
-    body { min-height: 100vh; padding: max(20px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }
-    main { max-width: 440px; margin: 0 auto; }
-    .hero { text-align: center; padding: 28px 0 20px; }
-    .logo { display: inline-flex; align-items: center; gap: 12px; }
-    .logo svg { width: 64px; height: 64px; }
-    .logo h1 { margin: 0; font-size: 44px; line-height: 48px; color: var(--brand); font-weight: 800; letter-spacing: -1px; }
-    .tagline { margin: 6px 0 0; color: var(--muted); font-size: 16px; }
-    .card { background: var(--surface); border-radius: 22px; padding: 20px; margin-top: 16px;
-      box-shadow: 0 6px 24px rgba(122, 74, 42, 0.10); }
-    .card h2 { margin: 0 0 6px; font-size: 18px; line-height: 24px; }
-    .card p { margin: 0 0 14px; color: var(--muted); font-size: 14px; line-height: 20px; }
-    .seg { display: flex; background: var(--bg); border-radius: 999px; padding: 4px; margin-bottom: 14px; }
-    .seg button { flex: 1; border: 0; background: transparent; border-radius: 999px; padding: 10px;
-      font: inherit; font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; }
-    .seg button[aria-pressed="true"] { background: var(--brand); color: #fff; }
-    .btn { display: block; width: 100%; border: 0; border-radius: 999px; padding: 15px 18px;
-      font: inherit; font-size: 17px; font-weight: 800; color: #fff; background: var(--brand); cursor: pointer; }
-    .btn:active { background: var(--brand-dark); }
-    .btn.ghost { background: transparent; color: var(--brand); }
-    .btn[disabled] { opacity: .6; cursor: default; }
-    .status { display: none; border-radius: 16px; padding: 14px 16px; margin-top: 14px; border-left: 4px solid; }
-    .status.show { display: block; }
-    .status strong { display: block; font-size: 16px; margin-bottom: 2px; }
-    .status.ok { background: var(--success-soft); border-color: var(--success); color: var(--on-success); }
-    .status.warn { background: var(--danger-soft); border-color: var(--danger); color: var(--on-danger); }
-    .status.info { background: var(--info-soft); border-color: #4A8FF4; color: var(--on-info); }
-    .steps { margin: 0; padding-left: 20px; color: var(--muted); font-size: 14px; line-height: 22px; }
-    .steps b { color: var(--text); }
-    .hint { color: var(--subtle); font-size: 12px; text-align: center; margin-top: 18px; }
-    #install-card { display: none; }
-    #install-card.show { display: block; }
-    footer { text-align: center; color: var(--subtle); font-size: 12px; margin-top: 24px; }
-    footer a { color: var(--brand); text-decoration: none; }
-  </style>
-</head>
-<body>
-<main>
-  <header class="hero">
-    <div class="logo" aria-label="pati">
-      <!-- Same paths as Logo.tsx. -->
-      <svg viewBox="0 0 100 100" aria-hidden="true">
-        <g fill="#F47A4A">
-          <ellipse cx="16" cy="42" rx="9" ry="12" transform="rotate(-22 16 42)"/>
-          <ellipse cx="37" cy="26" rx="9.5" ry="13" transform="rotate(-8 37 26)"/>
-          <ellipse cx="63" cy="26" rx="9.5" ry="13" transform="rotate(8 63 26)"/>
-          <ellipse cx="84" cy="42" rx="9" ry="12" transform="rotate(22 84 42)"/>
-        </g>
-        <path d="M50 97 C40 81 29 75 29 66 A21 21 0 1 1 71 66 C71 75 60 81 50 97 Z" fill="#F47A4A"/>
-        <path d="M50 73 C50 73 38.5 65.5 38.5 58.6 C38.5 54.4 41.6 51.6 45.2 51.6 C47.5 51.6 49.2 52.9 50 54.2 C50.8 52.9 52.5 51.6 54.8 51.6 C58.4 51.6 61.5 54.4 61.5 58.6 C61.5 65.5 50 73 50 73 Z" fill="#FFFFFF"/>
-      </svg>
-      <h1>pati</h1>
-    </div>
-    <p class="tagline">birlikte bakıyoruz</p>
-  </header>
-
-  <!-- Live widget: uses the app's public "is there care in this area"
-       endpoint. No sign-in required, so the shortcut is useful on first open. -->
-  <section class="card" aria-labelledby="near-title">
-    <h2 id="near-title">Yakınında mama / su var mı?</h2>
-    <p>Bulunduğun noktanın 100 m çevresinde son saatlerde bırakılan mama ve suya bakar.</p>
-    <div class="seg" role="group" aria-label="Tür">
-      <button type="button" data-type="food" aria-pressed="true">Mama</button>
-      <button type="button" data-type="water" aria-pressed="false">Su</button>
-    </div>
-    <button type="button" class="btn" id="check">Konumuma bak</button>
-    <div class="status" id="status" role="status" aria-live="polite"></div>
-  </section>
-
-  <section class="card" id="install-card" aria-labelledby="install-title">
-    <h2 id="install-title">Ana ekrana ekle</h2>
-    <p>Kısayol olarak ekle; tam ekran açılır, uygulama gibi durur.</p>
-    <div id="install-android" style="display:none">
-      <button type="button" class="btn" id="install-btn">Ana ekrana ekle</button>
-    </div>
-    <ol class="steps" id="install-ios" style="display:none">
-      <li>Safari'de <b>Paylaş</b> düğmesine dokun (adres çubuğunun yanındaki <b>⋯</b> menüsünde ya da alttaki ok simgesi).</li>
-      <li>Listeden <b>Ana Ekrana Ekle</b>'yi seç.</li>
-      <li>Sağ üstten <b>Ekle</b> de — pati ana ekranında.</li>
-    </ol>
-    <ol class="steps" id="install-generic" style="display:none">
-      <li>Tarayıcı menüsünü aç (⋮ ya da Paylaş).</li>
-      <li><b>Ana ekrana ekle</b> / <b>Uygulamayı yükle</b> seçeneğini kullan.</li>
-    </ol>
-  </section>
-
-  <p class="hint">Mobil uygulama (iOS / Android) yayına hazırlanıyor. Bu sayfa kısayol ve hızlı bakış için.</p>
-  <p class="hint"><a href="/gizlilik" style="color:inherit">Aydınlatma Metni ve Kullanım Koşulları</a></p>
-  <footer>Sokak hayvanlarının bakımını birlikte koordine ediyoruz.</footer>
-</main>
-
-<script>
-  // API aynı kökten (backend hem sayfayı hem /api'yi servis ediyor).
-  const API = '/api'; // aynı kökteki backend
-  let type = 'food';
-  const status = document.getElementById('status');
-  const check = document.getElementById('check');
-
-  document.querySelectorAll('.seg button').forEach((b) => {
-    b.addEventListener('click', () => {
-      type = b.dataset.type;
-      document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-      status.className = 'status';
-    });
-  });
-
-  function show(kind, title, desc) {
-    status.className = 'status show ' + kind;
-    status.innerHTML = '<strong></strong><span></span>';
-    status.querySelector('strong').textContent = title;
-    status.querySelector('span').textContent = desc;
-  }
-
-  check.addEventListener('click', () => {
-    if (!navigator.geolocation) {
-      show('info', 'Konum desteklenmiyor', 'Tarayıcın konum paylaşımını desteklemiyor.');
-      return;
-    }
-    check.disabled = true; check.textContent = 'Bakılıyor…';
-    navigator.geolocation.getCurrentPosition(async (pos) => {
-      try {
-        const q = new URLSearchParams({ lat: pos.coords.latitude, lng: pos.coords.longitude, actionType: type });
-        const r = await fetch(API + '/care-actions/status?' + q);
-        if (!r.ok) throw new Error('Sunucu yanıt vermedi');
-        const d = await r.json();
-        const label = type === 'food' ? 'mama' : 'su';
-        if (d.needsAttention) {
-          show('warn', 'Buralarda ' + label + ' yok', d.radiusMeters + ' m çevrede son ' + d.windowHours + ' saatte ' + label + ' bırakılmamış. Bir kap bırakmanın tam zamanı.');
-        } else {
-          const when = d.lastActionAt ? new Date(d.lastActionAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '';
-          show('ok', 'Buraya bakılıyor 💚', d.radiusMeters + ' m çevrede son ' + d.windowHours + ' saatte ' + d.actionCount + ' kez ' + label + ' bırakılmış' + (when ? ' (son: ' + when + ')' : '') + '.');
-        }
-      } catch (e) {
-        show('info', 'Bakılamadı', e.message || 'Bir hata oluştu');
-      } finally {
-        check.disabled = false; check.textContent = 'Konumuma bak';
+    <style>
+      /* Colors match the mobile theme (mobile/src/theme/colors.ts). */
+      :root {
+        --brand: #f47a4a;
+        --brand-dark: #d9633a;
+        --brand-tint: #fff0e7;
+        --bg: #fff3e7;
+        --surface: #ffffff;
+        --text: #2b2b2b;
+        --muted: #7a6e66;
+        --subtle: #a2948a;
+        --border: #f0dcc8;
+        --success: #34a853;
+        --success-soft: #e3f3e7;
+        --on-success: #22703a;
+        --danger: #ff5c5c;
+        --danger-soft: #ffe8e8;
+        --on-danger: #c93b3b;
+        --info-soft: #e5effe;
+        --on-info: #2a5fb0;
       }
-    }, (err) => {
-      show('info', 'Konum alınamadı', err.code === 1 ? 'Konum izni verilmedi.' : 'Konum bulunamadı, tekrar dene.');
-      check.disabled = false; check.textContent = 'Konumuma bak';
-    }, { enableHighAccuracy: true, timeout: 10000 });
-  });
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif;
+      }
+      body {
+        min-height: 100vh;
+        padding: max(20px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom));
+      }
+      main {
+        max-width: 440px;
+        margin: 0 auto;
+      }
+      .hero {
+        text-align: center;
+        padding: 28px 0 20px;
+      }
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .logo svg {
+        width: 64px;
+        height: 64px;
+      }
+      .logo h1 {
+        margin: 0;
+        font-size: 44px;
+        line-height: 48px;
+        color: var(--brand);
+        font-weight: 800;
+        letter-spacing: -1px;
+      }
+      .tagline {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+      }
+      .card {
+        background: var(--surface);
+        border-radius: 22px;
+        padding: 20px;
+        margin-top: 16px;
+        box-shadow: 0 6px 24px rgba(122, 74, 42, 0.1);
+      }
+      .card h2 {
+        margin: 0 0 6px;
+        font-size: 18px;
+        line-height: 24px;
+      }
+      .card p {
+        margin: 0 0 14px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 20px;
+      }
+      .seg {
+        display: flex;
+        background: var(--bg);
+        border-radius: 999px;
+        padding: 4px;
+        margin-bottom: 14px;
+      }
+      .seg button {
+        flex: 1;
+        border: 0;
+        background: transparent;
+        border-radius: 999px;
+        padding: 10px;
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .seg button[aria-pressed='true'] {
+        background: var(--brand);
+        color: #fff;
+      }
+      .btn {
+        display: block;
+        width: 100%;
+        border: 0;
+        border-radius: 999px;
+        padding: 15px 18px;
+        font: inherit;
+        font-size: 17px;
+        font-weight: 800;
+        color: #fff;
+        background: var(--brand);
+        cursor: pointer;
+      }
+      .btn:active {
+        background: var(--brand-dark);
+      }
+      .btn.ghost {
+        background: transparent;
+        color: var(--brand);
+      }
+      .btn[disabled] {
+        opacity: 0.6;
+        cursor: default;
+      }
+      .status {
+        display: none;
+        border-radius: 16px;
+        padding: 14px 16px;
+        margin-top: 14px;
+        border-left: 4px solid;
+      }
+      .status.show {
+        display: block;
+      }
+      .status strong {
+        display: block;
+        font-size: 16px;
+        margin-bottom: 2px;
+      }
+      .status.ok {
+        background: var(--success-soft);
+        border-color: var(--success);
+        color: var(--on-success);
+      }
+      .status.warn {
+        background: var(--danger-soft);
+        border-color: var(--danger);
+        color: var(--on-danger);
+      }
+      .status.info {
+        background: var(--info-soft);
+        border-color: #4a8ff4;
+        color: var(--on-info);
+      }
+      .steps {
+        margin: 0;
+        padding-left: 20px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 22px;
+      }
+      .steps b {
+        color: var(--text);
+      }
+      .hint {
+        color: var(--subtle);
+        font-size: 12px;
+        text-align: center;
+        margin-top: 18px;
+      }
+      #install-card {
+        display: none;
+      }
+      #install-card.show {
+        display: block;
+      }
+      footer {
+        text-align: center;
+        color: var(--subtle);
+        font-size: 12px;
+        margin-top: 24px;
+      }
+      footer a {
+        color: var(--brand);
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <div class="logo" aria-label="pati">
+          <!-- Same paths as Logo.tsx. -->
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <g fill="#F47A4A">
+              <ellipse cx="16" cy="42" rx="9" ry="12" transform="rotate(-22 16 42)" />
+              <ellipse cx="37" cy="26" rx="9.5" ry="13" transform="rotate(-8 37 26)" />
+              <ellipse cx="63" cy="26" rx="9.5" ry="13" transform="rotate(8 63 26)" />
+              <ellipse cx="84" cy="42" rx="9" ry="12" transform="rotate(22 84 42)" />
+            </g>
+            <path
+              d="M50 97 C40 81 29 75 29 66 A21 21 0 1 1 71 66 C71 75 60 81 50 97 Z"
+              fill="#F47A4A"
+            />
+            <path
+              d="M50 73 C50 73 38.5 65.5 38.5 58.6 C38.5 54.4 41.6 51.6 45.2 51.6 C47.5 51.6 49.2 52.9 50 54.2 C50.8 52.9 52.5 51.6 54.8 51.6 C58.4 51.6 61.5 54.4 61.5 58.6 C61.5 65.5 50 73 50 73 Z"
+              fill="#FFFFFF"
+            />
+          </svg>
+          <h1>pati</h1>
+        </div>
+        <p class="tagline">birlikte bakıyoruz</p>
+      </header>
 
-  // Kurulum kartı: zaten kısayoldan açıldıysa gizli. Android/Chrome yükleme
-  // istemini kendisi verir (beforeinstallprompt); iOS'ta böyle bir API yok,
-  // adımlar yazıyla anlatılıyor.
-  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const installCard = document.getElementById('install-card');
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  let deferredPrompt = null;
-  if (!standalone) {
-    installCard.classList.add('show');
-    if (isIOS) document.getElementById('install-ios').style.display = 'block';
-    else document.getElementById('install-generic').style.display = 'block';
-  }
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    document.getElementById('install-generic').style.display = 'none';
-    document.getElementById('install-android').style.display = 'block';
-  });
-  document.getElementById('install-btn').addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    installCard.classList.remove('show');
-  });
-  window.addEventListener('appinstalled', () => installCard.classList.remove('show'));
+      <!-- Live widget: uses the app's public "is there care in this area"
+       endpoint. No sign-in required, so the shortcut is useful on first open. -->
+      <section class="card" aria-labelledby="near-title">
+        <h2 id="near-title">Yakınında mama / su var mı?</h2>
+        <p>Bulunduğun noktanın 100 m çevresinde son saatlerde bırakılan mama ve suya bakar.</p>
+        <div class="seg" role="group" aria-label="Tür">
+          <button type="button" data-type="food" aria-pressed="true">Mama</button>
+          <button type="button" data-type="water" aria-pressed="false">Su</button>
+        </div>
+        <button type="button" class="btn" id="check">Konumuma bak</button>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </section>
 
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
-</script>
-</body>
+      <section class="card" id="install-card" aria-labelledby="install-title">
+        <h2 id="install-title">Ana ekrana ekle</h2>
+        <p>Kısayol olarak ekle; tam ekran açılır, uygulama gibi durur.</p>
+        <div id="install-android" style="display: none">
+          <button type="button" class="btn" id="install-btn">Ana ekrana ekle</button>
+        </div>
+        <ol class="steps" id="install-ios" style="display: none">
+          <li>
+            Safari'de <b>Paylaş</b> düğmesine dokun (adres çubuğunun yanındaki <b>⋯</b> menüsünde ya
+            da alttaki ok simgesi).
+          </li>
+          <li>Listeden <b>Ana Ekrana Ekle</b>'yi seç.</li>
+          <li>Sağ üstten <b>Ekle</b> de — pati ana ekranında.</li>
+        </ol>
+        <ol class="steps" id="install-generic" style="display: none">
+          <li>Tarayıcı menüsünü aç (⋮ ya da Paylaş).</li>
+          <li><b>Ana ekrana ekle</b> / <b>Uygulamayı yükle</b> seçeneğini kullan.</li>
+        </ol>
+      </section>
+
+      <p class="hint">
+        Mobil uygulama (iOS / Android) yayına hazırlanıyor. Bu sayfa kısayol ve hızlı bakış için.
+      </p>
+      <p class="hint">
+        <a href="/gizlilik" style="color: inherit">Aydınlatma Metni (KVKK)</a> ·
+        <a href="/kosullar" style="color: inherit">Kullanım Koşulları</a>
+      </p>
+      <footer>Sokak hayvanlarının bakımını birlikte koordine ediyoruz.</footer>
+    </main>
+
+    <script>
+      // API aynı kökten (backend hem sayfayı hem /api'yi servis ediyor).
+      const API = '/api'; // aynı kökteki backend
+      let type = 'food';
+      const status = document.getElementById('status');
+      const check = document.getElementById('check');
+
+      document.querySelectorAll('.seg button').forEach((b) => {
+        b.addEventListener('click', () => {
+          type = b.dataset.type;
+          document
+            .querySelectorAll('.seg button')
+            .forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+          status.className = 'status';
+        });
+      });
+
+      function show(kind, title, desc) {
+        status.className = 'status show ' + kind;
+        status.innerHTML = '<strong></strong><span></span>';
+        status.querySelector('strong').textContent = title;
+        status.querySelector('span').textContent = desc;
+      }
+
+      check.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+          show('info', 'Konum desteklenmiyor', 'Tarayıcın konum paylaşımını desteklemiyor.');
+          return;
+        }
+        check.disabled = true;
+        check.textContent = 'Bakılıyor…';
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            try {
+              const q = new URLSearchParams({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                actionType: type,
+              });
+              const r = await fetch(API + '/care-actions/status?' + q);
+              if (!r.ok) throw new Error('Sunucu yanıt vermedi');
+              const d = await r.json();
+              const label = type === 'food' ? 'mama' : 'su';
+              if (d.needsAttention) {
+                show(
+                  'warn',
+                  'Buralarda ' + label + ' yok',
+                  d.radiusMeters +
+                    ' m çevrede son ' +
+                    d.windowHours +
+                    ' saatte ' +
+                    label +
+                    ' bırakılmamış. Bir kap bırakmanın tam zamanı.'
+                );
+              } else {
+                const when = d.lastActionAt
+                  ? new Date(d.lastActionAt).toLocaleTimeString('tr-TR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : '';
+                show(
+                  'ok',
+                  'Buraya bakılıyor 💚',
+                  d.radiusMeters +
+                    ' m çevrede son ' +
+                    d.windowHours +
+                    ' saatte ' +
+                    d.actionCount +
+                    ' kez ' +
+                    label +
+                    ' bırakılmış' +
+                    (when ? ' (son: ' + when + ')' : '') +
+                    '.'
+                );
+              }
+            } catch (e) {
+              show('info', 'Bakılamadı', e.message || 'Bir hata oluştu');
+            } finally {
+              check.disabled = false;
+              check.textContent = 'Konumuma bak';
+            }
+          },
+          (err) => {
+            show(
+              'info',
+              'Konum alınamadı',
+              err.code === 1 ? 'Konum izni verilmedi.' : 'Konum bulunamadı, tekrar dene.'
+            );
+            check.disabled = false;
+            check.textContent = 'Konumuma bak';
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
+
+      // Kurulum kartı: zaten kısayoldan açıldıysa gizli. Android/Chrome yükleme
+      // istemini kendisi verir (beforeinstallprompt); iOS'ta böyle bir API yok,
+      // adımlar yazıyla anlatılıyor.
+      const standalone =
+        window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      const installCard = document.getElementById('install-card');
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      let deferredPrompt = null;
+      if (!standalone) {
+        installCard.classList.add('show');
+        if (isIOS) document.getElementById('install-ios').style.display = 'block';
+        else document.getElementById('install-generic').style.display = 'block';
+      }
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('install-generic').style.display = 'none';
+        document.getElementById('install-android').style.display = 'block';
+      });
+      document.getElementById('install-btn').addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        installCard.classList.remove('show');
+      });
+      window.addEventListener('appinstalled', () => installCard.classList.remove('show'));
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      }
+    </script>
+  </body>
 </html>
