@@ -65,6 +65,7 @@ const PALETTES = {
     motorwayCasing: '#E4C9A2',
     rail: '#CFC5B6',
     boundary: '#C4B8A8',
+    pedestrian: '#EFE8DB',
     labelPlace: '#21201E', // = text
     labelOther: '#4A4744', // = textBody
     labelRoad: '#6E675F',
@@ -100,6 +101,7 @@ const PALETTES = {
     motorwayCasing: '#241D14',
     rail: '#3A332B',
     boundary: '#453D33',
+    pedestrian: '#27221B',
     labelPlace: '#F3EEE8', // = text (dark)
     labelOther: '#CFC8C0', // = textBody (dark)
     labelRoad: '#9B948C',
@@ -181,6 +183,19 @@ function tint(base, theme) {
   delete style.sources.ne2_shaded;
 
   for (const layer of style.layers) {
+    // Sprite-pattern fills (the hatched plazas/pedestrian areas and wetland
+    // stippling) are drawn for the stock light style; on the tinted grounds
+    // they read as stray stripes. Flatten them to plain fills — squares like
+    // Taksim become a calm paved tone, wetlands join the landcover greens.
+    if (layer.paint && 'fill-pattern' in layer.paint) {
+      delete layer.paint['fill-pattern'];
+      if (layer.id === 'road_area_pattern') {
+        layer.paint['fill-color'] = palette.pedestrian;
+      } else {
+        layer.paint['fill-color'] = palette.grass;
+        layer.paint['fill-opacity'] = 0.35;
+      }
+    }
     for (const [pattern, overrides] of RULES) {
       if (!pattern.test(layer.id)) continue;
       for (const [prop, token] of Object.entries(overrides)) {

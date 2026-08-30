@@ -131,9 +131,9 @@
       ],
       "paint": {
         "fill-antialias": true,
-        "fill-opacity": 0.8,
-        "fill-pattern": "wetland_bg_11",
-        "fill-translate-anchor": "map"
+        "fill-opacity": 0.35,
+        "fill-translate-anchor": "map",
+        "fill-color": "#C8DCB4"
       }
     },
     {
@@ -1550,7 +1550,7 @@
         false
       ],
       "paint": {
-        "fill-pattern": "pedestrian_polygon"
+        "fill-color": "#EFE8DB"
       }
     },
     {
