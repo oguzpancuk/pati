@@ -11,6 +11,8 @@ import {
   TIER_LABELS,
   TIER_ORDER,
   TIER_POINTS,
+  tierLadderText,
+  withCatalogPlaceholders,
   type BadgeGroup,
   type BadgeSymbolName,
   type BadgeTier,
@@ -120,7 +122,9 @@ export function BadgeCatalogModal({
 
   const grouped = useMemo(() => {
     const map: Record<BadgeGroup, Badge[]> = { streak: [], breed: [], count: [] };
-    for (const b of badges) map[badgeGroup(b)].push(b);
+    // The catalog shows every obtainable badge, so breed badges the server
+    // didn't send (no progress yet) appear as locked placeholders.
+    for (const b of withCatalogPlaceholders(badges)) map[badgeGroup(b)].push(b);
     for (const g of GROUP_ORDER) map[g] = sortBadges(map[g]);
     return map;
   }, [badges]);
@@ -176,7 +180,9 @@ export function BadgeCatalogModal({
                   <button
                     key={badge.key}
                     type="button"
-                    className={`badge-row ${badge.tier ? '' : 'locked'} ${selected ? 'selected' : ''}`}
+                    className={`badge-row ${badge.tier ? '' : 'locked'} ${
+                      selected ? 'selected' : ''
+                    }`}
                     onClick={() => toggle(badge)}
                     disabled={!selectable || disabled}
                   >
@@ -184,6 +190,11 @@ export function BadgeCatalogModal({
                     <span className="grow" style={{ textAlign: 'left' }}>
                       <strong style={{ display: 'block' }}>{badgeTitle(badge)}</strong>
                       <span className="muted">{badgeProgressText(badge)}</span>
+                      {/* Every tier's threshold, so the whole ladder is
+                          browsable before any of it is earned. */}
+                      <span className="subtle" style={{ display: 'block', marginTop: 2 }}>
+                        {tierLadderText(badge)}
+                      </span>
                     </span>
                     {selected ? (
                       <span style={{ color: 'var(--brand)', fontWeight: 800 }}>✓</span>
