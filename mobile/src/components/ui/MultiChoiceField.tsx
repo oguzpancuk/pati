@@ -36,6 +36,11 @@ type Props = {
  * MULTI_CHOICE_SEPARATOR into the same single column ChoiceField writes to —
  * no schema change, and single-select values stay readable as a selection
  * of one.
+ *
+ * Selection state lives HERE: `value` only seeds the initial state, so free
+ * text that happens to spell an option name ("Siyah…") is never re-absorbed
+ * into the preset chips on re-render. Reset by remounting with a new `key`
+ * (the add-animal form keys this by species).
  */
 export default function MultiChoiceField({
   label,
@@ -46,23 +51,28 @@ export default function MultiChoiceField({
   maxTotalLength = 120,
 }: Props) {
   const styles = useStyles();
-  const presets = value.filter((v) => options.includes(v));
-  const storedOther = value.find((v) => !options.includes(v)) ?? '';
   // On open: a value not on the list means the user typed "Diğer" before.
-  const [otherMode, setOtherMode] = useState(!!storedOther);
-  const [otherText, setOtherText] = useState(storedOther);
+  const [presets, setPresets] = useState(() => value.filter((v) => options.includes(v)));
+  const [otherText, setOtherText] = useState(() => value.find((v) => !options.includes(v)) ?? '');
+  const [otherMode, setOtherMode] = useState(otherText.length > 0);
 
-  // How many characters the free text may still use once the presets (plus
-  // one separator) are accounted for.
-  const presetsJoined = presets.join(MULTI_CHOICE_SEPARATOR);
-  const otherBudget = Math.max(
-    0,
-    maxTotalLength - presetsJoined.length - (presets.length > 0 ? MULTI_CHOICE_SEPARATOR.length : 0)
-  );
+  /** Characters the free text may use next to these presets (join cap). */
+  function budgetFor(nextPresets: string[]): number {
+    const joined = nextPresets.join(MULTI_CHOICE_SEPARATOR).length;
+    return Math.max(
+      0,
+      maxTotalLength - joined - (nextPresets.length > 0 ? MULTI_CHOICE_SEPARATOR.length : 0)
+    );
+  }
+  const otherBudget = budgetFor(presets);
 
   function emit(nextPresets: string[], nextOther: string) {
-    const trimmed = nextOther.trim();
-    onChange(trimmed ? [...nextPresets, trimmed] : nextPresets);
+    // Clamp here too: the input's maxLength only blocks NEW keystrokes, it
+    // does not shrink text typed before a preset ate part of the budget.
+    const trimmed = nextOther.trim().slice(0, budgetFor(nextPresets));
+    // A free text identical to a selected preset would double up in the
+    // flattened string; drop it.
+    onChange(trimmed && !nextPresets.includes(trimmed) ? [...nextPresets, trimmed] : nextPresets);
   }
 
   function togglePreset(option: string) {
@@ -71,7 +81,12 @@ export default function MultiChoiceField({
       : // Keep the options' own order so the flattened string is stable
         // regardless of tap order.
         options.filter((o) => presets.includes(o) || o === option);
-    emit(next, otherMode ? otherText : '');
+    setPresets(next);
+    // Shrink visible free text along with its budget so the field always
+    // shows exactly what will be stored.
+    const clamped = otherMode ? otherText.slice(0, budgetFor(next)) : '';
+    if (otherMode && clamped !== otherText) setOtherText(clamped);
+    emit(next, clamped);
   }
 
   function toggleOther() {
