@@ -1,18 +1,10 @@
-import * as maplibregl from 'maplibre-gl';
-// maplibre resolves its worker as `new URL('maplibre-gl-worker.mjs',
-// import.meta.url)`, which breaks once Vite pre-bundles the package (the
-// worker file 404s and the map silently renders only its background —
-// no error anywhere). Handing Vite the worker entry explicitly makes it
-// bundle the worker with its imports in both dev and prod.
-import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+// The maplibre worker workaround and the shared style helper live in
+// mapSetup.ts — every map component imports from there.
+import { maplibregl, styleFor } from '../mapSetup';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-maplibregl.setWorkerUrl(maplibreWorkerUrl);
 import { useNavigate } from 'react-router-dom';
 import { animalAvatarSvg } from '@shared/animalAvatarSvg';
 import { circlePolygon, circleRing, featureCollection, pointFeature } from '@mobile/map/geo';
-import patiLight from '@mobile/map/styles/pati-light.json';
-import patiDark from '@mobile/map/styles/pati-dark.json';
 import {
   addCareAction,
   Animal,
@@ -74,11 +66,6 @@ const AI_CHECK_RESULT_MS = 900;
 const BREATH_MIN = 0.78;
 
 type ViewType = 'food' | 'water';
-
-// The generated JSONs are structurally valid MapLibre styles; TS can't see
-// that through the literal JSON type, hence the cast.
-const styleFor = (name: 'light' | 'dark') =>
-  (name === 'dark' ? patiDark : patiLight) as unknown as maplibregl.StyleSpecification;
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 

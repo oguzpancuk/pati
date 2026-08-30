@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   colorsFor,
@@ -256,6 +256,16 @@ export default function AddAnimalPage() {
   const [name, setName] = useState(draft?.name ?? '');
   const [markings, setMarkings] = useState(draft?.markings ?? '');
   const [photos, setPhotos] = useState<File[]>([]);
+  // Blob URLs are minted once per photo list and revoked when replaced or on
+  // unmount: minting in render re-decoded every full-size photo on each
+  // keystroke and grew the URL registry until page unload (review finding).
+  const photoUrls = useMemo(() => photos.map((p) => URL.createObjectURL(p)), [photos]);
+  useEffect(
+    () => () => {
+      photoUrls.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [photoUrls]
+  );
   const [error, setError] = useState<string | null>(null);
   // The location is tried as soon as the form opens: if unavailable (http
   // origin, no permission) the user sees it before saving, and if the browser
@@ -591,10 +601,10 @@ export default function AddAnimalPage() {
 
       <div className="label">fotoğraflar (en az {MIN_PHOTOS})</div>
       <div className="row" style={{ flexWrap: 'wrap' }}>
-        {photos.map((p, i) => (
+        {photos.map((_p, i) => (
           <span key={i} className="round" style={{ width: 64, height: 64, position: 'relative' }}>
             <img
-              src={URL.createObjectURL(p)}
+              src={photoUrls[i]}
               alt=""
               width={64}
               height={64}
@@ -641,7 +651,14 @@ export default function AddAnimalPage() {
         hidden
         onChange={(e) => {
           const picked = Array.from(e.target.files ?? []);
-          if (picked.length) setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+          if (picked.length) {
+            // Overflow must not vanish silently (review finding). Checked
+            // outside the updater — StrictMode double-invokes updaters.
+            if (photos.length + picked.length > MAX_PHOTOS) {
+              setError(`En fazla ${MAX_PHOTOS} fotoğraf eklenebilir.`);
+            }
+            setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+          }
           e.target.value = '';
         }}
       />

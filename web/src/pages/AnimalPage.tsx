@@ -349,6 +349,9 @@ export default function AnimalPage() {
         {formatDate(animal.location_updated_at)}
       </div>
       <MiniMap
+        /* The map builds once and never recenters; the key remounts it when
+           the route shows a different animal. */
+        key={animal.id}
         lat={animal.location.coordinates[1]}
         lng={animal.location.coordinates[0]}
         height={160}

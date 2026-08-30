@@ -1,22 +1,14 @@
-import * as maplibregl from 'maplibre-gl';
-// Same Vite worker workaround as MapPage (see the comment there): without
-// the explicit worker entry the map silently renders only its background.
-import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useRef } from 'react';
-import patiLight from '@mobile/map/styles/pati-light.json';
-import patiDark from '@mobile/map/styles/pati-dark.json';
+import { maplibregl, styleFor } from '../mapSetup';
 import { resolvedThemeName } from '../theme';
-
-maplibregl.setWorkerUrl(maplibreWorkerUrl);
-
-const styleFor = (name: 'light' | 'dark') =>
-  (name === 'dark' ? patiDark : patiLight) as unknown as maplibregl.StyleSpecification;
 
 /**
  * A non-interactive one-spot map (the animal profile's "last seen" thumbnail
  * — mobile parity). The marker is not a maplibre marker: the map is static
  * and centered on the spot, so the caller's child (the animal avatar) is
- * simply overlaid at the center.
+ * simply overlaid at the center. Callers must pass a `key` when the spot can
+ * change under the same mounted component (e.g. key={animal.id}) — the map
+ * is built once and does not recenter.
  */
 export function MiniMap({
   lat,
@@ -54,13 +46,17 @@ export function MiniMap({
       });
       mapRef.current = map;
     });
+    // The OS can flip light/dark while the profile is open; keep the
+    // thumbnail's basemap in step with the page CSS (same as MapPage).
+    const scheme = matchMedia('(prefers-color-scheme: dark)');
+    const onScheme = () => mapRef.current?.setStyle(styleFor(resolvedThemeName()));
+    scheme.addEventListener('change', onScheme);
     return () => {
       cancelAnimationFrame(frame);
+      scheme.removeEventListener('change', onScheme);
       map?.remove();
       mapRef.current = null;
     };
-    // Recentering an existing thumbnail is not needed; the profile refetch
-    // remounts the card when the animal changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
