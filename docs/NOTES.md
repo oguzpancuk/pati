@@ -935,3 +935,22 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   `.chiprow.scroll` class on AddAnimalPage.
 - Open discussion with owner: how to make the user-location marker more
   noticeable (their idea: vertical bounce; alternative: a pulsing halo).
+
+## 2026-08-31 — feedback round 2: halo, badge centering, chip overflow hint
+
+- **User-location marker: breathing halo** (owner picked it over their own
+  bounce idea when offered the trade-offs): a flattened ellipse at the pin
+  tip swelling 0.5→1.6 over 2 s with fade, both clients. Two traps found
+  and fixed: web `.user-logo-marker` must not set `position` (it overrides
+  MapLibre's absolute marker placement and stretches the div full-width);
+  mobile keeps the swollen halo INSIDE the MarkerView frame (44×45 wrap +
+  exported PIN_TIP_ANCHOR_Y) because Android containers may clip
+  overflowing children — no Android SDK on this machine, so the risk was
+  removed structurally rather than verified.
+- **Count badges center** their digit now: mobile zeroes micro's 2.5
+  letter-spacing, web flex-centers instead of line-height.
+- **Chip rows hint at overflow**: a chevron bubble at the right edge while
+  options continue off-screen, hidden at scroll end — mobile ChipScroller
+  (shared by ChoiceField/MultiChoiceField), web ChipRow (all chiprow-scroll
+  call sites, including AnimalPage's dialogs, which review caught as a
+  silent parity split).
