@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
@@ -33,12 +41,17 @@ export default function RegisterScreen({ navigation }: Props) {
   }
 
   return (
-    <Screen edges={['top', 'bottom']} padded={false} scroll>
+    // KAV wraps the ScrollView, never the other way around: with the KAV
+    // inside `Screen scroll`, the keyboard's padding grew the scroll
+    // content, which re-triggered the KAV measurement — a layout loop that
+    // froze the JS thread on real devices (found on the first physical
+    // install). Login has no scroll, which is why it never hit this.
+    <Screen edges={['top', 'bottom']} padded={false}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.center}>
+        <ScrollView contentContainerStyle={styles.center} keyboardShouldPersistTaps="handled">
           <Wordmark size="md" style={styles.brand} />
 
           <Input label="isim" placeholder="Adın" value={name} onChangeText={setName} />
@@ -117,7 +130,7 @@ export default function RegisterScreen({ navigation }: Props) {
           <Text variant="caption" color="textSubtle" center style={styles.note}>
             Kayıt olursan sana rastgele bir avatar atanır, profilden değiştirebilirsin.
           </Text>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -125,7 +138,14 @@ export default function RegisterScreen({ navigation }: Props) {
 
 const useStyles = makeStyles(({ colors: c }) => ({
   flex: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', paddingHorizontal: 34, paddingVertical: spacing.xl },
+  // flexGrow (not flex): a scroll content container with flex:1 can't grow
+  // past the viewport, which would clip the form under the keyboard.
+  center: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 34,
+    paddingVertical: spacing.xl,
+  },
   brand: { marginBottom: spacing.xxl },
   lastField: { marginBottom: spacing.sm },
   link: { marginTop: spacing.lg },
