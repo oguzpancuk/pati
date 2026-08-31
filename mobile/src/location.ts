@@ -119,6 +119,41 @@ export async function requestBackgroundLocationPermission(): Promise<boolean> {
   });
 }
 
+/**
+ * Fast permission preflight for flow entry points (e.g. the map's drop
+ * button): throws LocationPermissionError when denied, triggers the native
+ * prompt when undetermined, and otherwise resolves quickly.
+ *
+ * Deliberately NOT built on `Geolocation.requestAuthorization`: when the
+ * permission is already denied, iOS never fires the status-change delegate,
+ * so that API's callbacks simply never run and an await hangs forever. A
+ * real `getCurrentPosition` probe errors immediately (code 1) on denial;
+ * low accuracy + a generous cache + a short timeout keep the granted path
+ * fast, and a timeout (code 3) counts as fine — the actual fetch's own
+ * error handling covers it.
+ */
+export async function ensureLocationPermission(): Promise<void> {
+  // Dev override accounts never touch the OS permission (same rule as
+  // getCurrentLocation): the flow must stay testable from anywhere.
+  if (await getLocationOverride()) return;
+
+  if (Platform.OS === 'android') {
+    const granted = await requestAndroidPermission();
+    if (!granted) throw new LocationPermissionError();
+    return;
+  }
+  await new Promise<void>((resolve, reject) => {
+    Geolocation.getCurrentPosition(
+      () => resolve(),
+      (error) => {
+        if (error.code === 1) reject(new LocationPermissionError());
+        else resolve();
+      },
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 600000 }
+    );
+  });
+}
+
 export async function getCurrentLocation(): Promise<Coordinates> {
   const override = await getLocationOverride();
   if (override) {

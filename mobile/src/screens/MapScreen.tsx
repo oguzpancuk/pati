@@ -33,6 +33,7 @@ import {
   alertLocationPermission,
   Coordinates,
   distanceMeters,
+  ensureLocationPermission,
   getCurrentLocation,
   LocationPermissionError,
 } from '../location';
@@ -671,7 +672,20 @@ export default function MapScreen({ navigation }: any) {
           </Text>
           <Button
             title={viewType === 'food' ? 'Mama bırak' : 'Su bırak'}
-            onPress={() => {
+            onPress={async () => {
+              // Permission gate at the flow's entry (owner decision): a
+              // denied permission surfaces the Settings alert HERE, before
+              // any modal — and an undetermined one triggers the native
+              // prompt at exactly the moment the user shows intent. Other
+              // location errors don't block; the confirm step handles them.
+              try {
+                await ensureLocationPermission();
+              } catch (err) {
+                if (err instanceof LocationPermissionError) {
+                  alertLocationPermission();
+                  return;
+                }
+              }
               // A leftover 'approved' from the previous run would skip the
               // confirm content (state resets on open, not on close — see
               // handleConfirmDrop).

@@ -527,7 +527,22 @@ export default function MapPage() {
           </p>
           <button
             className="btn full"
-            onClick={() => {
+            onClick={async () => {
+              // Mobile parity, browser-shaped: the browser can't open OS
+              // settings, so a denied permission surfaces the guidance text
+              // inside the modal up front (web still allows dropping at the
+              // map center by design — see docs/NOTES.md).
+              try {
+                const perm = await navigator.permissions?.query({ name: 'geolocation' });
+                if (perm?.state === 'denied') {
+                  setError(
+                    'Konum izni verilmedi. Tarayıcı ayarlarından bu siteye konum izni verebilirsin; ' +
+                      'verilmezse kayıt haritanın ortasına düşer.'
+                  );
+                }
+              } catch {
+                // Permissions API unavailable (older Safari): behave as before.
+              }
               // A leftover 'approved' from the previous run would skip the
               // confirm content (state resets on open, not on close — see
               // handleConfirmDrop).
