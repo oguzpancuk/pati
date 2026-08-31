@@ -688,6 +688,29 @@ strong {
   box-shadow: var(--shadow-float);
 }
 
+/* The user's position as the app-icon glyph — no backing disc; a drop
+   shadow separates it from the map ground. */
+.user-logo-marker svg {
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+/* A drop on the profile's history map: the food/water stroke icon in a
+   small tappable disc. */
+.care-history-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-float);
+  cursor: pointer;
+  padding: 0;
+}
+
 .photo-strip {
   display: flex;
   gap: 8px;

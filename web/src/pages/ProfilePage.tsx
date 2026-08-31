@@ -26,6 +26,7 @@ import { useBadgeAwards } from '../badgeAwards';
 import { LoadMoreButton } from '../components/LoadMoreButton';
 import { RecentComments } from '../components/RecentComments';
 import { MiniMap } from '../components/MiniMap';
+import { CareHistoryMap } from '../components/CareHistoryMap';
 import { mergeById } from '@mobile/paging';
 import { applyThemeMode, readThemeMode, type ThemeMode } from '../theme';
 import { InstallBanner } from '../install';
@@ -90,9 +91,8 @@ export default function ProfilePage() {
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
-  const [careTotal, setCareTotal] = useState(0);
-  const [loadingMoreCare, setLoadingMoreCare] = useState(false);
-  // The clicked history row's detail popup: where the drop landed, on a map.
+  // The clicked marker's detail popup: what and when (and delete, while the
+  // window allows).
   const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [visibleFriends, setVisibleFriends] = useState(PREVIEW);
@@ -103,13 +103,14 @@ export default function ProfilePage() {
       const [page, fr, carePage] = await Promise.all([
         fetchUserAnimals('me', PREVIEW, 0),
         fetchMyFriendships(),
-        fetchMyCareActions(PREVIEW, 0),
+        // The history map draws every marker at once; 100 covers weeks of
+        // heavy use and stays a single request.
+        fetchMyCareActions(100, 0),
       ]);
       setAnimals(page.animals);
       setAnimalTotal(page.total);
       setFriendships(fr);
       setCareHistory(carePage.actions);
-      setCareTotal(carePage.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Profil yüklenemedi');
     }
@@ -146,30 +147,18 @@ export default function ProfilePage() {
     }
   }
 
-  async function loadMoreCare() {
-    setLoadingMoreCare(true);
-    try {
-      const page = await fetchMyCareActions(PAGE, careHistory.length);
-      setCareHistory((prev) => mergeById(prev, page.actions));
-      setCareTotal(page.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Yüklenemedi');
-    } finally {
-      setLoadingMoreCare(false);
-    }
-  }
-
   async function handleDeleteCare(action: MyCareAction) {
     const label = action.action_type === 'food' ? 'mama' : 'su';
     if (!window.confirm(`Bu ${label} kaydı haritadan da kalkacak. Emin misin?`)) return;
     try {
       await deleteCareAction(action.id);
       setCareHistory((prev) => prev.filter((item) => item.id !== action.id));
-      setCareTotal((prev) => Math.max(0, prev - 1));
+      setCareDetail(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Silinemedi');
-      // The window may have expired since the list was fetched; refresh so
-      // stale "sil" buttons disappear.
+      // The window may have expired since the map was fetched; refresh so
+      // stale delete buttons disappear.
+      setCareDetail(null);
       await load();
     }
   }
@@ -286,46 +275,16 @@ export default function ProfilePage() {
         onClick={loadMoreAnimals}
       />
 
+      {/* The history is a MAP, not a list (owner decision, 2026-08-31):
+          every drop is a marker; tapping one opens the date/delete popup. */}
       <h2 className="section">mama &amp; su geçmişim</h2>
       {careHistory.length === 0 ? (
         <div className="card flat">
           <span className="muted">Henüz mama veya su bırakmadın.</span>
         </div>
       ) : (
-        careHistory.map((action) => (
-          <div
-            key={action.id}
-            className="card flat row"
-            role="button"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setCareDetail(action)}
-          >
-            <CareIcon type={action.action_type} />
-            <div className="grow">
-              <strong>{action.action_type === 'food' ? 'Mama' : 'Su'}</strong>
-              <div className="muted">{formatCareDate(action.created_at)}</div>
-            </div>
-            {/* Deletable only inside the server-computed window (mistake
-                correction, not history rewriting). */}
-            {action.deletable && (
-              <button
-                className="btn ghost"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteCare(action);
-                }}
-              >
-                sil
-              </button>
-            )}
-          </div>
-        ))
+        <CareHistoryMap actions={careHistory} onSelect={setCareDetail} />
       )}
-      <LoadMoreButton
-        remaining={careTotal - careHistory.length}
-        loading={loadingMoreCare}
-        onClick={loadMoreCare}
-      />
 
       <RecentComments
         comments={me.recentComments ?? []}
@@ -550,6 +509,17 @@ export default function ProfilePage() {
                 <CareIcon type={careDetail.action_type} size={18} />
               </span>
             </MiniMap>
+            {/* Delete moved here with the list gone — still only inside the
+                server-computed 15-minute window. */}
+            {careDetail.deletable && (
+              <button
+                className="btn full"
+                style={{ marginTop: 10, background: 'var(--danger)' }}
+                onClick={() => handleDeleteCare(careDetail)}
+              >
+                Sil
+              </button>
+            )}
             <button
               className="btn ghost full"
               style={{ marginTop: 10 }}

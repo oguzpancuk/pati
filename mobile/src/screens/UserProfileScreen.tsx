@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking, Modal, Pressable, View } from 'react-native';
 import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -87,10 +87,34 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
   const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
-  const [careTotal, setCareTotal] = useState(0);
-  const [loadingMoreCare, setLoadingMoreCare] = useState(false);
-  // The tapped history row's detail popup: where the drop landed, on a map.
+  // The tapped marker's detail popup: what and when (and delete, while the
+  // window allows).
   const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
+
+  // Fit the history map to every marker; a single spot gets a street-scale
+  // center instead (a zero-size bounds box over-zooms).
+  const careHistoryCamera = useMemo(() => {
+    if (careHistory.length === 0) return { zoomLevel: 5 };
+    const lngs = careHistory.map((a) => a.location.coordinates[0]);
+    const lats = careHistory.map((a) => a.location.coordinates[1]);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    if (maxLng - minLng < 1e-4 && maxLat - minLat < 1e-4) {
+      return { centerCoordinate: [lngs[0], lats[0]], zoomLevel: 15 };
+    }
+    return {
+      bounds: {
+        ne: [maxLng, maxLat] as [number, number],
+        sw: [minLng, minLat] as [number, number],
+        paddingLeft: 28,
+        paddingRight: 28,
+        paddingTop: 28,
+        paddingBottom: 28,
+      },
+    };
+  }, [careHistory]);
   // The friend list arrives in one request (it's short); revealed piecewise
   // client-side to keep the profile lean.
   const [visibleFriends, setVisibleFriends] = useState(PROFILE_PREVIEW);
@@ -106,14 +130,15 @@ export default function UserProfileScreen({ navigation, route }: any) {
         fetchMe(),
         fetchUserAnimals('me', PROFILE_PREVIEW, 0),
         fetchMyFriendships(),
-        fetchMyCareActions(PROFILE_PREVIEW, 0),
+        // The history map draws every marker at once; 100 covers weeks of
+        // heavy use and stays a single request.
+        fetchMyCareActions(100, 0),
       ]);
       setMe(meData);
       setMyAnimals(animalPage.animals);
       setAnimalTotal(animalPage.total);
       setFriendships(friendshipsData);
       setCareHistory(carePage.actions);
-      setCareTotal(carePage.total);
       setLoadError(null);
     } catch (err: any) {
       setLoadError(err?.response?.data?.error ?? err?.message ?? 'Profil yüklenemedi');
@@ -133,19 +158,6 @@ export default function UserProfileScreen({ navigation, route }: any) {
     }
   }
 
-  async function handleLoadMoreCare() {
-    setLoadingMoreCare(true);
-    try {
-      const page = await fetchMyCareActions(PROFILE_PAGE, careHistory.length);
-      setCareHistory((prev) => mergeById(prev, page.actions));
-      setCareTotal(page.total);
-    } catch (err: any) {
-      Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
-    } finally {
-      setLoadingMoreCare(false);
-    }
-  }
-
   function handleDeleteCare(action: MyCareAction) {
     const label = action.action_type === 'food' ? 'mama' : 'su';
     Alert.alert('Kaydı sil', `Bu ${label} kaydı haritadan da kalkacak. Emin misin?`, [
@@ -157,7 +169,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
           try {
             await deleteCareAction(action.id);
             setCareHistory((prev) => prev.filter((item) => item.id !== action.id));
-            setCareTotal((prev) => Math.max(0, prev - 1));
+            setCareDetail(null);
           } catch (err: any) {
             Alert.alert(
               'Silinemedi',
@@ -396,47 +408,43 @@ export default function UserProfileScreen({ navigation, route }: any) {
         onPress={handleLoadMoreAnimals}
       />
 
+      {/* The history is a MAP, not a list (owner decision, 2026-08-31):
+          every drop is a marker; tapping one opens the detail popup with
+          the date (and delete, while the window allows). */}
       <SectionHeader title="Mama & su geçmişim" style={styles.sectionTop} />
       {careHistory.length === 0 ? (
         <Card variant="flat" style={styles.block}>
           <Text variant="caption">Henüz mama veya su bırakmadın.</Text>
         </Card>
       ) : (
-        careHistory.map((action) => (
-          <Card
-            key={action.id}
-            variant="flat"
-            padding="md"
-            style={styles.careRow}
-            onPress={() => setCareDetail(action)}
+        <View style={styles.careMapWrapper}>
+          <MapView
+            style={styles.careMapInner}
+            mapStyle={mapStyles[themeName]}
+            pitchEnabled={false}
+            rotateEnabled={false}
+            // The full map screen carries the required attribution.
+            attributionEnabled={false}
           >
-            <Icon
-              name={action.action_type === 'food' ? 'food' : 'water'}
-              size={20}
-              color={colors.brand}
-            />
-            <View style={styles.careText}>
-              <Text variant="bodyStrong">{action.action_type === 'food' ? 'Mama' : 'Su'}</Text>
-              <Text variant="caption">{formatCareDate(action.created_at)}</Text>
-            </View>
-            {/* Deletable only inside the server-computed window (mistake
-                correction, not history rewriting). */}
-            {action.deletable && (
-              <Button
-                title="sil"
-                size="sm"
-                variant="ghost"
-                onPress={() => handleDeleteCare(action)}
-              />
-            )}
-          </Card>
-        ))
+            <Camera defaultSettings={careHistoryCamera} />
+            {careHistory.map((action) => (
+              <MarkerView
+                key={`care-${action.id}`}
+                coordinate={[action.location.coordinates[0], action.location.coordinates[1]]}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                <Pressable style={styles.careMarker} onPress={() => setCareDetail(action)}>
+                  <Icon
+                    name={action.action_type === 'food' ? 'food' : 'water'}
+                    size={16}
+                    color={colors.brand}
+                  />
+                </Pressable>
+              </MarkerView>
+            ))}
+          </MapView>
+        </View>
       )}
-      <LoadMoreButton
-        remaining={careTotal - careHistory.length}
-        loading={loadingMoreCare}
-        onPress={handleLoadMoreCare}
-      />
 
       <View style={styles.sectionTop}>
         <RecentComments
@@ -597,11 +605,22 @@ export default function UserProfileScreen({ navigation, route }: any) {
                     </MarkerView>
                   </MapView>
                 </View>
+                {/* Delete moved here with the list gone — still only inside
+                    the server-computed 15-minute window. */}
+                {careDetail.deletable && (
+                  <Button
+                    title="Sil"
+                    variant="danger"
+                    onPress={() => handleDeleteCare(careDetail)}
+                    fullWidth
+                  />
+                )}
                 <Button
                   title="Kapat"
                   variant="ghost"
                   onPress={() => setCareDetail(null)}
                   fullWidth
+                  style={styles.careModalClose}
                 />
               </>
             )}
@@ -641,12 +660,19 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  careRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  careMapWrapper: {
+    height: 200,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
     marginBottom: spacing.sm,
   },
-  careText: { flex: 1, marginLeft: spacing.md },
+  careMapInner: { flex: 1 },
+  careMarker: {
+    padding: 5,
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
+    ...shadow.float,
+  },
   careModalBackdrop: {
     flex: 1,
     backgroundColor: c.overlay,
@@ -664,6 +690,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     padding: spacing.xl,
   },
   careModalDate: { marginTop: 2 },
+  careModalClose: { marginTop: spacing.xs },
   careModalMap: {
     height: 180,
     borderRadius: radius.lg,

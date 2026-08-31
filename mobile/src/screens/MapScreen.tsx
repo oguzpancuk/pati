@@ -527,8 +527,10 @@ export default function MapScreen({ navigation }: any) {
           </ShapeSource>
         )}
 
+        {/* Anchored at the pin's tip, not the glyph center — the logo IS a
+            map pin now, and its point should touch the coordinate. */}
         {myLocation && (
-          <MarkerView coordinate={[myLocation.lng, myLocation.lat]} anchor={{ x: 0.5, y: 0.5 }}>
+          <MarkerView coordinate={[myLocation.lng, myLocation.lat]} anchor={{ x: 0.5, y: 1 }}>
             <UserLocationMarker />
           </MarkerView>
         )}
@@ -653,15 +655,12 @@ export default function MapScreen({ navigation }: any) {
           home-indicator inset, so an extra one left a strip of map between the
           sheet and the bar and the sheet looked like it was floating. */}
       <SafeAreaView style={styles.bottomLayer} edges={[]} pointerEvents="box-none">
+        {/* Deliberately spare (owner decision, 2026-08-31): one heading, one
+            line, one button. The radius/count micro line and the location
+            hint were noise; "Konumuma" in the button label carries the
+            where. */}
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} />
-          <Text variant="micro" style={styles.sheetMicro}>
-            {status
-              ? sheetNeedsCare
-                ? `${status.radiusMeters} m çevrede kayıt yok`
-                : `${status.radiusMeters} m çevrede ${status.actionCount} kayıt`
-              : ' '}
-          </Text>
           <Text variant="heading" style={styles.sheetTitle}>
             {sheetNeedsCare ? `Buralarda ${typeLabel} yok` : `Bu bölgede ${typeLabel} var`}
           </Text>
@@ -671,7 +670,7 @@ export default function MapScreen({ navigation }: any) {
               : 'Taze kayıt bölgeyi canlı tutar; sen de ekleyebilirsin.'}
           </Text>
           <Button
-            title={viewType === 'food' ? 'Mama bırak' : 'Su bırak'}
+            title={viewType === 'food' ? 'Konumuma mama bırak' : 'Konumuma su bırak'}
             onPress={async () => {
               // Permission gate at the flow's entry (owner decision): a
               // denied permission surfaces the Settings alert HERE, before
@@ -703,16 +702,6 @@ export default function MapScreen({ navigation }: any) {
             }
             fullWidth
           />
-          {/* "Buraya" used to read as "the point I'm looking at on the map";
-              the record actually lands at the device location. The hint keeps
-              that fact visible before the flow starts, not only in the
-              confirmation modal. */}
-          <View style={styles.sheetLocationHint}>
-            <Icon name="crosshair" size={14} color={colors.textMuted} />
-            <Text variant="micro" style={styles.sheetLocationHintText}>
-              Kayıt şu anki konumuna işlenir
-            </Text>
-          </View>
         </View>
       </SafeAreaView>
 
@@ -910,19 +899,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     backgroundColor: c.borderStrong,
     marginBottom: spacing.md,
   },
-  sheetMicro: { marginBottom: spacing.xs },
   sheetTitle: { marginBottom: 2 },
   sheetDesc: { marginBottom: spacing.md },
-  sheetLocationHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-  },
-  // flexShrink so the sentence wraps instead of clipping at the screen edge
-  // on narrow devices / scaled fonts (Text in a row does not shrink by
-  // default).
-  sheetLocationHintText: { marginLeft: spacing.sm - 2, flexShrink: 1, textAlign: 'center' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: c.overlay,

@@ -4,6 +4,7 @@ import { maplibregl, styleFor } from '../mapSetup';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { animalAvatarSvg } from '@shared/animalAvatarSvg';
+import { logoSvg } from '@shared/logoSvg';
 import { circlePolygon, circleRing, featureCollection, pointFeature } from '@mobile/map/geo';
 import {
   addCareAction,
@@ -275,11 +276,16 @@ export default function MapPage() {
         if (mapRef.current !== map) return;
         setMyLocation(loc);
         map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
-        // The user's location: charcoal dot + white ring (styles in
-        // theme.css, .user-dot).
+        // The user's location, marked with the app icon's glyph (owner
+        // decision — replaced the charcoal dot in a white ring; no backing
+        // disc). The transparent heart cutout lets the map show through,
+        // and the pin's tip anchors on the coordinate.
         const dot = document.createElement('div');
-        dot.className = 'user-dot';
-        new maplibregl.Marker({ element: dot }).setLngLat([loc.lng, loc.lat]).addTo(map);
+        dot.className = 'user-logo-marker';
+        dot.innerHTML = logoSvg(30, undefined, 'transparent');
+        new maplibregl.Marker({ element: dot, anchor: 'bottom' })
+          .setLngLat([loc.lng, loc.lat])
+          .addTo(map);
         userRingRef.current = featureCollection([circleRing(loc, ANIMAL_RADIUS_METERS)]);
         (map.getSource('user-ring') as maplibregl.GeoJSONSource | undefined)?.setData(
           userRingRef.current
@@ -506,15 +512,10 @@ export default function MapPage() {
       {/* Bottom sheet: area status + call to action (handoff 3b). The button
           stays even without a status — dropping a record is always possible. */}
       <div className="map-bottom">
+        {/* Deliberately spare (owner decision, 2026-08-31): one heading,
+            one line, one button — mobile parity. */}
         <div className="map-sheet">
           <div className="sheet-handle" />
-          <div className="micro">
-            {status
-              ? status.needsAttention
-                ? `${status.radiusMeters} m çevrede kayıt yok`
-                : `${status.radiusMeters} m çevrede ${status.actionCount} kayıt`
-              : ' '}
-          </div>
           <h2>
             {status && !status.needsAttention
               ? `Bu bölgede ${typeLabel} var`
@@ -564,37 +565,8 @@ export default function MapPage() {
               <path d="M4 12h16a8 8 0 0 1-16 0Z" />
               <path d="M9 9v3M15 8v4" />
             </svg>
-            {viewType === 'food' ? 'Mama bırak' : 'Su bırak'}
+            {viewType === 'food' ? 'Konumuma mama bırak' : 'Konumuma su bırak'}
           </button>
-          {/* "Buraya" used to read as "the point on the map"; the record
-              actually lands at the device location (or the stated fallback).
-              Same persistent hint as mobile. */}
-          <div
-            className="micro"
-            style={{
-              marginTop: 8,
-              textAlign: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-            }}
-          >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-            >
-              <circle cx="12" cy="12" r="7.4" />
-              <circle cx="12" cy="12" r="2.2" />
-              <path d="M12 2.4v2.6M12 19v2.6M2.4 12H5M19 12h2.6" />
-            </svg>
-            Kayıt şu anki konumuna işlenir
-          </div>
         </div>
       </div>
 
