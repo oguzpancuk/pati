@@ -87,7 +87,10 @@ export function LegalPage({
 
   return (
     <div className="page" style={{ maxWidth: 640, margin: '0 auto' }}>
-      <div className="topbar">
+      {/* The stock .topbar grid ends in a fixed 40px column, which clipped
+          the cross-link at the viewport edge (QA finding); this page sizes
+          the third column to its content instead. */}
+      <div className="topbar" style={{ gridTemplateColumns: '40px 1fr auto' }}>
         <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
           ←
         </button>
@@ -95,7 +98,7 @@ export function LegalPage({
         <Link
           to={crossTo}
           className="link"
-          style={{ fontSize: 12, maxWidth: 110, textAlign: 'right', lineHeight: 1.3 }}
+          style={{ fontSize: 12, whiteSpace: 'nowrap', justifySelf: 'end' }}
         >
           {crossLabel}
         </Link>
