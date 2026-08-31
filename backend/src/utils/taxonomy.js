@@ -31,14 +31,11 @@ const MULTI_CHOICE_SEPARATOR = ', ';
 /** The most common street-cat patterns, by prevalence. */
 const CAT_PATTERNS = ['Tekir', 'Sarman', 'Siyah', 'Üç renk (calico)', 'Smokin'];
 
-/** Street-dog types. All mixed; purebreds are nearly absent on the street. */
-const DOG_PATTERNS = [
-  'Kangal melezi',
-  'Akbaş melezi',
-  'Sokak melezi (orta boy)',
-  'Kısa bacaklı melez',
-  'Av/Terrier melezi',
-];
+/**
+ * Street-dog types. All mixed; purebreds are nearly absent on the street.
+ * Trimmed to three on 2026-08-31 (owner decision).
+ */
+const DOG_PATTERNS = ['Kangal melezi', 'Akbaş melezi', 'Sokak melezi (orta boy)'];
 
 /** Main body color. Partially overlaps the pattern (sarman is orange by definition). */
 const CAT_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah', 'Beyaz', 'Siyah-beyaz'];
@@ -76,29 +73,9 @@ const PATTERN_FIXED_COLOR = {
  * identical to the mobile copy.
  */
 const PATTERN_COLOR_CHOICES = {
-  Tekir: ['Gri / boz tekir', 'Kahverengi tekir', 'Sarı tekir', 'Tekir-beyaz', 'Gümüş tekir'],
-  'Kangal melezi': [
-    'Siyah maskeli sarı (karabaş)',
-    'Sarı / boz',
-    'Siyah-beyaz alacalı',
-    'Kaplan çizgili',
-    'Siyah',
-  ],
-  'Sokak melezi (orta boy)': [
-    'Sarı',
-    'Siyah',
-    'Siyah-beyaz alacalı',
-    'Kahverengi',
-    'Sarı-siyah (maskeli)',
-  ],
-  'Kısa bacaklı melez': ['Kızıl / sarı', 'Siyah-kahve', 'Çikolata', 'Krem', 'Alacalı'],
-  'Av/Terrier melezi': [
-    'Beyaz-siyah benekli',
-    'Beyaz-kahve benekli',
-    'Üç renkli',
-    'Kahverengi',
-    'Sarı-beyaz',
-  ],
+  Tekir: ['Gri / boz tekir', 'Kahverengi tekir'],
+  'Kangal melezi': ['Siyah maskeli sarı (karabaş)', 'Sarı / boz', 'Siyah-beyaz alacalı'],
+  'Sokak melezi (orta boy)': ['Sarı', 'Siyah', 'Beyaz', 'Kahverengi'],
 };
 
 /** The auto-stored color of a fixed-color pattern, or null. */

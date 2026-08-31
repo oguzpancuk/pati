@@ -23,8 +23,8 @@ const { AVATAR_KEYS, AVATAR_PREFIX } = require('../src/utils/avatars');
 const {
   CAT_PATTERNS,
   DOG_PATTERNS,
-  CAT_COLORS,
-  DOG_COLORS,
+  PATTERN_COLOR_CHOICES,
+  PATTERN_FIXED_COLOR,
   ILLNESSES,
   INJURIES,
   VACCINE_TYPES,
@@ -149,26 +149,47 @@ const COMMENT_TEMPLATES = [
 // lists, health-record and vaccination screens actually appear in demo data.
 // The last one in each list shows what picking "Diğer" (other) does: text not
 // on the list goes straight into the `breed` column, there is no extra column.
+// Colors follow the picker rules: fixed-color patterns use their canonical
+// color, the rest pick from the pattern's own choice list — so demo data
+// always matches what the form can produce.
+const colorFor = (pattern, index = 0) =>
+  PATTERN_FIXED_COLOR[pattern] ?? PATTERN_COLOR_CHOICES[pattern]?.[index] ?? null;
+
 const SHOWCASE_CATS = [
-  { name: 'Boncuk', breed: CAT_PATTERNS[0], color: CAT_COLORS[0], markings: 'Sol kulakta çentik' },
-  { name: 'Zeytin', breed: CAT_PATTERNS[1], color: CAT_COLORS[1], markings: 'Kuyruğu kalın' },
+  {
+    name: 'Boncuk',
+    breed: CAT_PATTERNS[0],
+    color: colorFor(CAT_PATTERNS[0], 0),
+    markings: 'Sol kulakta çentik',
+  },
+  {
+    name: 'Zeytin',
+    breed: CAT_PATTERNS[1],
+    color: colorFor(CAT_PATTERNS[1]),
+    markings: 'Kuyruğu kalın',
+  },
   {
     name: 'Duman',
     breed: CAT_PATTERNS[2],
-    color: CAT_COLORS[2],
+    color: colorFor(CAT_PATTERNS[2]),
     markings: 'Göğsünde küçük beyaz leke',
   },
   {
     name: 'Şeker',
     breed: CAT_PATTERNS[3],
-    color: CAT_COLORS[4],
+    color: colorFor(CAT_PATTERNS[3]),
     markings: 'Burnunun yarısı siyah',
   },
-  { name: 'Bıyık', breed: CAT_PATTERNS[4], color: CAT_COLORS[4], markings: 'Dört ayağı beyaz' },
+  {
+    name: 'Bıyık',
+    breed: CAT_PATTERNS[4],
+    color: colorFor(CAT_PATTERNS[4]),
+    markings: 'Dört ayağı beyaz',
+  },
   {
     name: 'Pamuk',
     breed: 'Ankara kedisi kırması',
-    color: CAT_COLORS[3],
+    color: 'Beyaz',
     markings: 'Gözleri iki renk',
   },
 ];
@@ -176,22 +197,25 @@ const SHOWCASE_DOGS = [
   {
     name: 'Karabaş',
     breed: DOG_PATTERNS[0],
-    color: DOG_COLORS[0],
+    color: colorFor(DOG_PATTERNS[0], 0),
     markings: 'Boynu kalın, kulakları düşük',
   },
-  { name: 'Paşa', breed: DOG_PATTERNS[1], color: DOG_COLORS[2], markings: 'Sırtında sarı leke' },
-  { name: 'Çomar', breed: DOG_PATTERNS[2], color: DOG_COLORS[4], markings: 'Kuyruk ucu beyaz' },
   {
-    name: 'Fındık',
-    breed: DOG_PATTERNS[3],
-    color: DOG_COLORS[1],
-    markings: 'Bacakları kısa, gövdesi uzun',
+    name: 'Paşa',
+    breed: DOG_PATTERNS[1],
+    color: colorFor(DOG_PATTERNS[1]),
+    markings: 'Sırtında sarı leke',
   },
-  { name: 'Zorro', breed: DOG_PATTERNS[4], color: DOG_COLORS[3], markings: 'Yüzünde koyu maske' },
+  {
+    name: 'Çomar',
+    breed: DOG_PATTERNS[2],
+    color: colorFor(DOG_PATTERNS[2], 0),
+    markings: 'Kuyruk ucu beyaz',
+  },
   {
     name: 'Leo',
     breed: 'Golden kırması',
-    color: DOG_COLORS[0],
+    color: 'Sarı',
     markings: 'Tüyleri uzun ve dalgalı',
   },
 ];
@@ -358,7 +382,9 @@ async function seed() {
     );
   }
   const users = await pool.query(
-    `INSERT INTO users (name, email, password_hash, avatar_url) VALUES ${userValues.join(',')} RETURNING id`,
+    `INSERT INTO users (name, email, password_hash, avatar_url) VALUES ${userValues.join(
+      ','
+    )} RETURNING id`,
     userParams
   );
   const userIds = users.rows.map((r) => r.id);
@@ -375,11 +401,17 @@ async function seed() {
           ST_SetSRID(ST_MakePoint($${base + 6}, $${base + 7}), 4326)::geography, $${base + 8},
           now() - ($${base + 9} * interval '1 day'))`
       );
+      // Pattern first, then a color that pattern can actually have — random
+      // (pattern, color) pairs from the legacy palettes produced animals the
+      // form could never create.
+      const seedBreed = randomItem(species === 'cat' ? CAT_PATTERNS : DOG_PATTERNS);
+      const seedColor =
+        PATTERN_FIXED_COLOR[seedBreed] ?? randomItem(PATTERN_COLOR_CHOICES[seedBreed] ?? ['Sarı']);
       animalParams.push(
         species,
         randomItem(species === 'cat' ? CAT_NAMES : DOG_NAMES),
-        randomItem(species === 'cat' ? CAT_COLORS : DOG_COLORS),
-        randomItem(species === 'cat' ? CAT_PATTERNS : DOG_PATTERNS),
+        seedColor,
+        seedBreed,
         randomItem(MARKINGS),
         CENTER.lng + randomOffset(),
         CENTER.lat + randomOffset(),
@@ -725,7 +757,7 @@ async function seed() {
   // Demo users' badges are recorded as "earned and seen". Otherwise the first
   // action on a demo account detonates dozens of celebration popups at once —
   // everything a 30-day streak accumulated.
-  console.log('Backfilling demo users\' badge awards...');
+  console.log("Backfilling demo users' badge awards...");
   const badgeMap = await getBadgesForUsers(userIds);
   const awardRows = [];
   for (const [userId, data] of badgeMap.entries()) {
@@ -741,7 +773,9 @@ async function seed() {
     const slice = awardRows.slice(i, i + 200);
     const values = slice.map(
       (_, idx) =>
-        `($${idx * 5 + 1}, $${idx * 5 + 2}, $${idx * 5 + 3}, $${idx * 5 + 4}, $${idx * 5 + 5}, now())`
+        `($${idx * 5 + 1}, $${idx * 5 + 2}, $${idx * 5 + 3}, $${idx * 5 + 4}, $${
+          idx * 5 + 5
+        }, now())`
     );
     await pool.query(
       `INSERT INTO user_badge_awards (user_id, badge_key, tier, label, points_awarded, seen_at)

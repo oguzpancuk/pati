@@ -27,14 +27,12 @@ export type Species = 'cat' | 'dog';
 /** The cat patterns most common on the street (in order of prevalence). */
 export const CAT_PATTERNS = ['Tekir', 'Sarman', 'Siyah', 'Üç renk (calico)', 'Smokin'];
 
-/** Street dog types. All mixed; purebreds are almost never seen on the street. */
-export const DOG_PATTERNS = [
-  'Kangal melezi',
-  'Akbaş melezi',
-  'Sokak melezi (orta boy)',
-  'Kısa bacaklı melez',
-  'Av/Terrier melezi',
-];
+/**
+ * Street dog types. All mixed; purebreds are almost never seen on the
+ * street. Trimmed to three on 2026-08-31 (owner decision): the short-legged
+ * and hunting/terrier mixes folded into the generic street mix.
+ */
+export const DOG_PATTERNS = ['Kangal melezi', 'Akbaş melezi', 'Sokak melezi (orta boy)'];
 
 /** Main body color. Partially overlaps the pattern (sarman is already orange). */
 export const CAT_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah', 'Beyaz', 'Siyah-beyaz'];
@@ -77,40 +75,14 @@ export const PATTERN_FIXED_COLOR: Record<string, string> = {
  * MULTI_CHOICE_SEPARATOR (", ").
  */
 export const PATTERN_COLOR_CHOICES: Record<string, string[]> = {
-  // Tabby ground colors named by Turkish pet sources; grey the beloved
-  // default, tabby-with-white very common via Mediterranean white-spotting.
-  // "Sarı tekir" stays even though sarman is a separate pattern — orange
-  // tabbies filed under Tekir need an honest choice.
-  Tekir: ['Gri / boz tekir', 'Kahverengi tekir', 'Sarı tekir', 'Tekir-beyaz', 'Gümüş tekir'],
-  // Karabaş (fawn + dominant black mask) is the type-defining look; brindle
-  // and black are breed-standard-attested; mixing adds piebald.
-  'Kangal melezi': [
-    'Siyah maskeli sarı (karabaş)',
-    'Sarı / boz',
-    'Siyah-beyaz alacalı',
-    'Kaplan çizgili',
-    'Siyah',
-  ],
-  // "Sarı köpek" is the archetypal Turkish street dog; ordering reasoned
-  // from village-dog literature (no urban census exists).
-  'Sokak melezi (orta boy)': [
-    'Sarı',
-    'Siyah',
-    'Siyah-beyaz alacalı',
-    'Kahverengi',
-    'Sarı-siyah (maskeli)',
-  ],
-  // Dachshund-standard colors dominate this ancestry; red most common.
-  'Kısa bacaklı melez': ['Kızıl / sarı', 'Siyah-kahve', 'Çikolata', 'Krem', 'Alacalı'],
-  // Pointer/setter/spaniel piebald-ticked coats; Zerdava reinforces the
-  // white-brown speckle locally; tricolor from spaniel/hound lines.
-  'Av/Terrier melezi': [
-    'Beyaz-siyah benekli',
-    'Beyaz-kahve benekli',
-    'Üç renkli',
-    'Kahverengi',
-    'Sarı-beyaz',
-  ],
+  // Tabby ground colors; trimmed to the two core coats (owner decision,
+  // 2026-08-31 — orange tabbies go under Sarman, white-marked and silver
+  // variants through "Diğer").
+  Tekir: ['Gri / boz tekir', 'Kahverengi tekir'],
+  // Karabaş (fawn + dominant black mask) is the type-defining look.
+  'Kangal melezi': ['Siyah maskeli sarı (karabaş)', 'Sarı / boz', 'Siyah-beyaz alacalı'],
+  // "Sarı köpek" is the archetypal Turkish street dog.
+  'Sokak melezi (orta boy)': ['Sarı', 'Siyah', 'Beyaz', 'Kahverengi'],
 };
 
 /** The auto-stored color of a fixed-color pattern, or null. */

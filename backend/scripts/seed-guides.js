@@ -41,8 +41,8 @@ const { AVATAR_KEYS, AVATAR_PREFIX } = require('../src/utils/avatars');
 const {
   CAT_PATTERNS,
   DOG_PATTERNS,
-  CAT_COLORS,
-  DOG_COLORS,
+  PATTERN_COLOR_CHOICES,
+  PATTERN_FIXED_COLOR,
   ILLNESSES,
   INJURIES,
   VACCINE_TYPES,
@@ -766,7 +766,9 @@ async function createGuides() {
     const userRows = [];
     for (let i = 0; i < USERS_PER_DISTRICT; i += 1) {
       // The "· pati rehberi" suffix shows in every list; the name says bot.
-      const name = `${FIRST_NAMES[(i * 7 + district.name.length) % FIRST_NAMES.length]} · pati rehberi`;
+      const name = `${
+        FIRST_NAMES[(i * 7 + district.name.length) % FIRST_NAMES.length]
+      } · pati rehberi`;
       const joinedDaysAgo = 29 + Math.floor(Math.random() * 6);
       userRows.push([
         name,
@@ -796,7 +798,9 @@ async function createGuides() {
       // evenly across the list rather than taking the first N.
       homeAnchor.set(
         userId,
-        district.anchors[Math.floor((i * district.anchors.length) / inserted.length) % district.anchors.length]
+        district.anchors[
+          Math.floor((i * district.anchors.length) / inserted.length) % district.anchors.length
+        ]
       );
     });
 
@@ -815,13 +819,19 @@ async function createGuides() {
           const anchor =
             Math.random() < 0.8 ? homeAnchor.get(userId) : randomItem(district.anchors);
           const p = pointNear(anchor);
+          // Pattern first, then a color that pattern can actually have (the
+          // same rule as the add-animal form).
+          const guideBreed = randomItem(species === 'cat' ? CAT_PATTERNS : DOG_PATTERNS);
+          const guideColor =
+            PATTERN_FIXED_COLOR[guideBreed] ??
+            randomItem(PATTERN_COLOR_CHOICES[guideBreed] ?? ['Sarı']);
           animalRows.push([
             p.lng,
             p.lat,
             species,
             randomItem(species === 'cat' ? CAT_NAMES : DOG_NAMES),
-            randomItem(species === 'cat' ? CAT_COLORS : DOG_COLORS),
-            randomItem(species === 'cat' ? CAT_PATTERNS : DOG_PATTERNS),
+            guideColor,
+            guideBreed,
             randomItem(MARKINGS),
             userId,
             createdAt.toISOString(),
