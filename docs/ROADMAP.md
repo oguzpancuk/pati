@@ -452,7 +452,15 @@ Deliberately deferred, with reasons:
       project/target `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace,
       scheme, Podfile), Android package/app name, backend log text, Docker
       container `stray-db` and db/role name `stray`, `.env.example`. Needs a
-      native build + database reset; bundle id `com.patiapp` is already right.
+      native build + database reset.
+- [ ] **Pick a NEW bundle id — `com.patiapp` is NOT available.** Discovered
+      2026-08-31 during the first device build: Apple refuses to register
+      `com.patiapp` ("cannot be registered to your development team because
+      it is not available") and the owner never registered it elsewhere —
+      another team owns it. The store release needs a different identifier
+      (the device test used `com.oguzpancuk.pati`, which registered fine);
+      changing it means a native build and touches the deep-link/scheme
+      plumbing and the simulator scripts that reference `com.patiapp`.
 - [ ] Remove the location-override code (`mobile/src/location.ts`)
 
 **Quality:**

@@ -875,3 +875,27 @@ fixed and re-verified at 390px before deploy. Live checks: /health ok,
 root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
 /kosullar routes, researched Tekir colors, and the drop hint; production
 /kosullar screenshot taken. Mobile changes still require a device build.
+
+## 2026-08-31 — first physical-device build; com.patiapp is taken
+
+- **`com.patiapp` cannot be used for the store**: Apple refuses to register
+  it (owned by another team; owner confirmed never registering it
+  elsewhere). New launch-sprint item added to pick a new bundle id.
+- First real-device install shipped with the temporary id
+  `com.oguzpancuk.pati` (free Personal Team `5J62WM72AV`), Release config →
+  talks to production (client.ts now switches on __DEV__; release builds
+  previously pointed at localhost, which on a phone is the phone).
+- Device-build recipe: enable Developer Mode on the phone (Settings →
+  Privacy & Security), then
+  `xcodebuild -workspace StrayMobile.xcworkspace -scheme StrayMobile
+  -configuration Release -destination 'id=<xcodebuild device id>'
+  -allowProvisioningUpdates build` (the xcodebuild destination id differs
+  from devicectl's UUID — read it from xcodebuild's own error listing),
+  then `xcrun devicectl device install app` + `... process launch`. First
+  launch needs Settings → General → VPN & Device Management → trust the
+  developer. Piping xcodebuild through `tail` masks its exit code —
+  check for "BUILD SUCCEEDED" in the log, not the pipe status.
+- Xcode normalized Info.plist (standard CFBundle keys, reordering) when
+  the project was first opened for signing; kept, harmless. The temporary
+  pbxproj signing/bundle-id edits were reverted — device builds pass
+  DEVELOPMENT_TEAM and the test bundle id on the command line instead.
