@@ -954,3 +954,17 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   (shared by ChoiceField/MultiChoiceField), web ChipRow (all chiprow-scroll
   call sites, including AnimalPage's dialogs, which review caught as a
   silent parity split).
+
+## 2026-08-31 — fifth deploy verified (feedback rounds + taxonomy migration)
+
+- Deployed e4e6f5c..473c829; health ok, web/admin 200. The ⚠️ taxonomy
+  migration ran on production: 3531/4005 updated, re-run 0/4005
+  (idempotent, converged). Production visuals spot-checked via playwright
+  (halo, chevron chips, unlinked legal pages) with the throwaway QA
+  account qa-20260831@stray.test.
+- evaluator-qa: PASS — independently sampled all 4005 production animals
+  (zero taxonomy violations), verified the served bundle is byte-identical
+  to the committed build, re-ran quick+full batteries itself.
+- Follow-up found by QA (pre-existing): some production photo URLs point
+  at http://localhost:3000/uploads/… (e.g. animal 3947 cover) and render
+  broken; needs a data sweep of photo_url/cover_photo_url.
