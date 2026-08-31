@@ -654,6 +654,13 @@ Things that cost time before and will come up again:
 - **The seed script wipes everything on every run** (TRUNCATE, admins
   included) and regenerates fresh data — never point it at production; the
   production-safe alternative is `scripts/seed-guides.js`.
+- **`Linking.openSettings()` lands on the Settings ROOT in the simulator**;
+  on a real device it opens the app's own pane (Settings → pati, where the
+  Konum row lives) directly. Don't chase it as an app bug, and don't reach
+  for `App-Prefs:` paths — those are private API and an App Store
+  rejection risk. Testing the permission alert needs an account without
+  the dev location override (e.g. e2e-loc@example.com) plus
+  `xcrun simctl privacy booted revoke location com.patiapp`.
 
 ---
 
