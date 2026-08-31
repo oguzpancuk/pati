@@ -915,3 +915,23 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   anchor). The profile's drop history is a fitted map of tappable markers;
   the date/delete popup replaced the list (delete still window-gated).
   All of it on both clients, screenshot-verified.
+
+## 2026-08-31 — feedback round: grouped history markers, unlinked legal pages, scrolling chips
+
+- **History markers group instead of fanning out** (133f395): the fan-out
+  circle failed — at the fitted zoom a ~13 m geographic offset is a few
+  pixels, so a water drop under a food drop stayed invisible. Now records
+  within the same 3-decimal (~110 m) bucket collapse into one marker with a
+  count badge; tapping it opens a "Bu noktadaki kayıtlar" chooser (type +
+  date rows) that leads to the existing detail popup. Both clients,
+  screenshot-verified including the tap-through flow (web playwright drive,
+  iOS simulator taps).
+- **Legal pages stand alone**: the /gizlilik ↔ /kosullar topbar cross-link
+  read like a tab bar to the owner and was removed; each page is reached
+  only by its own link.
+- **Chips scroll horizontally**: species/pattern/color choice rows no
+  longer wrap to a second line — mobile ChoiceField/MultiChoiceField wrap
+  their rows in a horizontal ScrollView; web uses the existing
+  `.chiprow.scroll` class on AddAnimalPage.
+- Open discussion with owner: how to make the user-location marker more
+  noticeable (their idea: vertical bounce; alternative: a pulsing halo).
