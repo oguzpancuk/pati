@@ -698,6 +698,24 @@ strong {
   box-shadow: var(--shadow-float);
   cursor: pointer;
   padding: 0;
+  position: relative;
+}
+
+/* Count badge on a marker collapsing several nearby records. */
+.care-history-badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--text-on-brand);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
 }
 
 .photo-strip {

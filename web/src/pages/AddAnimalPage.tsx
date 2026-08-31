@@ -93,7 +93,7 @@ function Chips({
   const [otherText, setOtherText] = useState(otherMode && value ? value : '');
   return (
     <>
-      <div className="chiprow">
+      <div className="chiprow scroll">
         {options.map((opt) => (
           <button
             key={opt}
@@ -196,7 +196,7 @@ function MultiChips({
 
   return (
     <>
-      <div className="chiprow">
+      <div className="chiprow scroll">
         {options.map((opt) => (
           <button
             key={opt}

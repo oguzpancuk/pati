@@ -7,8 +7,6 @@ export default function TermsPage() {
     <LegalPage
       md={TERMS_MD}
       micro="kullanım koşulları"
-      crossTo="/gizlilik"
-      crossLabel="aydınlatma metni"
     />
   );
 }

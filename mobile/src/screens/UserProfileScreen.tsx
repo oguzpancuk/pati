@@ -91,6 +91,28 @@ export default function UserProfileScreen({ navigation, route }: any) {
   // window allows).
   const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
 
+  // Nearby drops collapse into ONE marker with a count badge — at the
+  // fitted zoom even fanned-out markers overlap, and a water drop under a
+  // food drop was simply invisible (owner report: "su geçmişi gözükmüyor").
+  // Tapping a multi-record marker opens a chooser first.
+  const careGroups = useMemo(() => {
+    const groups = new Map<string, MyCareAction[]>();
+    for (const action of careHistory) {
+      // ~110 m buckets: GPS scatter lands repeat drops metres apart.
+      const key = `${action.location.coordinates[0].toFixed(
+        3
+      )},${action.location.coordinates[1].toFixed(3)}`;
+      groups.set(key, [...(groups.get(key) ?? []), action]);
+    }
+    return [...groups.values()].map((actions) => ({
+      actions,
+      lng: actions[0].location.coordinates[0],
+      lat: actions[0].location.coordinates[1],
+    }));
+  }, [careHistory]);
+  // The tapped multi-record marker's chooser list.
+  const [careGroup, setCareGroup] = useState<MyCareAction[] | null>(null);
+
   // Fit the history map to every marker; a single spot gets a street-scale
   // center instead (a zero-size bounds box over-zooms).
   const careHistoryCamera = useMemo(() => {
@@ -429,18 +451,30 @@ export default function UserProfileScreen({ navigation, route }: any) {
             {/* Controlled (not defaultSettings): a new drop outside the old
                 bounds must re-fit the camera on refresh (review finding). */}
             <Camera {...careHistoryCamera} animationDuration={0} />
-            {careHistory.map((action) => (
+            {careGroups.map(({ actions, lng, lat }) => (
               <MarkerView
-                key={`care-${action.id}`}
-                coordinate={[action.location.coordinates[0], action.location.coordinates[1]]}
+                key={`care-${actions[0].id}`}
+                coordinate={[lng, lat]}
                 anchor={{ x: 0.5, y: 0.5 }}
               >
-                <Pressable style={styles.careMarker} onPress={() => setCareDetail(action)}>
+                <Pressable
+                  style={styles.careMarker}
+                  onPress={() =>
+                    actions.length === 1 ? setCareDetail(actions[0]) : setCareGroup(actions)
+                  }
+                >
                   <Icon
-                    name={action.action_type === 'food' ? 'food' : 'water'}
+                    name={actions[0].action_type === 'food' ? 'food' : 'water'}
                     size={16}
                     color={colors.brand}
                   />
+                  {actions.length > 1 && (
+                    <View style={styles.careMarkerBadge}>
+                      <Text variant="micro" style={styles.careMarkerBadgeText}>
+                        {actions.length}
+                      </Text>
+                    </View>
+                  )}
                 </Pressable>
               </MarkerView>
             ))}
@@ -558,6 +592,50 @@ export default function UserProfileScreen({ navigation, route }: any) {
         </Text>
       </Text>
       <DeleteAccountLink initialOpen={!!route?.params?.deleteAccount} />
+
+      {/* Chooser for a marker holding several records: pick one, see its
+          detail. */}
+      <Modal
+        visible={!!careGroup}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCareGroup(null)}
+      >
+        <Pressable style={styles.careModalBackdrop} onPress={() => setCareGroup(null)}>
+          <Pressable style={styles.careModalCard} onPress={() => {}}>
+            <Text variant="heading" center>
+              Bu noktadaki kayıtlar
+            </Text>
+            <View style={styles.careGroupList}>
+              {(careGroup ?? []).map((action) => (
+                <Card
+                  key={action.id}
+                  variant="flat"
+                  padding="md"
+                  style={styles.careGroupRow}
+                  onPress={() => {
+                    setCareGroup(null);
+                    setCareDetail(action);
+                  }}
+                >
+                  <Icon
+                    name={action.action_type === 'food' ? 'food' : 'water'}
+                    size={18}
+                    color={colors.brand}
+                  />
+                  <Text variant="bodyStrong" style={styles.careGroupLabel}>
+                    {action.action_type === 'food' ? 'Mama' : 'Su'}
+                  </Text>
+                  <Text variant="caption" color="textSubtle">
+                    {formatCareDate(action.created_at)}
+                  </Text>
+                </Card>
+              ))}
+            </View>
+            <Button title="Kapat" variant="ghost" onPress={() => setCareGroup(null)} fullWidth />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Drop-detail popup: where this record landed, as a static map. */}
       <Modal
@@ -683,6 +761,27 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     backgroundColor: c.surface,
     ...shadow.float,
   },
+  careMarkerBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -7,
+    minWidth: 16,
+    height: 16,
+    borderRadius: radius.pill,
+    backgroundColor: c.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  careMarkerBadgeText: { color: c.textOnBrand, lineHeight: 12 },
+  careGroupList: { marginVertical: spacing.md },
+  careGroupRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  careGroupLabel: { flex: 1 },
   careModalBackdrop: {
     flex: 1,
     backgroundColor: c.overlay,

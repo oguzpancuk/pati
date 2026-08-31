@@ -25,7 +25,8 @@ export function CareHistoryMap({
   height = 200,
 }: {
   actions: MyCareAction[];
-  onSelect: (action: MyCareAction) => void;
+  /** Every record under the clicked marker (length 1 for a lone drop). */
+  onSelect: (group: MyCareAction[]) => void;
   height?: number;
 }) {
   const el = useRef<HTMLDivElement>(null);
@@ -77,13 +78,34 @@ export function CareHistoryMap({
         return;
       }
       for (const marker of markersRef.current) marker.remove();
-      markersRef.current = actions.map((action) => {
-        const [lng, lat] = action.location.coordinates;
+      // Nearby drops collapse into ONE marker with a count badge — at the
+      // fitted zoom separate markers overlap and a water drop under a food
+      // drop is simply invisible. The parent decides what a multi-record
+      // click opens (a chooser).
+      const groups = new Map<string, MyCareAction[]>();
+      for (const action of actions) {
+        // ~110 m buckets: GPS scatter lands repeat drops metres apart.
+        const key = `${action.location.coordinates[0].toFixed(
+          3
+        )},${action.location.coordinates[1].toFixed(3)}`;
+        groups.set(key, [...(groups.get(key) ?? []), action]);
+      }
+      markersRef.current = [...groups.values()].map((group) => {
+        const [lng, lat] = group[0].location.coordinates;
         const dot = document.createElement('button');
         dot.className = 'care-history-marker';
-        dot.setAttribute('aria-label', action.action_type === 'food' ? 'Mama kaydı' : 'Su kaydı');
-        dot.innerHTML = careIconSvg(action.action_type);
-        dot.addEventListener('click', () => onSelectRef.current(action));
+        dot.setAttribute(
+          'aria-label',
+          group.length === 1
+            ? group[0].action_type === 'food'
+              ? 'Mama kaydı'
+              : 'Su kaydı'
+            : `${group.length} kayıt`
+        );
+        dot.innerHTML =
+          careIconSvg(group[0].action_type) +
+          (group.length > 1 ? `<span class="care-history-badge">${group.length}</span>` : '');
+        dot.addEventListener('click', () => onSelectRef.current(group));
         return new maplibregl.Marker({ element: dot }).setLngLat([lng, lat]).addTo(map);
       });
       if (actions.length === 1) {

@@ -94,6 +94,8 @@ export default function ProfilePage() {
   // The clicked marker's detail popup: what and when (and delete, while the
   // window allows).
   const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
+  // A marker holding several records opens this chooser first.
+  const [careGroup, setCareGroup] = useState<MyCareAction[] | null>(null);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [visibleFriends, setVisibleFriends] = useState(PREVIEW);
   const [theme, setTheme] = useState<ThemeMode>(readThemeMode());
@@ -284,7 +286,12 @@ export default function ProfilePage() {
         </div>
       ) : (
         <>
-          <CareHistoryMap actions={careHistory} onSelect={setCareDetail} />
+          <CareHistoryMap
+            actions={careHistory}
+            onSelect={(group) =>
+              group.length === 1 ? setCareDetail(group[0]) : setCareGroup(group)
+            }
+          />
           {/* The map draws at most 100 records (the API's page cap). */}
           {careHistory.length === 100 && (
             <p className="subtle" style={{ textAlign: 'center', margin: '6px 0 0' }}>
@@ -483,6 +490,45 @@ export default function ProfilePage() {
               Kendi fotoğrafımı yükle
             </button>
             <button className="btn ghost full" disabled={busy} onClick={() => setPickerOpen(false)}>
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Chooser for a marker holding several records. */}
+      {careGroup && (
+        <div className="backdrop" onClick={() => setCareGroup(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ textAlign: 'center', marginBottom: 12 }}>Bu noktadaki kayıtlar</h2>
+            {careGroup.map((action) => (
+              <button
+                key={action.id}
+                className="card flat"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  marginBottom: 8,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+                onClick={() => {
+                  setCareGroup(null);
+                  setCareDetail(action);
+                }}
+              >
+                <CareIcon type={action.action_type} size={18} />
+                <strong style={{ flex: 1 }}>{action.action_type === 'food' ? 'Mama' : 'Su'}</strong>
+                <span className="muted">{formatCareDate(action.created_at)}</span>
+              </button>
+            ))}
+            <button
+              className="btn ghost full"
+              style={{ marginTop: 6 }}
+              onClick={() => setCareGroup(null)}
+            >
               Kapat
             </button>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import Chip from './Chip';
 import Input from './Input';
 import Text from './Text';
@@ -63,7 +63,16 @@ export default function ChoiceField({
       <Text variant="micro" style={styles.label}>
         {label.toLocaleLowerCase('tr-TR')}
       </Text>
-      <View style={styles.chipRow}>
+      {/* One line, horizontally scrollable (owner decision, 2026-08-31):
+          wrapped chip rows pushed options to a second line and looked
+          untidy. The negative margin lets chips scroll to the true edge. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chipRow}
+        keyboardShouldPersistTaps="handled"
+      >
         {options.map((option) => (
           <Chip
             key={option}
@@ -73,7 +82,7 @@ export default function ChoiceField({
           />
         ))}
         <Chip label={`${OTHER} (belirtiniz)`} selected={otherMode} onPress={selectOther} />
-      </View>
+      </ScrollView>
       {otherMode && (
         <Input
           value={otherText}
@@ -90,7 +99,8 @@ export default function ChoiceField({
 const useStyles = makeStyles(() => ({
   container: { marginBottom: spacing.lg },
   label: { marginBottom: spacing.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chipScroll: { marginHorizontal: -2 },
+  chipRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: 2 },
   // Input has its own bottom margin; zeroed because ChoiceField already
   // spaces itself, otherwise the field gap doubles.
   otherInput: { marginTop: spacing.md, marginBottom: 0 },

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { KVKK_MD } from '../legal';
 
 /**
@@ -69,39 +69,22 @@ function rich(text: string) {
 
 /**
  * Shared shell for the two legal pages (KVKK at /gizlilik, terms at
- * /kosullar) — same tiny renderer, different markdown and cross-link.
+ * /kosullar) — same tiny renderer, different markdown. Deliberately NO
+ * cross-link between them (owner decision, 2026-08-31: it read like a tab
+ * bar); each page stands alone and is reached by its own link.
  */
-export function LegalPage({
-  md,
-  micro,
-  crossTo,
-  crossLabel,
-}: {
-  md: string;
-  micro: string;
-  crossTo: string;
-  crossLabel: string;
-}) {
+export function LegalPage({ md, micro }: { md: string; micro: string }) {
   const navigate = useNavigate();
   const blocks = useMemo(() => parse(md), [md]);
 
   return (
     <div className="page" style={{ maxWidth: 640, margin: '0 auto' }}>
-      {/* The stock .topbar grid ends in a fixed 40px column, which clipped
-          the cross-link at the viewport edge (QA finding); this page sizes
-          the third column to its content instead. */}
-      <div className="topbar" style={{ gridTemplateColumns: '40px 1fr auto' }}>
+      <div className="topbar">
         <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
           ←
         </button>
         <div className="micro">{micro}</div>
-        <Link
-          to={crossTo}
-          className="link"
-          style={{ fontSize: 12, whiteSpace: 'nowrap', justifySelf: 'end' }}
-        >
-          {crossLabel}
-        </Link>
+        <span />
       </div>
 
       <div style={{ lineHeight: 1.65, fontSize: 14.5 }}>
@@ -152,8 +135,6 @@ export default function PrivacyPage() {
     <LegalPage
       md={KVKK_MD}
       micro="aydınlatma metni (kvkk)"
-      crossTo="/kosullar"
-      crossLabel="kullanım koşulları"
     />
   );
 }
