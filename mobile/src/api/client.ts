@@ -2,14 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-// The Android emulator resolves "localhost" to itself; Google's reserved
-// 10.0.2.2 address reaches the developer machine. On the iOS simulator (and
-// on real devices via the LAN IP) localhost works directly.
-// When testing on a real device, replace this with your machine's LAN IP.
-export const API_BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:3000/api',
-  default: 'http://localhost:3000/api',
-});
+// Dev builds talk to the local backend (the Android emulator resolves
+// "localhost" to itself; Google's reserved 10.0.2.2 reaches the developer
+// machine — for a dev build on a REAL device, use the Mac's LAN IP).
+// Release builds — device installs, TestFlight, stores — talk to
+// production; localhost on a phone is the phone itself.
+export const API_BASE_URL = __DEV__
+  ? Platform.select({
+      android: 'http://10.0.2.2:3000/api',
+      default: 'http://localhost:3000/api',
+    })
+  : 'https://pati-app.com/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
