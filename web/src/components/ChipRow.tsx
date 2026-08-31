@@ -11,7 +11,9 @@ export function ChipRow({ children, style }: { children: ReactNode; style?: CSSP
   const el = useRef<HTMLDivElement>(null);
   const [more, setMore] = useState(false);
 
-  // Re-runs when the options change (species swap replaces the chips).
+  // why [children]: a species swap changes scrollWidth without resizing the
+  // container, so the ResizeObserver alone would go stale — the effect must
+  // re-run per content change even though it re-registers the listeners.
   useEffect(() => {
     const row = el.current;
     if (!row) return;

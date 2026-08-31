@@ -28,7 +28,7 @@ import { Animal, fetchAnimals } from '../api/animals';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import HeartBurst, { HEART_BURST_DURATION_MS, heartRiseFor } from '../components/HeartBurst';
-import UserLocationMarker from '../components/UserLocationMarker';
+import UserLocationMarker, { PIN_TIP_ANCHOR_Y } from '../components/UserLocationMarker';
 import {
   alertLocationPermission,
   Coordinates,
@@ -528,9 +528,14 @@ export default function MapScreen({ navigation }: any) {
         )}
 
         {/* Anchored at the pin's tip, not the glyph center — the logo IS a
-            map pin now, and its point should touch the coordinate. */}
+            map pin now, and its point should touch the coordinate. The view
+            extends below the tip to contain the halo, so the anchor is the
+            tip's fraction of the view height, not 1. */}
         {myLocation && (
-          <MarkerView coordinate={[myLocation.lng, myLocation.lat]} anchor={{ x: 0.5, y: 1 }}>
+          <MarkerView
+            coordinate={[myLocation.lng, myLocation.lat]}
+            anchor={{ x: 0.5, y: PIN_TIP_ANCHOR_Y }}
+          >
             <UserLocationMarker />
           </MarkerView>
         )}

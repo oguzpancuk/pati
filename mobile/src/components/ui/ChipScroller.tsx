@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import Icon from '../brand/Icon';
 import { makeStyles, spacing, useTheme } from '../../theme';
@@ -12,6 +12,7 @@ import { makeStyles, spacing, useTheme } from '../../theme';
 export default function ChipScroller({ children }: { children: React.ReactNode }) {
   const styles = useStyles();
   const { colors } = useTheme();
+  const scrollRef = useRef<ScrollView>(null);
   const [viewWidth, setViewWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
   const [scrollX, setScrollX] = useState(0);
@@ -21,13 +22,21 @@ export default function ChipScroller({ children }: { children: React.ReactNode }
   return (
     <View>
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.chipScroll}
         contentContainerStyle={styles.chipRow}
         keyboardShouldPersistTaps="handled"
         onLayout={(e) => setViewWidth(e.nativeEvent.layout.width)}
-        onContentSizeChange={(w) => setContentWidth(w)}
+        onContentSizeChange={(w) => {
+          setContentWidth(w);
+          // A species swap can shrink the list while the old offset is past
+          // its end; RN clamps silently (no scroll event), which would hide
+          // the hint despite real overflow.
+          setScrollX(0);
+          scrollRef.current?.scrollTo({ x: 0, animated: false });
+        }}
         onScroll={(e) => setScrollX(e.nativeEvent.contentOffset.x)}
         scrollEventThrottle={32}
       >

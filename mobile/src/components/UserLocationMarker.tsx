@@ -45,15 +45,30 @@ export default function UserLocationMarker() {
   );
 }
 
+// The halo swells to ~42×22 around the pin tip; the wrap is sized so the
+// fully-scaled halo stays INSIDE the view bounds — Android marker
+// containers may clip children that overflow, which would shave the halo
+// on one platform only. MapScreen's anchor compensates for the extra
+// height below the tip (see PIN_TIP_ANCHOR_Y).
+export const USER_MARKER_WIDTH = 44;
+export const USER_MARKER_HEIGHT = 45;
+const LOGO_HEIGHT = 33; // Logo size 30 at the 120×130 aspect ratio.
+/** Anchor fraction that puts the pin tip on the coordinate. */
+export const PIN_TIP_ANCHOR_Y = LOGO_HEIGHT / USER_MARKER_HEIGHT;
+
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
   // A soft shadow instead of a white ring: the mark must separate from the
   // map ground without a backing disc.
-  wrap: { ...shadow.float, alignItems: 'center' },
-  // Flattened ellipse (ground perspective) centered at the pin tip — the
-  // marker anchors bottom, so the tip is the actual coordinate.
+  wrap: {
+    ...shadow.float,
+    width: USER_MARKER_WIDTH,
+    height: USER_MARKER_HEIGHT,
+    alignItems: 'center',
+  },
+  // Flattened ellipse (ground perspective) centered at the pin tip.
   halo: {
     position: 'absolute',
-    bottom: -7,
+    top: LOGO_HEIGHT - 7,
     width: 26,
     height: 14,
     borderRadius: 13,
