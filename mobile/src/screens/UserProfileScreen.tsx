@@ -426,7 +426,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
             // The full map screen carries the required attribution.
             attributionEnabled={false}
           >
-            <Camera defaultSettings={careHistoryCamera} />
+            {/* Controlled (not defaultSettings): a new drop outside the old
+                bounds must re-fit the camera on refresh (review finding). */}
+            <Camera {...careHistoryCamera} animationDuration={0} />
             {careHistory.map((action) => (
               <MarkerView
                 key={`care-${action.id}`}
@@ -444,6 +446,13 @@ export default function UserProfileScreen({ navigation, route }: any) {
             ))}
           </MapView>
         </View>
+      )}
+      {/* The map draws at most 100 records (the API's page cap); a full
+          page means older drops exist but aren't shown — say so. */}
+      {careHistory.length === 100 && (
+        <Text variant="caption" color="textSubtle" center style={styles.careCapNote}>
+          Son 100 kayıt gösteriliyor.
+        </Text>
       )}
 
       <View style={styles.sectionTop}>
@@ -667,6 +676,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginBottom: spacing.sm,
   },
   careMapInner: { flex: 1 },
+  careCapNote: { marginBottom: spacing.sm },
   careMarker: {
     padding: 5,
     borderRadius: radius.pill,

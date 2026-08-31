@@ -34,16 +34,6 @@ export const CAT_PATTERNS = ['Tekir', 'Sarman', 'Siyah', 'Üç renk (calico)', '
  */
 export const DOG_PATTERNS = ['Kangal melezi', 'Akbaş melezi', 'Sokak melezi (orta boy)'];
 
-/** Main body color. Partially overlaps the pattern (sarman is already orange). */
-export const CAT_COLORS = ['Gri / boz', 'Sarı / turuncu', 'Siyah', 'Beyaz', 'Siyah-beyaz'];
-export const DOG_COLORS = [
-  'Sarı / kahverengi',
-  'Siyah',
-  'Beyaz',
-  'Siyah-sarı (maskeli)',
-  'Alacalı / benekli',
-];
-
 /**
  * The most common street colors per species in Türkiye — the fallback
  * choice list when the pattern is free "Diğer" text.

@@ -140,9 +140,8 @@ export const mapColors = {
   // The map has no red base anymore (see MapScreen); the "care missing"
   // color is used in banners and status text.
   needsCare: lightPalette.danger,
-  // The user's location: a charcoal dot with a white ring, and the 200 m
-  // range as a dashed charcoal circle (handoff).
-  userDot: '#21201E',
+  // The user's 200 m range as a dashed charcoal circle (handoff); the
+  // location mark itself is the brand logo glyph (UserLocationMarker).
   userRadius: 'transparent',
   userRadiusStroke: 'rgba(33, 32, 30, 0.35)',
 } as const;

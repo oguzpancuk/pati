@@ -283,7 +283,15 @@ export default function ProfilePage() {
           <span className="muted">Henüz mama veya su bırakmadın.</span>
         </div>
       ) : (
-        <CareHistoryMap actions={careHistory} onSelect={setCareDetail} />
+        <>
+          <CareHistoryMap actions={careHistory} onSelect={setCareDetail} />
+          {/* The map draws at most 100 records (the API's page cap). */}
+          {careHistory.length === 100 && (
+            <p className="subtle" style={{ textAlign: 'center', margin: '6px 0 0' }}>
+              Son 100 kayıt gösteriliyor.
+            </p>
+          )}
+        </>
       )}
 
       <RecentComments
