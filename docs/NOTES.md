@@ -899,3 +899,19 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   the project was first opened for signing; kept, harmless. The temporary
   pbxproj signing/bundle-id edits were reverted — device builds pass
   DEVELOPMENT_TEAM and the test bundle id on the command line instead.
+
+## 2026-08-31 — taxonomy trim, spare drop sheet, history-as-map
+
+- **Taxonomy trim (owner):** Tekir → gri/boz + kahverengi only; dog types
+  down to Kangal/Akbaş/Sokak melezi; Kangal colors lose kaplan çizgili and
+  siyah; street mix trades alacalı and sarı-siyah for beyaz. Seeders now
+  derive (pattern, color) pairs from the taxonomy itself.
+- **⚠️ NEXT DEPLOY MUST RUN THE DATA MIGRATION:**
+  `fly ssh console --app pati-app -C "node scripts/migrate-taxonomy-20260831.js"`
+  (idempotent; already run locally — 737/4006 rows updated). Without it,
+  production animals keep labels the picker no longer offers.
+- **Drop sheet is spare** (one heading, one line, "Konumuma mama/su bırak");
+  the user-location marker is the app-icon glyph (no white disc, pin-tip
+  anchor). The profile's drop history is a fitted map of tappable markers;
+  the date/delete popup replaced the list (delete still window-gated).
+  All of it on both clients, screenshot-verified.
