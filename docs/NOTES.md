@@ -856,3 +856,15 @@ needs owner-side console setup).
 - All flows screenshot-verified on simulator + playwright; battery green
   per commit; three code-review passes' findings all closed. NOT pushed —
   push decisions are the owner's.
+
+## 2026-08-31 — fourth production deploy: color model, consent gate, confirm step live
+
+Deployed `e4e6f5c` (range 484964e..e4e6f5c). Gates: full battery green, no
+schema changes, secrets scan clean. evaluator-qa drove the BUILT dist in
+the production topology: 13/13 functional checks including a DB-counter
+proof that the confirm step creates no record before "Onayla ve ekle"; its
+one finding (legal-page cross-link clipped by the 40px topbar column) was
+fixed and re-verified at 390px before deploy. Live checks: /health ok,
+root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
+/kosullar routes, researched Tekir colors, and the drop hint; production
+/kosullar screenshot taken. Mobile changes still require a device build.
