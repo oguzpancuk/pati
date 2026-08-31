@@ -794,7 +794,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  careMarkerBadgeText: { color: c.textOnBrand, lineHeight: 12 },
+  // micro's 2.5 letter-spacing adds trailing space after a lone digit and
+  // shoves it off-center; zeroed so the count sits in the middle.
+  careMarkerBadgeText: { color: c.textOnBrand, lineHeight: 12, letterSpacing: 0 },
   careGroupList: { marginVertical: spacing.md, maxHeight: 340 },
   careGroupRow: {
     flexDirection: 'row',

@@ -19,6 +19,7 @@ import { MiniMap } from '../components/MiniMap';
 import { ReportLink } from '../components/ReportDialog';
 import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
+import { ChipRow } from '../components/ChipRow';
 
 const RECORD_TYPE_LABELS = { illness: 'Hastalık', injury: 'Yaralanma' } as const;
 const STATUS_META = {
@@ -63,7 +64,7 @@ function ChoiceChips({
     <>
       {/* Scrolls on one line like mobile's ChoiceField — the clients must
           not diverge on wrap behavior. */}
-      <div className="chiprow scroll">
+      <ChipRow>
         {options.map((opt) => (
           <button
             key={opt}
@@ -87,7 +88,7 @@ function ChoiceChips({
         >
           {OTHER} (belirtiniz)
         </button>
-      </div>
+      </ChipRow>
       {otherMode && (
         <label className="field">
           <input
@@ -563,7 +564,7 @@ export default function AnimalPage() {
           }}
         >
           {openRecords.length > 0 && (
-            <div className="chiprow scroll" style={{ margin: '0 0 8px' }}>
+            <ChipRow style={{ margin: '0 0 8px' }}>
               <button
                 type="button"
                 className={`chip ${!linkedRecord ? 'selected' : ''}`}
@@ -581,7 +582,7 @@ export default function AnimalPage() {
                   {RECORD_TYPE_LABELS[r.record_type]}: {r.description}
                 </button>
               ))}
-            </div>
+            </ChipRow>
           )}
           <div className="row">
             <input

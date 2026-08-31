@@ -20,6 +20,7 @@ import {
 } from '../api';
 import { AnimalAvatar } from '../avatars';
 import { useBadgeAwards } from '../badgeAwards';
+import { ChipRow } from '../components/ChipRow';
 import {
   Coordinates,
   FALLBACK_CENTER,
@@ -93,7 +94,7 @@ function Chips({
   const [otherText, setOtherText] = useState(otherMode && value ? value : '');
   return (
     <>
-      <div className="chiprow scroll">
+      <ChipRow>
         {options.map((opt) => (
           <button
             key={opt}
@@ -117,7 +118,7 @@ function Chips({
         >
           {OTHER} (belirtiniz)
         </button>
-      </div>
+      </ChipRow>
       {otherMode && (
         <label className="field">
           <input
@@ -196,7 +197,7 @@ function MultiChips({
 
   return (
     <>
-      <div className="chiprow scroll">
+      <ChipRow>
         {options.map((opt) => (
           <button
             key={opt}
@@ -218,7 +219,7 @@ function MultiChips({
         >
           {OTHER} (belirtiniz)
         </button>
-      </div>
+      </ChipRow>
       {otherMode && (
         <label className="field">
           <input

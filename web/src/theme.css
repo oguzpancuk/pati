@@ -394,6 +394,35 @@ strong {
   padding-bottom: 4px;
 }
 
+/* ChipRow wrapper: hosts the "more options" chevron over the scroll row.
+   It takes over the row's outer margins so the chevron centers on the
+   visible chips, not on the margin box. */
+.chiprow-wrap {
+  position: relative;
+  margin: 8px 0 14px;
+}
+
+.chiprow-wrap .chiprow {
+  margin: 0;
+}
+
+.chiprow-more {
+  position: absolute;
+  right: -2px;
+  top: 50%;
+  /* Half the bubble plus half the row's 4px scroll padding. */
+  margin-top: -13px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 /* Input field: the label INSIDE the box (10px lowercase) + a 15.5px value. */
 .field {
   display: block;
@@ -679,9 +708,39 @@ strong {
 
 /* The user's position as the app-icon glyph — no backing disc; a drop
    shadow separates it from the map ground. */
+/* No `position` here: MapLibre's own .maplibregl-marker is absolute and
+   already anchors the halo; a relative override breaks its placement. */
 .user-logo-marker svg {
   display: block;
+  position: relative;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+}
+
+/* Breathing halo at the pin tip: a flattened ellipse (ground perspective)
+   that swells and fades — the "live position" idiom without the visual
+   noise of a bouncing marker. */
+.user-logo-marker .user-halo {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 26px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--brand);
+  pointer-events: none;
+  animation: user-halo 2s ease-out infinite;
+}
+
+@keyframes user-halo {
+  0% {
+    opacity: 0.35;
+    transform: translateX(-50%) scale(0.5);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.6);
+  }
 }
 
 /* A drop on the profile's history map: the food/water stroke icon in a
@@ -701,7 +760,8 @@ strong {
   position: relative;
 }
 
-/* Count badge on a marker collapsing several nearby records. */
+/* Count badge on a marker collapsing several nearby records. Flex-centered
+   rather than line-height — Nunito's metrics sit the digit high otherwise. */
 .care-history-badge {
   position: absolute;
   top: -5px;
@@ -714,8 +774,9 @@ strong {
   color: var(--text-on-brand);
   font-size: 10px;
   font-weight: 700;
-  line-height: 16px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .photo-strip {

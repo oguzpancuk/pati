@@ -282,7 +282,9 @@ export default function MapPage() {
         // and the pin's tip anchors on the coordinate.
         const dot = document.createElement('div');
         dot.className = 'user-logo-marker';
-        dot.innerHTML = logoSvg(30, undefined, 'transparent');
+        // The breathing halo under the pin tip says "you are here" (owner
+        // choice over a bouncing marker, 2026-08-31). Static markup only.
+        dot.innerHTML = '<span class="user-halo"></span>' + logoSvg(30, undefined, 'transparent');
         new maplibregl.Marker({ element: dot, anchor: 'bottom' })
           .setLngLat([loc.lng, loc.lat])
           .addTo(map);
