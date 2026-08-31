@@ -84,7 +84,9 @@ export function CareHistoryMap({
       // click opens (a chooser).
       const groups = new Map<string, MyCareAction[]>();
       for (const action of actions) {
-        // ~110 m buckets: GPS scatter lands repeat drops metres apart.
+        // ~110 m buckets: GPS scatter lands repeat drops metres apart. Known
+        // limit: two drops straddling a bucket boundary still overlap; a
+        // distance-based merge would fix that if it ever bites.
         const key = `${action.location.coordinates[0].toFixed(
           3
         )},${action.location.coordinates[1].toFixed(3)}`;

@@ -61,7 +61,9 @@ function ChoiceChips({
 
   return (
     <>
-      <div className="chiprow">
+      {/* Scrolls on one line like mobile's ChoiceField — the clients must
+          not diverge on wrap behavior. */}
+      <div className="chiprow scroll">
         {options.map((opt) => (
           <button
             key={opt}

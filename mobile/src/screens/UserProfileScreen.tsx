@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Linking, Modal, Pressable, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Alert, Linking, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -98,7 +98,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const careGroups = useMemo(() => {
     const groups = new Map<string, MyCareAction[]>();
     for (const action of careHistory) {
-      // ~110 m buckets: GPS scatter lands repeat drops metres apart.
+      // ~110 m buckets: GPS scatter lands repeat drops metres apart. Known
+      // limit: two drops straddling a bucket boundary still overlap; a
+      // distance-based merge would fix that if it ever bites.
       const key = `${action.location.coordinates[0].toFixed(
         3
       )},${action.location.coordinates[1].toFixed(3)}`;
@@ -112,6 +114,20 @@ export default function UserProfileScreen({ navigation, route }: any) {
   }, [careHistory]);
   // The tapped multi-record marker's chooser list.
   const [careGroup, setCareGroup] = useState<MyCareAction[] | null>(null);
+  // Chooser → detail must not present the second modal while the first is
+  // still dismissing (the iOS RN-modal race silently drops the second one).
+  // The picked record parks here and the chooser's onDismiss opens it.
+  const pendingCareDetail = useRef<MyCareAction | null>(null);
+  const openCareDetailFromGroup = (action: MyCareAction) => {
+    if (Platform.OS === 'ios') {
+      pendingCareDetail.current = action;
+      setCareGroup(null);
+    } else {
+      // Android modals swap synchronously and never fire onDismiss.
+      setCareGroup(null);
+      setCareDetail(action);
+    }
+  };
 
   // Fit the history map to every marker; a single spot gets a street-scale
   // center instead (a zero-size bounds box over-zooms).
@@ -600,23 +616,28 @@ export default function UserProfileScreen({ navigation, route }: any) {
         transparent
         animationType="fade"
         onRequestClose={() => setCareGroup(null)}
+        onDismiss={() => {
+          if (pendingCareDetail.current) {
+            setCareDetail(pendingCareDetail.current);
+            pendingCareDetail.current = null;
+          }
+        }}
       >
         <Pressable style={styles.careModalBackdrop} onPress={() => setCareGroup(null)}>
           <Pressable style={styles.careModalCard} onPress={() => {}}>
             <Text variant="heading" center>
               Bu noktadaki kayıtlar
             </Text>
-            <View style={styles.careGroupList}>
+            {/* A busy spot can hold dozens of records; the list scrolls
+                inside a capped card so "Kapat" stays reachable. */}
+            <ScrollView style={styles.careGroupList}>
               {(careGroup ?? []).map((action) => (
                 <Card
                   key={action.id}
                   variant="flat"
                   padding="md"
                   style={styles.careGroupRow}
-                  onPress={() => {
-                    setCareGroup(null);
-                    setCareDetail(action);
-                  }}
+                  onPress={() => openCareDetailFromGroup(action)}
                 >
                   <Icon
                     name={action.action_type === 'food' ? 'food' : 'water'}
@@ -631,7 +652,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
                   </Text>
                 </Card>
               ))}
-            </View>
+            </ScrollView>
             <Button title="Kapat" variant="ghost" onPress={() => setCareGroup(null)} fullWidth />
           </Pressable>
         </Pressable>
@@ -774,7 +795,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     paddingHorizontal: 3,
   },
   careMarkerBadgeText: { color: c.textOnBrand, lineHeight: 12 },
-  careGroupList: { marginVertical: spacing.md },
+  careGroupList: { marginVertical: spacing.md, maxHeight: 340 },
   careGroupRow: {
     flexDirection: 'row',
     alignItems: 'center',
