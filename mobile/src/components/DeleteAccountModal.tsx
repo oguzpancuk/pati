@@ -70,7 +70,12 @@ export default function DeleteAccountLink({
       if (!identity) return setBusy(false);
       await remove({ provider, identityToken: identity.identityToken });
     } catch (err: any) {
-      if (!isAppleCancellation(err)) setError('Doğrulama başarısız, tekrar dene.');
+      // socialAuth raises a readable Turkish message when the provider is not
+      // available at all (credentials rotated away, iOS client id missing);
+      // showing it beats "try again" on an error retrying cannot fix.
+      if (!isAppleCancellation(err)) {
+        setError(err?.response?.data?.error ?? err?.message ?? 'Doğrulama başarısız, tekrar dene.');
+      }
       setBusy(false);
     }
   }

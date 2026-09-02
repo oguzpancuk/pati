@@ -9,7 +9,7 @@ const { getUserBadges } = require('../utils/badges');
 const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../utils/badgeAwards');
 const { getUserRank } = require('./leaderboard.controller');
 const { avatarValueFor } = require('../utils/avatars');
-const { AuthTokenError, verifyIdentityToken } = require('../utils/socialAuth');
+const { AuthTokenError, isEnabled, isProvider, verifyIdentityToken } = require('../utils/socialAuth');
 
 const MAX_FEATURED_BADGES = 3;
 
@@ -461,11 +461,20 @@ async function deleteMyAccount(req, res, next) {
     // rather than 401 throughout: both clients read a 401 as "session
     // expired" and log the user out globally, which a mistyped password or a
     // cancelled provider sheet must not do.
-    if (passwordHash && password) {
+    if (passwordHash && typeof password === 'string' && password.length > 0) {
       if (!(await bcrypt.compare(password, passwordHash))) {
         return res.status(403).json({ error: 'Şifre hatalı' });
       }
-    } else if (identityToken) {
+    } else if (typeof identityToken === 'string' && identityToken.length > 0) {
+      // Validated here rather than inside the verifier: an unknown provider is
+      // a bad request, and letting it reach socialAuth turns our own
+      // configuration errors into 500s whose body names the missing env var.
+      if (!isProvider(provider)) {
+        return res.status(400).json({ error: 'Geçersiz doğrulama sağlayıcısı' });
+      }
+      if (!isEnabled(provider)) {
+        return res.status(503).json({ error: 'Doğrulama şu anda kullanılamıyor, sonra tekrar dene' });
+      }
       let identity;
       try {
         identity = await verifyIdentityToken(provider, identityToken);

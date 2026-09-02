@@ -51,6 +51,13 @@ runtime via `caredFill(alpha)`. Map layers are identical in both themes:
 they're semi-transparent and the map's own ground (Apple/Google) already
 follows the system theme.
 
+**The one exception to "no colors outside the theme"**: the Apple and Google
+sign-in buttons (`components/SocialSignIn.tsx` on mobile, `.social-btn` on
+web). Both vendors' brand guidelines fix those colors — Apple's mark on black
+in light themes and on white in dark ones, Google's four-colour G unaltered —
+so they are written as literals with a why-comment. Nothing else in a screen
+or component file may carry a hex value.
+
 ### How dark mode works
 
 ```

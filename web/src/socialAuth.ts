@@ -23,7 +23,13 @@ function loadScript(src: string): Promise<void> {
     el.src = src;
     el.async = true;
     el.onload = () => resolve();
-    el.onerror = () => reject(new Error('Sağlayıcı yüklenemedi'));
+    el.onerror = () => {
+      // Forget the failure: a cached rejected promise would make one flaky
+      // network moment disable the button for the rest of the session.
+      el.remove();
+      loaded.delete(src);
+      reject(new Error('Sağlayıcı yüklenemedi'));
+    };
     document.head.appendChild(el);
   });
   loaded.set(src, promise);

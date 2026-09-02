@@ -18,7 +18,7 @@ import {
   isErrorWithCode,
   statusCodes,
 } from '@react-native-google-signin/google-signin';
-import type { AuthProviders } from './api/auth';
+import { fetchAuthProviders, type AuthProviders } from './api/auth';
 
 /** Sign in with Apple exists on iOS 13+; Android never has it. */
 export const appleSupported = Platform.OS === 'ios' && appleAuth.isSupported;
@@ -26,24 +26,55 @@ export const appleSupported = Platform.OS === 'ios' && appleAuth.isSupported;
 let googleConfigured = false;
 
 /**
- * Must run before any Google call. Safe to call repeatedly — configure() is
- * cheap and idempotent, but the flag keeps it to once per client-id set.
+ * Whether a Google button may be drawn at all.
+ *
+ * On iOS the SDK needs its own client id: configuring it without one makes
+ * the native layer raise an Objective-C exception, which a release build does
+ * not catch — it terminates the app. So a half-configured backend hides the
+ * button instead of offering a crash.
  */
-export function configureGoogle(providers: AuthProviders): boolean {
-  const { enabled, iosClientId, webClientId } = providers.google;
-  if (!enabled) return false;
+export function googleAvailable(providers: AuthProviders | null): boolean {
+  if (!providers?.google.enabled) return false;
+  return Platform.OS !== 'ios' || !!providers.google.iosClientId;
+}
+
+function applyGoogleConfig(google: AuthProviders['google']) {
+  if (googleConfigured) return;
   // iOS needs its own client id; the web client id is what makes the returned
-  // token's audience match what the backend is configured to accept on
-  // Android, so both are passed when present.
-  if (!googleConfigured) {
-    GoogleSignin.configure({
-      iosClientId: iosClientId ?? undefined,
-      webClientId: webClientId ?? undefined,
-      scopes: ['email', 'profile'],
-    });
-    googleConfigured = true;
-  }
+  // token's audience match what the backend accepts on Android, so both are
+  // passed when present.
+  GoogleSignin.configure({
+    iosClientId: google.iosClientId ?? undefined,
+    webClientId: google.webClientId ?? undefined,
+    scopes: ['email', 'profile'],
+  });
+  googleConfigured = true;
+}
+
+/** Fast path for screens that have already fetched the provider config. */
+export function configureGoogle(providers: AuthProviders): boolean {
+  if (!googleAvailable(providers)) return false;
+  applyGoogleConfig(providers.google);
   return true;
+}
+
+/**
+ * Every Google call goes through this first.
+ *
+ * The account-deletion sheet reaches signInWithGoogle without ever mounting
+ * the login screen, so it cannot rely on that screen having configured the
+ * SDK: an unconfigured GIDSignIn raises an Objective-C exception that a
+ * release build does not catch (review finding — the crash would land on the
+ * App-Store-mandated deletion path). Fetching the config here is the
+ * structural fix; the flag keeps it to one call per launch.
+ */
+async function ensureGoogleConfigured(): Promise<void> {
+  if (googleConfigured) return;
+  const providers = await fetchAuthProviders();
+  if (!googleAvailable(providers)) {
+    throw new Error('Google girişi şu anda kullanılamıyor');
+  }
+  applyGoogleConfig(providers.google);
 }
 
 export interface SocialIdentity {
@@ -54,6 +85,7 @@ export interface SocialIdentity {
 
 /** Resolves to null when the user dismissed Google's sheet. */
 export async function signInWithGoogle(): Promise<SocialIdentity | null> {
+  await ensureGoogleConfigured();
   try {
     if (Platform.OS === 'android') await GoogleSignin.hasPlayServices();
     const response = await GoogleSignin.signIn();

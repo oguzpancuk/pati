@@ -987,9 +987,15 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   e-mail the code skipped the link-by-e-mail lookup, then hit the unique
   e-mail constraint on insert, and the 23505 fallback handed back the
   existing account — an account takeover by anyone who could put someone
-  else's address in a token. Now unverified + taken = 409. The check lives
-  at `backend/scripts/social-auth-check/run.sh` (a local issuer whose
-  signing key the checks control; 24 assertions, including four refusals).
+  else's address in a token. The check lives at
+  `backend/scripts/social-auth-check/run.sh` (a local issuer whose signing
+  key the checks control; 26 assertions, including six refusals).
+  **code-reviewer then found the other half**, which the first fix missed:
+  when the address was still *free*, an unverified e-mail created an account
+  that then OWNED that address, and the real owner's first verified sign-in
+  merged them into it — two people, one account, both with sessions. The
+  rule is now one sentence: an unverified provider e-mail neither links nor
+  creates (403). Both halves are asserted in step 8.
 - **Passwordless accounts ripple further than expected**: password login
   would have thrown on a NULL hash (it now names the provider instead),
   account deletion needed a second proof-of-identity path (sign in with the
@@ -999,7 +1005,9 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
 - **Both clients hide what they cannot do**: the button row renders only
   for providers `GET /auth/providers` reports, so today's production (no
   credentials) shows the plain e-mail form and loads no third-party script.
-  Screenshot-verified in that state too.
+  Screenshot-verified in that state too. On iOS the Google button
+  additionally needs the backend to report an iOS client id — see the
+  release-build trap below.
 - **One deliberate client divergence**: on web the Google button is
   Google's own rendered button — GIS only hands out an ID token through it
   — while mobile draws the pati button. Apple's button is ours on both,
@@ -1011,8 +1019,21 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   `StrayMobile.entitlements` added to both build configurations. Tapping
   "Apple ile giriş yap" on the simulator reaches iOS's own "Apple
   Hesabı'nıza giriş yapın" dialog — the native path is wired; the simulator
-  simply has no Apple account. Both providers fail gracefully (dismissible
-  alert, no crash, no stuck spinner) when their config is wrong.
+  simply has no Apple account. Both providers failed gracefully in that
+  Debug build — dismissible alert, no crash, no stuck spinner.
+- **That "no crash" only holds in Debug, and review caught it.** Google's
+  iOS SDK raises an Objective-C exception when it is unconfigured or the
+  reversed-client-id URL scheme is missing, and
+  `RNGoogleSignin.mm` wraps `signIn` in `@try/@catch` **only under
+  `#if DEBUG`** — a TestFlight/App Store build terminates. Worse, the
+  unconfigured case was reachable on the one path that must never break:
+  `configureGoogle()` ran on the login screen only, so a returning user
+  deleting a Google-only account (App Store 5.1.1(v)) hit it. Fixed
+  structurally — `signInWithGoogle()` now configures itself from
+  `/auth/providers` before every call — and the iOS button is hidden unless
+  the backend reports an iOS client id. The URL-scheme half stays owner-side
+  and is now flagged in docs/DEPLOYMENT.md as a hard prerequisite rather
+  than a nicety.
 - **Owner steps before this can go live** (docs/DEPLOYMENT.md → "Apple /
   Google sign-in"): App ID + Service ID, two Google OAuth clients, the
   reversed-client-id URL scheme in `Info.plist` (mobile Google sign-in
@@ -1026,3 +1047,16 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
 - Noticed in passing: `cd mobile && npm run lint` fails — there is no
   ESLint config in `mobile/` at all, though CLAUDE.md lists the command.
   Pre-existing, untouched.
+
+- **Other review findings, all fixed in the same pass:** the identity row was
+  written before the suspension check (a banned user's provider id got bound
+  to the banned account on a refused sign-in); `PROVIDERS[provider]` was a
+  prototype-chain lookup, so `__proto__` passed the guard and our own
+  configuration errors reached the client as 500 bodies naming the missing
+  env var (both endpoints now validate at the boundary); the JWKS cache
+  refetched twice in a row after TTL expiry and had no in-flight
+  de-duplication; `overrides()` claimed to refuse production boot but only
+  failed per request (it now throws at require time); Google's rendered
+  button was clickable during an in-flight request on both web screens, and
+  the delete sheet's Apple popup could be opened twice; a theme flip with
+  that sheet open left Google's button in the old theme.

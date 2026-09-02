@@ -41,6 +41,15 @@ const PROVIDERS = {
 
 const PROVIDER_NAMES = Object.keys(PROVIDERS);
 
+/**
+ * Whether `value` names a provider. Own-property only: a plain `PROVIDERS[x]`
+ * lookup also answers yes for "__proto__", "constructor" and "toString",
+ * which would then reach code that expects a provider name (review finding).
+ */
+function isProvider(value) {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PROVIDERS, value);
+}
+
 /** Comma-separated env list → array, empty when unset. */
 function listEnv(name) {
   return (process.env[name] || '')
@@ -65,22 +74,34 @@ function isEnabled(provider) {
 /**
  * Test seam. Pointing the verifier at a local issuer is how the flow gets an
  * end-to-end check without Apple's and Google's real servers (the backend has
- * no test suite; see docs/NOTES.md). Refused in production — a settable issuer
- * in production would mean anyone able to set env vars can mint identities,
- * and silently ignoring the variable would be worse than refusing to boot.
+ * no test suite; see docs/NOTES.md). A settable issuer in production would
+ * mean anyone able to set an env var can mint identities, so production
+ * refuses to start rather than ignoring the variable — see assertNoOverrides
+ * below, which runs at require time.
  */
 function overrides(provider) {
   const jwksUrl = process.env[`${provider.toUpperCase()}_JWKS_URL`];
   const issuer = process.env[`${provider.toUpperCase()}_ISSUER`];
   if (!jwksUrl && !issuer) return null;
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error(
-      `${provider.toUpperCase()}_JWKS_URL/_ISSUER are development-only overrides ` +
-        'and must not be set in production'
-    );
-  }
   return { jwksUrl, issuer };
 }
+
+/**
+ * Runs once, when this module is first required — so a production machine
+ * carrying a development override never serves a single request instead of
+ * failing one sign-in at a time (and, worse, saying why in the response).
+ */
+function assertNoOverrides() {
+  if (process.env.NODE_ENV !== 'production') return;
+  const offenders = PROVIDER_NAMES.filter((p) => overrides(p));
+  if (offenders.length > 0) {
+    throw new Error(
+      `${offenders.map((p) => p.toUpperCase()).join('/')}_JWKS_URL and _ISSUER are ` +
+        'development-only overrides and must not be set in production'
+    );
+  }
+}
+assertNoOverrides();
 
 function endpoint(provider) {
   const base = PROVIDERS[provider];
@@ -98,26 +119,41 @@ function endpoint(provider) {
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const REFETCH_FLOOR_MS = 5 * 60 * 1000;
 const jwksCache = new Map();
+// Provider → the fetch currently in flight. Without it, N sign-ins arriving
+// together after the TTL expires each open their own request to Apple.
+const jwksInFlight = new Map();
 
 async function fetchJwks(provider) {
-  const { jwksUrl } = endpoint(provider);
-  const res = await fetch(jwksUrl, { signal: AbortSignal.timeout(5000) });
-  if (!res.ok) throw new Error(`JWKS fetch failed for ${provider}: HTTP ${res.status}`);
-  const body = await res.json();
-  if (!body || !Array.isArray(body.keys)) throw new Error(`Malformed JWKS for ${provider}`);
-  jwksCache.set(provider, { keys: body.keys, fetchedAt: Date.now() });
-  return body.keys;
+  const pending = jwksInFlight.get(provider);
+  if (pending) return pending;
+
+  const request = (async () => {
+    const { jwksUrl } = endpoint(provider);
+    const res = await fetch(jwksUrl, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error(`JWKS fetch failed for ${provider}: HTTP ${res.status}`);
+    const body = await res.json();
+    if (!body || !Array.isArray(body.keys)) throw new Error(`Malformed JWKS for ${provider}`);
+    const entry = { keys: body.keys, fetchedAt: Date.now() };
+    jwksCache.set(provider, entry);
+    return entry;
+  })().finally(() => jwksInFlight.delete(provider));
+
+  jwksInFlight.set(provider, request);
+  return request;
 }
 
 async function keyForKid(provider, kid) {
-  const cached = jwksCache.get(provider);
-  const fresh = cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS;
-  let keys = fresh ? cached.keys : await fetchJwks(provider);
+  let entry = jwksCache.get(provider);
+  if (!entry || Date.now() - entry.fetchedAt >= CACHE_TTL_MS) entry = await fetchJwks(provider);
 
-  let jwk = keys.find((k) => k.kid === kid);
-  if (!jwk && cached && Date.now() - cached.fetchedAt > REFETCH_FLOOR_MS) {
-    keys = await fetchJwks(provider);
-    jwk = keys.find((k) => k.kid === kid);
+  let jwk = entry.keys.find((k) => k.kid === kid);
+  // An unknown kid means the provider rotated its keys early — but a flood of
+  // made-up kids must not turn us into a battering ram against Apple, so the
+  // extra fetch is allowed only once per REFETCH_FLOOR_MS. `entry` is re-read
+  // above, so a fetch that just happened cannot trigger a second one.
+  if (!jwk && Date.now() - entry.fetchedAt > REFETCH_FLOOR_MS) {
+    entry = await fetchJwks(provider);
+    jwk = entry.keys.find((k) => k.kid === kid);
   }
   if (!jwk) throw new AuthTokenError('İmza anahtarı doğrulanamadı');
   return crypto.createPublicKey({ key: jwk, format: 'jwk' });
@@ -143,7 +179,7 @@ function asBoolean(value) {
  * not the user).
  */
 async function verifyIdentityToken(provider, token) {
-  if (!PROVIDERS[provider]) throw new Error(`Unknown provider: ${provider}`);
+  if (!isProvider(provider)) throw new Error(`Unknown provider: ${provider}`);
   const audience = clientIds(provider);
   if (audience.length === 0) {
     throw new Error(`${PROVIDERS[provider].clientIdsEnv} is not configured`);
@@ -211,6 +247,7 @@ module.exports = {
   AuthTokenError,
   PROVIDER_NAMES,
   isEnabled,
+  isProvider,
   publicConfig,
   verifyIdentityToken,
 };

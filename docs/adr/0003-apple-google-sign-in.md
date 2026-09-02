@@ -33,9 +33,16 @@ requires in-app deletion to keep working).
 - **Resolution order: identity, then verified e-mail, then a new account.**
   A provider e-mail that is verified and already registered links to that
   account, so someone who registered with a password and later taps "Google
-  ile giriş" lands in their own account instead of a duplicate. An
-  *unverified* e-mail may never do this; it is refused with 409. That single
-  rule is the difference between convenience and account takeover.
+  ile giriş" lands in their own account instead of a duplicate.
+- **An unverified provider e-mail is refused outright** (403), for linking
+  *and* for creating. Refusing the link is the obvious half. Refusing the
+  creation is the half the first version of this code got wrong: an account
+  created from an unverified address becomes the owner of that address, so
+  the address's real owner would be merged into the squatter's account on
+  their first verified sign-in — two people, one session each, same account.
+  Both halves are in `backend/scripts/social-auth-check/run.sh` step 8. The
+  cost is that a provider account whose e-mail is not verified cannot sign
+  in at all; it can still register with an e-mail and password.
 - **Social accounts have no password**: `users.password_hash` is now
   nullable rather than holding a random hash nobody chose. The password login
   path answers such accounts by naming their provider instead of "wrong
@@ -62,6 +69,15 @@ requires in-app deletion to keep working).
   needs OAuth client ids. Both are owner-side; the steps are in
   docs/DEPLOYMENT.md. Sign in with Apple is bound to the App ID, so it is
   also bound to the bundle-id decision still open in the ROADMAP.
+- **"The clients ask the server which buttons to draw" cannot be the whole
+  story on iOS.** Google's SDK needs the reversed client id as a URL scheme
+  in `Info.plist`, which is a build-time value: a runtime-configured
+  `iosClientId` can never make Google sign-in work on a build that was not
+  already baked for that client id, and the mismatch raises an
+  Objective-C exception that a *release* build does not catch. The app
+  therefore hides the Google button when the backend reports no iOS client
+  id, and enabling `GOOGLE_IOS_CLIENT_ID` is documented as something that
+  must not run ahead of the app build.
 - A social account cannot fall back to a password: the app has no
   password-set and no password-reset flow, so a user whose provider account
   disappears loses access. Acceptable while the app has no password reset at

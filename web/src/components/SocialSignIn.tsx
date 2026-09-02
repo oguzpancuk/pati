@@ -89,8 +89,17 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
         </button>
       )}
 
-      {/* Google draws its own button here (see socialAuth.ts). */}
-      {googleClientId && <div className="social-google" ref={googleSlot} aria-busy={busy === 'google'} />}
+      {/* Google draws its own button here (see socialAuth.ts). It is an
+          iframe, so `disabled` does not exist — a sign-in already in flight
+          is fenced off with pointer-events instead. */}
+      {googleClientId && (
+        <div
+          className="social-google"
+          ref={googleSlot}
+          aria-busy={busy === 'google'}
+          style={busy ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+        />
+      )}
 
       <p className="subtle social-consent">
         Apple veya Google ile devam edersen{' '}

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   appleSupported,
   configureGoogle,
+  googleAvailable,
   isAppleCancellation,
   signInWithApple,
   signInWithGoogle,
@@ -72,7 +73,9 @@ export default function SocialSignIn() {
   const appleFg = themeName === 'dark' ? '#000000' : '#FFFFFF';
 
   const showApple = !!providers?.apple.enabled && appleSupported;
-  const showGoogle = !!providers?.google.enabled;
+  // googleAvailable, not `enabled`: on iOS a missing client id would make the
+  // native SDK raise rather than fail (see socialAuth).
+  const showGoogle = googleAvailable(providers);
   if (!showApple && !showGoogle) return null;
 
   return (

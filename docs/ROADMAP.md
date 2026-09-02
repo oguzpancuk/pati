@@ -575,10 +575,14 @@ work: Apple Developer / Google Cloud console configuration.
   passwordless accounts, provider re-authentication before account
   deletion, and the button row on both clients, drawn only where
   `GET /api/auth/providers` says the provider is configured.
-- **Verified:** `backend/scripts/social-auth-check/run.sh` (24 curl checks
-  against a local issuer: create, link, four refusals, delete); login and
-  deletion screenshots in light and dark on both clients; the iOS Apple
-  sheet reached the system dialog on the simulator.
+- **Verified:** `backend/scripts/social-auth-check/run.sh` (26 curl
+  assertions against a local issuer: create, link, six refusals — wrong
+  audience, bad signature, expired, unverified e-mail on a taken *and* a
+  free address, alg-confusion — plus deletion); login and deletion
+  screenshots in light and dark on both clients; the iOS Apple sheet
+  reached the system dialog on the simulator. A code-reviewer pass found
+  two blockers (an account-takeover path and a release-build crash on the
+  Google deletion route); both are fixed and covered.
 - **NOT verified, and cannot be until the consoles are filled in:** a real
   round trip with Apple's and Google's own servers. Remaining owner steps
   (App ID + Service ID, two Google OAuth clients, the reversed-client-id

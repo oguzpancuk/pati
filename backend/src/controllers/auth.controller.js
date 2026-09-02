@@ -139,9 +139,15 @@ async function findUserByIdentity(provider, subject) {
  *   2. a VERIFIED provider e-mail matching an existing account → link the
  *      identity to it, so someone who registered with a password and later
  *      taps "Google ile giriş" lands in their own account instead of a
- *      duplicate. Unverified e-mails must never do this: that would be an
- *      account takeover with a self-asserted address.
+ *      duplicate.
  *   3. otherwise a new account, with no password at all.
+ *
+ * An UNVERIFIED e-mail gets neither 2 nor 3. Refusing the link is obvious —
+ * it would be a takeover with a self-asserted address — but refusing the
+ * *creation* matters just as much: an account created from an unverified
+ * address owns that address afterwards, so the real owner signing in later
+ * would be merged into the squatter's account through step 2. Review found
+ * exactly that hole in the first version of this code.
  */
 async function socialLogin(provider, req, res, next) {
   try {
@@ -151,9 +157,15 @@ async function socialLogin(provider, req, res, next) {
         .json({ error: `${PROVIDER_LABELS[provider]} ile giriş şu anda kullanılamıyor` });
     }
 
+    const submitted = req.body?.identityToken ?? req.body?.idToken;
+    if (typeof submitted !== 'string' || submitted.length === 0) {
+      return res.status(400).json({ error: 'Kimlik doğrulama anahtarı eksik' });
+    }
+    const forwardedName = typeof req.body?.name === 'string' ? req.body.name : undefined;
+
     let identity;
     try {
-      identity = await verifyIdentityToken(provider, req.body?.identityToken || req.body?.idToken);
+      identity = await verifyIdentityToken(provider, submitted);
     } catch (err) {
       if (err instanceof AuthTokenError) return res.status(401).json({ error: err.message });
       throw err;
@@ -161,6 +173,9 @@ async function socialLogin(provider, req, res, next) {
 
     let user = await findUserByIdentity(provider, identity.subject);
     let created = false;
+    // Known identities are already linked; only a freshly resolved account
+    // needs the row, and only after the suspension check below.
+    const needsLink = !user;
 
     if (!user) {
       if (!identity.email) {
@@ -168,14 +183,17 @@ async function socialLogin(provider, req, res, next) {
           error: `${PROVIDER_LABELS[provider]} hesabınızdan e-posta alınamadı; e-posta paylaşımına izin verip tekrar deneyin`,
         });
       }
-
-      if (identity.emailVerified) {
-        const byEmail = await pool.query(
-          `SELECT ${USER_COLUMNS}, suspended_at, suspended_reason FROM users WHERE email = $1`,
-          [identity.email]
-        );
-        user = byEmail.rows[0] || null;
+      if (!identity.emailVerified) {
+        return res.status(403).json({
+          error: `${PROVIDER_LABELS[provider]} hesabınızın e-posta adresi doğrulanmamış; doğruladıktan sonra tekrar deneyin`,
+        });
       }
+
+      const byEmail = await pool.query(
+        `SELECT ${USER_COLUMNS}, suspended_at, suspended_reason FROM users WHERE email = $1`,
+        [identity.email]
+      );
+      user = byEmail.rows[0] || null;
 
       if (!user) {
         try {
@@ -183,24 +201,15 @@ async function socialLogin(provider, req, res, next) {
             `INSERT INTO users (name, email, avatar_url)
              VALUES ($1, $2, $3)
              RETURNING ${USER_COLUMNS}, suspended_at, suspended_reason`,
-            [displayName(identity, req.body?.name), identity.email, randomAvatarValue()]
+            [displayName(identity, forwardedName), identity.email, randomAvatarValue()]
           );
           user = inserted.rows[0];
           created = true;
         } catch (err) {
+          // Two sign-ins racing on the same fresh e-mail: the unique index is
+          // the arbiter and the loser reads the winner's row. Only reachable
+          // with a verified address — unverified ones never get this far.
           if (err.code !== '23505') throw err;
-          // The address is taken. With a VERIFIED e-mail that is just two
-          // sign-ins racing each other, and the loser reads the winner's row.
-          // With an UNVERIFIED one it is the takeover this endpoint must
-          // refuse — falling through to the existing row would hand the
-          // account to anyone who can put someone else's address in a token
-          // (caught by the curl check, step 8).
-          if (!identity.emailVerified) {
-            return res.status(409).json({
-              error:
-                'Bu e-posta başka bir hesapta kayıtlı. E-posta adresinizi doğrulayıp tekrar deneyin.',
-            });
-          }
           const again = await pool.query(
             `SELECT ${USER_COLUMNS}, suspended_at, suspended_reason FROM users WHERE email = $1`,
             [identity.email]
@@ -209,18 +218,12 @@ async function socialLogin(provider, req, res, next) {
           if (!user) throw err;
         }
       }
-
-      await pool.query(
-        `INSERT INTO user_identities (user_id, provider, subject, email)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (provider, subject) DO NOTHING`,
-        [user.id, provider, identity.subject, identity.email]
-      );
     }
 
     // Password login leaves this to requireAuth, but here it is worth saying
     // out loud: a suspended user who taps a provider button gets the reason,
-    // not a token that fails on every screen afterwards.
+    // not a token that fails on every screen afterwards. Checked BEFORE the
+    // identity is written, so a refused sign-in leaves no trace behind.
     if (user.suspended_at) {
       return res.status(403).json({
         error: user.suspended_reason
@@ -228,6 +231,15 @@ async function socialLogin(provider, req, res, next) {
           : 'Hesabınız askıya alındı.',
         suspended: true,
       });
+    }
+
+    if (needsLink) {
+      await pool.query(
+        `INSERT INTO user_identities (user_id, provider, subject, email)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (provider, subject) DO NOTHING`,
+        [user.id, provider, identity.subject, identity.email]
+      );
     }
 
     const token = signToken({ userId: user.id, role: user.role });

@@ -60,26 +60,33 @@ export function DeleteAccountLink() {
 
   async function confirmWithApple() {
     const apple = providers?.apple;
-    if (!apple?.serviceId || !apple.redirectUri) return;
+    if (!apple?.serviceId || !apple.redirectUri || busy) return;
+    // Busy from the moment the popup opens, not from the moment the delete
+    // request leaves: otherwise a second click opens a second Apple popup.
+    setBusy(true);
     setError(null);
     try {
       const { identityToken } = await signInWithApple(apple.serviceId, apple.redirectUri);
       await remove({ provider: 'apple', identityToken });
     } catch (err) {
       if (!isAppleCancellation(err)) setError('Doğrulama başarısız, tekrar deneyin');
+      setBusy(false);
     }
   }
 
+  // Read outside the effect so a theme flip while the sheet is open redraws
+  // Google's button in the new theme (it renders its own colours).
+  const theme = resolvedThemeName();
   useEffect(() => {
     const clientId = providers?.google.webClientId;
     if (!open || usesPassword || !clientId || !linked.includes('google') || !googleSlot.current) {
       return;
     }
-    renderGoogleButton(googleSlot.current, clientId, resolvedThemeName(), (identityToken) =>
+    renderGoogleButton(googleSlot.current, clientId, theme, (identityToken) =>
       remove({ provider: 'google', identityToken })
     ).catch(() => setError('Google doğrulaması yüklenemedi'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, usesPassword, providers, linked.join(',')]);
+  }, [open, usesPassword, providers, theme, linked.join(',')]);
 
   return (
     <>
@@ -159,7 +166,12 @@ export function DeleteAccountLink() {
                   </button>
                 )}
                 {linked.includes('google') && (
-                  <div className="social-google" ref={googleSlot} aria-busy={busy} />
+                  <div
+                    className="social-google"
+                    ref={googleSlot}
+                    aria-busy={busy}
+                    style={busy ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
+                  />
                 )}
               </>
             )}

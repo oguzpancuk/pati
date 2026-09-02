@@ -74,12 +74,17 @@ script — and nothing here has to be done before a deploy.
    one *iOS* client (bundle id) and one *Web application* client
    (`https://pati-app.com` as origin). The consent screen needs the app name,
    the support e-mail and the two legal URLs (`/gizlilik`, `/kosullar`).
-4. **iOS only:** paste the Google iOS client's *reversed* id (it looks like
-   `com.googleusercontent.apps.123-abc`) into `mobile/ios/StrayMobile/
-   Info.plist` as an extra `CFBundleURLSchemes` entry, next to `pati`, and
-   rebuild natively. Without it the Google sheet cannot return to the app
-   (it fails with an error alert — it does not crash). The Sign in with
-   Apple entitlement is already in the project
+4. **iOS only, and this one is load-bearing:** paste the Google iOS client's
+   *reversed* id (it looks like `com.googleusercontent.apps.123-abc`) into
+   `mobile/ios/StrayMobile/Info.plist` as an extra `CFBundleURLSchemes`
+   entry, next to `pati`, and rebuild natively. **A release build without
+   that scheme does not show an error — it terminates.** Google's SDK raises
+   an Objective-C exception, and the React Native wrapper only catches it in
+   Debug builds, which is why the simulator looked well-behaved. So: set
+   `GOOGLE_IOS_CLIENT_ID` only for an app build that already carries the
+   matching scheme. (The app hides the Google button when the backend
+   reports no iOS client id, which covers the other half of the problem.)
+   The Sign in with Apple entitlement is already in the project
    (`StrayMobile.entitlements`).
 
 **Then the secrets** — every one of them is a public identifier, not a

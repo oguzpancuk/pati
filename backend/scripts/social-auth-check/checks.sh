@@ -63,12 +63,37 @@ EXP=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\"
 code=$(post auth/google "{\"idToken\":\"$EXP\"}")
 check "expired -> 401" 401 "$code"
 
-echo "8. UNVERIFIED e-mail may not take over an existing account"
+echo "8. An UNVERIFIED e-mail is refused — for a taken address and a free one"
 UNV=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\",\"aud\":\"ios-client.apps.googleusercontent.com\",\"sub\":\"impostor-$STAMP\",\"email\":\"$GMAIL\",\"email_verified\":false}")
 code=$(post auth/google "{\"idToken\":\"$UNV\"}")
-check "-> 409, address already registered" 409 "$code"
+check "taken address -> 403" 403 "$code"
 UID4=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user?.id ?? 'none'")
 if [ "$UID4" = "$UID1" ]; then echo "  FAIL  unverified e-mail took over account $UID1"; FAILED=1; else echo "  PASS  no session issued ($UID4)"; fi
+# The free-address case is the one that matters most: an account created from
+# an unverified address would OWN that address, and step 3 would then merge
+# its real owner into it on their first verified sign-in.
+SQUAT="squat-$STAMP@example.com"
+UNV2=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\",\"aud\":\"ios-client.apps.googleusercontent.com\",\"sub\":\"squatter-$STAMP\",\"email\":\"$SQUAT\",\"email_verified\":false}")
+code=$(post auth/google "{\"idToken\":\"$UNV2\"}")
+check "free address -> 403 (no account created)" 403 "$code"
+OWNER=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\",\"aud\":\"ios-client.apps.googleusercontent.com\",\"sub\":\"realowner-$STAMP\",\"email\":\"$SQUAT\",\"email_verified\":true}")
+code=$(post auth/google "{\"idToken\":\"$OWNER\"}")
+check "the address's real owner gets a NEW account -> 201" 201 "$code"
+
+echo "8b. Algorithm confusion is refused"
+NONE=$(node -e '
+const jwt=require("jsonwebtoken");
+console.log(jwt.sign({iss:process.argv[1]+"/google",aud:"ios-client.apps.googleusercontent.com",sub:"alg-none",email:"alg@example.com",email_verified:true,exp:Math.floor(Date.now()/1000)+600},null,{algorithm:"none"}));
+' "$IDP_ISS")
+code=$(post auth/google "{\"idToken\":\"$NONE\"}")
+check "alg:none -> 401" 401 "$code"
+HS=$(node -e '
+const jwt=require("jsonwebtoken");
+const key=JSON.stringify(process.argv[2]);
+console.log(jwt.sign({iss:process.argv[1]+"/google",aud:"ios-client.apps.googleusercontent.com",sub:"alg-hs",email:"alg@example.com",email_verified:true},key,{algorithm:"HS256",keyid:"pati-dev-key",expiresIn:"10m"}));
+' "$IDP_ISS" "$(curl -s "$IDP/google/keys")")
+code=$(post auth/google "{\"idToken\":\"$HS\"}")
+check "HS256 signed with the public JWKS -> 401" 401 "$code"
 
 echo "9. GET /users/me reports how the account authenticates"
 ME=$(curl -s "$API/users/me" -H "Authorization: Bearer $JWT1")
