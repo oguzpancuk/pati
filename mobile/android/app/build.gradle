@@ -76,7 +76,10 @@ android {
 
     namespace "com.patiapp"
     defaultConfig {
-        applicationId "com.patiapp"
+        // The Play Store identity, permanent once published. Deliberately not
+        // the same as `namespace` above (com.patiapp), which is only the
+        // generated R class's package and stays with the internal rename.
+        applicationId "com.oguzpancuk.pati"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

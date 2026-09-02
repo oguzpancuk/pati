@@ -450,17 +450,22 @@ Deliberately deferred, with reasons:
 - [ ] Store prep: icon, screenshots, privacy declaration
 - [ ] **Rename internals to pati (REQUIRED before stores):** iOS
       project/target `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace,
-      scheme, Podfile), Android package/app name, backend log text, Docker
-      container `stray-db` and db/role name `stray`, `.env.example`. Needs a
-      native build + database reset.
-- [ ] **Pick a NEW bundle id — `com.patiapp` is NOT available.** Discovered
-      2026-08-31 during the first device build: Apple refuses to register
-      `com.patiapp` ("cannot be registered to your development team because
-      it is not available") and the owner never registered it elsewhere —
-      another team owns it. The store release needs a different identifier
-      (the device test used `com.oguzpancuk.pati`, which registered fine);
-      changing it means a native build and touches the deep-link/scheme
-      plumbing and the simulator scripts that reference `com.patiapp`.
+      scheme, Podfile), Android `namespace` + app name, backend log text,
+      Docker container `stray-db` and db/role name `stray`, `.env.example`.
+      Needs a native build + database reset. (The store-facing bundle id is
+      already settled — see below.)
+- [x] **Bundle id: `com.oguzpancuk.pati`** (September 2, 2026). `com.patiapp`
+      is owned by another team and Apple refuses to register it; the device
+      test had already proved this one registers. A domain-derived
+      `com.pati-app.pati` was the first choice — it survives a later transfer
+      to a company account without a personal name in it — but Android's
+      applicationId forbids hyphens, and the two stores should carry the same
+      identifier. Owner decision: publish under his own name for now
+      (Individual Apple account), so the personal id is coherent. Applied to
+      the Xcode project, `applicationId` in build.gradle (Android's
+      `namespace` stays `com.patiapp` — it is only the generated R class's
+      package, and it belongs to the internal rename below) and the simulator
+      scripts. **Permanent once submitted to either store.**
 - [ ] Remove the location-override code (`mobile/src/location.ts`)
 
 **Quality:**
@@ -491,10 +496,9 @@ Deliberately deferred, with reasons:
 > S7 (Apple + Google sign-in) is code-complete on all three sides and waits
 > only on the owner-side console work it always needed — the Apple App ID /
 > Service ID and the Google OAuth client ids (steps: docs/DEPLOYMENT.md).
-> Sign in with Apple is bound to the App ID, so it is also bound to the open
-> bundle-id decision (`com.patiapp` is unavailable — see the launch sprint).
-> Until those values exist the buttons stay hidden and nothing changes for
-> users.
+> The bundle id it depended on is settled: `com.oguzpancuk.pati` (launch
+> sprint). Until the console values exist the buttons stay hidden and
+> nothing changes for users.
 
 Twelve owner-reported improvements, grouped into eight sessions — one
 session per group, each ends with a code-reviewer pass. Owner decisions

@@ -1103,3 +1103,30 @@ commit. Every finding below was reproduced by the agent, not argued.
   is shown to the user. The S7 endpoints no longer reach it with anything
   sensitive — they validate at the boundary — but the general problem stands.
 - `mobile/__tests__/AuthContext.test.tsx` now covers `loginWithProvider`.
+
+## 2026-09-02 — bundle id settled: com.oguzpancuk.pati
+
+S7's remaining blocker was an identifier, not code. Owner decided to publish
+under his own name for now (Individual Apple account rather than an
+Organization one, which would need a legal entity plus a D-U-N-S number).
+
+- **`com.pati-app.pati` was the better id and had to be dropped**: derived
+  from the domain we own, so it would survive a later transfer to a company
+  account without a personal name frozen into it — but Android's
+  `applicationId` forbids hyphens, and both stores should carry the same
+  identifier. `com.oguzpancuk.pati` it is; the device test on 2026-08-31 had
+  already proved Apple registers it.
+- Applied to both Xcode configurations (app + tests), `applicationId` in
+  `android/app/build.gradle`, and the two simulator scripts. Android's
+  `namespace` deliberately stays `com.patiapp`: it is only the generated R
+  class's package, invisible in the store, and moving it means moving Java
+  package directories — that belongs to the internal rename.
+- Verified: native rebuild, app launches as `com.oguzpancuk.pati`, and
+  `simulator-goto.sh` finds the new container and drives the app. The
+  Android side is **not** verified — no Android SDK on this machine.
+- **Worth knowing before any company transfer:** Apple's `sub` (our
+  `user_identities.subject`) is scoped to the developer team, so moving the
+  app to a company account later renames every Apple identity and orphans
+  those users unless Apple's transfer-identifier flow is run at the same
+  time. Google's `sub` is global and unaffected. Transferring after real
+  users exist is therefore meaningfully more expensive than starting there.

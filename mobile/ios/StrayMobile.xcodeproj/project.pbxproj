@@ -501,7 +501,7 @@
 					"-lc++",
 					"$(inherited)",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.patiapp.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StrayMobile.app/StrayMobile";
 			};
@@ -525,7 +525,7 @@
 					"-lc++",
 					"$(inherited)",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.patiapp.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StrayMobile.app/StrayMobile";
 			};
@@ -551,7 +551,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.patiapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati;
 				PRODUCT_NAME = StrayMobile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -578,7 +578,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.patiapp;
+				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati;
 				PRODUCT_NAME = StrayMobile;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";

@@ -61,11 +61,9 @@ script — and nothing here has to be done before a deploy.
 
 **Owner-side console work (nobody else can do it):**
 
-1. **Apple Developer → Identifiers → App ID** for the app's bundle id, with
-   *Sign in with Apple* enabled. Note this binds sign-in to whichever bundle
-   id the store release uses — the open decision in the ROADMAP
-   (`com.patiapp` is unavailable; the device test used
-   `com.oguzpancuk.pati`).
+1. **Apple Developer → Identifiers → App ID** for `com.oguzpancuk.pati`
+   (the app's bundle id — permanent once submitted), with *Sign in with
+   Apple* enabled.
 2. **Apple Developer → Identifiers → Services ID** (e.g.
    `com.pati-app.web`) for web sign-in, with `pati-app.com` as the domain
    and `https://pati-app.com/giris` as the return URL. Apple asks you to
