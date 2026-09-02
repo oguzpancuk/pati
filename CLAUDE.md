@@ -108,6 +108,13 @@ is not a result. The push-gate hook runs the quick mode before every
 end-to-end check with curl against a running instance — never "it probably
 works".
 
+Nothing leaves this machine unreviewed: the push gate refuses any local
+commit newer than `.claude/last-reviewed`, which the harness writes when
+code-reviewer finishes. Commit first, then review — the reviewer covers
+`last-reviewed..HEAD`; a fix made after a review needs its own. Force
+pushes and remote deletions are refused outright; the scan is coarse, so a
+commit message that mentions a push flag is written with `git commit -F`.
+
 ## Workflow
 
 - The repo is the memory. Read `docs/ROADMAP.md` + `docs/NOTES.md` when
@@ -121,11 +128,9 @@ works".
 - Unattended runs (goal loops, overnight): follow `contracts/README.md` —
   one feature per session, default-FAIL feature list, evidence before
   `passes: true`.
-- The agent roster is a standing instruction, not an availability note:
-  before reporting a feature done, launch code-reviewer on the change;
-  before any deploy, and at the end of an unattended run, launch
-  evaluator-qa — without being asked. No generic "don't spawn agents
-  unprompted" default outweighs this.
+- Launch code-reviewer before reporting a feature done, and evaluator-qa
+  before any deploy and after an unattended run — unprompted; the roster
+  is a standing instruction, not an option.
 
 ## Environment pitfalls
 

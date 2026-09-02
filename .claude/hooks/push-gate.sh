@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 # PreToolUse(Bash) hook: gate `git push`.
-#  - a real git-push invocation requires the verify battery green (exit 2 blocks)
-#  - force pushes are blocked outright (run them manually if truly intended)
+#  - force pushes and remote deletions are refused outright
+#  - a push requires the verify battery green (exit 2 blocks)
 #  - non-push commands pass through untouched
-# Parse policy: python3 missing -> disarmed but LOUD (exit 0 + stderr warning);
-# payload present but unparseable -> fail closed (exit 2).
+#
+# No shell parsing. Two earlier versions tokenised the command to inspect
+# "the push's own arguments" and both leaked: `env git push`, `\git push` and
+# `GIT_TRACE=1 git push` never reached the force check, and --mirror/--delete
+# did not count as force (reproduced 2026-09-02; harvested from pati's seven
+# review rounds). This version asks two questions of the raw text — does it
+# mention git and push, does it carry a force-shaped flag anywhere — and
+# accepts the false positives that buys: a commit message that mentions
+# "push -f" blocks the command. Write such messages with `git commit -F`.
+# Parse policy: python3 missing -> disarmed but LOUD; unreadable -> fail closed.
 set -uo pipefail
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -23,66 +31,33 @@ print(d.get("tool_input",{}).get("command",""))
 ')" || { echo "push-gate: could not parse hook payload — blocking to be safe." >&2; exit 2; }
 
 [ -n "$cmd" ] || exit 0
+mentions() { printf '%s' "$cmd" | grep -Eq "$1"; }
 
-# Match `git push` only at a command position (start, after ; & | ( ` $( ),
-# allowing option words like -C <dir>, -c k=v, --git-dir=... in between.
-# Substring matches inside strings ("echo git push", commit messages) pass.
-if ! printf '%s' "$cmd" | grep -Eq '(^|[;&|(`]|\$\()[[:space:]]*git([[:space:]]+(-[Cc][[:space:]]*[^[:space:]]+|--[[:alnum:]-]+(=[^[:space:]]+)?))*[[:space:]]+push([[:space:]]|$)'; then
-  exit 0
-fi
+# Is this a push? Word matches anywhere — prefixes like env, \, VAR=1 cannot
+# hide it. Substring hits ("echo git push") pay the price of the checks below.
+mentions '(^|[^[:alnum:]_.-])git([^[:alnum:]_.-]|$)' && mentions '(^|[^[:alnum:]_.-])push([^[:alnum:]_.-]|$)' || exit 0
 
-# Force pushes: blocked here regardless of battery state. The settings.json
-# deny rules are prefix-matched best-effort; this is the real guard.
-# Only the push command's OWN arguments are inspected: a shell-aware split
-# keeps quoted strings whole, so a commit message that mentions "git push -f"
-# on the same command line no longer trips the gate. Exit 1 = force push,
-# 0 = clean push, 3 = unbalanced quotes, 4 = no push segment recognised.
-force_rc=0
-printf '%s' "$cmd" | python3 -c '
-import shlex, sys
-cmd = sys.stdin.read()
-try:
-    toks = list(shlex.shlex(cmd, posix=True, punctuation_chars=True))
-except ValueError:
-    sys.exit(3)
-segs, cur = [], []
-for t in toks:
-    if t and all(c in ";&|()" for c in t):
-        if cur: segs.append(cur); cur = []
-    else:
-        cur.append(t)
-if cur: segs.append(cur)
-found = False
-for seg in segs:
-    if "git" not in seg: continue
-    j = seg.index("git") + 1
-    while j < len(seg) and seg[j].startswith("-"):
-        j += 2 if seg[j] in ("-C", "-c") else 1
-    if j >= len(seg) or seg[j] != "push": continue
-    found = True
-    for a in seg[j + 1:]:
-        if a == "--force" or a.startswith("--force-with-lease") or a.startswith("+"):
-            sys.exit(1)
-        if a.startswith("-") and not a.startswith("--") and "f" in a[1:]:
-            sys.exit(1)
-sys.exit(0 if found else 4)
-' || force_rc=$?
-case "$force_rc" in
-  0) ;;
-  4) # The regex saw a push the tokenizer did not (inside $(...) or backticks):
-     # fall back to scanning the whole line, erring on the side of blocking.
-     if printf '%s' "$cmd" | grep -Eq '(^|[[:space:]])(--force(-with-lease(=[^[:space:]]*)?)?([[:space:]]|$)|-f([[:space:]]|$))' \
-        || printf '%s' "$cmd" | grep -Eq 'push[^;&|]*[[:space:]]\+[[:alnum:]_/-]'; then
-       force_rc=1
-     fi ;;
-  *) force_rc=1 ;;  # a force push, or unparseable input -> fail closed
-esac
-if [ "$force_rc" -ne 0 ]; then
-  echo "push-gate: force push BLOCKED. If truly intended, run it yourself in a terminal." >&2
+# Force / destructive: -f (in any short-flag cluster), --force*, --mirror,
+# --delete/-d, a +refspec, or a `:branch` deletion refspec. Anywhere, with
+# any non-word boundary — `$(git push -f)` ends the flag with ")".
+if mentions '(^|[^[:alnum:]_.-])(-[[:alnum:]]*f[[:alnum:]]*|--force[^[:space:])]*|--mirror|--delete|-d)([^[:alnum:]_.-]|$)' \
+   || mentions '[[:space:]]\+[[:alnum:]_/.-]' \
+   || mentions '[[:space:]]:[[:alnum:]_/.-]'; then
+  echo "push-gate: force push / remote deletion BLOCKED. If truly intended, run it yourself in a terminal." >&2
+  echo "(The scan is coarse: a commit message mentioning such a flag also trips it — use git commit -F.)" >&2
   exit 2
 fi
 
-cd "${CLAUDE_PROJECT_DIR:-.}" || exit 0
+# Another repository (-C, --git-dir, a preceding cd): the battery can only
+# vouch for this project, so refuse rather than guess.
+if mentions '(^|[[:space:]])(-C|--git-dir|--work-tree)([[:space:]=]|$)' \
+   || mentions '(^|[;&|(]|[[:space:]])(cd|pushd)[[:space:]]' \
+   || mentions '(^|[^[:alnum:]_])GIT_(DIR|WORK_TREE)='; then
+  echo "push-gate: this push targets another directory (-C / --git-dir / cd) — blocked. Push from the project root." >&2
+  exit 2
+fi
+
+cd "${CLAUDE_PROJECT_DIR:-.}" || { echo "push-gate: cannot enter the project directory — blocking to be safe." >&2; exit 2; }
 
 if [ ! -f .claude/hooks/verify.sh ]; then
   echo "push-gate: verify.sh missing — allowing push, but the battery gate is OFF" >&2

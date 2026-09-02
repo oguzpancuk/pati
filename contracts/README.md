@@ -4,7 +4,8 @@ The pattern for overnight / goal-loop work, adapted from Anthropic's
 long-running-agents harness (`anthropics/cwc-long-running-agents`). Everything
 here is OFF by default — wire it up only for an actual unattended run, and
 re-test whether each piece is still needed on every model release
-(ablation watchlist: maya `CHANGELOG.md`).
+(ablation watchlist: maya `CHANGELOG.md`; the evidence gate has a
+measured ablation task under maya `evals/`).
 
 ## The pattern
 
@@ -33,11 +34,14 @@ re-test whether each piece is still needed on every model release
 
 - Agents may ONLY flip the `passes` field. It is unacceptable to remove or
   edit feature entries — that is how functionality silently disappears.
-- `passes: true` requires observed evidence. What counts as evidence (a
-  heuristic, deliberately narrow): a screenshot/image, a `.log` file, or any
-  file under a `test-results/`, `test-output/`, `coverage/` or `screenshots/`
-  directory, **Read in this same session**. Reading the feature list, configs,
-  or source files does not count.
+- `passes: true` requires observed evidence **about that feature**. What
+  counts: a screenshot/image, a `.log` file, or any file under
+  `test-results/`, `test-output/`, `coverage/` or `screenshots/`, **Read in
+  this same session**, whose contents name the feature id being claimed.
+  Reading the feature list, configs, or source files does not count, and
+  neither does a blanket suite run for a feature the suite never exercised —
+  measured on Haiku 4.5, that loophole left the false-claim rate unchanged
+  while the gate fired in every session (maya CHANGELOG, 2026-09-01).
 - One feature per session. Progress notes + commits are the handoff; the
   next session starts from the repo, not from memory.
 
