@@ -481,6 +481,13 @@ Deliberately deferred, with reasons:
 
 ## 🔧 Improvement sprint (planned August 30, 2026)
 
+> **Status (September 1, 2026): S1–S6 and S8 are shipped and live; two
+> owner feedback rounds on top of them are also live. The only sprint item
+> left is S7 (Apple + Google sign-in).** S7 is blocked on two owner-side
+> prerequisites: the console configuration it always needed, and the new
+> bundle id (`com.patiapp` is unavailable — see the launch sprint), because
+> Sign in with Apple is bound to the App ID.
+
 Twelve owner-reported improvements, grouped into eight sessions — one
 session per group, each ends with a code-reviewer pass. Owner decisions
 already made are recorded inline; nothing below needs a new decision to
