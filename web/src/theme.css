@@ -1095,3 +1095,87 @@ strong {
   margin: 8px 16px 0;
   box-shadow: var(--shadow-float);
 }
+
+/* Apple / Google sign-in (S7). Google draws its own button — GIS is the only
+   way to get an ID token — so the Apple button is shaped to match what GIS
+   renders (pill, 40px, centred logo+label) instead of the pati .btn, and the
+   two sit as siblings. Apple's guidelines want the mark on black in light
+   themes and on white in dark ones; both are just var(--text)/var(--surface)
+   inverted, which is what the theme already gives us. */
+.social-signin {
+  margin-top: 22px;
+}
+
+.social-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  color: var(--text-subtle);
+  font-size: 13px;
+}
+
+.social-divider::before,
+.social-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.social-btn.apple {
+  background: #000;
+  color: #fff;
+}
+
+:root[data-theme='dark'] .social-btn.apple {
+  background: #fff;
+  color: #000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .social-btn.apple {
+    background: #fff;
+    color: #000;
+  }
+}
+
+.social-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* GIS renders an iframe of its own; centre it under the Apple button. */
+.social-google {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  min-height: 40px;
+}
+
+.social-consent {
+  margin-top: 14px;
+  text-align: center;
+  line-height: 1.5;
+  font-size: 12.5px;
+}
+
+.social-consent a {
+  color: var(--brand);
+}

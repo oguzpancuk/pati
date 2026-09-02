@@ -51,6 +51,66 @@ map's green fades in 4-6 hours, `DEMO_GUIDE_REFRESH = "1"` in `fly.toml` makes
 the server add a few fresh records hourly (harmlessly inert once the guide
 data is removed).
 
+## Apple / Google sign-in (S7)
+
+The buttons appear only where the backend has credentials: `GET
+/api/auth/providers` reports what is configured, and both clients hide what
+they are not told about. So an environment with none of the secrets below
+keeps working exactly as before — the plain e-mail form, no third-party
+script — and nothing here has to be done before a deploy.
+
+**Owner-side console work (nobody else can do it):**
+
+1. **Apple Developer → Identifiers → App ID** for the app's bundle id, with
+   *Sign in with Apple* enabled. Note this binds sign-in to whichever bundle
+   id the store release uses — the open decision in the ROADMAP
+   (`com.patiapp` is unavailable; the device test used
+   `com.oguzpancuk.pati`).
+2. **Apple Developer → Identifiers → Services ID** (e.g.
+   `com.pati-app.web`) for web sign-in, with `pati-app.com` as the domain
+   and `https://pati-app.com/giris` as the return URL. Apple asks you to
+   verify the domain with a file it generates.
+3. **Google Cloud → APIs & Services → Credentials → OAuth client ID**, twice:
+   one *iOS* client (bundle id) and one *Web application* client
+   (`https://pati-app.com` as origin). The consent screen needs the app name,
+   the support e-mail and the two legal URLs (`/gizlilik`, `/kosullar`).
+4. **iOS only:** paste the Google iOS client's *reversed* id (it looks like
+   `com.googleusercontent.apps.123-abc`) into `mobile/ios/StrayMobile/
+   Info.plist` as an extra `CFBundleURLSchemes` entry, next to `pati`, and
+   rebuild natively. Without it the Google sheet cannot return to the app
+   (it fails with an error alert — it does not crash). The Sign in with
+   Apple entitlement is already in the project
+   (`StrayMobile.entitlements`).
+
+**Then the secrets** — every one of them is a public identifier, not a
+password; nothing here is a client *secret*:
+
+```bash
+fly secrets set --app pati-app \
+  APPLE_CLIENT_IDS="<bundle id>,<service id>" \
+  APPLE_SERVICE_ID="<service id>" \
+  APPLE_WEB_REDIRECT_URI="https://pati-app.com/giris" \
+  GOOGLE_CLIENT_IDS="<ios client id>,<web client id>" \
+  GOOGLE_IOS_CLIENT_ID="<ios client id>" \
+  GOOGLE_WEB_CLIENT_ID="<web client id>"
+```
+
+`APPLE_CLIENT_IDS` / `GOOGLE_CLIENT_IDS` are the audiences a token may carry;
+a token issued for any other app is refused. The remaining three are handed
+to the clients so they can configure their SDKs without a rebuild.
+
+**Schema:** the sign-in tables are new, and `CREATE TABLE IF NOT EXISTS`
+cannot alter the existing `users` table, so production needs the one-off
+migration once:
+
+```bash
+fly ssh console --app pati-app -C "node scripts/migrate-social-auth-20260902.js"
+```
+
+**Local check:** `bash backend/scripts/social-auth-check/run.sh` boots a
+throwaway backend and a local issuer and drives the whole flow (create, link,
+refuse a forged token, delete). It needs the local database running.
+
 ## Custom domains
 
 ```bash

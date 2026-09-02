@@ -7,7 +7,10 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    -- NULL for accounts created through Apple/Google sign-in: they have no
+    -- password at all, and a placeholder hash would be a login secret nobody
+    -- chose. Every password path must therefore tolerate NULL.
+    password_hash VARCHAR(255),
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'vet', 'admin')),
     avatar_url TEXT,
     -- Keys of up to 3 badges featured on the profile (e.g. "breed:Tekir").
@@ -25,6 +28,28 @@ CREATE TABLE IF NOT EXISTS users (
     suspended_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Sign-in identities from Apple and Google. One row links a provider's stable
+-- subject id to a pati account; a user may hold both, and an existing password
+-- account gains one when the provider reports the same verified e-mail. Kept
+-- out of users because (provider, subject) is the natural key and a user can
+-- have several rows.
+CREATE TABLE IF NOT EXISTS user_identities (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(10) NOT NULL CHECK (provider IN ('apple', 'google')),
+    -- The provider's "sub" claim. Stable forever for a given app/team, and the
+    -- only identifier we trust: e-mails change, subjects do not.
+    subject VARCHAR(255) NOT NULL,
+    -- The address the provider reported when the link was made (an Apple
+    -- private-relay address is normal here). Support/debugging only — the
+    -- account's own users.email stays authoritative.
+    email VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (provider, subject)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_identities_user ON user_identities (user_id);
 
 -- Animals
 CREATE TABLE IF NOT EXISTS animals (

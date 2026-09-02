@@ -9,6 +9,7 @@ const { getUserBadges } = require('../utils/badges');
 const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../utils/badgeAwards');
 const { getUserRank } = require('./leaderboard.controller');
 const { avatarValueFor } = require('../utils/avatars');
+const { AuthTokenError, verifyIdentityToken } = require('../utils/socialAuth');
 
 const MAX_FEATURED_BADGES = 3;
 
@@ -18,6 +19,27 @@ const MAX_FEATURED_BADGES = 3;
 function resolveFeatured(featuredKeys, badges) {
   const byKey = new Map(badges.map((b) => [b.key, b]));
   return (featuredKeys || []).map((key) => byKey.get(key)).filter((badge) => badge && badge.tier);
+}
+
+/**
+ * How this account can prove it is itself. The profile screen needs it to ask
+ * for the right thing before deleting the account: a password account is asked
+ * for its password, an Apple/Google account is asked to sign in again — and an
+ * account that has both may use either.
+ */
+async function getAuthMethods(userId) {
+  const result = await pool.query(
+    `SELECT u.password_hash IS NOT NULL AS has_password,
+            coalesce(array_agg(DISTINCT i.provider)
+                     FILTER (WHERE i.provider IS NOT NULL), '{}') AS providers
+       FROM users u
+       LEFT JOIN user_identities i ON i.user_id = u.id
+      WHERE u.id = $1
+      GROUP BY u.id`,
+    [userId]
+  );
+  const row = result.rows[0] || {};
+  return { hasPassword: !!row.has_password, authProviders: row.providers || [] };
 }
 
 async function getStats(userId) {
@@ -42,12 +64,13 @@ async function getMe(req, res, next) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    const [stats, badgeData, rank, recentComments, commentCount] = await Promise.all([
+    const [stats, badgeData, rank, recentComments, commentCount, authMethods] = await Promise.all([
       getStats(req.user.userId),
       getUserBadges(req.user.userId),
       getUserRank(req.user.userId),
       fetchRecentComments(req.user.userId),
       countComments(req.user.userId),
+      getAuthMethods(req.user.userId),
     ]);
 
     // The rank was already computed here; refresh the snapshot so the badge
@@ -65,6 +88,7 @@ async function getMe(req, res, next) {
       rank,
       recentComments,
       commentCount,
+      ...authMethods,
     });
   } catch (err) {
     next(err);
@@ -114,10 +138,11 @@ async function setAvatarAndRespond(userId, avatarValue, res) {
     [avatarValue, userId]
   );
 
-  const [stats, badgeData, rank] = await Promise.all([
+  const [stats, badgeData, rank, authMethods] = await Promise.all([
     getStats(userId),
     getUserBadges(userId),
     getUserRank(userId),
+    getAuthMethods(userId),
   ]);
   const user = result.rows[0];
   res.json({
@@ -128,6 +153,7 @@ async function setAvatarAndRespond(userId, avatarValue, res) {
     level: badgeData.level,
     featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
     rank,
+    ...authMethods,
   });
 }
 
@@ -419,10 +445,7 @@ async function getPublicProfile(req, res, next) {
 async function deleteMyAccount(req, res, next) {
   let client;
   try {
-    const { password } = req.body || {};
-    if (!password) {
-      return res.status(400).json({ error: 'Şifre zorunludur' });
-    }
+    const { password, provider, identityToken } = req.body || {};
 
     const result = await pool.query('SELECT password_hash, avatar_url FROM users WHERE id = $1', [
       req.user.userId,
@@ -430,11 +453,41 @@ async function deleteMyAccount(req, res, next) {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
-    const valid = await bcrypt.compare(password, result.rows[0].password_hash);
-    if (!valid) {
-      // 403, not 401: both clients treat a 401 as "session expired" and log
-      // the user out globally — a typo in the password must not do that.
-      return res.status(403).json({ error: 'Şifre hatalı' });
+    const passwordHash = result.rows[0].password_hash;
+
+    // Deletion always re-authenticates — a stolen phone must not be able to
+    // erase the account — but an Apple/Google account has no password to ask
+    // for, so it proves itself by signing in with the provider again. 403
+    // rather than 401 throughout: both clients read a 401 as "session
+    // expired" and log the user out globally, which a mistyped password or a
+    // cancelled provider sheet must not do.
+    if (passwordHash && password) {
+      if (!(await bcrypt.compare(password, passwordHash))) {
+        return res.status(403).json({ error: 'Şifre hatalı' });
+      }
+    } else if (identityToken) {
+      let identity;
+      try {
+        identity = await verifyIdentityToken(provider, identityToken);
+      } catch (err) {
+        if (err instanceof AuthTokenError) {
+          return res.status(403).json({ error: 'Doğrulama başarısız, tekrar deneyin' });
+        }
+        throw err;
+      }
+      // The token must belong to THIS account: a valid token for somebody
+      // else's identity is exactly the confused-deputy case to refuse.
+      const linked = await pool.query(
+        'SELECT 1 FROM user_identities WHERE user_id = $1 AND provider = $2 AND subject = $3',
+        [req.user.userId, identity.provider, identity.subject]
+      );
+      if (linked.rows.length === 0) {
+        return res.status(403).json({ error: 'Doğrulama başarısız, tekrar deneyin' });
+      }
+    } else {
+      return res
+        .status(400)
+        .json({ error: passwordHash ? 'Şifre zorunludur' : 'Hesabınızı doğrulamanız gerekiyor' });
     }
 
     // A locally uploaded avatar is a personal photo; remove the file itself,
@@ -468,6 +521,10 @@ async function deleteMyAccount(req, res, next) {
     );
     await client.query('DELETE FROM user_animal_care WHERE user_id = $1', [req.user.userId]);
     await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [req.user.userId]);
+    // Without this the deleted account keeps its Apple/Google links, and the
+    // next "Apple ile giriş" would walk straight back into the anonymized,
+    // suspended row instead of creating a fresh account.
+    await client.query('DELETE FROM user_identities WHERE user_id = $1', [req.user.userId]);
     await client.query('COMMIT');
 
     if (uploadsMatch) {

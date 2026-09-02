@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import type { PhotoAsset } from './care';
 import type { Badge, BadgeTier } from '../badges';
+import type { SocialProvider } from './auth';
 
 // Badge types live in pure `badges.ts` (web reads from there too);
 // re-exported here so existing import paths keep working.
@@ -85,6 +86,9 @@ export interface Me {
   rank: UserRank | null;
   recentComments: UserComment[];
   commentCount: number;
+  /** False for accounts that only ever signed in with Apple or Google. */
+  hasPassword: boolean;
+  authProviders: SocialProvider[];
 }
 
 export type FriendshipStatus = 'none' | 'self' | 'friends' | 'pending_sent' | 'pending_received';
@@ -170,10 +174,15 @@ export async function fetchMe(): Promise<Me> {
 
 // Account deletion re-authenticates with the password; the server anonymizes
 // the row in place (see the privacy notice's retention section).
-export async function deleteMyAccount(password: string): Promise<{ deleted: boolean }> {
-  const { data } = await apiClient.delete<{ deleted: boolean }>('/users/me', {
-    data: { password },
-  });
+/**
+ * Deletion always re-authenticates. A password account sends its password; an
+ * Apple/Google account has none and proves itself with a fresh identity token
+ * from its provider.
+ */
+export async function deleteMyAccount(
+  proof: { password: string } | { provider: SocialProvider; identityToken: string }
+): Promise<{ deleted: boolean }> {
+  const { data } = await apiClient.delete<{ deleted: boolean }>('/users/me', { data: proof });
   return data;
 }
 

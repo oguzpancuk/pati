@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
 import { Button, Input, Screen, Text } from '../components/ui';
 import { Wordmark } from '../components/brand';
+import SocialSignIn from '../components/SocialSignIn';
 import { hitSlop, makeStyles, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
@@ -59,6 +60,8 @@ export default function LoginScreen({ navigation }: Props) {
             containerStyle={styles.lastField}
           />
           <Button title="Giriş yap" onPress={handleLogin} loading={submitting} fullWidth />
+
+          <SocialSignIn />
 
           <Pressable
             onPress={() => navigation.navigate('Register')}

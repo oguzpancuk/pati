@@ -607,7 +607,11 @@ export default function UserProfileScreen({ navigation, route }: any) {
           kullanım koşulları
         </Text>
       </Text>
-      <DeleteAccountLink initialOpen={!!route?.params?.deleteAccount} />
+      <DeleteAccountLink
+        initialOpen={!!route?.params?.deleteAccount}
+        hasPassword={me?.hasPassword !== false}
+        authProviders={me?.authProviders ?? []}
+      />
 
       {/* Chooser for a marker holding several records: pick one, see its
           detail. */}

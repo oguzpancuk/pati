@@ -48,6 +48,10 @@ app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 30,
+    // GET /providers is not a credential attempt: every client reads it once
+    // per page load, and counting it would let ordinary traffic from one
+    // shared IP (a campus, a carrier NAT) spend the login budget.
+    skip: (req) => req.method === 'GET' && req.path === '/providers',
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Çok fazla deneme; 15 dakika sonra tekrar deneyin.' },

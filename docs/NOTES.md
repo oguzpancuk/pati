@@ -968,3 +968,61 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
 - Follow-up found by QA (pre-existing): some production photo URLs point
   at http://localhost:3000/uploads/… (e.g. animal 3947 cover) and render
   broken; needs a data sweep of photo_url/cover_photo_url.
+
+## 2026-09-02 — S7: Apple + Google sign-in (built; consoles still owner-side)
+
+- **The server verifies the identity token; nothing else is trusted**
+  (`backend/src/utils/socialAuth.js`, ADR-0003): JWKS signature (RS256
+  only), issuer, audience against our own client ids, expiry. No new
+  dependency — `jsonwebtoken` was already there and Node 20 reads a JWK
+  natively. New endpoints `POST /api/auth/{apple,google}` and a public
+  `GET /api/auth/providers`, which is exempted from the auth rate limiter
+  (every page load reads it; counting it would let ordinary traffic behind
+  one carrier NAT spend the login budget).
+- **Schema:** `user_identities (provider, subject)` plus a nullable
+  `users.password_hash`. Production needs
+  `scripts/migrate-social-auth-20260902.js` once — `CREATE TABLE IF NOT
+  EXISTS` cannot alter the existing users table.
+- **The curl check caught a real hole.** With an *unverified* provider
+  e-mail the code skipped the link-by-e-mail lookup, then hit the unique
+  e-mail constraint on insert, and the 23505 fallback handed back the
+  existing account — an account takeover by anyone who could put someone
+  else's address in a token. Now unverified + taken = 409. The check lives
+  at `backend/scripts/social-auth-check/run.sh` (a local issuer whose
+  signing key the checks control; 24 assertions, including four refusals).
+- **Passwordless accounts ripple further than expected**: password login
+  would have thrown on a NULL hash (it now names the provider instead),
+  account deletion needed a second proof-of-identity path (sign in with the
+  provider again; the token must match *that* user's identity row), and the
+  deletion must drop `user_identities` — otherwise the same Apple id walks
+  back into the anonymized, suspended account on the next tap.
+- **Both clients hide what they cannot do**: the button row renders only
+  for providers `GET /auth/providers` reports, so today's production (no
+  credentials) shows the plain e-mail form and loads no third-party script.
+  Screenshot-verified in that state too.
+- **One deliberate client divergence**: on web the Google button is
+  Google's own rendered button — GIS only hands out an ID token through it
+  — while mobile draws the pati button. Apple's button is ours on both,
+  black on light and white on dark per their guidelines. Set the GIS script
+  to `?hl=tr`: the `locale` render option alone gave us an Indonesian
+  label.
+- **iOS**: `@invertase/react-native-apple-authentication` +
+  `@react-native-google-signin/google-signin` installed, pods in,
+  `StrayMobile.entitlements` added to both build configurations. Tapping
+  "Apple ile giriş yap" on the simulator reaches iOS's own "Apple
+  Hesabı'nıza giriş yapın" dialog — the native path is wired; the simulator
+  simply has no Apple account. Both providers fail gracefully (dismissible
+  alert, no crash, no stuck spinner) when their config is wrong.
+- **Owner steps before this can go live** (docs/DEPLOYMENT.md → "Apple /
+  Google sign-in"): App ID + Service ID, two Google OAuth clients, the
+  reversed-client-id URL scheme in `Info.plist` (mobile Google sign-in
+  cannot return to the app without it), the Fly secrets, the production
+  migration. Sign in with Apple binds to the App ID, so the open bundle-id
+  decision gates it.
+- **`backend/.env.example` still lacks the new variables** — this session's
+  tooling is not allowed to touch env files. Add: `APPLE_CLIENT_IDS`,
+  `APPLE_SERVICE_ID`, `APPLE_WEB_REDIRECT_URI`, `GOOGLE_CLIENT_IDS`,
+  `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_WEB_CLIENT_ID`.
+- Noticed in passing: `cd mobile && npm run lint` fails — there is no
+  ESLint config in `mobile/` at all, though CLAUDE.md lists the command.
+  Pre-existing, untouched.

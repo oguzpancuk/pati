@@ -2,6 +2,12 @@ const bcrypt = require('bcrypt');
 const pool = require('../config/db');
 const { signToken } = require('../utils/jwt');
 const { AVATAR_KEYS, AVATAR_PREFIX } = require('../utils/avatars');
+const {
+  AuthTokenError,
+  isEnabled,
+  publicConfig,
+  verifyIdentityToken,
+} = require('../utils/socialAuth');
 
 const SALT_ROUNDS = 10;
 
@@ -62,6 +68,23 @@ async function login(req, res, next) {
       return res.status(401).json({ error: 'Geçersiz e-posta veya şifre' });
     }
 
+    if (!user.password_hash) {
+      // Social-only account: bcrypt.compare would throw on a NULL hash, and
+      // "wrong password" would send the user hunting for a password that has
+      // never existed. Name the provider instead — registration already
+      // discloses that an address is taken, so this leaks nothing new.
+      const linked = await pool.query(
+        'SELECT provider FROM user_identities WHERE user_id = $1 ORDER BY id',
+        [user.id]
+      );
+      const label = linked.rows.map((r) => (r.provider === 'apple' ? 'Apple' : 'Google')).join(' / ');
+      return res.status(401).json({
+        error: label
+          ? `Bu hesap ${label} ile açılmış; ${label} ile giriş yapın`
+          : 'Geçersiz e-posta veya şifre',
+      });
+    }
+
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
       return res.status(401).json({ error: 'Geçersiz e-posta veya şifre' });
@@ -75,4 +98,159 @@ async function login(req, res, next) {
   }
 }
 
-module.exports = { register, login };
+const PROVIDER_LABELS = { apple: 'Apple', google: 'Google' };
+
+/** users columns every auth response is built from. */
+const USER_COLUMNS = 'id, name, email, role, avatar_url';
+
+/**
+ * A display name for an account created through a provider. Apple only reveals
+ * the real name during the FIRST authorization, and only to the client, which
+ * forwards it here; every later sign-in arrives nameless. So: the provider's
+ * own claim, then whatever the client forwarded, then the local part of the
+ * e-mail, and finally a neutral Turkish placeholder — never an empty name,
+ * because the whole app renders names.
+ */
+function displayName(identity, forwarded) {
+  const candidates = [identity.name, typeof forwarded === 'string' ? forwarded.trim() : null];
+  const local = identity.email ? identity.email.split('@')[0] : null;
+  if (local && !local.includes('privaterelay')) candidates.push(local);
+  const picked = candidates.find((c) => c && c.length > 0) || 'Pati Dostu';
+  return picked.slice(0, 120);
+}
+
+async function findUserByIdentity(provider, subject) {
+  const result = await pool.query(
+    `SELECT u.id, u.name, u.email, u.role, u.avatar_url, u.suspended_at, u.suspended_reason
+       FROM user_identities i
+       JOIN users u ON u.id = i.user_id
+      WHERE i.provider = $1 AND i.subject = $2`,
+    [provider, subject]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * Sign in with Apple / Google.
+ *
+ * Resolution order — identity first, e-mail second, new account last:
+ *   1. (provider, subject) already linked → that account, always. Subjects are
+ *      stable; e-mails are not.
+ *   2. a VERIFIED provider e-mail matching an existing account → link the
+ *      identity to it, so someone who registered with a password and later
+ *      taps "Google ile giriş" lands in their own account instead of a
+ *      duplicate. Unverified e-mails must never do this: that would be an
+ *      account takeover with a self-asserted address.
+ *   3. otherwise a new account, with no password at all.
+ */
+async function socialLogin(provider, req, res, next) {
+  try {
+    if (!isEnabled(provider)) {
+      return res
+        .status(503)
+        .json({ error: `${PROVIDER_LABELS[provider]} ile giriş şu anda kullanılamıyor` });
+    }
+
+    let identity;
+    try {
+      identity = await verifyIdentityToken(provider, req.body?.identityToken || req.body?.idToken);
+    } catch (err) {
+      if (err instanceof AuthTokenError) return res.status(401).json({ error: err.message });
+      throw err;
+    }
+
+    let user = await findUserByIdentity(provider, identity.subject);
+    let created = false;
+
+    if (!user) {
+      if (!identity.email) {
+        return res.status(400).json({
+          error: `${PROVIDER_LABELS[provider]} hesabınızdan e-posta alınamadı; e-posta paylaşımına izin verip tekrar deneyin`,
+        });
+      }
+
+      if (identity.emailVerified) {
+        const byEmail = await pool.query(
+          `SELECT ${USER_COLUMNS}, suspended_at, suspended_reason FROM users WHERE email = $1`,
+          [identity.email]
+        );
+        user = byEmail.rows[0] || null;
+      }
+
+      if (!user) {
+        try {
+          const inserted = await pool.query(
+            `INSERT INTO users (name, email, avatar_url)
+             VALUES ($1, $2, $3)
+             RETURNING ${USER_COLUMNS}, suspended_at, suspended_reason`,
+            [displayName(identity, req.body?.name), identity.email, randomAvatarValue()]
+          );
+          user = inserted.rows[0];
+          created = true;
+        } catch (err) {
+          if (err.code !== '23505') throw err;
+          // The address is taken. With a VERIFIED e-mail that is just two
+          // sign-ins racing each other, and the loser reads the winner's row.
+          // With an UNVERIFIED one it is the takeover this endpoint must
+          // refuse — falling through to the existing row would hand the
+          // account to anyone who can put someone else's address in a token
+          // (caught by the curl check, step 8).
+          if (!identity.emailVerified) {
+            return res.status(409).json({
+              error:
+                'Bu e-posta başka bir hesapta kayıtlı. E-posta adresinizi doğrulayıp tekrar deneyin.',
+            });
+          }
+          const again = await pool.query(
+            `SELECT ${USER_COLUMNS}, suspended_at, suspended_reason FROM users WHERE email = $1`,
+            [identity.email]
+          );
+          user = again.rows[0];
+          if (!user) throw err;
+        }
+      }
+
+      await pool.query(
+        `INSERT INTO user_identities (user_id, provider, subject, email)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (provider, subject) DO NOTHING`,
+        [user.id, provider, identity.subject, identity.email]
+      );
+    }
+
+    // Password login leaves this to requireAuth, but here it is worth saying
+    // out loud: a suspended user who taps a provider button gets the reason,
+    // not a token that fails on every screen afterwards.
+    if (user.suspended_at) {
+      return res.status(403).json({
+        error: user.suspended_reason
+          ? `Hesabınız askıya alındı: ${user.suspended_reason}`
+          : 'Hesabınız askıya alındı.',
+        suspended: true,
+      });
+    }
+
+    const token = signToken({ userId: user.id, role: user.role });
+    delete user.suspended_at;
+    delete user.suspended_reason;
+    res.status(created ? 201 : 200).json({ user, token, created });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const appleLogin = (req, res, next) => socialLogin('apple', req, res, next);
+const googleLogin = (req, res, next) => socialLogin('google', req, res, next);
+
+/**
+ * Which sign-in providers this deployment actually has credentials for. The
+ * clients hide the buttons they are not told about, so an unconfigured
+ * environment shows the plain e-mail form rather than a button that can only
+ * fail. Public, unauthenticated, and free of secrets.
+ */
+function providers(req, res) {
+  res.json(publicConfig());
+}
+
+module.exports = { register, login, appleLogin, googleLogin, providers };
+

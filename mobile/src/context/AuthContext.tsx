@@ -8,6 +8,12 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  /** Apple/Google: the provider's identity token becomes a pati session. */
+  loginWithProvider: (
+    provider: authApi.SocialProvider,
+    identityToken: string,
+    name?: string
+  ) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -49,13 +55,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await persistSession(response);
   }
 
+  async function loginWithProvider(
+    provider: authApi.SocialProvider,
+    identityToken: string,
+    name?: string
+  ) {
+    const response = await authApi.socialLogin(provider, identityToken, name);
+    await persistSession(response);
+  }
+
   async function logout() {
     await AsyncStorage.multiRemove(['token', 'user']);
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, loginWithProvider, logout }}>
       {children}
     </AuthContext.Provider>
   );

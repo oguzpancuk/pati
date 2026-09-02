@@ -156,6 +156,9 @@ export interface Me extends User {
   rank: UserRank | null;
   recentComments: UserComment[];
   commentCount: number;
+  /** False for accounts that only ever signed in with Apple or Google. */
+  hasPassword: boolean;
+  authProviders: SocialProvider[];
 }
 
 export type FriendshipStatus = 'none' | 'self' | 'friends' | 'pending_sent' | 'pending_received';
@@ -338,6 +341,27 @@ export const login = (email: string, password: string) =>
 export const register = (name: string, email: string, password: string) =>
   api.post<{ user: User; token: string }>('/auth/register', { name, email, password });
 
+export type SocialProvider = 'apple' | 'google';
+
+export interface AuthProviders {
+  apple: { enabled: boolean; serviceId: string | null; redirectUri: string | null };
+  google: { enabled: boolean; webClientId: string | null; iosClientId: string | null };
+}
+
+/** Which sign-in buttons this deployment can actually offer (see backend). */
+export const fetchAuthProviders = () => api.get<AuthProviders>('/auth/providers');
+
+/**
+ * Hands the provider's identity token to the backend, which verifies it and
+ * answers with a pati session. `name` only ever carries Apple's first-
+ * authorization gift: the one and only time it tells us the user's name.
+ */
+export const socialLogin = (provider: SocialProvider, identityToken: string, name?: string) =>
+  api.post<{ user: User; token: string; created: boolean }>(`/auth/${provider}`, {
+    identityToken,
+    ...(name ? { name } : {}),
+  });
+
 export const fetchMe = () => api.get<Me>('/users/me');
 export const setAvatarKey = (avatarKey: string) =>
   api.put<Me>('/users/me/avatar-key', { avatarKey });
@@ -504,8 +528,13 @@ export const createReport = (
 
 // Account deletion re-authenticates with the password; the server anonymizes
 // the row in place (see the privacy notice's retention section).
-export const deleteAccount = (password: string) =>
-  api.del<{ deleted: boolean }>('/users/me', { password });
+/**
+ * Deletion always re-authenticates. A password account sends its password; an
+ * Apple/Google account signs in with the provider again and sends that token
+ * (it has no password to type).
+ */
+export const deleteAccount = (proof: { password: string } | { provider: SocialProvider; identityToken: string }) =>
+  api.del<{ deleted: boolean }>('/users/me', proof);
 
 // ---------------------------------------------------------------- user / social
 

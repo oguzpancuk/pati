@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
 import { Button, Input, Screen, Text } from '../components/ui';
 import { Icon, Wordmark } from '../components/brand';
+import SocialSignIn from '../components/SocialSignIn';
 import { brand, hitSlop, makeStyles, spacing, useTheme } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
@@ -113,6 +114,8 @@ export default function RegisterScreen({ navigation }: Props) {
             disabled={!termsAccepted}
             fullWidth
           />
+
+          <SocialSignIn />
 
           <Pressable
             onPress={() => navigation.navigate('Login')}

@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { Wordmark } from '../brand';
+import { SocialSignIn } from '../components/SocialSignIn';
 
 /**
  * Login + registration on one screen (handoff 3a): vertically centered logo
@@ -115,6 +116,8 @@ export default function LoginPage() {
             {busy ? 'Bekleyin…' : mode === 'login' ? 'Giriş yap' : 'Kayıt ol'}
           </button>
         </form>
+
+        <SocialSignIn onError={setError} />
 
         <button
           type="button"

@@ -481,12 +481,15 @@ Deliberately deferred, with reasons:
 
 ## 🔧 Improvement sprint (planned August 30, 2026)
 
-> **Status (September 1, 2026): S1–S6 and S8 are shipped and live; two
-> owner feedback rounds on top of them are also live. The only sprint item
-> left is S7 (Apple + Google sign-in).** S7 is blocked on two owner-side
-> prerequisites: the console configuration it always needed, and the new
-> bundle id (`com.patiapp` is unavailable — see the launch sprint), because
-> Sign in with Apple is bound to the App ID.
+> **Status (September 2, 2026): every sprint item is now built.** S1–S6 and
+> S8 are shipped and live, with two owner feedback rounds on top of them.
+> S7 (Apple + Google sign-in) is code-complete on all three sides and waits
+> only on the owner-side console work it always needed — the Apple App ID /
+> Service ID and the Google OAuth client ids (steps: docs/DEPLOYMENT.md).
+> Sign in with Apple is bound to the App ID, so it is also bound to the open
+> bundle-id decision (`com.patiapp` is unavailable — see the launch sprint).
+> Until those values exist the buttons stay hidden and nothing changes for
+> users.
 
 Twelve owner-reported improvements, grouped into eight sessions — one
 session per group, each ends with a code-reviewer pass. Owner decisions
@@ -558,7 +561,7 @@ deliberate-wait pattern as AddAnimal matching (`MIN_MATCHING_MS`).
 - **Done when:** screenshot of the interstitial; NOTES entry marking the
   placeholder (like the matching one).
 
-### S7 — Apple + Google sign-in (item 2)
+### S7 — Apple + Google sign-in (item 2) — built, waiting on the consoles
 
 The largest item; its own session. Native modules (pod install + native
 build), new backend auth paths. App Store rule: offering Google sign-in
@@ -567,6 +570,20 @@ work: Apple Developer / Google Cloud console configuration.
 
 - **Done when:** both logins verified on the simulator end to end; token
   flow checked with curl.
+- **Built (September 2, 2026):** server-side identity-token verification
+  (JWKS, issuer, audience, expiry — ADR-0003), `user_identities`,
+  passwordless accounts, provider re-authentication before account
+  deletion, and the button row on both clients, drawn only where
+  `GET /api/auth/providers` says the provider is configured.
+- **Verified:** `backend/scripts/social-auth-check/run.sh` (24 curl checks
+  against a local issuer: create, link, four refusals, delete); login and
+  deletion screenshots in light and dark on both clients; the iOS Apple
+  sheet reached the system dialog on the simulator.
+- **NOT verified, and cannot be until the consoles are filled in:** a real
+  round trip with Apple's and Google's own servers. Remaining owner steps
+  (App ID + Service ID, two Google OAuth clients, the reversed-client-id
+  URL scheme in `Info.plist`, the Fly secrets, and the one-off production
+  migration) are listed in docs/DEPLOYMENT.md → "Apple / Google sign-in".
 
 ### S8 — Terms of use (item 12)
 

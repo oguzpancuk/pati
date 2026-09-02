@@ -7,6 +7,8 @@ import {
   register as apiRegister,
   setSessionExpiredHandler,
   setToken,
+  socialLogin as apiSocialLogin,
+  SocialProvider,
 } from './api';
 
 interface AuthValue {
@@ -14,6 +16,8 @@ interface AuthValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  /** Apple/Google: the provider's identity token becomes a pati session. */
+  loginWithProvider: (provider: SocialProvider, identityToken: string, name?: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
   /** Applies the result of Me-returning calls (like avatar changes) in place. */
@@ -77,13 +81,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [refresh]
   );
 
+  const loginWithProvider = useCallback(
+    async (provider: SocialProvider, identityToken: string, name?: string) => {
+      const { token } = await apiSocialLogin(provider, identityToken, name);
+      setToken(token);
+      await refresh();
+    },
+    [refresh]
+  );
+
   const logout = useCallback(() => {
     setToken(null);
     setMe(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ me, loading, login, register, logout, refresh, applyMe: setMe }}>
+    <AuthContext.Provider value={{ me, loading, login, register, loginWithProvider, logout, refresh, applyMe: setMe }}>
       {children}
     </AuthContext.Provider>
   );

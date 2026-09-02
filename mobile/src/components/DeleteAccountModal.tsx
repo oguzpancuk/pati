@@ -1,18 +1,30 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, TextInput, View } from 'react-native';
+import { Modal, Pressable, TextInput } from 'react-native';
+import type { SocialProvider } from '../api/auth';
 import { deleteMyAccount } from '../api/users';
 import { useAuth } from '../context/AuthContext';
+import { forgetGoogleSession, isAppleCancellation, signInWithApple, signInWithGoogle } from '../socialAuth';
 import { Button, Text } from './ui';
 import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme';
 
 /**
  * Self-service account deletion (the KVKK promise on /gizlilik + App Store
  * 5.1.1(v), which requires it in-app). A faint link opens a modal that spells
- * out what is deleted and what stays anonymized, then re-authenticates with
- * the password — an unlocked phone must not be enough to destroy an account.
- * Mirrors the web client's DeleteAccountDialog.
+ * out what is deleted and what stays anonymized, then re-authenticates — an
+ * unlocked phone must not be enough to destroy an account. Password accounts
+ * type their password; Apple/Google accounts have none, so they sign in with
+ * the provider once more and that token is the proof. Mirrors the web
+ * client's DeleteAccountDialog.
  */
-export default function DeleteAccountLink({ initialOpen = false }: { initialOpen?: boolean } = {}) {
+export default function DeleteAccountLink({
+  initialOpen = false,
+  hasPassword = true,
+  authProviders = [],
+}: {
+  initialOpen?: boolean;
+  hasPassword?: boolean;
+  authProviders?: SocialProvider[];
+} = {}) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { logout } = useAuth();
@@ -28,16 +40,37 @@ export default function DeleteAccountLink({ initialOpen = false }: { initialOpen
     setError(null);
   }
 
-  async function submit() {
-    if (!password) return;
+  async function remove(proof: Parameters<typeof deleteMyAccount>[0]) {
     setBusy(true);
     setError(null);
     try {
-      await deleteMyAccount(password);
+      await deleteMyAccount(proof);
+      // Google keeps its own signed-in account at the OS level; leaving it
+      // behind would silently re-create the pati account on the next tap.
+      if ('provider' in proof && proof.provider === 'google') await forgetGoogleSession();
       // The session is dead server-side; drop it locally too.
       await logout();
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'Silinemedi, tekrar dene.');
+      setBusy(false);
+    }
+  }
+
+  async function submit() {
+    if (!password) return;
+    await remove({ password });
+  }
+
+  async function confirmWithProvider(provider: SocialProvider) {
+    setBusy(true);
+    setError(null);
+    try {
+      const identity = provider === 'apple' ? await signInWithApple() : await signInWithGoogle();
+      // Closing the provider sheet is a decision, not a failure.
+      if (!identity) return setBusy(false);
+      await remove({ provider, identityToken: identity.identityToken });
+    } catch (err: any) {
+      if (!isAppleCancellation(err)) setError('Doğrulama başarısız, tekrar dene.');
       setBusy(false);
     }
   }
@@ -65,15 +98,22 @@ export default function DeleteAccountLink({ initialOpen = false }: { initialOpen
               bağlanamayacak şekilde kalır.
             </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Şifren"
-              placeholderTextColor={colors.textSubtle}
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              autoComplete="current-password"
-            />
+            {hasPassword ? (
+              <TextInput
+                style={styles.input}
+                placeholder="Şifren"
+                placeholderTextColor={colors.textSubtle}
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                autoComplete="current-password"
+              />
+            ) : (
+              <Text variant="body" style={styles.warning}>
+                Hesabın {providerLabel(authProviders)} ile açılmış, şifresi yok. Silmeden önce{' '}
+                {providerLabel(authProviders)} ile kimliğini doğrula.
+              </Text>
+            )}
 
             {error && (
               <Text variant="caption" color="danger" center style={styles.error}>
@@ -81,20 +121,39 @@ export default function DeleteAccountLink({ initialOpen = false }: { initialOpen
               </Text>
             )}
 
-            <Button
-              title="Hesabımı kalıcı olarak sil"
-              variant="danger"
-              onPress={submit}
-              loading={busy}
-              disabled={!password}
-              fullWidth
-            />
+            {hasPassword ? (
+              <Button
+                title="Hesabımı kalıcı olarak sil"
+                variant="danger"
+                onPress={submit}
+                loading={busy}
+                disabled={!password}
+                fullWidth
+              />
+            ) : (
+              authProviders.map((provider) => (
+                <Button
+                  key={provider}
+                  title={`${providerLabel([provider])} ile doğrula ve sil`}
+                  variant="danger"
+                  onPress={() => confirmWithProvider(provider)}
+                  loading={busy}
+                  fullWidth
+                />
+              ))
+            )}
             <Button title="Vazgeç" variant="ghost" onPress={reset} disabled={busy} fullWidth />
           </Pressable>
         </Pressable>
       </Modal>
     </>
   );
+}
+
+/** "Apple", "Google" or "Apple ve Google" — for the modal's explanation. */
+function providerLabel(providers: SocialProvider[]): string {
+  const names = providers.map((p) => (p === 'apple' ? 'Apple' : 'Google'));
+  return names.length > 1 ? names.join(' ve ') : names[0] || 'sağlayıcın';
 }
 
 const useStyles = makeStyles(({ colors: c, shadow }) => ({

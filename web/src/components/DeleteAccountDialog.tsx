@@ -1,19 +1,38 @@
-import { useState } from 'react';
-import { deleteAccount } from '../api';
+import { useEffect, useRef, useState } from 'react';
+import type { AuthProviders, SocialProvider } from '../api';
+import { deleteAccount, fetchAuthProviders } from '../api';
 import { useAuth } from '../auth';
+import { isAppleCancellation, renderGoogleButton, signInWithApple } from '../socialAuth';
+import { resolvedThemeName } from '../theme';
 
 /**
  * Self-service account deletion (the KVKK promise on /gizlilik + App Store
  * 5.1.1). A faint link opens a sheet that spells out what is deleted and what
- * stays anonymized, then re-authenticates with the password — a stolen open
- * session must not be enough to destroy an account.
+ * stays anonymized, then re-authenticates — a stolen open session must not be
+ * enough to destroy an account. Password accounts type their password;
+ * Apple/Google accounts have none, so they sign in with the provider once
+ * more and that token is the proof.
  */
 export function DeleteAccountLink() {
-  const { logout } = useAuth();
+  const { logout, me } = useAuth();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<AuthProviders | null>(null);
+  const googleSlot = useRef<HTMLDivElement>(null);
+
+  // An account with no password proves itself through its provider, so the
+  // sheet needs the provider config — fetched only when that is the case.
+  const usesPassword = me?.hasPassword !== false;
+  const linked = me?.authProviders ?? [];
+
+  useEffect(() => {
+    if (!open || usesPassword || providers) return;
+    fetchAuthProviders()
+      .then(setProviders)
+      .catch(() => setError('Doğrulama sağlayıcısı yüklenemedi'));
+  }, [open, usesPassword, providers]);
 
   function reset() {
     setOpen(false);
@@ -21,12 +40,11 @@ export function DeleteAccountLink() {
     setError(null);
   }
 
-  async function submit() {
-    if (!password) return;
+  async function remove(proof: Parameters<typeof deleteAccount>[0]) {
     setBusy(true);
     setError(null);
     try {
-      await deleteAccount(password);
+      await deleteAccount(proof);
       // The session is dead server-side; drop it locally too.
       logout();
     } catch (err) {
@@ -34,6 +52,34 @@ export function DeleteAccountLink() {
       setBusy(false);
     }
   }
+
+  async function submit() {
+    if (!password) return;
+    await remove({ password });
+  }
+
+  async function confirmWithApple() {
+    const apple = providers?.apple;
+    if (!apple?.serviceId || !apple.redirectUri) return;
+    setError(null);
+    try {
+      const { identityToken } = await signInWithApple(apple.serviceId, apple.redirectUri);
+      await remove({ provider: 'apple', identityToken });
+    } catch (err) {
+      if (!isAppleCancellation(err)) setError('Doğrulama başarısız, tekrar deneyin');
+    }
+  }
+
+  useEffect(() => {
+    const clientId = providers?.google.webClientId;
+    if (!open || usesPassword || !clientId || !linked.includes('google') || !googleSlot.current) {
+      return;
+    }
+    renderGoogleButton(googleSlot.current, clientId, resolvedThemeName(), (identityToken) =>
+      remove({ provider: 'google', identityToken })
+    ).catch(() => setError('Google doğrulaması yüklenemedi'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, usesPassword, providers, linked.join(',')]);
 
   return (
     <>
@@ -64,32 +110,59 @@ export function DeleteAccountLink() {
               Adın, e-postan ve avatarın kalıcı olarak silinir; bu geri alınamaz. Eklediğin hayvan
               kayıtları ve yorumlar sokaktaki hayvanların takibi için &quot;Silinmiş Üye&quot;
               adıyla, sana bağlanamayacak şekilde kalır (ayrıntı:{' '}
-              <a href="/gizlilik" className="textlink">
+              {/* Inline, not .textlink: that class is display:block and broke
+                  this sentence across three lines. */}
+              <a href="/gizlilik" style={{ color: 'var(--brand)' }}>
                 gizlilik
               </a>
               ).
             </p>
 
-            <label className="field">
-              <span>şifren</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-            </label>
+            {usesPassword ? (
+              <label className="field">
+                <span>şifren</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </label>
+            ) : (
+              <p className="muted" style={{ margin: '0 0 12px', lineHeight: 1.55 }}>
+                Hesabın {providerLabel(linked)} ile açılmış, şifresi yok. Silmeden önce{' '}
+                {providerLabel(linked)} ile kimliğini doğrula.
+              </p>
+            )}
 
             {error && <div className="error">{error}</div>}
 
-            <button
-              className="btn full"
-              style={{ background: 'var(--danger)', boxShadow: 'none' }}
-              disabled={!password || busy}
-              onClick={submit}
-            >
-              {busy ? 'Siliniyor…' : 'Hesabımı kalıcı olarak sil'}
-            </button>
+            {usesPassword ? (
+              <button
+                className="btn full"
+                style={{ background: 'var(--danger)', boxShadow: 'none' }}
+                disabled={!password || busy}
+                onClick={submit}
+              >
+                {busy ? 'Siliniyor…' : 'Hesabımı kalıcı olarak sil'}
+              </button>
+            ) : (
+              <>
+                {linked.includes('apple') && (
+                  <button
+                    type="button"
+                    className="social-btn apple"
+                    disabled={busy || !providers?.apple.serviceId}
+                    onClick={confirmWithApple}
+                  >
+                    {busy ? 'Siliniyor…' : 'Apple ile doğrula ve sil'}
+                  </button>
+                )}
+                {linked.includes('google') && (
+                  <div className="social-google" ref={googleSlot} aria-busy={busy} />
+                )}
+              </>
+            )}
             <button
               type="button"
               className="link"
@@ -104,4 +177,10 @@ export function DeleteAccountLink() {
       )}
     </>
   );
+}
+
+/** "Apple", "Google" or "Apple ve Google" — for the sheet's explanation. */
+function providerLabel(providers: SocialProvider[]): string {
+  const names = providers.map((p) => (p === 'apple' ? 'Apple' : 'Google'));
+  return names.length > 1 ? names.join(' ve ') : names[0] || 'sağlayıcın';
 }
