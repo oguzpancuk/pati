@@ -35,6 +35,12 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Every e-mail lookup now compares lower(email) (addresses are stored
+-- lower-cased, but rows predating that keep their original case), and a
+-- plain btree on `email` cannot serve those. Without this, an
+-- unauthenticated POST /auth/login scans the whole users table.
+CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users (lower(email));
+
 -- Sign-in identities from Apple and Google. One row links a provider's stable
 -- subject id to a pati account; a user may hold both, and an existing password
 -- account gains one when the provider reports the same verified e-mail. Kept

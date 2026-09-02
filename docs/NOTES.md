@@ -660,7 +660,8 @@ Things that cost time before and will come up again:
   for `App-Prefs:` paths — those are private API and an App Store
   rejection risk. Testing the permission alert needs an account without
   the dev location override (e.g. e2e-loc@example.com) plus
-  `xcrun simctl privacy booted revoke location com.patiapp`.
+  `xcrun simctl privacy booted revoke location <bundle id>` (the id was
+  `com.patiapp` when this was written; see 2026-09-02).
 
 ---
 
@@ -989,7 +990,7 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   existing account — an account takeover by anyone who could put someone
   else's address in a token. The check lives at
   `backend/scripts/social-auth-check/run.sh` (a local issuer whose signing
-  key the checks control; 26 assertions, including six refusals).
+  key the checks control; 41 assertions by the end of the day).
   **code-reviewer then found the other half**, which the first fix missed:
   when the address was still *free*, an unverified e-mail created an account
   that then OWNED that address, and the real owner's first verified sign-in
@@ -1091,8 +1092,10 @@ commit. Every finding below was reproduced by the agent, not argued.
 - **QA's independent evidence:** the no-credentials state was verified as
   genuinely inert (zero third-party requests on web, no button row on
   mobile, all password paths unchanged), the production migration is
-  idempotent across three runs from a rebuilt pre-S7 schema, and the check
-  script's assertions were mutation-tested — removing the `audience` option
+  idempotent across three runs from a rebuilt pre-S7 schema (that was the
+  standalone-script version; the column and backfill came later, and the
+  round-three reviewer re-ran the current one), and the check script's
+  assertions were mutation-tested — removing the `audience` option
   from `jwt.verify` makes step 5 fail, so the checks are not vacuous.
 - **QA also found an undocumented prerequisite:** on a machine whose
   `stray-db` predates S7, `contracts/init.sh` is not enough for the check
@@ -1130,3 +1133,139 @@ Organization one, which would need a legal entity plus a D-U-N-S number).
   those users unless Apple's transfer-identifier flow is run at the same
   time. Google's `sub` is global and unaffected. Transferring after real
   users exist is therefore meaningfully more expensive than starting there.
+
+## 2026-09-02 — third review round: the unreviewed commits had four defects
+
+The owner asked "pushlarken codereviewer agentı çalışmadı mı?" — and was
+right. The reviewer had run twice, but each round looked at an intermediate
+commit: the fixes written in response to round two (`29e8ecb`) and the
+bundle-id change (`089c2c1`) went out unreviewed. Running the agent earlier
+in a session is not the same as reviewing what gets pushed.
+
+The round-three pass on exactly that range found four more real defects, so
+the gap was not academic:
+
+- **The documented deploy order would have 500ed every sign-in.**
+  `DEPLOYMENT.md` listed the secrets before the one-off migration, and
+  `release_command` only applies `migrations/*.sql`. Setting the secrets
+  first made the feature live against a `users` table with no
+  `email_verified`. Fixed at the root: the schema change is now
+  `migrations/002_social_auth.sql`, applied by the release command like
+  everything else, and the standalone script is gone. This also removes the
+  local prerequisite evaluator-qa had flagged.
+- **Capitalisation turned the new linking rule into a coin flip.** Providers
+  report lower-cased e-mail; `users.email` kept whatever case was typed. The
+  reviewer registered `CaseProbe-…@Example.com`, presented a verified Google
+  token for the lower-cased address, and got a **new empty account** instead
+  of the 409. Addresses are now stored lower-cased and matched
+  case-insensitively (login prefers an exact match, so older rows are
+  unaffected). Knock-on it also found: `make-admin.js` matches with
+  `lower(email)` and no limit, so a case-variant pair — which S7 would have
+  produced routinely — meant promoting *both* rows to admin. It now refuses
+  ambiguous matches and names them.
+- **The crash guard's real invariant was held together by prose.**
+  `googleAvailable()` compares the server's id to the compiled-in one, but
+  the condition that actually raises the ObjC exception is `Info.plist`
+  carrying the reversed form of that id — which nothing at runtime can see.
+  `mobile/__tests__/googleClientId.test.ts` now asserts the pairing in both
+  directions, so it runs in the battery and in CI.
+- **The ADR documented the opposite of the shipped rule.** Worse, the new
+  `email_verified` column pointed the reader at it for the rationale. The
+  ADR edit had failed silently inside a scripted batch two commits earlier,
+  and nothing caught it because nothing re-read the file. Now corrected,
+  along with the squatting cost, which the docs had been describing in its
+  milder form only.
+
+The habit this cost us is worth writing down even though the enforcement
+went elsewhere: **run code-reviewer on the range being pushed, not on
+whatever commit happened to be current when the last round ran.** Fixes
+written in response to a review are the commits most worth re-reviewing —
+two of the three defects that round found had been left behind by an earlier
+fix.
+
+
+## 2026-09-02 — fourth and fifth review rounds: the product findings
+
+Both rounds were mostly about a push-gate hook written this session and then
+removed again (the owner is taking that rule to the maya layer instead, where
+it belongs — it is a workflow rule, not a pati feature). What they found in
+S7 itself:
+
+- **The case-insensitive lookup had no index**: `lower(email)` cannot use
+  `users_email_key`, so an unauthenticated login had become a sequential scan
+  of `users`. `idx_users_email_lower` is now in both schema files (`EXPLAIN`
+  shows an index scan on it).
+- **`ORDER BY id` picked the wrong row.** With a pre-existing pair of case
+  variants, someone who already signs in with Google and taps "Apple ile
+  giriş" got the older password row and a 409 telling them to use a password
+  belonging to a different account. It is `ORDER BY email_verified DESC, id`
+  now: the linkable row wins.
+- **The login tie-break could lock someone out silently.** After
+  normalisation it compared against the *normalised* address, so with a
+  pre-existing `Ali@x.com` / `ali@x.com` pair the owner of the capitalised
+  one had their password checked against the other row's hash — correct
+  password, permanent "invalid e-mail or password", no support signal. The
+  exact typed address wins the tie now.
+- **The backfill had become a standing rule.** Moving it into
+  `002_social_auth.sql` meant it re-ran on every deploy, permanently
+  asserting that any passwordless account with an identity has a proven
+  address — which would silently undo a support correction. Deleted; the rows
+  it existed for only ever lived on a developer database.
+- **Registration and login disagreed about trimming**, so a pasted address
+  with a leading space could register and then fail to log in (mobile sends
+  the field raw). One `normalizeEmail()` now serves both. `register` also
+  accepted a non-string e-mail, normalised it to `''` and inserted it, and
+  answered any unique violation with "already registered"; it type-checks at
+  the boundary and looks at the constraint name now.
+- **Three assertions passed for the wrong reason.** Step 4 checked only the
+  status code while claiming the message names the providers. Step 10b could
+  not fail: registration lower-cases, so both sides were lower-case by the
+  time it ran. And even after that was fixed, a further round pointed out
+  that the login tie-break only matters when TWO rows match — with one row
+  `LIMIT 1` returns it under either ordering — so step 10c now builds the
+  actual case-variant pair (two accounts, same password, so the returned id
+  is the only discriminator) and asserts which row each spelling reaches.
+  Mutation-tested: preferring the normalised row hands back the other
+  account, which is the silent lockout itself.
+- The refusal checks now assert that the dev IdP actually returned a JWT: an
+  error body is a non-empty string, which the endpoint answers with 401, so
+  they could have passed without ever testing a token.
+- `migrate.js` runs its files on one checked-out client. `SET` is
+  per-connection and a pool gives no session affinity, so `lock_timeout` was
+  covering whichever files happened to reuse that backend.
+- `lock_timeout` is set in `migrate.js` before any file is applied: files run
+  in sorted order and `001`, which creates the indexes, runs first.
+- `migrate.js` prints the resulting tables and their column counts, so the
+  release log records something observed rather than only which files were
+  fed in. It cannot see a missing index or a wrong default.
+- The Info.plist test now looks only inside `CFBundleURLSchemes` (a scheme
+  under `LSApplicationQueriesSchemes` would have satisfied the old match and
+  still crashed) and asserts the app's own `pati` scheme is present, so it
+  cannot pass on an empty list.
+- README and docs/PROJECT.md still claimed "single migration file"; both
+  carried the same load-bearing-facts list CLAUDE.md had already corrected.
+
+## 2026-09-02 — seventh review round, on the squashed S7 commit
+
+- **The check harness could report green for code it never ran.** `run.sh`
+  waited for *something* to answer `/health` on 3101, never for its own
+  process. With a stale backend holding the port, ours died with
+  `EADDRINUSE`, the assertions ran against the old process, and the script
+  printed ALL CHECKS PASSED — reviewer reproduced it. A first fix checked
+  that our PIDs were alive after the readiness probe; the re-review showed
+  that loses the race when BOTH ports are stale (the probe succeeds before
+  our process has even reached `listen()`), 3/3. It now loops until `lsof`
+  says the listening pid on each port IS ours, or ours is dead — timing is
+  no longer part of the argument. It also waits for the dev IdP's JWKS (the
+  RSA keygen takes about a second; step 1 could mint against nothing).
+- **The "proven row wins" ordering had no assertion** — every check stayed
+  green with it removed. Production cannot produce the pair it defends
+  against (each side refuses the other's address), so step 10d builds it by
+  hand and asserts a second provider lands in the social account rather
+  than a 409 for a password that is not the user's.
+- `login` now type-checks like `register`; `set-email.js` refuses to run in
+  production (it ships in the image and bypasses normalisation);
+  `fly.toml`'s "one migration file" comment joined the others that were
+  corrected. The ROADMAP's S7 status now states all three unverified areas
+  — real providers, Android, iOS release build — in one place, and no
+  longer lists a manual migration step that this commit retired.

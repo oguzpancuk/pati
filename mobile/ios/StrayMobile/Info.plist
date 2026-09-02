@@ -24,7 +24,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.patiapp</string>
+			<string>com.oguzpancuk.pati</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>pati</string>

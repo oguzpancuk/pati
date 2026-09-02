@@ -68,18 +68,29 @@ script — and nothing here has to be done before a deploy.
    `com.pati-app.web`) for web sign-in, with `pati-app.com` as the domain
    and `https://pati-app.com/giris` as the return URL. Apple asks you to
    verify the domain with a file it generates.
-3. **Google Cloud → APIs & Services → Credentials → OAuth client ID**, twice:
-   one *iOS* client (bundle id) and one *Web application* client
-   (`https://pati-app.com` as origin). The consent screen needs the app name,
-   the support e-mail and the two legal URLs (`/gizlilik`, `/kosullar`).
+3. **Google Cloud → APIs & Services → Credentials → OAuth client ID**: one
+   *iOS* client whose bundle id is **`com.oguzpancuk.pati`** (a Google iOS
+   client is bound to that string — the old `com.patiapp` would produce a
+   client that can never work), and one *Web application* client with
+   `https://pati-app.com` as an origin. When Android ships it needs a third,
+   *Android* client, registered against the **applicationId**
+   (`com.oguzpancuk.pati`) and the signing SHA-1 — not the `namespace`
+   (`com.patiapp`) that appears throughout the Android sources; getting that
+   pair wrong yields `DEVELOPER_ERROR` on every Android sign-in. The consent
+   screen needs the app name, the support e-mail and the two legal URLs
+   (`/gizlilik`, `/kosullar`).
 4. **iOS only, and this one is load-bearing:** paste the Google iOS client's
    *reversed* id (it looks like `com.googleusercontent.apps.123-abc`) into
    `mobile/ios/StrayMobile/Info.plist` as an extra `CFBundleURLSchemes`
    entry next to `pati`, **and** put the plain id into
    `mobile/src/googleClientId.ts` in the same commit, then rebuild natively.
-   The app compares the two: iOS draws the Google button only when the
-   server's `GOOGLE_IOS_CLIENT_ID` equals the id compiled into the binary,
-   so a mismatch hides the button instead of crashing. That guard exists
+   The app compares the *server's* id to the compiled-in one and draws the
+   iOS button only when they match, so a stale Fly secret hides the button
+   instead of crashing it. Nothing at runtime can read `Info.plist`, so the
+   remaining pairing — compiled-in id ↔ URL scheme — is asserted by
+   `mobile/__tests__/googleClientId.test.ts`, which the battery and CI run.
+   Until the id is filled in, that test only checks that no stray scheme is
+   present; filling it in is what switches the pairing assertion on. That guard exists
    because a release build without the matching scheme **does not show an
    error — it terminates**: Google's SDK raises an Objective-C exception and
    the React Native wrapper only catches it under `#if DEBUG`, which is why
@@ -103,22 +114,17 @@ fly secrets set --app pati-app \
 a token issued for any other app is refused. The remaining three are handed
 to the clients so they can configure their SDKs without a rebuild.
 
-**Schema:** the sign-in tables are new, and `CREATE TABLE IF NOT EXISTS`
-cannot alter the existing `users` table, so production needs the one-off
-migration once:
-
-```bash
-fly ssh console --app pati-app -C "node scripts/migrate-social-auth-20260902.js"
-```
+**Schema:** nothing to do by hand. `migrations/002_social_auth.sql` carries
+the changes `001_init.sql` cannot make to an existing `users` table, and the
+release command applies it on every deploy (idempotent). It was a manual
+one-off script at first, which left a window where the secrets could be live
+before the column existed — every sign-in 500ed inside it.
 
 **Local check:** `bash backend/scripts/social-auth-check/run.sh` boots a
 throwaway backend and a local issuer and drives the whole flow (create, link,
-refuse a forged token, delete). It needs the local database running — and on
-a machine whose `stray-db` predates S7, the migration above has to be run
-locally first (`cd backend && node scripts/migrate-social-auth-20260902.js`).
-`contracts/init.sh` alone is not enough: it runs `001_init.sql`, whose
-`CREATE TABLE IF NOT EXISTS` cannot alter the existing `users` table, so the
-check fails at step 1 with a NOT NULL violation on `password_hash`.
+refuse a forged token, delete). It needs the local database running;
+`contracts/init.sh` is enough, since its `npm run migrate` applies
+`002_social_auth.sql` along with the rest.
 
 ## Custom domains
 
@@ -129,9 +135,10 @@ fly certs show app.YOURDOMAIN.com --app pati-app  # https is ready when it says 
 
 ## Subsequent deploys
 
-`fly deploy` after `git push`. The schema is a single `IF NOT EXISTS` file, so
-migrate runs safely on every deploy; adding columns requires incremental
-migrations (see ROADMAP).
+`fly deploy` after `git push`. The release command applies every file in
+`backend/migrations/` in order, all of them idempotent, so migrate runs safely
+on every deploy; a change to an existing table goes into a new numbered file
+as well as `001_init.sql` (see CLAUDE.md).
 
 ## Known limits (pilot)
 

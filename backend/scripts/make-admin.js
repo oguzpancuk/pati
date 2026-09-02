@@ -23,6 +23,22 @@ async function main() {
   }
 
   const role = revoke ? 'user' : 'admin';
+
+  // Case-insensitive matching can hit more than one row if two case variants
+  // of an address were registered before addresses were normalised. Granting
+  // admin to a row nobody asked about is exactly the mistake worth refusing:
+  // name them and let a human choose.
+  const candidates = await pool.query(
+    'SELECT id, name, email FROM users WHERE lower(email) = lower($1) ORDER BY id',
+    [email]
+  );
+  if (candidates.rows.length > 1) {
+    console.error(`"${email}" matches ${candidates.rows.length} accounts:`);
+    for (const row of candidates.rows) console.error(`  #${row.id}  ${row.email}  ${row.name}`);
+    console.error('Refusing to change all of them. Fix the duplicate first.');
+    process.exit(1);
+  }
+
   const result = await pool.query(
     'UPDATE users SET role = $1 WHERE lower(email) = lower($2) RETURNING id, name, email, role',
     [role, email]

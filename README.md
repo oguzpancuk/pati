@@ -123,7 +123,9 @@ rationale in [docs/NOTES.md](docs/NOTES.md):
    thousands; points will need periodic materialization.
 2. **Photos live on the server's local disk** — no backups, no multi-node,
    no resizing. Production needs S3/R2 + CDN.
-3. **Single migration file** — schema changes reset the database.
+3. **Numbered migrations, no ledger** — `scripts/migrate.js` re-applies
+   every `.sql` file on every deploy, so each must stay idempotent, and a
+   new column belongs in `001_init.sql` *and* a new numbered file.
 4. **Photo evidence is not validated; rate limiting only covers auth** —
    moderation exists in the admin panel, automation doesn't.
 5. **Very low automated-test coverage** on the backend.
@@ -393,9 +395,10 @@ See `mobile/src/location.ts`.
 ## Troubleshooting
 
 - **"I don't see the new design"**: you are almost certainly opening the
-  **old app**. The package ID changed (`com.straymobile` → `com.patiapp`), so
+  **old app**. The package ID has changed twice (`com.straymobile` →
+  `com.patiapp` → `com.oguzpancuk.pati`), so
   the new build installs as a separate app. Uninstall the old one
-  (`adb uninstall com.straymobile` on Android; long-press-delete on the iOS
+  (`adb uninstall <old id>` on Android; long-press-delete on the iOS
   simulator), then `npx react-native start --reset-cache` and rebuild. The
   orange paw icon is the right app.
 - **Text still in the system font / old icon**: fonts and icons load natively;

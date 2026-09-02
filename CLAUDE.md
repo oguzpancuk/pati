@@ -60,9 +60,13 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
 - **PostGIS is load-bearing, not decorative.** The core is geo queries
   (`ST_DWithin` for "care within 100 m", `ST_MakeEnvelope` for the viewport,
   GIST indexes). Any proposal to switch databases must state that cost first.
-- **Single migration file** (`backend/migrations/001_init.sql`); schema changes
-  mean resetting the database. `CREATE TABLE IF NOT EXISTS` silently does
-  nothing on an existing table — beware when adding columns.
+- **Migrations are numbered files applied in order** by
+  `backend/scripts/migrate.js`, which the Fly release command runs on every
+  deploy. `001_init.sql` describes a database built from scratch;
+  `002_social_auth.sql` and anything after it exist because production is
+  never rebuilt. `CREATE TABLE IF NOT EXISTS` silently does nothing on an
+  existing table, so **a new column belongs in a new numbered file as well as
+  in 001** — and every statement in it must survive being re-run.
 - **`users.avatar_url` holds two kinds of values**: an uploaded photo URL or a
   built-in key like `pati-avatar:f3` (`backend/src/utils/avatars.js`). Never
   put it straight into `<img src>` / `<Image uri>`; mobile's `ui/Avatar`

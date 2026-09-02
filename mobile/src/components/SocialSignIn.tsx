@@ -10,6 +10,7 @@ import {
   isAppleCancellation,
   signInWithApple,
   signInWithGoogle,
+  SocialAuthError,
 } from '../socialAuth';
 import { brand, makeStyles, minTouch, radius, spacing, useTheme } from '../theme';
 import { Text } from './ui';
@@ -57,9 +58,14 @@ export default function SocialSignIn() {
         }
       } catch (err: any) {
         if (!isAppleCancellation(err)) {
+          // Same two sources as the delete sheet: the API's Turkish error and
+          // socialAuth's own. SDK/axios messages are English, so they never
+          // reach the user.
           Alert.alert(
             'Giriş başarısız',
-            err?.response?.data?.error ?? 'Bir hata oluştu, tekrar deneyin'
+            err?.response?.data?.error ??
+              (err instanceof SocialAuthError ? err.message : null) ??
+              'Bir hata oluştu, tekrar deneyin'
           );
         }
       } finally {

@@ -516,6 +516,9 @@ async function deleteMyAccount(req, res, next) {
          email = 'silinmis-' || id || '@deleted.pati-app.com',
          password_hash = $2,
          avatar_url = NULL,
+         -- The anonymized address is a placeholder nobody proved; leaving
+         -- this true would let a tombstone look like a linkable account.
+         email_verified = false,
          featured_badges = '[]'::jsonb,
          last_rank = NULL,
          last_points = 0,

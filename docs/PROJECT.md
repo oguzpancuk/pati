@@ -297,8 +297,11 @@ in [NOTES.md](NOTES.md); the most important:
    First place to look when scale grows.
 2. **Photos on the server's local disk.** No backups, no multi-node, no
    resizing. Production needs object storage (S3/R2) + CDN.
-3. **Single migration file** — schema changes reset the database. Move to
-   incremental migrations before real data.
+3. **Numbered migrations, no ledger.** `scripts/migrate.js` re-applies every
+   `.sql` file in `migrations/` on every deploy (it is the Fly release
+   command), so every statement must stay idempotent and a schema change
+   belongs in `001_init.sql` *and* a new numbered file. A `schema_migrations`
+   ledger would lift that constraint.
 4. **Photo evidence unvalidated; rate limiting only on auth.** Moderation and
    abuse protection needed.
 5. **Very low automated-test coverage.**

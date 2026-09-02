@@ -12,6 +12,17 @@ const {
 const SALT_ROUNDS = 10;
 
 /**
+ * The one way an e-mail enters this file. Trimmed because a pasted address
+ * often carries a space and mobile does not trim before sending, lower-cased
+ * because providers always report lower-case and `users.email` is compared
+ * against them — registering `Ali@x.com` and signing in with Google must
+ * reach the same account (review found both halves).
+ */
+function normalizeEmail(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+/**
  * New accounts get a random built-in avatar. A chat full of blank
  * (initials-only) profiles made the app look abandoned; the random pick is a
  * starting value, not an imposition — users can switch it or upload a photo
@@ -27,22 +38,45 @@ async function register(req, res, next) {
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'name, email ve password zorunludur' });
     }
+    // Typed check as well as truthiness: an object here normalises to '' and
+    // would insert a user with an empty address (review finding).
+    if (typeof email !== 'string' || typeof name !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'name, email ve password metin olmalıdır' });
+    }
     if (password.length < 8) {
       return res.status(400).json({ error: 'Şifre en az 8 karakter olmalıdır' });
     }
 
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const normalizedEmail = normalizeEmail(email);
+
+    const existing = await pool.query('SELECT id FROM users WHERE lower(email) = $1', [
+      normalizedEmail,
+    ]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'Bu e-posta ile kayıtlı bir kullanıcı zaten var' });
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const result = await pool.query(
-      `INSERT INTO users (name, email, password_hash, avatar_url)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, role, avatar_url, created_at`,
-      [name, email, passwordHash, randomAvatarValue()]
-    );
+    let result;
+    try {
+      result = await pool.query(
+        `INSERT INTO users (name, email, password_hash, avatar_url)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, name, email, role, avatar_url, created_at`,
+        [name, normalizedEmail, passwordHash, randomAvatarValue()]
+      );
+    } catch (err) {
+      // Two registrations racing on the same address — newly reachable now
+      // that `Ali@x.com` and `ali@x.com` normalise to one key. The check
+      // above is not a lock; `users_email_key` is (it is case-sensitive, and
+      // only works here because the address was normalised first —
+      // `idx_users_email_lower` is an index, not a constraint). Its verdict
+      // deserves the same 409 rather than a 500.
+      // Only the e-mail collision means "already registered"; any other
+      // unique violation is our problem and deserves to surface as one.
+      if (err.code !== '23505' || err.constraint !== 'users_email_key') throw err;
+      return res.status(409).json({ error: 'Bu e-posta ile kayıtlı bir kullanıcı zaten var' });
+    }
 
     const user = result.rows[0];
     const token = signToken({ userId: user.id, role: user.role });
@@ -58,10 +92,25 @@ async function login(req, res, next) {
     if (!email || !password) {
       return res.status(400).json({ error: 'email ve password zorunludur' });
     }
+    // Same boundary as register: a non-string password reaches bcrypt, which
+    // throws, and the error handler would echo its English message.
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ error: 'email ve password metin olmalıdır' });
+    }
 
+    // Matched case-insensitively, but the row stored EXACTLY as typed wins.
+    // Where a pre-normalisation pair exists (`Ali@x.com` and `ali@x.com` are
+    // both legal — users_email_key is case-sensitive), preferring the
+    // normalised row would check the wrong password hash and lock the owner
+    // of the capitalised address out silently (review finding).
+    const typed = typeof email === 'string' ? email.trim() : '';
     const result = await pool.query(
-      'SELECT id, name, email, password_hash, role, avatar_url FROM users WHERE email = $1',
-      [email]
+      `SELECT id, name, email, password_hash, role, avatar_url
+         FROM users
+        WHERE lower(email) = $1
+        ORDER BY (email = $2) DESC, (email = $1) DESC, id
+        LIMIT 1`,
+      [normalizeEmail(email), typed]
     );
     const user = result.rows[0];
     if (!user) {
@@ -131,10 +180,23 @@ async function findUserByIdentity(provider, subject) {
   return result.rows[0] || null;
 }
 
+/**
+ * The account an address belongs to, matched case-insensitively: providers
+ * hand us a lower-cased e-mail while `users.email` may carry any case an
+ * older registration typed. Matching exactly here would send those people to
+ * a brand-new empty account instead of the 409 that tells them to use their
+ * password (review finding).
+ *
+ * If a pre-existing pair of case variants exists, the PROVEN row wins:
+ * ordering by id alone would hand back the older password account and refuse
+ * a user who already signs in with one provider and is adding a second.
+ */
 async function findByEmail(email) {
   const result = await pool.query(
     `SELECT ${USER_COLUMNS}, email_verified, suspended_at, suspended_reason
-       FROM users WHERE email = $1`,
+       FROM users WHERE lower(email) = lower($1)
+       ORDER BY email_verified DESC, id
+       LIMIT 1`,
     [email]
   );
   return result.rows[0] || null;

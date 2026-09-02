@@ -478,6 +478,10 @@ Deliberately deferred, with reasons:
       password account (ADR-0003), and a social account has no way back if
       it loses its provider. One confirmation flow fixes both, and would
       also let "set a password" exist.
+- [ ] **Admin: free a squatted address.** The admin panel can suspend a user
+      and delete content, but not delete a user, so an address registered by
+      someone who does not own it cannot be released without direct database
+      access. Needed regardless of the confirmation flow, for support.
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
 **Distribution:**
@@ -493,12 +497,15 @@ Deliberately deferred, with reasons:
 
 > **Status (September 2, 2026): every sprint item is now built.** S1–S6 and
 > S8 are shipped and live, with two owner feedback rounds on top of them.
-> S7 (Apple + Google sign-in) is code-complete on all three sides and waits
-> only on the owner-side console work it always needed — the Apple App ID /
-> Service ID and the Google OAuth client ids (steps: docs/DEPLOYMENT.md).
-> The bundle id it depended on is settled: `com.oguzpancuk.pati` (launch
-> sprint). Until the console values exist the buttons stay hidden and
-> nothing changes for users.
+> S7 (Apple + Google sign-in) is code-complete on all three sides. What is
+> left is the owner-side console work (Apple App ID / Service ID, the Google
+> OAuth client ids) plus, for **iOS Google only**, two source edits and a
+> native rebuild: the reversed client id in `Info.plist` and the same id in
+> `mobile/src/googleClientId.ts`. Everything else — web Google, and Apple
+> once the domain is verified — turns on with Fly secrets alone. The bundle
+> id it depended on is settled: `com.oguzpancuk.pati` (launch sprint). Until
+> the values exist the buttons stay hidden and nothing changes for users.
+> Steps: docs/DEPLOYMENT.md.
 
 Twelve owner-reported improvements, grouped into eight sessions — one
 session per group, each ends with a code-reviewer pass. Owner decisions
@@ -584,25 +591,52 @@ work: Apple Developer / Google Cloud console configuration.
   passwordless accounts, provider re-authentication before account
   deletion, and the button row on both clients, drawn only where
   `GET /api/auth/providers` says the provider is configured.
-- **Verified:** `backend/scripts/social-auth-check/run.sh` (26 curl
+- **Verified:** `backend/scripts/social-auth-check/run.sh` (41 curl
   assertions against a local issuer: create, link, seven kinds of refusal —
   wrong audience, bad signature, expired, `alg:none`, HS256 key confusion,
   an unverified e-mail on a taken *and* a free address, an unproven account
-  — plus deletion); login and deletion screenshots in light and dark on
+  — capitalisation, plus deletion); login and deletion screenshots in light and dark on
   both clients; the iOS Apple sheet reached the system dialog on the
-  simulator. Two code-reviewer rounds and an evaluator-qa pass found three
-  real defects (two shapes of account takeover through e-mail linking, and
-  a release-build crash on the Google deletion route); all are fixed and
-  now covered by assertions.
+  simulator. Six code-reviewer rounds and an evaluator-qa pass found ten
+  real defects: two shapes of account takeover through e-mail linking (both
+  now asserted, steps 8 and 10), a case-sensitivity hole that turned the
+  second rule into a coin flip (fixed by normalising addresses), a
+  release-build crash on the Google deletion route (fixed structurally; the
+  surviving half-invariant is asserted by
+  `mobile/__tests__/googleClientId.test.ts`, though the ObjC exception
+  itself is not something a test here can trigger), and a deploy ordering
+  window that would have 500ed every sign-in (removed by moving the schema
+  change into `migrations/`). Two further rounds found four more, all of
+  them left behind by earlier fixes: the case-insensitive lookup had no index
+  and scanned `users` on every login, the tie-break picked the oldest row
+  rather than the linkable one, a backfill moved into `migrations/` had
+  quietly become a rule re-applied on every deploy, and the login tie-break
+  could check a password against the wrong row of a case-variant pair. The
+  pattern is worth remembering: fixes written under the pressure of a named
+  defect are where the next defect comes from.
 - **Follow-up this opened:** an existing password account can no longer
   pick up a provider, because registration never confirms an e-mail and
-  linking into an unproven address is a takeover (ADR-0003). An e-mail
-  confirmation flow would restore it — added to the quality list above.
-- **NOT verified, and cannot be until the consoles are filled in:** a real
-  round trip with Apple's and Google's own servers. Remaining owner steps
-  (App ID + Service ID, two Google OAuth clients, the reversed-client-id
-  URL scheme in `Info.plist`, the Fly secrets, and the one-off production
-  migration) are listed in docs/DEPLOYMENT.md → "Apple / Google sign-in".
+  linking into an unproven address is a takeover (ADR-0003). The sharper
+  version of the same gap: someone who registers on an address they do not
+  own denies it permanently — the real owner cannot register, cannot sign in
+  with a provider, has no password, and there is no reset, no confirmation
+  and no admin user deletion, so only direct database access frees it. Two
+  cures, both on the quality list above.
+- **NOT verified — three gaps, stated plainly.** (1) No real round trip
+  with Apple's or Google's own servers: every token in the evidence came
+  from a local issuer whose key the checks control, so the logic is proven
+  and the providers' actual behaviour is not — this cannot change until the
+  consoles are filled in. (2) **No Android build at all**: there is no SDK
+  on the development machine, so the `applicationId` change and Android
+  Google sign-in (which needs its own OAuth client + SHA-1) were never
+  exercised. (3) **No iOS release build**: the "fails gracefully" evidence
+  is from Debug, where the Google SDK's exception is caught; in Release it
+  terminates the app, which is why the compiled-in client id guard and its
+  test exist. Remaining owner steps (App ID + Service ID, the Google OAuth
+  clients, the reversed-client-id URL scheme in `Info.plist` together with
+  `mobile/src/googleClientId.ts`, the Fly secrets) are in
+  docs/DEPLOYMENT.md → "Apple / Google sign-in". The schema migration needs
+  nothing by hand — the release command applies it.
 
 ### S8 — Terms of use (item 12)
 

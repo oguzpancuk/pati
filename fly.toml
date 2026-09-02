@@ -7,7 +7,7 @@ primary_region = "fra"
   dockerfile = "Dockerfile"
 
 [deploy]
-  # The schema is one migration file with IF NOT EXISTS: safe on every deploy.
+  # Numbered, idempotent migration files applied in order: safe on every deploy.
   release_command = "node scripts/migrate.js"
 
 [env]
