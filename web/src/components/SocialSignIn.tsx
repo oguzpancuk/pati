@@ -102,7 +102,11 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
       )}
 
       <p className="subtle social-consent">
-        Apple veya Google ile devam edersen{' '}
+        {/* Only the providers actually rendered: a deployment may configure
+            one and not the other. */}
+        {apple && googleClientId
+          ? 'Apple veya Google ile devam edersen'
+          : `${apple ? 'Apple' : 'Google'} ile devam edersen`}{' '}
         <Link to="/kosullar">Kullanım Koşulları</Link>&apos;nı kabul etmiş,{' '}
         <Link to="/gizlilik">Aydınlatma Metni</Link>&apos;ni okumuş sayılırsın.
       </p>

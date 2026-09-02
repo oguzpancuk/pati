@@ -77,15 +77,16 @@ script — and nothing here has to be done before a deploy.
 4. **iOS only, and this one is load-bearing:** paste the Google iOS client's
    *reversed* id (it looks like `com.googleusercontent.apps.123-abc`) into
    `mobile/ios/StrayMobile/Info.plist` as an extra `CFBundleURLSchemes`
-   entry, next to `pati`, and rebuild natively. **A release build without
-   that scheme does not show an error — it terminates.** Google's SDK raises
-   an Objective-C exception, and the React Native wrapper only catches it in
-   Debug builds, which is why the simulator looked well-behaved. So: set
-   `GOOGLE_IOS_CLIENT_ID` only for an app build that already carries the
-   matching scheme. (The app hides the Google button when the backend
-   reports no iOS client id, which covers the other half of the problem.)
-   The Sign in with Apple entitlement is already in the project
-   (`StrayMobile.entitlements`).
+   entry next to `pati`, **and** put the plain id into
+   `mobile/src/googleClientId.ts` in the same commit, then rebuild natively.
+   The app compares the two: iOS draws the Google button only when the
+   server's `GOOGLE_IOS_CLIENT_ID` equals the id compiled into the binary,
+   so a mismatch hides the button instead of crashing. That guard exists
+   because a release build without the matching scheme **does not show an
+   error — it terminates**: Google's SDK raises an Objective-C exception and
+   the React Native wrapper only catches it under `#if DEBUG`, which is why
+   the simulator looked well-behaved. The Sign in with Apple entitlement is
+   already in the project (`StrayMobile.entitlements`).
 
 **Then the secrets** — every one of them is a public identifier, not a
 password; nothing here is a client *secret*:
@@ -114,7 +115,12 @@ fly ssh console --app pati-app -C "node scripts/migrate-social-auth-20260902.js"
 
 **Local check:** `bash backend/scripts/social-auth-check/run.sh` boots a
 throwaway backend and a local issuer and drives the whole flow (create, link,
-refuse a forged token, delete). It needs the local database running.
+refuse a forged token, delete). It needs the local database running — and on
+a machine whose `stray-db` predates S7, the migration above has to be run
+locally first (`cd backend && node scripts/migrate-social-auth-20260902.js`).
+`contracts/init.sh` alone is not enough: it runs `001_init.sql`, whose
+`CREATE TABLE IF NOT EXISTS` cannot alter the existing `users` table, so the
+check fails at step 1 with a NOT NULL violation on `password_hash`.
 
 ## Custom domains
 

@@ -87,13 +87,18 @@ console.log(jwt.sign({iss:process.argv[1]+"/google",aud:"ios-client.apps.googleu
 ' "$IDP_ISS")
 code=$(post auth/google "{\"idToken\":\"$NONE\"}")
 check "alg:none -> 401" 401 "$code"
+# The classic key-confusion attack: take the PUBLIC key the server publishes
+# and use it as an HMAC secret. A verifier that trusts the token's own alg
+# header accepts it; ours pins RS256 before it looks at anything else.
 HS=$(node -e '
+const crypto=require("crypto");
 const jwt=require("jsonwebtoken");
-const key=JSON.stringify(process.argv[2]);
-console.log(jwt.sign({iss:process.argv[1]+"/google",aud:"ios-client.apps.googleusercontent.com",sub:"alg-hs",email:"alg@example.com",email_verified:true},key,{algorithm:"HS256",keyid:"pati-dev-key",expiresIn:"10m"}));
+const jwk=JSON.parse(process.argv[2]).keys[0];
+const pem=crypto.createPublicKey({key:jwk,format:"jwk"}).export({type:"spki",format:"pem"});
+console.log(jwt.sign({iss:process.argv[1]+"/google",aud:"ios-client.apps.googleusercontent.com",sub:"alg-hs",email:"alg@example.com",email_verified:true},pem,{algorithm:"HS256",keyid:"pati-dev-key",expiresIn:"10m"}));
 ' "$IDP_ISS" "$(curl -s "$IDP/google/keys")")
 code=$(post auth/google "{\"idToken\":\"$HS\"}")
-check "HS256 signed with the public JWKS -> 401" 401 "$code"
+check "HS256 signed with the real public key -> 401" 401 "$code"
 
 echo "9. GET /users/me reports how the account authenticates"
 ME=$(curl -s "$API/users/me" -H "Authorization: Bearer $JWT1")
@@ -101,17 +106,23 @@ echo "      hasPassword=$(node -pe "JSON.parse(process.argv[1]).hasPassword" "$M
 check "hasPassword false" "false" "$(node -pe "JSON.parse(process.argv[1]).hasPassword" "$ME")"
 check "both providers listed" '["apple","google"]' "$(node -pe "JSON.stringify(JSON.parse(process.argv[1]).authProviders)" "$ME")"
 
-echo "10. A password account gains a provider on verified-e-mail sign-in"
+echo "10. A provider may NOT link into an account whose address was never proven"
+# Registration confirms no e-mail, so anyone can register on someone else's
+# address; linking into it would put the real owner inside an account the
+# squatter holds a password for (the second half of the takeover review
+# found). Those users sign in with their password instead.
 PMAIL="s7-pw-$STAMP@example.com"
 code=$(post auth/register "{\"name\":\"Şifreli Üye\",\"email\":\"$PMAIL\",\"password\":\"parola1234\"}")
 check "register -> 201" 201 "$code"
 PUID=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user.id")
 GT2=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\",\"aud\":\"web-client.apps.googleusercontent.com\",\"sub\":\"google-sub2-$STAMP\",\"email\":\"$PMAIL\",\"email_verified\":true}")
 code=$(post auth/google "{\"idToken\":\"$GT2\"}")
-check "google -> 200 into the same account" 200 "$code"
-check "same user id" "$PUID" "$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user.id")"
+check "verified google token -> 409, no link" 409 "$code"
 code=$(post auth/login "{\"email\":\"$PMAIL\",\"password\":\"parola1234\"}")
-check "password still works after linking -> 200" 200 "$code"
+check "the account is untouched, password still works -> 200" 200 "$code"
+PJWT=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).token")
+PME=$(curl -s "$API/users/me" -H "Authorization: Bearer $PJWT")
+check "no provider was attached" '[]' "$(node -pe "JSON.stringify(JSON.parse(process.argv[1]).authProviders)" "$PME")"
 
 echo "11. Account deletion re-authenticates with the provider"
 code=$(curl -s -o /tmp/s7-body.json -w '%{http_code}' -X DELETE "$API/users/me" -H "Authorization: Bearer $JWT1" -H 'Content-Type: application/json' -d '{}')

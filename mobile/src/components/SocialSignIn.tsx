@@ -141,7 +141,7 @@ export default function SocialSignIn() {
           sheet has no room for one, so the consent is stated here — the same
           sentence the web client shows under its buttons. */}
       <Text variant="caption" color="textSubtle" center style={styles.consent}>
-        Apple veya Google ile devam edersen{' '}
+        {consentLead(showApple, showGoogle)}{' '}
         <Text
           variant="caption"
           color="brand"
@@ -161,6 +161,16 @@ export default function SocialSignIn() {
       </Text>
     </View>
   );
+}
+
+/**
+ * Names only the providers actually on screen. iOS can end up with Apple
+ * alone (googleAvailable), so a fixed "Apple veya Google" would promise a
+ * button that is not there.
+ */
+function consentLead(apple: boolean, google: boolean): string {
+  if (apple && google) return 'Apple veya Google ile devam edersen';
+  return `${apple ? 'Apple' : 'Google'} ile devam edersen`;
 }
 
 /** Apple's mark, required on the button by their sign-in guidelines. */

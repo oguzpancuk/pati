@@ -11,6 +11,12 @@ CREATE TABLE IF NOT EXISTS users (
     -- password at all, and a placeholder hash would be a login secret nobody
     -- chose. Every password path must therefore tolerate NULL.
     password_hash VARCHAR(255),
+    -- Whether anyone ever PROVED this address belongs to this person. Only
+    -- Apple/Google sign-in can set it today: e-mail registration confirms
+    -- nothing, so those addresses are self-asserted. It exists because
+    -- provider sign-in links by e-mail — and linking into an unproven address
+    -- would hand the account to whoever registered it first (see ADR-0003).
+    email_verified BOOLEAN NOT NULL DEFAULT false,
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'vet', 'admin')),
     avatar_url TEXT,
     -- Keys of up to 3 badges featured on the profile (e.g. "breed:Tekir").

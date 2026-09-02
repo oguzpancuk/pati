@@ -468,6 +468,11 @@ Deliberately deferred, with reasons:
 - [x] CI (web/admin/mobile/backend/docker gates on every push —
       `.github/workflows/ci.yml`, August 19)
 - [ ] Backend tests (jest + supertest; none exist yet)
+- [ ] **E-mail confirmation on registration.** `POST /auth/register` proves
+      nothing about the address, so a provider sign-in may not link into a
+      password account (ADR-0003), and a social account has no way back if
+      it loses its provider. One confirmation flow fixes both, and would
+      also let "set a password" exist.
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
 **Distribution:**
@@ -576,13 +581,19 @@ work: Apple Developer / Google Cloud console configuration.
   deletion, and the button row on both clients, drawn only where
   `GET /api/auth/providers` says the provider is configured.
 - **Verified:** `backend/scripts/social-auth-check/run.sh` (26 curl
-  assertions against a local issuer: create, link, six refusals — wrong
-  audience, bad signature, expired, unverified e-mail on a taken *and* a
-  free address, alg-confusion — plus deletion); login and deletion
-  screenshots in light and dark on both clients; the iOS Apple sheet
-  reached the system dialog on the simulator. A code-reviewer pass found
-  two blockers (an account-takeover path and a release-build crash on the
-  Google deletion route); both are fixed and covered.
+  assertions against a local issuer: create, link, seven kinds of refusal —
+  wrong audience, bad signature, expired, `alg:none`, HS256 key confusion,
+  an unverified e-mail on a taken *and* a free address, an unproven account
+  — plus deletion); login and deletion screenshots in light and dark on
+  both clients; the iOS Apple sheet reached the system dialog on the
+  simulator. Two code-reviewer rounds and an evaluator-qa pass found three
+  real defects (two shapes of account takeover through e-mail linking, and
+  a release-build crash on the Google deletion route); all are fixed and
+  now covered by assertions.
+- **Follow-up this opened:** an existing password account can no longer
+  pick up a provider, because registration never confirms an e-mail and
+  linking into an unproven address is a takeover (ADR-0003). An e-mail
+  confirmation flow would restore it — added to the quality list above.
 - **NOT verified, and cannot be until the consoles are filled in:** a real
   round trip with Apple's and Google's own servers. Remaining owner steps
   (App ID + Service ID, two Google OAuth clients, the reversed-client-id

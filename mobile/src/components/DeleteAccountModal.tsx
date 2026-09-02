@@ -3,7 +3,13 @@ import { Modal, Pressable, TextInput } from 'react-native';
 import type { SocialProvider } from '../api/auth';
 import { deleteMyAccount } from '../api/users';
 import { useAuth } from '../context/AuthContext';
-import { forgetGoogleSession, isAppleCancellation, signInWithApple, signInWithGoogle } from '../socialAuth';
+import {
+  forgetGoogleSession,
+  isAppleCancellation,
+  signInWithApple,
+  signInWithGoogle,
+  SocialAuthError,
+} from '../socialAuth';
 import { Button, Text } from './ui';
 import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme';
 
@@ -70,11 +76,16 @@ export default function DeleteAccountLink({
       if (!identity) return setBusy(false);
       await remove({ provider, identityToken: identity.identityToken });
     } catch (err: any) {
-      // socialAuth raises a readable Turkish message when the provider is not
-      // available at all (credentials rotated away, iOS client id missing);
-      // showing it beats "try again" on an error retrying cannot fix.
+      // Only two message sources are safe to show: the API's own Turkish
+      // error and socialAuth's. Everything else here is an SDK or axios
+      // string in English ("Network Error", "DEVELOPER_ERROR"), and
+      // product-facing text stays Turkish.
       if (!isAppleCancellation(err)) {
-        setError(err?.response?.data?.error ?? err?.message ?? 'Doğrulama başarısız, tekrar dene.');
+        const message =
+          err?.response?.data?.error ??
+          (err instanceof SocialAuthError ? err.message : null) ??
+          'Doğrulama başarısız, tekrar dene.';
+        setError(message);
       }
       setBusy(false);
     }

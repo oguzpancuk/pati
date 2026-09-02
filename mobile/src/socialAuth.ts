@@ -19,23 +19,38 @@ import {
   statusCodes,
 } from '@react-native-google-signin/google-signin';
 import { fetchAuthProviders, type AuthProviders } from './api/auth';
+import { IOS_GOOGLE_CLIENT_ID } from './googleClientId';
 
 /** Sign in with Apple exists on iOS 13+; Android never has it. */
 export const appleSupported = Platform.OS === 'ios' && appleAuth.isSupported;
 
 let googleConfigured = false;
 
+/** Errors this module raises itself — the only ones safe to show a user. */
+export class SocialAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SocialAuthError';
+  }
+}
+
 /**
  * Whether a Google button may be drawn at all.
  *
- * On iOS the SDK needs its own client id: configuring it without one makes
- * the native layer raise an Objective-C exception, which a release build does
- * not catch — it terminates the app. So a half-configured backend hides the
- * button instead of offering a crash.
+ * Two ways the native SDK raises an Objective-C exception instead of failing
+ * — and a release build catches neither, it terminates:
+ *   - configured without an iOS client id,
+ *   - configured with an id whose reversed form is not a URL scheme in
+ *     Info.plist.
+ * The first is a half-configured backend; the second is a server value
+ * disagreeing with what this binary was built for, which a Fly secret alone
+ * could cause on an already-shipped app. So iOS draws the button only when
+ * the server's id is exactly the one compiled in.
  */
 export function googleAvailable(providers: AuthProviders | null): boolean {
   if (!providers?.google.enabled) return false;
-  return Platform.OS !== 'ios' || !!providers.google.iosClientId;
+  if (Platform.OS !== 'ios') return true;
+  return !!IOS_GOOGLE_CLIENT_ID && providers.google.iosClientId === IOS_GOOGLE_CLIENT_ID;
 }
 
 function applyGoogleConfig(google: AuthProviders['google']) {
@@ -72,7 +87,7 @@ async function ensureGoogleConfigured(): Promise<void> {
   if (googleConfigured) return;
   const providers = await fetchAuthProviders();
   if (!googleAvailable(providers)) {
-    throw new Error('Google girişi şu anda kullanılamıyor');
+    throw new SocialAuthError('Google girişi şu anda kullanılamıyor');
   }
   applyGoogleConfig(providers.google);
 }
@@ -91,7 +106,7 @@ export async function signInWithGoogle(): Promise<SocialIdentity | null> {
     const response = await GoogleSignin.signIn();
     if (response.type !== 'success') return null;
     const { idToken, user } = response.data;
-    if (!idToken) throw new Error('Google kimlik anahtarı alınamadı');
+    if (!idToken) throw new SocialAuthError('Google kimlik anahtarı alınamadı');
     return { identityToken: idToken, name: user.name ?? undefined };
   } catch (err) {
     if (isErrorWithCode(err) && err.code === statusCodes.SIGN_IN_CANCELLED) return null;

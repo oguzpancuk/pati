@@ -1060,3 +1060,46 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   button was clickable during an in-flight request on both web screens, and
   the delete sheet's Apple popup could be opened twice; a theme flip with
   that sheet open left Google's button in the old theme.
+
+## 2026-09-02 — S7 review rounds: two takeovers, one release-only crash
+
+Two code-reviewer passes and an evaluator-qa pass on top of the first S7
+commit. Every finding below was reproduced by the agent, not argued.
+
+- **The e-mail linking rule needed proof on BOTH sides.** Round one caught
+  half: an unverified provider e-mail on a *free* address created an account
+  that then owned the address, so the real owner's first verified sign-in
+  merged them into the squatter's account. Round two caught the mirror
+  image: `POST /auth/register` confirms nothing, so a squatter can register
+  on someone else's address with a password, and the victim's "Google ile
+  giriş" then lands inside an account the squatter can also log into. The
+  rule is now: link only when the provider verified its e-mail AND the target
+  account's own address was proven (`users.email_verified`, which only
+  provider sign-in sets). Password accounts are told to use their password.
+  The cost is that an existing password account cannot pick up a provider
+  until registration confirms e-mails — now a ROADMAP item.
+- **A Fly secret could crash a shipped iOS build.** Google's SDK raises an
+  Objective-C exception both when unconfigured and when the reversed client
+  id is missing from `Info.plist`, and `RNGoogleSignin.mm` only catches it
+  under `#if DEBUG` — the simulator's polite error alerts were a Debug
+  artifact. The first fix (`ensureGoogleConfigured()` before every call)
+  closed the unconfigured path, but the URL-scheme path stayed reachable by
+  setting `GOOGLE_IOS_CLIENT_ID` on the server. Now the id the binary was
+  built for lives in `mobile/src/googleClientId.ts` and the iOS button is
+  drawn only when the server reports exactly that id: a mismatch hides the
+  button instead of terminating the app.
+- **QA's independent evidence:** the no-credentials state was verified as
+  genuinely inert (zero third-party requests on web, no button row on
+  mobile, all password paths unchanged), the production migration is
+  idempotent across three runs from a rebuilt pre-S7 schema, and the check
+  script's assertions were mutation-tested — removing the `audience` option
+  from `jwt.verify` makes step 5 fail, so the checks are not vacuous.
+- **QA also found an undocumented prerequisite:** on a machine whose
+  `stray-db` predates S7, `contracts/init.sh` is not enough for the check
+  script — `001_init.sql` cannot alter an existing `users` table, so the
+  local migration has to be run first. Now in docs/DEPLOYMENT.md.
+- Pre-existing, left alone but worth knowing: `error.middleware.js` returns
+  `err.message` on every 500, so any internal failure (a JWKS outage, say)
+  is shown to the user. The S7 endpoints no longer reach it with anything
+  sensitive — they validate at the boundary — but the general problem stands.
+- `mobile/__tests__/AuthContext.test.tsx` now covers `loginWithProvider`.

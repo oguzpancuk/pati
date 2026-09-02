@@ -121,7 +121,8 @@ function displayName(identity, forwarded) {
 
 async function findUserByIdentity(provider, subject) {
   const result = await pool.query(
-    `SELECT u.id, u.name, u.email, u.role, u.avatar_url, u.suspended_at, u.suspended_reason
+    `SELECT u.id, u.name, u.email, u.role, u.avatar_url, u.email_verified,
+            u.suspended_at, u.suspended_reason
        FROM user_identities i
        JOIN users u ON u.id = i.user_id
       WHERE i.provider = $1 AND i.subject = $2`,
@@ -130,24 +131,49 @@ async function findUserByIdentity(provider, subject) {
   return result.rows[0] || null;
 }
 
+async function findByEmail(email) {
+  const result = await pool.query(
+    `SELECT ${USER_COLUMNS}, email_verified, suspended_at, suspended_reason
+       FROM users WHERE email = $1`,
+    [email]
+  );
+  return result.rows[0] || null;
+}
+
+/**
+ * The address belongs to an account nobody ever proved owns it — a plain
+ * registration. Linking into it is the takeover this refuses; signing in with
+ * the password is the way in.
+ */
+function refuseUnprovenAccount(res) {
+  return res.status(409).json({
+    error: 'Bu e-posta şifreli bir pati hesabına ait; şifrenle giriş yap',
+  });
+}
+
 /**
  * Sign in with Apple / Google.
  *
  * Resolution order — identity first, e-mail second, new account last:
  *   1. (provider, subject) already linked → that account, always. Subjects are
  *      stable; e-mails are not.
- *   2. a VERIFIED provider e-mail matching an existing account → link the
- *      identity to it, so someone who registered with a password and later
- *      taps "Google ile giriş" lands in their own account instead of a
- *      duplicate.
+ *   2. a VERIFIED provider e-mail matching an account whose own address is
+ *      PROVEN (users.email_verified) → link the identity to it, so a second
+ *      provider lands in the same account instead of a duplicate.
  *   3. otherwise a new account, with no password at all.
  *
- * An UNVERIFIED e-mail gets neither 2 nor 3. Refusing the link is obvious —
- * it would be a takeover with a self-asserted address — but refusing the
- * *creation* matters just as much: an account created from an unverified
- * address owns that address afterwards, so the real owner signing in later
- * would be merged into the squatter's account through step 2. Review found
- * exactly that hole in the first version of this code.
+ * Both "verified" clauses in step 2 are load-bearing, and both were found
+ * missing by review:
+ *   - an UNVERIFIED provider e-mail gets neither 2 nor 3. Refusing the link
+ *     is obvious. Refusing the *creation* matters just as much: an account
+ *     created from an unverified address owns that address afterwards, so
+ *     the real owner would be merged into the squatter's account by step 2.
+ *   - an account whose address was never proven is not linkable either.
+ *     `POST /auth/register` confirms nothing, so anyone can register on
+ *     someone else's address; linking into it would put the victim inside an
+ *     account the squatter holds a password for. Those users are told to sign
+ *     in with their password instead. Merging the two would need a real
+ *     e-mail-confirmation flow, which the app does not have (ROADMAP).
  */
 async function socialLogin(provider, req, res, next) {
   try {
@@ -189,33 +215,29 @@ async function socialLogin(provider, req, res, next) {
         });
       }
 
-      const byEmail = await pool.query(
-        `SELECT ${USER_COLUMNS}, suspended_at, suspended_reason FROM users WHERE email = $1`,
-        [identity.email]
-      );
-      user = byEmail.rows[0] || null;
+      const existing = await findByEmail(identity.email);
+      if (existing && !existing.email_verified) return refuseUnprovenAccount(res);
+      user = existing;
 
       if (!user) {
         try {
           const inserted = await pool.query(
-            `INSERT INTO users (name, email, avatar_url)
-             VALUES ($1, $2, $3)
-             RETURNING ${USER_COLUMNS}, suspended_at, suspended_reason`,
+            `INSERT INTO users (name, email, avatar_url, email_verified)
+             VALUES ($1, $2, $3, true)
+             RETURNING ${USER_COLUMNS}, email_verified, suspended_at, suspended_reason`,
             [displayName(identity, forwardedName), identity.email, randomAvatarValue()]
           );
           user = inserted.rows[0];
           created = true;
         } catch (err) {
           // Two sign-ins racing on the same fresh e-mail: the unique index is
-          // the arbiter and the loser reads the winner's row. Only reachable
-          // with a verified address — unverified ones never get this far.
+          // the arbiter and the loser reads the winner's row. The winner may
+          // also have been a plain registration, so the same proof check
+          // applies to what we read back.
           if (err.code !== '23505') throw err;
-          const again = await pool.query(
-            `SELECT ${USER_COLUMNS}, suspended_at, suspended_reason FROM users WHERE email = $1`,
-            [identity.email]
-          );
-          user = again.rows[0];
+          user = await findByEmail(identity.email);
           if (!user) throw err;
+          if (!user.email_verified) return refuseUnprovenAccount(res);
         }
       }
     }
@@ -245,6 +267,7 @@ async function socialLogin(provider, req, res, next) {
     const token = signToken({ userId: user.id, role: user.role });
     delete user.suspended_at;
     delete user.suspended_reason;
+    delete user.email_verified;
     res.status(created ? 201 : 200).json({ user, token, created });
   } catch (err) {
     next(err);
