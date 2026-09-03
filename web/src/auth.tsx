@@ -58,15 +58,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+    // The token this refresh is FOR: a logout, or a logout plus another
+    // login, while it is in flight must win. A late answer for the old token
+    // would otherwise paint the previous user over the new session, and a
+    // late failure would clear the new session (same guard as mobile's
+    // cold-start refresh, which compares the user id).
+    const started = getToken();
     try {
       const fresh = await fetchMe();
-      // A logout while this was in flight must win: re-populating `me` from
-      // a late answer would show a signed-in shell with no token behind it
-      // (same guard as mobile's cold-start refresh).
-      if (getToken()) setMe(fresh);
+      if (getToken() === started) setMe(fresh);
     } catch {
-      setToken(null);
-      setMe(null);
+      if (getToken() === started) {
+        setToken(null);
+        setMe(null);
+      }
     } finally {
       setLoading(false);
     }

@@ -34,8 +34,8 @@ const STATEMENTS = {
   created: "UPDATE users SET created_at = now() - interval '25 hours' WHERE id = $1 RETURNING id",
   grandfather:
     'UPDATE users SET email_verification_pending = false, email_verified = false WHERE id = $1 RETURNING id',
-  // The state registration leaves behind when the mail fails after the row
-  // is committed: pending, and nothing to type.
+  // A pending account with no code row. Not what a failed mail leaves
+  // behind (the row is written before the send); a failed INSERT would.
   nocode: 'DELETE FROM email_verifications WHERE user_id = $1 RETURNING user_id',
 };
 

@@ -189,10 +189,12 @@ async function verifyEmail(req, res, next) {
       const settled = await settledState(user.id);
       if (settled.verified) return res.json({ user: settled.verified, alreadyVerified: true });
       if (outcome.reason === 'none') {
-        // No code row on a row still pending: registration's mail failed
-        // before a code existed — ask for one (review: a 401 here wiped the
-        // session of an account that was alive). Only a row that is GONE,
-        // retired underneath this session, means the session is dead.
+        // No code row on a row still pending. Rare — sendCode writes the row
+        // before it mails, so a mail failure still leaves a code; this takes
+        // a failed INSERT or a hand-deleted row — but it is an account that
+        // is alive, and a 401 here logged it out (review). Ask for a code.
+        // Only a row that is GONE, retired underneath this session, means
+        // the session is dead.
         if (settled.pending) return res.status(400).json({ error: CODE_ERRORS.none });
         return res.status(401).json({ error: 'Oturumunuz geçersiz, lütfen tekrar giriş yapın' });
       }

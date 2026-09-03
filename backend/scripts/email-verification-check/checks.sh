@@ -279,9 +279,11 @@ code=$(get_auth users/me/animals "$JWT9")
 check "the session still works -> 200" 200 "$code"
 
 echo "12d. A pending account with no code row is asked for a code, not logged out"
-# Registration commits the row before it mails; if the mail fails there is
-# a pending account and nothing to type. Review found the verify endpoint
-# answering 401 here, which mobile turns into a wiped session.
+# A pending account whose code row is missing (sendCode writes the row
+# before mailing, so this takes a failed INSERT or a hand-deleted row — but
+# the session is alive). Review found the verify endpoint answering 401
+# here, which mobile turns into a wiped session. The "still alive" check
+# below passes on the old code too; the two before it carry the assertion.
 MAIL10="ev10-$STAMP@example.com"
 code=$(post auth/register "{\"name\":\"Mailsiz\",\"email\":\"$MAIL10\",\"password\":\"parola1234\"}")
 check "register -> 201" 201 "$code"
