@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth.middleware');
+const { requireAuth, requireAuthAllowPending } = require('../middleware/auth.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 const { upload } = require('../config/upload');
 const {
@@ -19,8 +19,11 @@ const {
 
 const router = express.Router();
 
-router.get('/me', requireAuth, getMe);
-router.delete('/me', requireAuth, limits.accountDelete, deleteMyAccount);
+// An unverified account may still read itself (the clients learn the pending
+// state from here on a cold start) and delete itself (App Store 5.1.1(v):
+// deletion must always work). Nothing else opens to it.
+router.get('/me', requireAuthAllowPending, getMe);
+router.delete('/me', requireAuthAllowPending, limits.accountDelete, deleteMyAccount);
 router.post('/me/avatar', requireAuth, limits.avatar, upload.single('photo'), uploadAvatar);
 router.put('/me/avatar-key', requireAuth, limits.avatar, setAvatarKey);
 router.delete('/me/avatar', requireAuth, clearAvatar);

@@ -8,8 +8,12 @@ const {
   publicConfig,
   verifyIdentityToken,
 } = require('../utils/socialAuth');
+const verification = require('../utils/emailVerification');
 
 const SALT_ROUNDS = 10;
+
+/** users columns every auth response is built from. */
+const USER_COLUMNS = 'id, name, email, role, avatar_url, email_verification_pending';
 
 /**
  * The one way an e-mail enters this file. Trimmed because a pasted address
@@ -49,22 +53,60 @@ async function register(req, res, next) {
 
     const normalizedEmail = normalizeEmail(email);
 
-    const existing = await pool.query('SELECT id FROM users WHERE lower(email) = $1', [
-      normalizedEmail,
-    ]);
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'Bu e-posta ile kayıtlı bir kullanıcı zaten var' });
+    // A registration that never verified holds its address for PENDING_HOLD,
+    // then becomes replaceable. Holding it at all is what keeps someone from
+    // swapping their own password under a registration whose code is about
+    // to be typed; releasing it is what keeps a squatter — who knows the
+    // password but never sees the mailbox — from denying the address forever
+    // (ADR-0004). A verified or grandfathered account is never replaceable.
+    const existing = await pool.query(
+      `SELECT id, email_verification_pending,
+              created_at < now() - $2::interval AS hold_expired
+         FROM users WHERE lower(email) = $1`,
+      [normalizedEmail, verification.PENDING_HOLD]
+    );
+    const replaceable =
+      existing.rows.length === 1 &&
+      existing.rows[0].email_verification_pending &&
+      existing.rows[0].hold_expired;
+    if (existing.rows.length > 0 && !replaceable) {
+      return res.status(409).json({
+        error: existing.rows.some((r) => r.email_verification_pending)
+          ? 'Bu e-posta için doğrulama bekleyen bir kayıt var. Kaydı sen yaptıysan giriş yapıp yeni kod iste.'
+          : 'Bu e-posta ile kayıtlı bir kullanıcı zaten var',
+      });
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    // Off (and accounts land unverified, as before) wherever no mail can be
+    // sent: a pending account nobody can reach would be worse than the old
+    // behaviour. Production says so in the boot log.
+    const pending = verification.isEnabled();
     let result;
     try {
-      result = await pool.query(
-        `INSERT INTO users (name, email, password_hash, avatar_url)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, name, email, role, avatar_url, created_at`,
-        [name, normalizedEmail, passwordHash, randomAvatarValue()]
-      );
+      result = replaceable
+        ? await pool.query(
+            // The expired registration is taken over rather than deleted:
+            // it could do nothing while pending, so there is nothing of it
+            // to keep, and the id stays stable for anything that might
+            // still reference it. Guarded on the flag so a verification
+            // that raced this request wins.
+            `UPDATE users
+                SET name = $1, email = $2, password_hash = $3, avatar_url = $4,
+                    email_verification_pending = $5, created_at = now()
+              WHERE id = $6 AND email_verification_pending
+              RETURNING ${USER_COLUMNS}, created_at`,
+            [name, normalizedEmail, passwordHash, randomAvatarValue(), pending, existing.rows[0].id]
+          )
+        : await pool.query(
+            `INSERT INTO users (name, email, password_hash, avatar_url, email_verification_pending)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING ${USER_COLUMNS}, created_at`,
+            [name, normalizedEmail, passwordHash, randomAvatarValue(), pending]
+          );
+      if (result.rows.length === 0) {
+        return res.status(409).json({ error: 'Bu e-posta ile kayıtlı bir kullanıcı zaten var' });
+      }
     } catch (err) {
       // Two registrations racing on the same address — newly reachable now
       // that `Ali@x.com` and `ali@x.com` normalise to one key. The check
@@ -80,7 +122,111 @@ async function register(req, res, next) {
 
     const user = result.rows[0];
     const token = signToken({ userId: user.id, role: user.role });
-    res.status(201).json({ user, token });
+
+    // The account exists either way; a mail that could not go out is
+    // reported, not fatal — the verification screen offers a resend.
+    let codeSent = false;
+    if (pending) {
+      try {
+        await verification.sendCode(user);
+        codeSent = true;
+      } catch (err) {
+        console.error(`verification mail to user ${user.id} failed:`, err.message);
+      }
+    }
+    res.status(201).json({ user, token, verificationRequired: pending, codeSent });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** The client's answer to "what should I show": the session plus its state. */
+function pendingResponse(user, token, extra = {}) {
+  return { user, token, verificationRequired: !!user.email_verification_pending, ...extra };
+}
+
+/** How a refused code is explained. Every reason has a way forward. */
+const CODE_ERRORS = {
+  none: 'Bekleyen bir doğrulama kodu yok; yeni kod iste',
+  expired: 'Kodun süresi dolmuş; yeni kod iste',
+  attempts: 'Çok fazla hatalı deneme; yeni kod iste',
+  wrong: 'Kod hatalı',
+};
+
+/**
+ * POST /auth/verify-email — mounted with the pending-tolerant authenticator,
+ * since the whole point is that the caller is not verified yet. Idempotent
+ * for an already-verified account so a double tap cannot fail.
+ */
+async function verifyEmail(req, res, next) {
+  try {
+    const raw = req.body?.code;
+    // People paste "123 456"; the mail shows the digits without spaces but
+    // some clients add them.
+    const code = typeof raw === 'string' ? raw.replace(/\s+/g, '') : '';
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: 'Kod 6 haneli olmalı' });
+    }
+
+    const current = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [
+      req.user.userId,
+    ]);
+    const user = current.rows[0];
+    if (!user) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    if (!user.email_verification_pending) return res.json({ user, alreadyVerified: true });
+
+    const outcome = await verification.checkCode(user.id, code);
+    if (!outcome.ok) {
+      const status = outcome.reason === 'attempts' ? 429 : 400;
+      const suffix =
+        outcome.reason === 'wrong' && outcome.remaining > 0
+          ? ` (${outcome.remaining} deneme kaldı)`
+          : '';
+      return res.status(status).json({ error: `${CODE_ERRORS[outcome.reason]}${suffix}` });
+    }
+
+    const verified = await verification.markVerified(user.id, USER_COLUMNS);
+    res.json({ user: verified });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /auth/verify-email/resend. A cooldown per account on top of the
+ * per-user limiter: the first stops a double tap from sending two mails, the
+ * second bounds what a stolen pending session can make us send in an hour.
+ */
+async function resendVerification(req, res, next) {
+  try {
+    if (!verification.isEnabled()) {
+      return res.status(503).json({ error: 'E-posta doğrulama şu anda kullanılamıyor' });
+    }
+    const current = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [
+      req.user.userId,
+    ]);
+    const user = current.rows[0];
+    if (!user) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    if (!user.email_verification_pending) {
+      return res.status(400).json({ error: 'E-posta adresin zaten doğrulanmış' });
+    }
+
+    const wait = await verification.cooldownRemaining(user.id);
+    if (wait > 0) {
+      return res
+        .status(429)
+        .json({ error: `Yeni kod için ${wait} saniye bekle`, retryAfter: wait });
+    }
+
+    try {
+      await verification.sendCode(user);
+    } catch (err) {
+      console.error(`verification mail to user ${user.id} failed:`, err.message);
+      return res
+        .status(502)
+        .json({ error: 'Doğrulama e-postası gönderilemedi; biraz sonra tekrar dene' });
+    }
+    res.json({ codeSent: true, email: user.email });
   } catch (err) {
     next(err);
   }
@@ -105,7 +251,7 @@ async function login(req, res, next) {
     // of the capitalised address out silently (review finding).
     const typed = typeof email === 'string' ? email.trim() : '';
     const result = await pool.query(
-      `SELECT id, name, email, password_hash, role, avatar_url
+      `SELECT ${USER_COLUMNS}, password_hash
          FROM users
         WHERE lower(email) = $1
         ORDER BY (email = $2) DESC, (email = $1) DESC, id
@@ -126,7 +272,9 @@ async function login(req, res, next) {
         'SELECT provider FROM user_identities WHERE user_id = $1 ORDER BY id',
         [user.id]
       );
-      const label = linked.rows.map((r) => (r.provider === 'apple' ? 'Apple' : 'Google')).join(' / ');
+      const label = linked.rows
+        .map((r) => (r.provider === 'apple' ? 'Apple' : 'Google'))
+        .join(' / ');
       return res.status(401).json({
         error: label
           ? `Bu hesap ${label} ile açılmış; ${label} ile giriş yapın`
@@ -141,16 +289,18 @@ async function login(req, res, next) {
 
     const token = signToken({ userId: user.id, role: user.role });
     delete user.password_hash;
-    res.json({ user, token });
+    // A pending account may log in — that is how someone who closed the app
+    // gets back to the code screen — but the client is told to show nothing
+    // else. No code is sent here: the screen has a resend button, and an
+    // automatic mail per login would let anyone holding the password fill
+    // the address's inbox.
+    res.json(pendingResponse(user, token));
   } catch (err) {
     next(err);
   }
 }
 
 const PROVIDER_LABELS = { apple: 'Apple', google: 'Google' };
-
-/** users columns every auth response is built from. */
-const USER_COLUMNS = 'id, name, email, role, avatar_url';
 
 /**
  * A display name for an account created through a provider. Apple only reveals
@@ -349,5 +499,12 @@ function providers(req, res) {
   res.json(publicConfig());
 }
 
-module.exports = { register, login, appleLogin, googleLogin, providers };
-
+module.exports = {
+  register,
+  login,
+  verifyEmail,
+  resendVerification,
+  appleLogin,
+  googleLogin,
+  providers,
+};

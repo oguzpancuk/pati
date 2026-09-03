@@ -9,7 +9,12 @@ const { getUserBadges } = require('../utils/badges');
 const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../utils/badgeAwards');
 const { getUserRank } = require('./leaderboard.controller');
 const { avatarValueFor } = require('../utils/avatars');
-const { AuthTokenError, isEnabled, isProvider, verifyIdentityToken } = require('../utils/socialAuth');
+const {
+  AuthTokenError,
+  isEnabled,
+  isProvider,
+  verifyIdentityToken,
+} = require('../utils/socialAuth');
 
 const MAX_FEATURED_BADGES = 3;
 
@@ -57,7 +62,9 @@ async function getStats(userId) {
 async function getMe(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, role, avatar_url, featured_badges, created_at FROM users WHERE id = $1',
+      `SELECT id, name, email, role, avatar_url, featured_badges, created_at,
+              email_verification_pending
+         FROM users WHERE id = $1`,
       [req.user.userId]
     );
     if (result.rows.length === 0) {
@@ -371,21 +378,20 @@ async function getPublicProfile(req, res, next) {
       rank,
       recentComments,
       commentCount,
-    ] =
-      await Promise.all([
-        getStats(targetId),
-        getUserBadges(targetId),
-        fetchCaredAnimals(targetId),
-        countCaredAnimals(targetId),
-        pool.query(
-          `SELECT count(*)::int AS count FROM friendships
+    ] = await Promise.all([
+      getStats(targetId),
+      getUserBadges(targetId),
+      fetchCaredAnimals(targetId),
+      countCaredAnimals(targetId),
+      pool.query(
+        `SELECT count(*)::int AS count FROM friendships
            WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
-          [targetId]
-        ),
-        getUserRank(targetId),
-        fetchRecentComments(targetId),
-        countComments(targetId),
-      ]);
+        [targetId]
+      ),
+      getUserRank(targetId),
+      fetchRecentComments(targetId),
+      countComments(targetId),
+    ]);
 
     let friendshipStatus = 'none';
     let friendshipId = null;
@@ -473,7 +479,9 @@ async function deleteMyAccount(req, res, next) {
         return res.status(400).json({ error: 'Geçersiz doğrulama sağlayıcısı' });
       }
       if (!isEnabled(provider)) {
-        return res.status(503).json({ error: 'Doğrulama şu anda kullanılamıyor, sonra tekrar dene' });
+        return res
+          .status(503)
+          .json({ error: 'Doğrulama şu anda kullanılamıyor, sonra tekrar dene' });
       }
       let identity;
       try {
@@ -527,10 +535,9 @@ async function deleteMyAccount(req, res, next) {
        WHERE id = $1`,
       [req.user.userId, anonymizedHash]
     );
-    await client.query(
-      'DELETE FROM friendships WHERE requester_id = $1 OR addressee_id = $1',
-      [req.user.userId]
-    );
+    await client.query('DELETE FROM friendships WHERE requester_id = $1 OR addressee_id = $1', [
+      req.user.userId,
+    ]);
     await client.query('DELETE FROM user_animal_care WHERE user_id = $1', [req.user.userId]);
     await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [req.user.userId]);
     // Without this the deleted account keeps its Apple/Google links, and the

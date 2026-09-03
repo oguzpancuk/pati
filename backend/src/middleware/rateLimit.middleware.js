@@ -58,6 +58,11 @@ const limits = {
   // Account deletion re-auth: 5 tries covers any honest typo streak and
   // shuts the endpoint as a password-guessing oracle for a stolen token.
   accountDelete: userRateLimit({ windowMs: HOUR, limit: 5, action: 'deneme' }),
+  // E-mail verification: a code retires itself after 5 wrong guesses and a
+  // new one costs a resend, so these bound the guess rate at a few dozen an
+  // hour against a million codes. Honest users type one code, maybe twice.
+  verifyEmail: userRateLimit({ windowMs: HOUR, limit: 30, action: 'doğrulama denemesi' }),
+  verifyResend: userRateLimit({ windowMs: HOUR, limit: 6, action: 'kod isteği' }),
 };
 
 module.exports = { userRateLimit, limits };

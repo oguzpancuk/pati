@@ -17,6 +17,13 @@ CREATE TABLE IF NOT EXISTS users (
     -- provider sign-in links by e-mail — and linking into an unproven address
     -- would hand the account to whoever registered it first (see ADR-0003).
     email_verified BOOLEAN NOT NULL DEFAULT false,
+    -- True from e-mail registration until the 6-digit code is entered; every
+    -- authenticated endpoint except verification itself, GET/DELETE /users/me
+    -- answers 403 while it is set. Separate from email_verified on purpose:
+    -- the default (false) is what grandfathers the accounts that registered
+    -- before verification existed — they stay usable but unproven, with no
+    -- backfill to re-run on every deploy (ADR-0004).
+    email_verification_pending BOOLEAN NOT NULL DEFAULT false,
     role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'vet', 'admin')),
     avatar_url TEXT,
     -- Keys of up to 3 badges featured on the profile (e.g. "breed:Tekir").
@@ -62,6 +69,19 @@ CREATE TABLE IF NOT EXISTS user_identities (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_identities_user ON user_identities (user_id);
+
+-- The one outstanding e-mail verification code per account. Only the salted
+-- hash is stored: the database must not be able to verify anyone. Attempts
+-- are counted here so a code can be retired after a few wrong guesses — six
+-- digits are only safe together with that cap (ADR-0004).
+CREATE TABLE IF NOT EXISTS email_verifications (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    code_hash CHAR(64) NOT NULL,
+    salt CHAR(32) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- Animals
 CREATE TABLE IF NOT EXISTS animals (

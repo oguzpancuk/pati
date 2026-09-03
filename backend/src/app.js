@@ -43,11 +43,17 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Brute-force brake for login/registration. Auth endpoints only: the rest
 // are JWT-protected, and a client opening the map fires many requests fast.
+// Development only: the curl check harnesses fire more credential-shaped
+// requests in a minute than this brake allows. Ignored in production.
+const authRateLimit =
+  process.env.NODE_ENV !== 'production' && Number(process.env.AUTH_RATE_LIMIT) > 0
+    ? Number(process.env.AUTH_RATE_LIMIT)
+    : 30;
 app.use(
   '/api/auth',
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 30,
+    limit: authRateLimit,
     // GET /providers is not a credential attempt: every client reads it once
     // per page load, and counting it would let ordinary traffic from one
     // shared IP (a campus, a carrier NAT) spend the login budget.
