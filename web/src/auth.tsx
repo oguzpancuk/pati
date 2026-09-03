@@ -59,7 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      setMe(await fetchMe());
+      const fresh = await fetchMe();
+      // A logout while this was in flight must win: re-populating `me` from
+      // a late answer would show a signed-in shell with no token behind it
+      // (same guard as mobile's cold-start refresh).
+      if (getToken()) setMe(fresh);
     } catch {
       setToken(null);
       setMe(null);

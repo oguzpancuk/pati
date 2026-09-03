@@ -278,6 +278,27 @@ check "…every body carries a verified user" 6 "$(node -e 'console.log([1,2,3,4
 code=$(get_auth users/me/animals "$JWT9")
 check "the session still works -> 200" 200 "$code"
 
+echo "12d. A pending account with no code row is asked for a code, not logged out"
+# Registration commits the row before it mails; if the mail fails there is
+# a pending account and nothing to type. Review found the verify endpoint
+# answering 401 here, which mobile turns into a wiped session.
+MAIL10="ev10-$STAMP@example.com"
+code=$(post auth/register "{\"name\":\"Mailsiz\",\"email\":\"$MAIL10\",\"password\":\"parola1234\"}")
+check "register -> 201" 201 "$code"
+UID10=$(field .user.id)
+JWT10=$(field .token)
+node scripts/email-verification-check/backdate.js "$UID10" nocode >/dev/null || { echo "  FAIL  could not drop the code row"; FAILED=1; }
+code=$(post_auth auth/verify-email "$JWT10" '{"code":"123456"}')
+check "verify with no code row -> 400, not 401" 400 "$code"
+contains "…asks for a new code" "yeni kod iste" "$(body)"
+code=$(get_auth users/me "$JWT10")
+check "the session is still alive -> 200" 200 "$code"
+node scripts/email-verification-check/backdate.js "$UID10" sent >/dev/null 2>&1 || true
+code=$(post_auth auth/verify-email/resend "$JWT10" '{}')
+check "resend -> 200" 200 "$code"
+code=$(post_auth auth/verify-email "$JWT10" "{\"code\":\"$(last_code "$MAIL10")\"}")
+check "the new code verifies -> 200" 200 "$code"
+
 echo "13. A pending account can still delete itself"
 MAIL4="ev4-$STAMP@example.com"
 code=$(post auth/register "{\"name\":\"Vazgeçen\",\"email\":\"$MAIL4\",\"password\":\"parola1234\"}")

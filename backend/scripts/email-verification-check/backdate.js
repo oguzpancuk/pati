@@ -6,6 +6,7 @@
  *   node backdate.js <user id> expiry    expires_at    -1 minute   (code expiry)
  *   node backdate.js <user id> created   created_at    -25 hours   (address hold)
  *   node backdate.js <user id> grandfather                          (pending → off, unproven)
+ *   node backdate.js <user id> nocode                               (drops the code row)
  *
  * `grandfather` is not a timestamp: it turns a fresh registration into an
  * account from before verification existed — usable, never proven — which
@@ -33,11 +34,14 @@ const STATEMENTS = {
   created: "UPDATE users SET created_at = now() - interval '25 hours' WHERE id = $1 RETURNING id",
   grandfather:
     'UPDATE users SET email_verification_pending = false, email_verified = false WHERE id = $1 RETURNING id',
+  // The state registration leaves behind when the mail fails after the row
+  // is committed: pending, and nothing to type.
+  nocode: 'DELETE FROM email_verifications WHERE user_id = $1 RETURNING user_id',
 };
 
 const sql = STATEMENTS[what];
 if (!sql || !id) {
-  console.error('usage: backdate.js <user id> sent|expiry|created|grandfather');
+  console.error('usage: backdate.js <user id> sent|expiry|created|grandfather|nocode');
   process.exit(1);
 }
 

@@ -1310,7 +1310,7 @@ What shipped, and the reasoning worth keeping:
   transport, which is also how the check harness reads the code back
   (`MAIL_OUTBOX_FILE`). Turning it on is owner-side: a Resend account and
   the DNS records for `pati-app.com` (docs/DEPLOYMENT.md).
-- **Evidence:** `backend/scripts/email-verification-check/run.sh` (87 curl
+- **Evidence:** `backend/scripts/email-verification-check/run.sh` (93 curl
   assertions: pending, gate, wrong/expired/retired codes, cooldown, hold
   expiry and replacement, deletion while pending, and the ADR-0003 link a
   verified address unlocks), the S7 harness unchanged and green, the mobile

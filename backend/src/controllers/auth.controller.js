@@ -181,13 +181,21 @@ async function verifyEmail(req, res, next) {
     if (!user.email_verification_pending) return res.json({ user, alreadyVerified: true });
 
     const outcome = await verification.checkCode(user.id, code);
-    if (!outcome.ok && outcome.reason === 'none') {
-      // No code row: either a concurrent submission of the same code just
-      // won (the row is verified — say so, as the pre-check above would
-      // have), or the row was retired underneath this session.
+    if (!outcome.ok) {
+      // Any refusal may be a race with a submission that just won: concurrent
+      // copies of the right code each count an attempt, so the sixth sees
+      // "too many" and a late one sees no row at all. Re-read before
+      // answering — a verified row is "already verified", never a refusal.
       const settled = await settledState(user.id);
-      if (settled) return res.json({ user: settled, alreadyVerified: true });
-      return res.status(401).json({ error: 'Oturumunuz geçersiz, lütfen tekrar giriş yapın' });
+      if (settled.verified) return res.json({ user: settled.verified, alreadyVerified: true });
+      if (outcome.reason === 'none') {
+        // No code row on a row still pending: registration's mail failed
+        // before a code existed — ask for one (review: a 401 here wiped the
+        // session of an account that was alive). Only a row that is GONE,
+        // retired underneath this session, means the session is dead.
+        if (settled.pending) return res.status(400).json({ error: CODE_ERRORS.none });
+        return res.status(401).json({ error: 'Oturumunuz geçersiz, lütfen tekrar giriş yapın' });
+      }
     }
     if (!outcome.ok) {
       const status = outcome.reason === 'attempts' ? 429 : 400;
@@ -211,7 +219,7 @@ async function verifyEmail(req, res, next) {
       // of a user who had just verified). Retired by a replacement → the
       // session is dead, and 401 makes the client log in again.
       const settled = await settledState(user.id);
-      if (settled) return res.json({ user: settled, alreadyVerified: true });
+      if (settled.verified) return res.json({ user: settled.verified, alreadyVerified: true });
       return res.status(401).json({ error: 'Oturumunuz geçersiz, lütfen tekrar giriş yapın' });
     }
     res.json({ user: verified });
@@ -220,11 +228,18 @@ async function verifyEmail(req, res, next) {
   }
 }
 
-/** The row as a verified account, or null when it is gone or still pending. */
+/**
+ * Re-reads the row after a verification step matched nothing: `verified` is
+ * the row when it is no longer pending, `pending` says it still exists and
+ * is; both false means it is gone (retired by a replacement).
+ */
 async function settledState(userId) {
   const again = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [userId]);
   const row = again.rows[0];
-  return row && !row.email_verification_pending ? row : null;
+  if (!row) return { verified: null, pending: false };
+  return row.email_verification_pending
+    ? { verified: null, pending: true }
+    : { verified: row, pending: false };
 }
 
 /**
