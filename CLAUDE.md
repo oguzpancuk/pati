@@ -10,7 +10,8 @@ English codebase.
 
 Spec: `docs/PRD.md` · Build order: `docs/ROADMAP.md` · Working notes:
 `docs/NOTES.md` · Decisions: `docs/adr/` · Overview: `docs/PROJECT.md` ·
-Design system: `docs/DESIGN.md` · Deploy: `docs/DEPLOYMENT.md`
+Design system: `docs/DESIGN.md` · Deploy: `docs/DEPLOYMENT.md` ·
+Auth test plan: `docs/AUTH-TEST-PLAN.md`
 
 ## Stack & commands
 
