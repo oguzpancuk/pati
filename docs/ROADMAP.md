@@ -482,7 +482,7 @@ Deliberately deferred, with reasons:
       gap). A pending registration holds its address for 24 hours and then
       becomes replaceable, which retires the "squatting is permanent"
       consequence. Verified by
-      `backend/scripts/email-verification-check/run.sh` (83 curl assertions)
+      `backend/scripts/email-verification-check/run.sh` (87 curl assertions)
       and the code screen screenshots on both clients. **Turns on with
       `RESEND_API_KEY`** (owner: Resend account + DNS, docs/DEPLOYMENT.md);
       until then registration stays as it was. Left for later: "verify my

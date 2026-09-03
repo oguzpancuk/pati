@@ -181,6 +181,14 @@ async function verifyEmail(req, res, next) {
     if (!user.email_verification_pending) return res.json({ user, alreadyVerified: true });
 
     const outcome = await verification.checkCode(user.id, code);
+    if (!outcome.ok && outcome.reason === 'none') {
+      // No code row: either a concurrent submission of the same code just
+      // won (the row is verified — say so, as the pre-check above would
+      // have), or the row was retired underneath this session.
+      const settled = await settledState(user.id);
+      if (settled) return res.json({ user: settled, alreadyVerified: true });
+      return res.status(401).json({ error: 'Oturumunuz geçersiz, lütfen tekrar giriş yapın' });
+    }
     if (!outcome.ok) {
       const status = outcome.reason === 'attempts' ? 429 : 400;
       let suffix = '';
@@ -197,16 +205,26 @@ async function verifyEmail(req, res, next) {
 
     const verified = await verification.markVerified(user.id, USER_COLUMNS);
     if (!verified) {
-      // The row stopped being a pending one between the check and here:
-      // retired by a replacement (this session is dead) or verified by a
-      // concurrent request. 401 makes the client drop the session and log
-      // in again, which sorts out either case.
+      // The row stopped being a pending one between the check and here.
+      // Verified by a concurrent submission → the honest answer is the same
+      // as for a double tap (review: a 401 here made mobile wipe the session
+      // of a user who had just verified). Retired by a replacement → the
+      // session is dead, and 401 makes the client log in again.
+      const settled = await settledState(user.id);
+      if (settled) return res.json({ user: settled, alreadyVerified: true });
       return res.status(401).json({ error: 'Oturumunuz geçersiz, lütfen tekrar giriş yapın' });
     }
     res.json({ user: verified });
   } catch (err) {
     next(err);
   }
+}
+
+/** The row as a verified account, or null when it is gone or still pending. */
+async function settledState(userId) {
+  const again = await pool.query(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [userId]);
+  const row = again.rows[0];
+  return row && !row.email_verification_pending ? row : null;
 }
 
 /**
@@ -495,6 +513,12 @@ async function socialLogin(provider, req, res, next) {
           if (err.code !== '23505') throw err;
           user = await findByEmail(identity.email);
           if (!user) throw err;
+          if (user.email_verification_pending) {
+            // A registration replaced the pending row between our read and
+            // our insert. Its row is takeover material too; a retry does
+            // it, and "use your password" would be the wrong instruction.
+            return res.status(409).json({ error: 'Adres az önce değişti; tekrar dene' });
+          }
           if (!user.email_verified) return refuseUnprovenAccount(res);
         } finally {
           client.release();

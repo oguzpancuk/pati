@@ -45,11 +45,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (parsed.email_verification_pending) {
           fetchMe()
             .then((me) => {
-              if (!me.email_verification_pending) {
-                const verified = { ...parsed, email_verification_pending: false };
+              if (me.email_verification_pending) return;
+              // Functional update, and only onto the same user: a logout
+              // during the request must not be undone by its late answer
+              // (review finding).
+              setUser((current) => {
+                if (!current || current.id !== parsed.id) return current;
+                const verified = { ...current, email_verification_pending: false };
                 AsyncStorage.setItem('user', JSON.stringify(verified)).catch(() => {});
-                setUser(verified);
-              }
+                return verified;
+              });
             })
             .catch(() => {});
         }

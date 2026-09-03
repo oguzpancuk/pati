@@ -259,6 +259,25 @@ code=$(post_auth auth/verify-email/resend "$JWT8" '{}')
 check "resend right away -> 429 (cooldown, before the limiter)" 429 "$code"
 check "…with retryAfter" true "$(node -pe "typeof JSON.parse(require('fs').readFileSync('$BODY')).retryAfter === 'number'")"
 
+echo "12c. The same correct code submitted concurrently never logs the user out"
+# Review reproduced 1×200 + 401s for eight parallel submissions from one
+# honest session; mobile wipes the session on any 401. Every loser must now
+# be told "already verified" instead.
+MAIL9="ev9-$STAMP@example.com"
+code=$(post auth/register "{\"name\":\"Çift Dokunan\",\"email\":\"$MAIL9\",\"password\":\"parola1234\"}")
+check "register -> 201" 201 "$code"
+JWT9=$(field .token)
+CODE9=$(last_code "$MAIL9")
+for i in 1 2 3 4 5 6; do
+  curl -s -o "/tmp/ev-dup-$i.json" -w '%{http_code}\n' -X POST "$API/auth/verify-email" -H "Authorization: Bearer $JWT9" -H 'Content-Type: application/json' \
+    -d "{\"code\":\"$CODE9\"}" > "/tmp/ev-dup-$i.code" &
+done
+wait
+check "all six answered 200" 6 "$(cat /tmp/ev-dup-{1,2,3,4,5,6}.code | grep -c '^200$')"
+check "…every body carries a verified user" 6 "$(node -e 'console.log([1,2,3,4,5,6].filter(i=>{try{return JSON.parse(require("fs").readFileSync("/tmp/ev-dup-"+i+".json")).user?.email_verification_pending===false}catch{return false}}).length)')"
+code=$(get_auth users/me/animals "$JWT9")
+check "the session still works -> 200" 200 "$code"
+
 echo "13. A pending account can still delete itself"
 MAIL4="ev4-$STAMP@example.com"
 code=$(post auth/register "{\"name\":\"Vazgeçen\",\"email\":\"$MAIL4\",\"password\":\"parola1234\"}")

@@ -1310,7 +1310,7 @@ What shipped, and the reasoning worth keeping:
   transport, which is also how the check harness reads the code back
   (`MAIL_OUTBOX_FILE`). Turning it on is owner-side: a Resend account and
   the DNS records for `pati-app.com` (docs/DEPLOYMENT.md).
-- **Evidence:** `backend/scripts/email-verification-check/run.sh` (83 curl
+- **Evidence:** `backend/scripts/email-verification-check/run.sh` (87 curl
   assertions: pending, gate, wrong/expired/retired codes, cooldown, hold
   expiry and replacement, deletion while pending, and the ADR-0003 link a
   verified address unlocks), the S7 harness unchanged and green, the mobile
@@ -1364,3 +1364,23 @@ things around it; all fixed, and the harness now asserts each.
   vacuous — that code had already been expired by the previous step. It
   now uses a live code, and would have failed on the id reuse had it
   checked the old token; it does now.
+
+### Second review round: APPROVE, with four small ones
+
+The re-review of the fix commit reproduced one more thing and read the rest
+as sound (FK cascades, the transaction under READ COMMITTED, the S7
+grandfather fixture, express-rate-limit's `message` function):
+
+- **Two correct submissions of the same code could log the honest user
+  out.** The loser's `markVerified` matched no row and answered 401, which
+  mobile reads as "session expired". Both branches that can only mean
+  "verified underneath me or retired" now re-read the row and answer
+  `alreadyVerified` when it is verified, 401 only when it is gone. Harness
+  12c fires six identical submissions and asserts six 200s.
+- The `socialLogin` unique-violation fallback could tell a Google user
+  "use your password" about a pending row a concurrent registration had
+  just created; it now answers "adres az önce değişti; tekrar dene".
+- The mobile cold-start refresh could resurrect a user who logged out while
+  it was in flight; it updates functionally and only onto the same user.
+- A comment claimed `GET /users/me` may write badge awards; it does not,
+  and the redundant delete is gone.

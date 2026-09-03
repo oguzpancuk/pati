@@ -164,15 +164,17 @@ async function markVerified(userId, returning) {
  * fresh id, and every token the old registration was ever issued dies with
  * it; keeping the id let a squatter's still-valid seven-day token become a
  * session on the victim's verified account (review reproduced it). Pending
- * accounts are gated, so nothing of theirs exists outside this table except
- * badge awards GET /users/me may have written and the code row (cascade).
+ * accounts are gated, so nothing references them but cascading rows — the
+ * code row, and badge awards/identities, which no pending-tolerant route
+ * writes anyway (review checked: GET /users/me only refreshes the rank
+ * snapshot). Every non-cascading FK belongs to content a gated session
+ * cannot create.
  *
  * Runs on the caller's transaction client. Returns the rows removed: 0 when a
  * concurrent request already took the row, or it verified meanwhile — the
  * caller's INSERT then meets the unique index and answers 409.
  */
 async function retirePendingAccount(client, userId, { requireHoldExpired }) {
-  await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [userId]);
   const result = await client.query(
     `DELETE FROM users
       WHERE id = $1 AND email_verification_pending
