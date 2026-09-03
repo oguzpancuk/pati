@@ -165,29 +165,99 @@ code=$(post_auth auth/verify-email "$JWT3" "{\"code\":\"$CODE3\"}")
 check "expired code -> 400" 400 "$code"
 contains "…says it expired" "süresi dolmuş" "$(body)"
 
-echo "11. After the hold, an abandoned registration's address is free again"
-node scripts/email-verification-check/backdate.js "$UID3" created >/dev/null || { echo "  FAIL  could not age the registration"; FAILED=1; }
-code=$(post auth/register "{\"name\":\"Gerçek Sahip\",\"email\":\"$MAIL3\",\"password\":\"yenisifre1\"}")
+echo "11. After the hold, an abandoned registration's address is free again — and the old session dies"
+# A fresh account whose code is NOT expired (step 10's is), so the "old code
+# is dead" assertion below can only pass because the replacement killed it.
+MAIL5="ev5-$STAMP@example.com"
+code=$(post auth/register "{\"name\":\"Terk Eden\",\"email\":\"$MAIL5\",\"password\":\"parola1234\"}")
+check "register -> 201" 201 "$code"
+UID5=$(field .user.id)
+JWT5=$(field .token)
+CODE5=$(last_code "$MAIL5")
+code=$(post auth/register "{\"name\":\"Erken Gelen\",\"email\":\"$MAIL5\",\"password\":\"yenisifre1\"}")
+check "inside the hold -> 409" 409 "$code"
+node scripts/email-verification-check/backdate.js "$UID5" created >/dev/null || { echo "  FAIL  could not age the registration"; FAILED=1; }
+code=$(post auth/register "{\"name\":\"Gerçek Sahip\",\"email\":\"$MAIL5\",\"password\":\"yenisifre1\"}")
 check "re-registration -> 201" 201 "$code"
-check "…takes over the same row" "$UID3" "$(field .user.id)"
+UID5B=$(field .user.id)
+JWT5B=$(field .token)
+if [ "$UID5B" = "$UID5" ]; then echo "  FAIL  the replacement reused row $UID5 — every token issued for it stays valid"; FAILED=1; else echo "  PASS  a fresh row ($UID5 -> $UID5B)"; fi
 check "…still pending" true "$(field .user.email_verification_pending)"
-JWT3B=$(field .token)
-code=$(post auth/login "{\"email\":\"$MAIL3\",\"password\":\"parola1234\"}")
+# The blocker review reproduced: the squatter's seven-day token must not
+# become a session on the owner's account.
+code=$(get_auth users/me "$JWT5")
+check "the abandoned registration's token -> 401" 401 "$code"
+code=$(post_auth auth/verify-email "$JWT5" "{\"code\":\"$CODE5\"}")
+check "…nor can it verify anything -> 401" 401 "$code"
+code=$(post auth/login "{\"email\":\"$MAIL5\",\"password\":\"parola1234\"}")
 check "the abandoned password is gone -> 401" 401 "$code"
-code=$(post auth/login "{\"email\":\"$MAIL3\",\"password\":\"yenisifre1\"}")
+code=$(post auth/login "{\"email\":\"$MAIL5\",\"password\":\"yenisifre1\"}")
 check "the new one logs in -> 200" 200 "$code"
-code=$(post_auth auth/verify-email "$JWT3B" "{\"code\":\"$CODE3\"}")
-check "the old registration's code is dead -> 400" 400 "$code"
-CODE3B=$(last_code "$MAIL3")
-code=$(post_auth auth/verify-email "$JWT3B" "{\"code\":\"$CODE3B\"}")
+code=$(post_auth auth/verify-email "$JWT5B" "{\"code\":\"$CODE5\"}")
+check "the old registration's (unexpired) code is dead -> 400" 400 "$code"
+CODE5B=$(last_code "$MAIL5")
+code=$(post_auth auth/verify-email "$JWT5B" "{\"code\":\"$CODE5B\"}")
 check "the new registration's code -> 200" 200 "$code"
+code=$(get_auth users/me "$JWT5")
+check "the old token is still dead after verification -> 401" 401 "$code"
+
+echo "11b. Concurrent replacements: exactly one wins"
+# Review: four simultaneous registrations on a released address all got a
+# token. The retire-then-insert now runs in one transaction; the losers find
+# nothing to delete and hit the unique index.
+MAIL6="ev6-$STAMP@example.com"
+code=$(post auth/register "{\"name\":\"Eski\",\"email\":\"$MAIL6\",\"password\":\"parola1234\"}")
+check "register -> 201" 201 "$code"
+UID6=$(field .user.id)
+node scripts/email-verification-check/backdate.js "$UID6" created >/dev/null
+for i in 1 2 3 4; do
+  curl -s -o "/tmp/ev-race-$i.json" -w '%{http_code}\n' -X POST "$API/auth/register" -H 'Content-Type: application/json' \
+    -d "{\"name\":\"Yarışan $i\",\"email\":\"$MAIL6\",\"password\":\"yaris$i-1234\"}" > "/tmp/ev-race-$i.code" &
+done
+wait
+WINS=$(cat /tmp/ev-race-{1,2,3,4}.code | grep -c '^201$')
+check "exactly one 201 out of four" 1 "$WINS"
+check "the rest are 409" 3 "$(cat /tmp/ev-race-{1,2,3,4}.code | grep -c '^409$')"
+check "one row holds the address" 1 "$(node -e 'const r=[1,2,3,4].map(i=>{try{return JSON.parse(require("fs").readFileSync("/tmp/ev-race-"+i+".json")).user?.id}catch{return null}}).filter(Boolean);console.log(new Set(r).size)')"
+
+echo "11c. A verified provider e-mail takes over a pending registration at once"
+# The provider proved the mailbox; the pending registrant never did. Refusing
+# here kept a squatted address closed to its owner's Google sign-in forever
+# (review finding). No hold applies.
+MAIL7="ev7-$STAMP@example.com"
+code=$(post auth/register "{\"name\":\"Gaspçı\",\"email\":\"$MAIL7\",\"password\":\"gasp12345\"}")
+check "squatting registration -> 201" 201 "$code"
+UID7=$(field .user.id)
+JWT7=$(field .token)
+GT7=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\",\"aud\":\"web-client.apps.googleusercontent.com\",\"sub\":\"owner-google-$STAMP\",\"email\":\"$MAIL7\",\"email_verified\":true}")
+code=$(post auth/google "{\"idToken\":\"$GT7\"}")
+check "owner's verified google -> 201, new account" 201 "$code"
+UID7B=$(field .user.id)
+if [ "$UID7B" = "$UID7" ]; then echo "  FAIL  the provider was linked INTO the squatter's row"; FAILED=1; else echo "  PASS  a fresh row ($UID7 -> $UID7B)"; fi
+code=$(get_auth users/me "$JWT7")
+check "the squatter's token -> 401" 401 "$code"
+code=$(post auth/login "{\"email\":\"$MAIL7\",\"password\":\"gasp12345\"}")
+check "the squatter's password -> 401" 401 "$code"
 
 echo "12. A verified account is never replaceable, however old"
-node scripts/email-verification-check/backdate.js "$UID3" created >/dev/null
-code=$(post auth/register "{\"name\":\"Gaspçı\",\"email\":\"$MAIL3\",\"password\":\"gasp12345\"}")
+node scripts/email-verification-check/backdate.js "$UID5B" created >/dev/null
+code=$(post auth/register "{\"name\":\"Gaspçı\",\"email\":\"$MAIL5\",\"password\":\"gasp12345\"}")
 check "register on an old verified address -> 409" 409 "$code"
-code=$(post auth/login "{\"email\":\"$MAIL3\",\"password\":\"yenisifre1\"}")
+code=$(post auth/login "{\"email\":\"$MAIL5\",\"password\":\"yenisifre1\"}")
 check "the owner's password still works -> 200" 200 "$code"
+
+echo "12b. The fifth wrong guess says the code is spent"
+MAIL8="ev8-$STAMP@example.com"
+code=$(post auth/register "{\"name\":\"Beşinci\",\"email\":\"$MAIL8\",\"password\":\"parola1234\"}")
+check "register -> 201" 201 "$code"
+JWT8=$(field .token)
+CODE8=$(last_code "$MAIL8")
+for i in 1 2 3 4 5; do code=$(post_auth auth/verify-email "$JWT8" "{\"code\":\"$(wrong_code "$CODE8")\"}"); done
+check "fifth wrong guess -> 400" 400 "$code"
+contains "…and says to ask for a new code" "yeni kod iste" "$(body)"
+code=$(post_auth auth/verify-email/resend "$JWT8" '{}')
+check "resend right away -> 429 (cooldown, before the limiter)" 429 "$code"
+check "…with retryAfter" true "$(node -pe "typeof JSON.parse(require('fs').readFileSync('$BODY')).retryAfter === 'number'")"
 
 echo "13. A pending account can still delete itself"
 MAIL4="ev4-$STAMP@example.com"

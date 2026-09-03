@@ -140,15 +140,46 @@ async function checkCode(userId, code) {
 /**
  * The address is proven: the account leaves the pending state and becomes
  * linkable for provider sign-in (email_verified is what ADR-0003 reads).
+ * Guarded on the flag: null when the row is no longer a pending one — it was
+ * retired underneath this session (see retirePendingAccount) or verified by
+ * a concurrent request.
  */
 async function markVerified(userId, returning) {
   const result = await pool.query(
     `UPDATE users SET email_verified = true, email_verification_pending = false
-      WHERE id = $1 RETURNING ${returning}`,
+      WHERE id = $1 AND email_verification_pending RETURNING ${returning}`,
     [userId]
   );
   await pool.query('DELETE FROM email_verifications WHERE user_id = $1', [userId]);
   return result.rows[0] || null;
+}
+
+/**
+ * Removes a pending registration so a stronger claim on its address can take
+ * the address: a password registration once the hold has passed, or a
+ * provider sign-in whose e-mail the provider verified (no hold — that IS
+ * mailbox proof, which the pending registrant never produced).
+ *
+ * Deleting rather than updating the row is load-bearing. A fresh row is a
+ * fresh id, and every token the old registration was ever issued dies with
+ * it; keeping the id let a squatter's still-valid seven-day token become a
+ * session on the victim's verified account (review reproduced it). Pending
+ * accounts are gated, so nothing of theirs exists outside this table except
+ * badge awards GET /users/me may have written and the code row (cascade).
+ *
+ * Runs on the caller's transaction client. Returns the rows removed: 0 when a
+ * concurrent request already took the row, or it verified meanwhile — the
+ * caller's INSERT then meets the unique index and answers 409.
+ */
+async function retirePendingAccount(client, userId, { requireHoldExpired }) {
+  await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [userId]);
+  const result = await client.query(
+    `DELETE FROM users
+      WHERE id = $1 AND email_verification_pending
+        AND (NOT $2::boolean OR created_at < now() - $3::interval)`,
+    [userId, requireHoldExpired, PENDING_HOLD]
+  );
+  return result.rowCount;
 }
 
 module.exports = {
@@ -156,6 +187,7 @@ module.exports = {
   sendCode,
   checkCode,
   markVerified,
+  retirePendingAccount,
   cooldownRemaining,
   MAX_ATTEMPTS,
   PENDING_HOLD,

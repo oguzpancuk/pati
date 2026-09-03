@@ -527,6 +527,9 @@ async function deleteMyAccount(req, res, next) {
          -- The anonymized address is a placeholder nobody proved; leaving
          -- this true would let a tombstone look like a linkable account.
          email_verified = false,
+         -- A tombstone is not waiting for a code either; the code row itself
+         -- is dropped below.
+         email_verification_pending = false,
          featured_badges = '[]'::jsonb,
          last_rank = NULL,
          last_points = 0,
@@ -540,6 +543,7 @@ async function deleteMyAccount(req, res, next) {
     ]);
     await client.query('DELETE FROM user_animal_care WHERE user_id = $1', [req.user.userId]);
     await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [req.user.userId]);
+    await client.query('DELETE FROM email_verifications WHERE user_id = $1', [req.user.userId]);
     // Without this the deleted account keeps its Apple/Google links, and the
     // next "Apple ile giriş" would walk straight back into the anonymized,
     // suspended row instead of creating a fresh account.

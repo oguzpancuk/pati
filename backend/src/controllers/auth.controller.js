@@ -82,32 +82,35 @@ async function register(req, res, next) {
     // sent: a pending account nobody can reach would be worse than the old
     // behaviour. Production says so in the boot log.
     const pending = verification.isEnabled();
+    // One transaction for "retire the expired registration, then insert":
+    // two requests replacing the same row queue on its lock, and the second
+    // finds nothing left to delete — it must not insert on top of the first
+    // (review: four concurrent replacements all got a token).
+    const client = await pool.connect();
     let result;
     try {
-      result = replaceable
-        ? await pool.query(
-            // The expired registration is taken over rather than deleted:
-            // it could do nothing while pending, so there is nothing of it
-            // to keep, and the id stays stable for anything that might
-            // still reference it. Guarded on the flag so a verification
-            // that raced this request wins.
-            `UPDATE users
-                SET name = $1, email = $2, password_hash = $3, avatar_url = $4,
-                    email_verification_pending = $5, created_at = now()
-              WHERE id = $6 AND email_verification_pending
-              RETURNING ${USER_COLUMNS}, created_at`,
-            [name, normalizedEmail, passwordHash, randomAvatarValue(), pending, existing.rows[0].id]
-          )
-        : await pool.query(
-            `INSERT INTO users (name, email, password_hash, avatar_url, email_verification_pending)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING ${USER_COLUMNS}, created_at`,
-            [name, normalizedEmail, passwordHash, randomAvatarValue(), pending]
-          );
-      if (result.rows.length === 0) {
-        return res.status(409).json({ error: 'Bu e-posta ile kayıtlı bir kullanıcı zaten var' });
+      await client.query('BEGIN');
+      if (replaceable) {
+        const removed = await verification.retirePendingAccount(client, existing.rows[0].id, {
+          requireHoldExpired: true,
+        });
+        if (removed === 0) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            error:
+              'Bu e-posta için doğrulama bekleyen bir kayıt var. Kaydı sen yaptıysan giriş yapıp yeni kod iste.',
+          });
+        }
       }
+      result = await client.query(
+        `INSERT INTO users (name, email, password_hash, avatar_url, email_verification_pending)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING ${USER_COLUMNS}, created_at`,
+        [name, normalizedEmail, passwordHash, randomAvatarValue(), pending]
+      );
+      await client.query('COMMIT');
     } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
       // Two registrations racing on the same address — newly reachable now
       // that `Ali@x.com` and `ali@x.com` normalise to one key. The check
       // above is not a lock; `users_email_key` is (it is case-sensitive, and
@@ -118,6 +121,8 @@ async function register(req, res, next) {
       // unique violation is our problem and deserves to surface as one.
       if (err.code !== '23505' || err.constraint !== 'users_email_key') throw err;
       return res.status(409).json({ error: 'Bu e-posta ile kayıtlı bir kullanıcı zaten var' });
+    } finally {
+      client.release();
     }
 
     const user = result.rows[0];
@@ -178,15 +183,44 @@ async function verifyEmail(req, res, next) {
     const outcome = await verification.checkCode(user.id, code);
     if (!outcome.ok) {
       const status = outcome.reason === 'attempts' ? 429 : 400;
-      const suffix =
-        outcome.reason === 'wrong' && outcome.remaining > 0
-          ? ` (${outcome.remaining} deneme kaldı)`
-          : '';
+      let suffix = '';
+      if (outcome.reason === 'wrong') {
+        // The fifth wrong guess retires the code; saying so here spares the
+        // user a correct code answered with "ask for a new one".
+        suffix =
+          outcome.remaining > 0
+            ? ` (${outcome.remaining} deneme kaldı)`
+            : '; deneme hakkın bitti, yeni kod iste';
+      }
       return res.status(status).json({ error: `${CODE_ERRORS[outcome.reason]}${suffix}` });
     }
 
     const verified = await verification.markVerified(user.id, USER_COLUMNS);
+    if (!verified) {
+      // The row stopped being a pending one between the check and here:
+      // retired by a replacement (this session is dead) or verified by a
+      // concurrent request. 401 makes the client drop the session and log
+      // in again, which sorts out either case.
+      return res.status(401).json({ error: 'Oturumunuz geçersiz, lütfen tekrar giriş yapın' });
+    }
     res.json({ user: verified });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * The resend cooldown, as a middleware mounted BEFORE the hourly limiter: a
+ * double tap must cost one 429, not two of the six resends an hour the
+ * limiter allows (review finding).
+ */
+async function resendCooldown(req, res, next) {
+  try {
+    const wait = await verification.cooldownRemaining(req.user.userId);
+    if (wait > 0) {
+      return res.status(429).json({ error: `Yeni kod için ${wait} saniye bekle`, retryAfter: wait });
+    }
+    next();
   } catch (err) {
     next(err);
   }
@@ -211,13 +245,7 @@ async function resendVerification(req, res, next) {
       return res.status(400).json({ error: 'E-posta adresin zaten doğrulanmış' });
     }
 
-    const wait = await verification.cooldownRemaining(user.id);
-    if (wait > 0) {
-      return res
-        .status(429)
-        .json({ error: `Yeni kod için ${wait} saniye bekle`, retryAfter: wait });
-    }
-
+    // The cooldown itself is resendCooldown, mounted ahead of the limiter.
     try {
       await verification.sendCode(user);
     } catch (err) {
@@ -428,20 +456,38 @@ async function socialLogin(provider, req, res, next) {
       }
 
       const existing = await findByEmail(identity.email);
-      if (existing && !existing.email_verified) return refuseUnprovenAccount(res);
-      user = existing;
+      // Three kinds of row can hold the address. Proven → link (below).
+      // Grandfathered, never proven → refuse, the password is the way in.
+      // PENDING → the provider's verified e-mail is mailbox proof the
+      // pending registrant never produced, so it takes the address over at
+      // once, hold or no hold — otherwise a squatted address would stay
+      // closed to its owner's Apple/Google sign-in forever (review finding).
+      if (existing && !existing.email_verified && !existing.email_verification_pending) {
+        return refuseUnprovenAccount(res);
+      }
+      const pendingRow = existing && !existing.email_verified ? existing : null;
+      user = pendingRow ? null : existing;
 
       if (!user) {
+        const client = await pool.connect();
         try {
-          const inserted = await pool.query(
+          await client.query('BEGIN');
+          if (pendingRow) {
+            await verification.retirePendingAccount(client, pendingRow.id, {
+              requireHoldExpired: false,
+            });
+          }
+          const inserted = await client.query(
             `INSERT INTO users (name, email, avatar_url, email_verified)
              VALUES ($1, $2, $3, true)
              RETURNING ${USER_COLUMNS}, email_verified, suspended_at, suspended_reason`,
             [displayName(identity, forwardedName), identity.email, randomAvatarValue()]
           );
+          await client.query('COMMIT');
           user = inserted.rows[0];
           created = true;
         } catch (err) {
+          await client.query('ROLLBACK').catch(() => {});
           // Two sign-ins racing on the same fresh e-mail: the unique index is
           // the arbiter and the loser reads the winner's row. The winner may
           // also have been a plain registration, so the same proof check
@@ -450,6 +496,8 @@ async function socialLogin(provider, req, res, next) {
           user = await findByEmail(identity.email);
           if (!user) throw err;
           if (!user.email_verified) return refuseUnprovenAccount(res);
+        } finally {
+          client.release();
         }
       }
     }
@@ -503,6 +551,7 @@ module.exports = {
   register,
   login,
   verifyEmail,
+  resendCooldown,
   resendVerification,
   appleLogin,
   googleLogin,

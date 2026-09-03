@@ -71,8 +71,12 @@ export default function VerifyEmailScreen() {
       setCooldown(RESEND_COOLDOWN_S);
       setNotice('Yeni kod gönderildi.');
     } catch (err: any) {
-      const retryAfter = err?.response?.data?.retryAfter;
-      if (typeof retryAfter === 'number') setCooldown(retryAfter);
+      // Both the cooldown and the hourly limiter answer 429 with
+      // `retryAfter`; a 429 without one still must not re-enable the button.
+      if (err?.response?.status === 429) {
+        const retryAfter = err?.response?.data?.retryAfter;
+        setCooldown(typeof retryAfter === 'number' ? retryAfter : RESEND_COOLDOWN_S);
+      }
       setError(err?.response?.data?.error ?? 'Kod gönderilemedi');
     } finally {
       setSending(false);

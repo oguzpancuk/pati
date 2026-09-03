@@ -129,10 +129,19 @@ echo "10. A provider may NOT link into an account whose address was never proven
 # address; linking into it would put the real owner inside an account the
 # squatter holds a password for (the second half of the takeover review
 # found). Those users sign in with their password instead.
+# Since ADR-0004 a fresh registration is PENDING, and a verified provider
+# e-mail takes a pending row over outright (email-verification-check 11c).
+# The rule here is about the accounts that predate verification — usable,
+# never proven — so the row is turned into one of those first.
+grandfather() { # user id
+  node scripts/email-verification-check/backdate.js "$1" grandfather >/dev/null || {
+    echo "  FAIL  could not grandfather user $1 — the check below would test the wrong rule"; FAILED=1; }
+}
 PMAIL="s7-pw-$STAMP@example.com"
 code=$(post auth/register "{\"name\":\"Şifreli Üye\",\"email\":\"$PMAIL\",\"password\":\"parola1234\"}")
 check "register -> 201" 201 "$code"
 PUID=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user.id")
+grandfather "$PUID"
 GT2=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\",\"aud\":\"web-client.apps.googleusercontent.com\",\"sub\":\"google-sub2-$STAMP\",\"email\":\"$PMAIL\",\"email_verified\":true}")
 code=$(post auth/google "{\"idToken\":\"$GT2\"}")
 check "verified google token -> 409, no link" 409 "$code"
@@ -151,6 +160,7 @@ CMAIL_LOWER=$(printf '%s' "$CMAIL_TYPED" | tr '[:upper:]' '[:lower:]')
 code=$(post auth/register "{\"name\":\"Büyük Harfli\",\"email\":\"$CMAIL_TYPED\",\"password\":\"parola1234\"}")
 check "register with capitals -> 201" 201 "$code"
 CUID=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user.id")
+grandfather "$CUID"
 # Registration lower-cases the address, so the row this rule exists for — one
 # stored with capitals, from before normalisation — has to be recreated
 # directly. Without this the assertion below passes even with the fix
@@ -206,6 +216,7 @@ PROVEN="s7-proven-$STAMP@example.com"
 code=$(post auth/register "{\"name\":\"Eski Şifreli\",\"email\":\"stale-$STAMP@example.com\",\"password\":\"parola1234\"}")
 check "older password account -> 201" 201 "$code"
 STALE_ID=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user.id")
+grandfather "$STALE_ID"
 GT4=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\",\"aud\":\"ios-client.apps.googleusercontent.com\",\"sub\":\"proven-google-$STAMP\",\"email\":\"$PROVEN\",\"email_verified\":true}")
 minted "proven-pair google token was minted" "$GT4"
 code=$(post auth/google "{\"idToken\":\"$GT4\"}")

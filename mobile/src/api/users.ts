@@ -88,6 +88,8 @@ export interface Me {
   commentCount: number;
   /** False for accounts that only ever signed in with Apple or Google. */
   hasPassword: boolean;
+  /** Same meaning as on `User` (api/auth): the code screen is still due. */
+  email_verification_pending?: boolean;
   authProviders: SocialProvider[];
 }
 

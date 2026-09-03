@@ -70,7 +70,11 @@ export default function VerifyEmailPage() {
       setCooldown(RESEND_COOLDOWN_S);
       setNotice('Yeni kod gönderildi.');
     } catch (err) {
-      if (err instanceof ApiError && err.status === 429) setCooldown(RESEND_COOLDOWN_S);
+      // Cooldown and hourly limiter both say how long; mirror it rather
+      // than guessing a minute.
+      if (err instanceof ApiError && err.status === 429) {
+        setCooldown(err.retryAfter ?? RESEND_COOLDOWN_S);
+      }
       setError(err instanceof Error ? err.message : 'Kod gönderilemedi');
     } finally {
       setSending(false);

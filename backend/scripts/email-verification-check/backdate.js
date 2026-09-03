@@ -5,6 +5,11 @@
  *   node backdate.js <user id> sent      last_sent_at  -2 minutes  (resend cooldown)
  *   node backdate.js <user id> expiry    expires_at    -1 minute   (code expiry)
  *   node backdate.js <user id> created   created_at    -25 hours   (address hold)
+ *   node backdate.js <user id> grandfather                          (pending → off, unproven)
+ *
+ * `grandfather` is not a timestamp: it turns a fresh registration into an
+ * account from before verification existed — usable, never proven — which
+ * the social-auth checks need and the API can no longer produce.
  *
  * Without these the assertions would either sleep for a day or, worse, pass
  * without the rule they claim to test being reachable at all.
@@ -26,11 +31,13 @@ const STATEMENTS = {
   expiry:
     "UPDATE email_verifications SET expires_at = now() - interval '1 minute' WHERE user_id = $1 RETURNING user_id",
   created: "UPDATE users SET created_at = now() - interval '25 hours' WHERE id = $1 RETURNING id",
+  grandfather:
+    'UPDATE users SET email_verification_pending = false, email_verified = false WHERE id = $1 RETURNING id',
 };
 
 const sql = STATEMENTS[what];
 if (!sql || !id) {
-  console.error('usage: backdate.js <user id> sent|expiry|created');
+  console.error('usage: backdate.js <user id> sent|expiry|created|grandfather');
   process.exit(1);
 }
 

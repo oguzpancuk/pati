@@ -153,7 +153,7 @@ untouched: the column default is what keeps them usable.
 
 **Local check:** `bash backend/scripts/email-verification-check/run.sh`
 boots a throwaway backend whose mail goes to a file and drives the flow end
-to end (76 assertions). In ordinary development the code is printed to the
+to end (83 assertions). In ordinary development the code is printed to the
 backend log (`/tmp/pati-backend.log`) — there is no mail to open.
 
 ## Custom domains

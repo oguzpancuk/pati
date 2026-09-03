@@ -19,9 +19,12 @@ export function setToken(token: string | null) {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Seconds to wait, when a 429 says so (cooldowns and limiters both do). */
+  retryAfter?: number;
+  constructor(status: number, message: string, retryAfter?: number) {
     super(message);
     this.status = status;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -49,7 +52,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       // the code page must replace the app (mobile parity).
       verificationRequiredHandler?.();
     }
-    throw new ApiError(res.status, (body as { error?: string }).error || `HTTP ${res.status}`);
+    const { error, retryAfter } = body as { error?: string; retryAfter?: number };
+    throw new ApiError(
+      res.status,
+      error || `HTTP ${res.status}`,
+      typeof retryAfter === 'number' ? retryAfter : undefined
+    );
   }
   return body as T;
 }

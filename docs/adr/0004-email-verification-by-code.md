@@ -47,13 +47,25 @@ registration, or whatever the modern standard is".
   attempts are limited to thirty an hour per user. Codes expire after
   fifteen minutes.
 - **A pending registration holds its address for 24 hours, then becomes
-  replaceable.** Holding it is what stops someone from re-registering under
-  a registration whose code is about to be typed and swapping in their own
-  password. Releasing it is what makes squatting temporary: the squatter
-  knows a password but never sees the mailbox, so the account never leaves
-  pending, and after a day the real owner's registration takes the row
-  over (same id, new name and password, a new code; the old code and the
-  old password are dead). A verified account is never replaceable.
+  replaceable — by deleting the row, never by updating it.** Holding it is
+  what stops someone from re-registering under a registration whose code
+  is about to be typed and swapping in their own password. Releasing it is
+  what makes squatting temporary: the squatter knows a password but never
+  sees the mailbox, so the account never leaves pending, and after a day
+  the real owner's registration replaces it. The replacement is a fresh
+  row: a fresh id means every token the old registration was ever issued
+  is dead. The first version updated the row in place, and review
+  reproduced the consequence — the squatter's still-valid seven-day token
+  became a session on the victim's verified account. Retire-then-insert
+  runs in one transaction, so concurrent replacements queue on the row lock
+  and only one gets in. A verified account is never replaceable.
+- **A verified provider e-mail takes a pending registration over at once,
+  hold or no hold.** The provider proved the mailbox; the pending
+  registrant never did. Without this a squatted address stayed closed to
+  its owner's Apple/Google sign-in for as long as the squatter re-registered
+  daily (review finding). Grandfathered accounts — usable, never proven —
+  are still refused with "use your password", as ADR-0003 decided; only the
+  gated, pending kind is retired.
 - **Login is allowed while pending** — it is how someone who closed the app
   gets back to the code screen — but sends no mail; the screen has a resend
   button. An automatic mail per login would let anyone holding the password
@@ -83,9 +95,19 @@ registration, or whatever the modern standard is".
 - The dev transport means the code shows up in the backend log; the check
   harness `backend/scripts/email-verification-check/run.sh` drives the whole
   flow (pending, gate, wrong/expired/retired codes, cooldown, hold expiry,
-  replacement, deletion, and the ADR-0003 link that verification unlocks).
+  replacement with the old session dying, concurrent replacement, provider
+  takeover of a pending row, deletion, and the ADR-0003 link that
+  verification unlocks).
 - `AUTH_RATE_LIMIT` (ignored in production) lets that harness exceed the
   30-per-15-minutes brake on `/api/auth`.
+- **Accepted:** a squatter who re-registers every day renews the hold, so
+  the password-vs-password race on an address neither side has proven is
+  won by whoever registers first each day. The provider takeover above is
+  the proof-based exit; a password-only owner of a persistently squatted
+  address waits for the squatter to miss a day. Also accepted: the 409 now
+  distinguishes "pending" from "taken", a small new signal that someone
+  registered on the address recently, in exchange for telling the honest
+  registrant to log in and resend rather than to give up.
 - Not built: cleanup of pending rows that were never verified (they cost a
   row each and free their address after a day anyway), and admin visibility
   of the pending flag.

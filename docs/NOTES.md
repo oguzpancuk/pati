@@ -1310,7 +1310,7 @@ What shipped, and the reasoning worth keeping:
   transport, which is also how the check harness reads the code back
   (`MAIL_OUTBOX_FILE`). Turning it on is owner-side: a Resend account and
   the DNS records for `pati-app.com` (docs/DEPLOYMENT.md).
-- **Evidence:** `backend/scripts/email-verification-check/run.sh` (76 curl
+- **Evidence:** `backend/scripts/email-verification-check/run.sh` (83 curl
   assertions: pending, gate, wrong/expired/retired codes, cooldown, hold
   expiry and replacement, deletion while pending, and the ADR-0003 link a
   verified address unlocks), the S7 harness unchanged and green, the mobile
@@ -1324,3 +1324,43 @@ What shipped, and the reasoning worth keeping:
 Follow-ups this opens, all sharing the new mail transport: "verify my
 e-mail" from the profile for grandfathered accounts, "set a password" for
 social accounts, and password reset.
+
+### First review round (same day): the row id was the hole
+
+code-reviewer reproduced a blocker in the replacement rule and found five
+things around it; all fixed, and the harness now asserts each.
+
+- **Replacing a pending registration by UPDATE kept its id, so every token
+  the squatter had been issued stayed a valid session** — on the victim's
+  account, after the victim verified. Seven days of access, reproduced with
+  a saved token. Replacement is now DELETE + INSERT in one transaction: a
+  fresh id kills the old tokens, and concurrent replacements queue on the
+  row lock so exactly one gets in (the reviewer had four simultaneous
+  registrations all return 201 on the old code). The harness registers,
+  ages, replaces, and asserts the old token answers 401 before and after
+  verification, and that four racing registrations yield one 201.
+- **Provider sign-in never benefited from the release**: a verified Google
+  e-mail on a pending row got "use your password" forever, so a squatter
+  re-registering daily could keep a Google user out for good. A verified
+  provider e-mail now retires the pending row outright (no hold — the
+  provider proved the mailbox; the pending registrant never did).
+  Grandfathered accounts keep the ADR-0003 refusal. The S7 harness's
+  "unproven account" steps therefore needed accounts that are unproven but
+  NOT pending — the kind the API can no longer create — so `backdate.js
+  grandfather` builds them; without it those steps were now testing the
+  provider takeover instead of the linking refusal.
+- Smaller: `markVerified` is guarded on the pending flag (a session whose
+  row was retired mid-verification gets 401, not a proven account for the
+  replacer); the resend cooldown runs *before* the hourly limiter so a
+  double tap costs one 429 rather than one of six resends; the fifth wrong
+  guess says the code is spent; limiter 429s carry `retryAfter` and both
+  clients mirror it; a tombstone clears the pending flag and its code row;
+  mobile re-reads `/users/me` on a cold start only when the stored user is
+  pending (verified on web, reopened on the phone: the code screen used to
+  stay). Accepted and written into the ADR: a daily re-registering squatter
+  can renew the hold against a password-only owner, and the 409 now says
+  "pending" rather than "taken".
+- The harness step that claimed "the old registration's code is dead" was
+  vacuous — that code had already been expired by the previous step. It
+  now uses a live code, and would have failed on the id reuse had it
+  checked the old token; it does now.

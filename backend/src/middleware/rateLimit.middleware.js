@@ -26,9 +26,14 @@ function userRateLimit({ windowMs, limit, action }) {
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     keyGenerator: (req) => (req.user ? `u:${req.user.userId}` : ipKeyGenerator(req.ip)),
-    message: {
+    // `retryAfter` (seconds) lets a client mirror the wait instead of
+    // guessing; the verification screens count it down.
+    message: (req) => ({
       error: `Kısa sürede çok fazla ${action}. Lütfen biraz sonra tekrar dene.`,
-    },
+      retryAfter: req.rateLimit?.resetTime
+        ? Math.max(1, Math.ceil((req.rateLimit.resetTime.getTime() - Date.now()) / 1000))
+        : undefined,
+    }),
   });
 }
 

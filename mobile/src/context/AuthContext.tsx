@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as authApi from '../api/auth';
+import { fetchMe } from '../api/users';
 import { setSessionExpiredHandler, setVerificationRequiredHandler } from '../api/client';
 
 interface AuthContextValue {
@@ -35,7 +36,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem('user').then((stored) => {
       if (stored) {
-        setUser(JSON.parse(stored));
+        const parsed: authApi.User = JSON.parse(stored);
+        setUser(parsed);
+        // A stored pending user may have verified elsewhere (web) since;
+        // without asking, the code screen would stay up and resend would
+        // answer "already verified" (review finding). Only the pending case
+        // asks — a verified session is trusted as before.
+        if (parsed.email_verification_pending) {
+          fetchMe()
+            .then((me) => {
+              if (!me.email_verification_pending) {
+                const verified = { ...parsed, email_verification_pending: false };
+                AsyncStorage.setItem('user', JSON.stringify(verified)).catch(() => {});
+                setUser(verified);
+              }
+            })
+            .catch(() => {});
+        }
       }
       setIsLoading(false);
     });

@@ -3,6 +3,7 @@ const {
   register,
   login,
   verifyEmail,
+  resendCooldown,
   resendVerification,
   appleLogin,
   googleLogin,
@@ -24,9 +25,12 @@ router.post('/login', login);
 // deleting itself in user.routes). Both sit under the /api/auth IP limiter
 // as well; the per-user limiters here are what bound code guessing.
 router.post('/verify-email', requireAuthAllowPending, limits.verifyEmail, verifyEmail);
+// Cooldown before the hourly limiter: a double tap costs one 429, not one
+// of the six resends the limiter allows.
 router.post(
   '/verify-email/resend',
   requireAuthAllowPending,
+  resendCooldown,
   limits.verifyResend,
   resendVerification
 );
