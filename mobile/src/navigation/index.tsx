@@ -19,6 +19,7 @@ import PublicProfileScreen from '../screens/PublicProfileScreen';
 import FindFriendsScreen from '../screens/FindFriendsScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import UserCommentsScreen from '../screens/UserCommentsScreen';
+import VerifyEmailScreen from '../screens/VerifyEmailScreen';
 import { BadgeAwardProvider } from '../context/BadgeAwardContext';
 import { useCareAlerts } from '../useCareAlerts';
 
@@ -174,8 +175,12 @@ export default function RootNavigator() {
   const styles = useStyles();
   const theme = useTheme();
   const { user, isLoading } = useAuth();
+  // An unverified e-mail gets the code screen and nothing else: the server
+  // would refuse every other request anyway (ADR-0004).
+  const pending = !!user?.email_verification_pending;
+  const signedIn = !!user && !pending;
   // Care alerts only run while signed in; the timer stops on sign-out.
-  useCareAlerts(!!user);
+  useCareAlerts(signedIn);
 
   if (isLoading) {
     // While the session loads, the logo stands in for a blank screen: the
@@ -188,13 +193,15 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navigationTheme(theme)} linking={user ? linking : undefined}>
-      {user ? (
+    <NavigationContainer theme={navigationTheme(theme)} linking={signedIn ? linking : undefined}>
+      {signedIn ? (
         // The badge celebration popup sits above navigation so it can show
         // from the same place no matter which screen earned it.
         <BadgeAwardProvider>
           <MainNavigator />
         </BadgeAwardProvider>
+      ) : pending ? (
+        <VerifyEmailScreen />
       ) : (
         <AuthNavigator />
       )}

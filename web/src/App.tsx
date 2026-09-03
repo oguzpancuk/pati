@@ -12,6 +12,7 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import UserCommentsPage from './pages/UserCommentsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import { BadgeAwardProvider } from './badgeAwards';
 import { useCareAlerts } from './careAlerts';
 
@@ -61,8 +62,9 @@ function Shell() {
 
 export default function App() {
   const { me, loading } = useAuth();
-  // Care alerts only run while signed in.
-  useCareAlerts(!!me);
+  // Care alerts only run while signed in — and verified: the server would
+  // refuse the poll otherwise.
+  useCareAlerts(!!me && !me.email_verification_pending);
 
   if (loading) {
     return (
@@ -72,13 +74,15 @@ export default function App() {
     );
   }
 
-  if (!me) {
+  if (!me || me.email_verification_pending) {
     return (
       <Routes>
         {/* The register form links here, so both must open without a session. */}
         <Route path="/gizlilik" element={<PrivacyPage />} />
         <Route path="/kosullar" element={<TermsPage />} />
-        <Route path="*" element={<LoginPage />} />
+        {/* An unverified e-mail gets the code page and nothing else: the
+            server would refuse every other request anyway (ADR-0004). */}
+        <Route path="*" element={me ? <VerifyEmailPage /> : <LoginPage />} />
       </Routes>
     );
   }

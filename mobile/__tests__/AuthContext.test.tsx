@@ -12,7 +12,27 @@ jest.mock('../src/api/auth', () => ({
     user: { id: 1, name: 'Test User', email, role: 'user' },
     token: 'fake-token',
   })),
-  register: jest.fn(),
+  register: jest.fn(async (name: string, email: string) => ({
+    user: { id: 3, name, email, role: 'user', email_verification_pending: true },
+    token: 'fake-pending-token',
+    verificationRequired: true,
+    codeSent: true,
+  })),
+  verifyEmail: jest.fn(async (code: string) => {
+    if (code !== '123456') {
+      throw Object.assign(new Error('Kod hatalı'), { response: { data: { error: 'Kod hatalı' } } });
+    }
+    return {
+      user: {
+        id: 3,
+        name: 'Yeni Üye',
+        email: 'new@example.com',
+        role: 'user',
+        email_verification_pending: false,
+      },
+    };
+  }),
+  resendVerificationCode: jest.fn(async () => ({ codeSent: true, email: 'new@example.com' })),
   socialLogin: jest.fn(async (provider: string) => ({
     user: { id: 2, name: 'Provider User', email: `${provider}@example.com`, role: 'user' },
     token: 'fake-provider-token',
@@ -21,12 +41,17 @@ jest.mock('../src/api/auth', () => ({
 }));
 
 function Probe() {
-  const { user, isLoading, login, loginWithProvider, logout } = useAuth();
-  (Probe as any).api = { login, loginWithProvider, logout };
+  const { user, isLoading, login, register, loginWithProvider, logout, verifyEmail, codeSent } =
+    useAuth();
+  (Probe as any).api = { login, register, loginWithProvider, logout, verifyEmail };
   if (isLoading) {
     return <Text>loading</Text>;
   }
-  return <Text>{user ? `logged-in:${user.email}` : 'logged-out'}</Text>;
+  if (!user) return <Text>logged-out</Text>;
+  // The navigator makes the same distinction: pending means the code
+  // screen, not the app.
+  if (user.email_verification_pending) return <Text>{`pending:${user.email}:${codeSent}`}</Text>;
+  return <Text>{`logged-in:${user.email}`}</Text>;
 }
 
 async function flush() {
@@ -91,4 +116,40 @@ it('signs in through a provider and stores that session', async () => {
     await (Probe as any).api.logout();
   });
   expect(root!.toJSON()).toEqual(expect.objectContaining({ children: ['logged-out'] }));
+});
+
+// Registration by e-mail lands in the pending state (the code screen), and
+// the typed code — not a second login — is what turns it into a session.
+it('holds an e-mail registration in the pending state until the code is verified', async () => {
+  let root: ReturnType<typeof create>;
+  await act(async () => {
+    root = create(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>
+    );
+  });
+  await flush();
+
+  await act(async () => {
+    await (Probe as any).api.register('Yeni Üye', 'new@example.com', 'parola1234');
+  });
+  expect(root!.toJSON()).toEqual(
+    expect.objectContaining({ children: ['pending:new@example.com:true'] })
+  );
+
+  // A wrong code leaves the state exactly where it was.
+  await act(async () => {
+    await expect((Probe as any).api.verifyEmail('000000')).rejects.toThrow('Kod hatalı');
+  });
+  expect(root!.toJSON()).toEqual(
+    expect.objectContaining({ children: ['pending:new@example.com:true'] })
+  );
+
+  await act(async () => {
+    await (Probe as any).api.verifyEmail('123456');
+  });
+  expect(root!.toJSON()).toEqual(
+    expect.objectContaining({ children: ['logged-in:new@example.com'] })
+  );
 });

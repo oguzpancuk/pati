@@ -473,15 +473,26 @@ Deliberately deferred, with reasons:
 - [x] CI (web/admin/mobile/backend/docker gates on every push —
       `.github/workflows/ci.yml`, August 19)
 - [ ] Backend tests (jest + supertest; none exist yet)
-- [ ] **E-mail confirmation on registration.** `POST /auth/register` proves
-      nothing about the address, so a provider sign-in may not link into a
-      password account (ADR-0003), and a social account has no way back if
-      it loses its provider. One confirmation flow fixes both, and would
-      also let "set a password" exist.
+- [x] **E-mail confirmation on registration** (September 3, 2026; ADR-0004).
+      A six-digit code typed into the registering session — a code rather
+      than a link, because a link verifies whoever clicks it. Pending
+      accounts are gated server-side (403 `emailUnverified`) and both
+      clients show the code screen; a verified address sets
+      `email_verified`, so provider sign-in links into it (the ADR-0003
+      gap). A pending registration holds its address for 24 hours and then
+      becomes replaceable, which retires the "squatting is permanent"
+      consequence. Verified by
+      `backend/scripts/email-verification-check/run.sh` (76 curl assertions)
+      and the code screen screenshots on both clients. **Turns on with
+      `RESEND_API_KEY`** (owner: Resend account + DNS, docs/DEPLOYMENT.md);
+      until then registration stays as it was. Left for later: "verify my
+      e-mail" from the profile for grandfathered accounts, "set a password"
+      for social accounts, password reset — all three share the mail
+      transport this added.
 - [ ] **Admin: free a squatted address.** The admin panel can suspend a user
-      and delete content, but not delete a user, so an address registered by
-      someone who does not own it cannot be released without direct database
-      access. Needed regardless of the confirmation flow, for support.
+      and delete content, but not delete a user. Less pressing now that an
+      unverified registration releases its address after a day; still the
+      only way to remove a _verified_ account for support.
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
 **Distribution:**
@@ -594,7 +605,7 @@ work: Apple Developer / Google Cloud console configuration.
 - **Verified:** `backend/scripts/social-auth-check/run.sh` (41 curl
   assertions against a local issuer: create, link, seven kinds of refusal —
   wrong audience, bad signature, expired, `alg:none`, HS256 key confusion,
-  an unverified e-mail on a taken *and* a free address, an unproven account
+  an unverified e-mail on a taken _and_ a free address, an unproven account
   — capitalisation, plus deletion); login and deletion screenshots in light and dark on
   both clients; the iOS Apple sheet reached the system dialog on the
   simulator. Six code-reviewer rounds and an evaluator-qa pass found ten

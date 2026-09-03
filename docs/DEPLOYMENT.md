@@ -62,29 +62,29 @@ script — and nothing here has to be done before a deploy.
 **Owner-side console work (nobody else can do it):**
 
 1. **Apple Developer → Identifiers → App ID** for `com.oguzpancuk.pati`
-   (the app's bundle id — permanent once submitted), with *Sign in with
-   Apple* enabled.
+   (the app's bundle id — permanent once submitted), with _Sign in with
+   Apple_ enabled.
 2. **Apple Developer → Identifiers → Services ID** (e.g.
    `com.pati-app.web`) for web sign-in, with `pati-app.com` as the domain
    and `https://pati-app.com/giris` as the return URL. Apple asks you to
    verify the domain with a file it generates.
 3. **Google Cloud → APIs & Services → Credentials → OAuth client ID**: one
-   *iOS* client whose bundle id is **`com.oguzpancuk.pati`** (a Google iOS
+   _iOS_ client whose bundle id is **`com.oguzpancuk.pati`** (a Google iOS
    client is bound to that string — the old `com.patiapp` would produce a
-   client that can never work), and one *Web application* client with
+   client that can never work), and one _Web application_ client with
    `https://pati-app.com` as an origin. When Android ships it needs a third,
-   *Android* client, registered against the **applicationId**
+   _Android_ client, registered against the **applicationId**
    (`com.oguzpancuk.pati`) and the signing SHA-1 — not the `namespace`
    (`com.patiapp`) that appears throughout the Android sources; getting that
    pair wrong yields `DEVELOPER_ERROR` on every Android sign-in. The consent
    screen needs the app name, the support e-mail and the two legal URLs
    (`/gizlilik`, `/kosullar`).
 4. **iOS only, and this one is load-bearing:** paste the Google iOS client's
-   *reversed* id (it looks like `com.googleusercontent.apps.123-abc`) into
+   _reversed_ id (it looks like `com.googleusercontent.apps.123-abc`) into
    `mobile/ios/StrayMobile/Info.plist` as an extra `CFBundleURLSchemes`
    entry next to `pati`, **and** put the plain id into
    `mobile/src/googleClientId.ts` in the same commit, then rebuild natively.
-   The app compares the *server's* id to the compiled-in one and draws the
+   The app compares the _server's_ id to the compiled-in one and draws the
    iOS button only when they match, so a stale Fly secret hides the button
    instead of crashing it. Nothing at runtime can read `Info.plist`, so the
    remaining pairing — compiled-in id ↔ URL scheme — is asserted by
@@ -98,7 +98,7 @@ script — and nothing here has to be done before a deploy.
    already in the project (`StrayMobile.entitlements`).
 
 **Then the secrets** — every one of them is a public identifier, not a
-password; nothing here is a client *secret*:
+password; nothing here is a client _secret_:
 
 ```bash
 fly secrets set --app pati-app \
@@ -125,6 +125,36 @@ throwaway backend and a local issuer and drives the whole flow (create, link,
 refuse a forged token, delete). It needs the local database running;
 `contracts/init.sh` is enough, since its `npm run migrate` applies
 `002_social_auth.sql` along with the rest.
+
+## E-mail verification (ADR-0004)
+
+Registration mails a six-digit code and holds the account until it is
+typed — **only where the backend can send mail**. Without the secret below,
+production registers accounts unverified exactly as before, and the boot
+log prints `mail: NOT CONFIGURED — e-mail verification is off`.
+
+**Owner-side, once:** create a [Resend](https://resend.com) account, add
+`pati-app.com` under _Domains_ and publish the DNS records it shows (DKIM
+TXT, plus the SPF/MX pair for the bounce subdomain). Sending from an
+unverified domain is refused with a 403 that ends up in the backend log as
+`Resend answered 403`.
+
+**Then the secret** (the only one that is actually secret):
+
+```bash
+fly secrets set --app pati-app RESEND_API_KEY="re_…"
+# optional, defaults to "Pati <noreply@pati-app.com>":
+fly secrets set --app pati-app MAIL_FROM="Pati <noreply@pati-app.com>"
+```
+
+**Schema:** nothing by hand — `migrations/003_email_verification.sql` adds
+the column and table, idempotently, on every deploy. Existing accounts are
+untouched: the column default is what keeps them usable.
+
+**Local check:** `bash backend/scripts/email-verification-check/run.sh`
+boots a throwaway backend whose mail goes to a file and drives the flow end
+to end (76 assertions). In ordinary development the code is printed to the
+backend log (`/tmp/pati-backend.log`) — there is no mail to open.
 
 ## Custom domains
 

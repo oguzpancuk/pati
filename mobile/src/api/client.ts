@@ -36,12 +36,25 @@ export function setSessionExpiredHandler(handler: SessionExpiredHandler | null) 
   onSessionExpired = handler;
 }
 
+// The server refuses everything but verification to an account whose e-mail
+// is still unverified (403 + emailUnverified). AuthProvider flips the stored
+// user to pending so the code screen replaces the app — otherwise a session
+// that predates the flag would sit on a shell where every request fails.
+type VerificationRequiredHandler = () => void;
+let onVerificationRequired: VerificationRequiredHandler | null = null;
+
+export function setVerificationRequiredHandler(handler: VerificationRequiredHandler | null) {
+  onVerificationRequired = handler;
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error?.response?.status === 401) {
       await AsyncStorage.multiRemove(['token', 'user']);
       onSessionExpired?.();
+    } else if (error?.response?.status === 403 && error?.response?.data?.emailUnverified) {
+      onVerificationRequired?.();
     }
     return Promise.reject(error);
   }

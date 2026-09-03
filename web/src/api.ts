@@ -44,10 +44,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       // clearing only the token left the app in an authenticated-looking
       // shell where every request fails until a manual reload.
       sessionExpiredHandler?.();
+    } else if (res.status === 403 && (body as { emailUnverified?: boolean }).emailUnverified) {
+      // The account's e-mail is unverified and the auth state did not know;
+      // the code page must replace the app (mobile parity).
+      verificationRequiredHandler?.();
     }
     throw new ApiError(res.status, (body as { error?: string }).error || `HTTP ${res.status}`);
   }
   return body as T;
+}
+
+let verificationRequiredHandler: (() => void) | null = null;
+export function setVerificationRequiredHandler(handler: (() => void) | null) {
+  verificationRequiredHandler = handler;
 }
 
 /**
@@ -82,6 +91,21 @@ export interface User {
   email: string;
   role: string;
   avatar_url: string | null;
+  /**
+   * True from e-mail registration until the mailed code is typed. While set
+   * the server answers 403 to everything but verification, so the app shows
+   * the code page and nothing else (mobile parity).
+   */
+  email_verification_pending?: boolean;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+  /** Registration and login say so when the code page is the next step. */
+  verificationRequired?: boolean;
+  /** Registration only: whether the code mail actually went out. */
+  codeSent?: boolean;
 }
 
 export interface UserLevel {
@@ -336,10 +360,18 @@ export interface AnimalDetail extends Animal {
 // ---------------------------------------------------------------- calls
 
 export const login = (email: string, password: string) =>
-  api.post<{ user: User; token: string }>('/auth/login', { email, password });
+  api.post<AuthResponse>('/auth/login', { email, password });
 
 export const register = (name: string, email: string, password: string) =>
-  api.post<{ user: User; token: string }>('/auth/register', { name, email, password });
+  api.post<AuthResponse>('/auth/register', { name, email, password });
+
+/** POST /auth/verify-email — the typed code proves the address. */
+export const verifyEmail = (code: string) =>
+  api.post<{ user: User }>('/auth/verify-email', { code });
+
+/** POST /auth/verify-email/resend — a fresh code, subject to a cooldown. */
+export const resendVerificationCode = () =>
+  api.post<{ codeSent: boolean; email: string }>('/auth/verify-email/resend');
 
 export type SocialProvider = 'apple' | 'google';
 
@@ -533,8 +565,9 @@ export const createReport = (
  * Apple/Google account signs in with the provider again and sends that token
  * (it has no password to type).
  */
-export const deleteAccount = (proof: { password: string } | { provider: SocialProvider; identityToken: string }) =>
-  api.del<{ deleted: boolean }>('/users/me', proof);
+export const deleteAccount = (
+  proof: { password: string } | { provider: SocialProvider; identityToken: string }
+) => api.del<{ deleted: boolean }>('/users/me', proof);
 
 // ---------------------------------------------------------------- user / social
 

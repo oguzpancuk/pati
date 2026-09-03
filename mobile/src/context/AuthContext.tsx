@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as authApi from '../api/auth';
-import { setSessionExpiredHandler } from '../api/client';
+import { setSessionExpiredHandler, setVerificationRequiredHandler } from '../api/client';
 
 interface AuthContextValue {
   user: authApi.User | null;
@@ -15,6 +15,14 @@ interface AuthContextValue {
     name?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
+  /**
+   * Whether the last registration/login reported a code on its way. False
+   * after a cold start or a login: the code screen then leads with "send".
+   */
+  codeSent: boolean;
+  /** The typed code; on success the session leaves the pending state. */
+  verifyEmail: (code: string) => Promise<void>;
+  resendCode: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -22,6 +30,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<authApi.User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [codeSent, setCodeSent] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('user').then((stored) => {
@@ -39,10 +48,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => setSessionExpiredHandler(null);
   }, []);
 
+  useEffect(() => {
+    // A 403 "verify your e-mail" from anywhere means the stored user is
+    // pending and the app did not know (a session stored before the flag
+    // existed). Mark it so navigation swaps to the code screen instead of
+    // leaving every request to fail on the map.
+    setVerificationRequiredHandler(() => {
+      setUser((current) => {
+        if (!current || current.email_verification_pending) return current;
+        const pending = { ...current, email_verification_pending: true };
+        AsyncStorage.setItem('user', JSON.stringify(pending)).catch(() => {});
+        return pending;
+      });
+    });
+    return () => setVerificationRequiredHandler(null);
+  }, []);
+
+  async function persistUser(next: authApi.User) {
+    await AsyncStorage.setItem('user', JSON.stringify(next));
+    setUser(next);
+  }
+
   async function persistSession(response: authApi.AuthResponse) {
     await AsyncStorage.setItem('token', response.token);
-    await AsyncStorage.setItem('user', JSON.stringify(response.user));
-    setUser(response.user);
+    setCodeSent(!!response.codeSent);
+    await persistUser(response.user);
   }
 
   async function login(email: string, password: string) {
@@ -67,10 +97,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function logout() {
     await AsyncStorage.multiRemove(['token', 'user']);
     setUser(null);
+    setCodeSent(false);
+  }
+
+  async function verifyEmail(code: string) {
+    const { user: verified } = await authApi.verifyEmail(code);
+    await persistUser(verified);
+  }
+
+  async function resendCode() {
+    await authApi.resendVerificationCode();
+    setCodeSent(true);
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, loginWithProvider, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        register,
+        loginWithProvider,
+        logout,
+        codeSent,
+        verifyEmail,
+        resendCode,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

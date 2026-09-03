@@ -67,6 +67,14 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   never rebuilt. `CREATE TABLE IF NOT EXISTS` silently does nothing on an
   existing table, so **a new column belongs in a new numbered file as well as
   in 001** — and every statement in it must survive being re-run.
+- **E-mail registration is gated until a 6-digit code is typed**
+  (`users.email_verification_pending`, ADR-0004): `requireAuth` answers 403
+  `emailUnverified` to a pending session everywhere except verification and
+  `GET`/`DELETE /users/me`; both clients show the code screen while the flag
+  is set. `email_verified` is a different column — "proven, linkable" — and
+  is what the code sets. Mail is off (registration unverified, as before)
+  wherever `RESEND_API_KEY` is missing; in development the code is printed
+  to the backend log.
 - **`users.avatar_url` holds two kinds of values**: an uploaded photo URL or a
   built-in key like `pati-avatar:f3` (`backend/src/utils/avatars.js`). Never
   put it straight into `<img src>` / `<Image uri>`; mobile's `ui/Avatar`
