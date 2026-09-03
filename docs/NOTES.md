@@ -1269,3 +1269,58 @@ S7 itself:
   corrected. The ROADMAP's S7 status now states all three unverified areas
   — real providers, Android, iOS release build — in one place, and no
   longer lists a manual migration step that this commit retired.
+
+## 2026-09-03 — e-mail verification on registration (ADR-0004)
+
+The owner asked for a confirmation mail on e-mail registration, "a link
+that completes the registration, or whatever the modern standard is". Built
+as a **six-digit code typed into the registering session**, not a link: a
+link verifies whoever clicks it, and people click "confirm your e-mail"
+mails they never asked for — which would hand a squatter a *proven* account
+on someone else's address, exactly what ADR-0003 links into. The code has
+to be typed into the app that holds the password, so proving an address
+needs mailbox and password both.
+
+What shipped, and the reasoning worth keeping:
+
+- **The pending flag is its own column** (`email_verification_pending`),
+  not a reading of `email_verified`. Its default is the grandfathering rule:
+  every account from before today stays usable and unproven, with no
+  backfill — the S7 lesson that a one-off UPDATE in `migrations/` becomes a
+  standing rule on every deploy.
+- **Pending sessions are gated in `requireAuth`**, read from the database
+  per request like suspension. Only verify/resend and the account's own
+  `GET`/`DELETE /users/me` accept them (deletion must always work, App
+  Store 5.1.1(v)). Both clients treat the 403 `emailUnverified` from any
+  request as "switch to the code screen", the way they treat 401 as "log
+  out".
+- **A pending registration holds its address for 24 hours, then becomes
+  replaceable** (same row, new name/password/code). The hold stops a
+  password swap under a registration whose code is about to be typed; the
+  release is what retires the "squatting is permanent" consequence ADR-0003
+  had to accept — the squatter knows a password but never sees the mailbox,
+  so the account never leaves pending, and a day later the real owner's
+  registration takes the row.
+- **Login while pending is allowed but sends no mail** (the screen has a
+  resend button); an automatic mail per login would let anyone holding the
+  password fill the inbox.
+- **Mail is Resend over Node's `fetch`** — no SDK, no SMTP dependency. Off
+  in production without `RESEND_API_KEY` (registration unverified as
+  before, and the boot log says so); on in development with a stdout
+  transport, which is also how the check harness reads the code back
+  (`MAIL_OUTBOX_FILE`). Turning it on is owner-side: a Resend account and
+  the DNS records for `pati-app.com` (docs/DEPLOYMENT.md).
+- **Evidence:** `backend/scripts/email-verification-check/run.sh` (76 curl
+  assertions: pending, gate, wrong/expired/retired codes, cooldown, hold
+  expiry and replacement, deletion while pending, and the ADR-0003 link a
+  verified address unlocks), the S7 harness unchanged and green, the mobile
+  AuthContext test extended, and the code screen driven end to end on both
+  the simulator and the browser (register → code → map). The readiness
+  loop the two harnesses share now lives in `scripts/check-lib.sh`.
+- `backend/.env.example` could not be edited from this session (the file
+  is under a denied path); the variables are documented in DEPLOYMENT.md
+  and mailer.js instead.
+
+Follow-ups this opens, all sharing the new mail transport: "verify my
+e-mail" from the profile for grandfathered accounts, "set a password" for
+social accounts, and password reset.
