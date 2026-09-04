@@ -124,16 +124,15 @@ echo "      hasPassword=$(node -pe "JSON.parse(process.argv[1]).hasPassword" "$M
 check "hasPassword false" "false" "$(node -pe "JSON.parse(process.argv[1]).hasPassword" "$ME")"
 check "both providers listed" '["apple","google"]' "$(node -pe "JSON.stringify(JSON.parse(process.argv[1]).authProviders)" "$ME")"
 
-echo "10. A provider may NOT link into an account whose address was never proven"
-# Registration confirms no e-mail, so anyone can register on someone else's
-# address; linking into it would put the real owner inside an account the
-# squatter holds a password for (the second half of the takeover review
-# found). Those users sign in with their password instead.
-# Since ADR-0004 a fresh registration is PENDING, and a verified provider
-# e-mail takes a pending row over outright (email-verification-check 11c).
-# The rule here is about the accounts that predate verification — usable,
-# never proven — so the row is turned into one of those first.
-grandfather() { # user id
+echo "10. A grandfathered password account links a provider only WITH its password"
+# Accounts from before e-mail verification were never proven to own their
+# address (anyone could register on someone else's), so linking on the e-mail
+# alone would put the real owner inside an account the squatter holds a
+# password for. The password proves the account (owner decision, 2026-09-04:
+# link with confirmation, not automatically). In development registration is
+# pending (the dev mail transport prints the code), so the row is turned into
+# a grandfathered one the way the verification harness does.
+grandfather() { # user id — pending → off, unproven (email-verification-check/backdate.js)
   node scripts/email-verification-check/backdate.js "$1" grandfather >/dev/null || {
     echo "  FAIL  could not grandfather user $1 — the check below would test the wrong rule"; FAILED=1; }
 }
@@ -143,13 +142,29 @@ check "register -> 201" 201 "$code"
 PUID=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user.id")
 grandfather "$PUID"
 GT2=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/google\",\"aud\":\"web-client.apps.googleusercontent.com\",\"sub\":\"google-sub2-$STAMP\",\"email\":\"$PMAIL\",\"email_verified\":true}")
+minted "link google token was minted" "$GT2"
 code=$(post auth/google "{\"idToken\":\"$GT2\"}")
-check "verified google token -> 409, no link" 409 "$code"
+check "without a password -> 409" 409 "$code"
+contains "…and the body says a password is needed" "linkRequiresPassword" "$(body)"
+code=$(post auth/google "{\"idToken\":\"$GT2\",\"password\":\"yanlis-parola\"}")
+check "wrong password -> 403, nothing linked" 403 "$code"
 code=$(post auth/login "{\"email\":\"$PMAIL\",\"password\":\"parola1234\"}")
-check "the account is untouched, password still works -> 200" 200 "$code"
+check "the account is untouched so far -> 200" 200 "$code"
 PJWT=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).token")
 PME=$(curl -s "$API/users/me" -H "Authorization: Bearer $PJWT")
-check "no provider was attached" '[]' "$(node -pe "JSON.stringify(JSON.parse(process.argv[1]).authProviders)" "$PME")"
+check "no provider attached yet" '[]' "$(node -pe "JSON.stringify(JSON.parse(process.argv[1]).authProviders)" "$PME")"
+code=$(post auth/google "{\"idToken\":\"$GT2\",\"password\":\"parola1234\"}")
+check "right password -> 200 into the same account" 200 "$code"
+check "same user id" "$PUID" "$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user?.id ?? 'none'")"
+PME=$(curl -s "$API/users/me" -H "Authorization: Bearer $PJWT")
+check "google now attached" '["google"]' "$(node -pe "JSON.stringify(JSON.parse(process.argv[1]).authProviders)" "$PME")"
+check "…and it still has its password" "true" "$(node -pe "JSON.parse(process.argv[1]).hasPassword" "$PME")"
+# The account is proven now: a second provider must link without a password.
+AT2=$(curl -sG "$IDP/mint" --data-urlencode "claims={\"iss\":\"$IDP_ISS/apple\",\"aud\":\"com.oguzpancuk.pati\",\"sub\":\"apple-sub2-$STAMP\",\"email\":\"$PMAIL\",\"email_verified\":\"true\"}")
+minted "second-provider apple token was minted" "$AT2"
+code=$(post auth/apple "{\"identityToken\":\"$AT2\"}")
+check "a second provider afterwards -> 200, no password asked" 200 "$code"
+check "same user id again" "$PUID" "$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user?.id ?? 'none'")"
 
 echo "10b. …and the rule survives capitalisation"
 # Providers always report a lower-cased e-mail. Matching users.email exactly

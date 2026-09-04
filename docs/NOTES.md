@@ -1403,3 +1403,33 @@ verification is off` — which is the intended state until the owner adds
 then. Rollback reference: image `deployment-01M1BM856N8K1MP4ZEXGZSGAVP`
 (v20). QA's one nit fixed here: the S7 harness prints 41 PASS lines, not
 42, as the test plan claimed.
+
+## 2026-09-04 — first real Google round trip; grandfathered accounts link with a password
+
+- **The consoles are filled in.** Google web + iOS OAuth clients exist; the
+  iOS client id is compiled into the app (`googleClientId.ts`) with its
+  reversed form in `Info.plist`, so the iOS Google button is live. On the
+  simulator the tap reaches iOS's own consent and then Google's real sign-in
+  page for "pati" — the first time the real SDK and the real Google were in
+  the loop. Two things learned on the way: Google's console list truncates
+  long client ids (a `.com`-less copy produced "client ID is not found"),
+  and iOS shows `CFBundleName` — still `$(PRODUCT_NAME)` = StrayMobile — in
+  that consent dialog; it is now pinned to `pati` in `Info.plist` without
+  touching the Xcode target.
+- **Owner signed in with Google on web** against the local backend. The
+  first attempt hit the grandfathered-account 409 (the address was the local
+  admin's password account); after freeing the address the sign-in created
+  user 1799 — verified, passwordless, `google` identity. The first real
+  provider-created account.
+- **Owner decision: link a grandfathered account with its password**, not
+  automatically. `POST /auth/{apple,google}` answers such an address with 409
+  `code: linkRequiresPassword`; sent again with `password`, a wrong one is
+  403 and the right one links, marks the account proven and signs in. Both
+  clients turn the 409 into a dialog. Accounts verified by code never see it.
+  Check-suite step 10 covers all of it (49 assertions); the test-plan row S6
+  and ADR-0003 record the new rule.
+- Harness lesson: in development registration is *pending* (the dev mail
+  transport), so the "grandfathered" fixture has to be made explicitly with
+  `backdate.js … grandfather` — a rewrite of step 10 that dropped that call
+  passed for a different reason (the pending row was taken over) until the
+  assertions on the account id caught it.

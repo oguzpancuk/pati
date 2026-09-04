@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, Pressable, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { fetchAuthProviders, type AuthProviders, type SocialProvider } from '../api/auth';
+import {
+  fetchAuthProviders,
+  isLinkRequiresPassword,
+  type AuthProviders,
+  type SocialProvider,
+} from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 import {
   appleSupported,
@@ -12,8 +17,8 @@ import {
   signInWithGoogle,
   SocialAuthError,
 } from '../socialAuth';
-import { brand, makeStyles, minTouch, radius, spacing, useTheme } from '../theme';
-import { Text } from './ui';
+import { brand, fonts, makeStyles, minTouch, radius, spacing, useTheme } from '../theme';
+import { Button, Text } from './ui';
 
 /**
  * The Apple / Google row under the login and register forms.
@@ -31,6 +36,17 @@ export default function SocialSignIn() {
   const { loginWithProvider } = useAuth();
   const [providers, setProviders] = useState<AuthProviders | null>(null);
   const [busy, setBusy] = useState<SocialProvider | null>(null);
+  // Set when the server answered 409 `linkRequiresPassword`: the address
+  // belongs to an account from before e-mail verification, and only its
+  // password proves it is this person's (ADR-0003). The provider token is
+  // kept for the retry; Apple's lives ten minutes, Google's an hour.
+  const [linkPending, setLinkPending] = useState<{
+    provider: SocialProvider;
+    identityToken: string;
+    name?: string;
+  } | null>(null);
+  const [linkPassword, setLinkPassword] = useState('');
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -54,7 +70,14 @@ export default function SocialSignIn() {
         const identity = await start();
         // null means the user closed the sheet — nothing to report.
         if (identity) {
-          await loginWithProvider(provider, identity.identityToken, identity.name);
+          try {
+            await loginWithProvider(provider, identity.identityToken, identity.name);
+          } catch (err) {
+            if (!isLinkRequiresPassword(err)) throw err;
+            setLinkPassword('');
+            setLinkError(null);
+            setLinkPending({ provider, identityToken: identity.identityToken, name: identity.name });
+          }
         }
       } catch (err: any) {
         if (!isAppleCancellation(err)) {
@@ -74,6 +97,25 @@ export default function SocialSignIn() {
     },
     [loginWithProvider]
   );
+
+  async function submitLink() {
+    if (!linkPending || !linkPassword) return;
+    setBusy(linkPending.provider);
+    setLinkError(null);
+    try {
+      await loginWithProvider(
+        linkPending.provider,
+        linkPending.identityToken,
+        linkPending.name,
+        linkPassword
+      );
+      setLinkPending(null);
+    } catch (err: any) {
+      setLinkError(err?.response?.data?.error ?? 'Bağlanamadı, tekrar dene');
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const appleBg = themeName === 'dark' ? '#FFFFFF' : '#000000';
   const appleFg = themeName === 'dark' ? '#000000' : '#FFFFFF';
@@ -142,6 +184,59 @@ export default function SocialSignIn() {
           )}
         </Pressable>
       )}
+
+      {/* "Enter your password to link": the address belongs to an account
+          from before e-mail verification. Mirrors the web client's form. */}
+      <Modal
+        visible={!!linkPending}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !busy && setLinkPending(null)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => !busy && setLinkPending(null)}>
+          <Pressable style={styles.card} onPress={() => {}}>
+            <Text variant="micro" center>
+              hesabı bağla
+            </Text>
+            <Text variant="heading" center style={styles.cardTitle}>
+              Bu e-postayla bir hesabın var
+            </Text>
+            <Text variant="body" style={styles.cardText}>
+              Şifreni girersen {linkPending?.provider === 'apple' ? 'Apple' : 'Google'} hesabın
+              ona bağlanır ve bir daha sorulmaz.
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Şifren"
+              placeholderTextColor={colors.textSubtle}
+              secureTextEntry
+              value={linkPassword}
+              onChangeText={setLinkPassword}
+              autoComplete="current-password"
+              autoFocus
+            />
+            {linkError && (
+              <Text variant="caption" color="danger" center style={styles.cardError}>
+                {linkError}
+              </Text>
+            )}
+            <Button
+              title="Bağla ve giriş yap"
+              onPress={submitLink}
+              loading={!!busy}
+              disabled={!linkPassword}
+              fullWidth
+            />
+            <Button
+              title="Vazgeç"
+              variant="ghost"
+              onPress={() => setLinkPending(null)}
+              disabled={!!busy}
+              fullWidth
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Registration asks for an explicit tick (owner decision); a provider
           sheet has no room for one, so the consent is stated here — the same
@@ -215,8 +310,41 @@ function GoogleMark() {
   );
 }
 
-const useStyles = makeStyles(({ colors: c }) => ({
+const useStyles = makeStyles(({ colors: c, shadow }) => ({
   wrap: { marginTop: spacing.lg },
+  backdrop: {
+    flex: 1,
+    backgroundColor: c.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: c.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: spacing.xl,
+    ...shadow.modal,
+  },
+  cardTitle: { marginTop: 2, marginBottom: spacing.sm },
+  cardText: { marginBottom: spacing.lg, lineHeight: 21 },
+  cardError: { marginBottom: spacing.sm },
+  input: {
+    backgroundColor: c.surfaceAlt,
+    borderWidth: 1,
+    borderColor: c.borderStrong,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.lg - 2,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    fontFamily: fonts.semibold,
+    fontSize: 15.5,
+    lineHeight: 21,
+    color: c.text,
+  },
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
   rule: { flex: 1, height: 1, backgroundColor: c.borderStrong },
   dividerLabel: { marginHorizontal: spacing.md },

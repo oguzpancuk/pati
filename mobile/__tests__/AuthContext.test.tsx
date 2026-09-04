@@ -107,7 +107,8 @@ it('signs in through a provider and stores that session', async () => {
   });
 
   const socialLogin = require('../src/api/auth').socialLogin;
-  expect(socialLogin).toHaveBeenCalledWith('apple', 'identity-token', 'Ada Lovelace');
+  // The fourth argument is the link password, absent on a plain sign-in.
+  expect(socialLogin).toHaveBeenCalledWith('apple', 'identity-token', 'Ada Lovelace', undefined);
   expect(root!.toJSON()).toEqual(
     expect.objectContaining({ children: ['logged-in:apple@example.com'] })
   );

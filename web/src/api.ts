@@ -21,10 +21,13 @@ export class ApiError extends Error {
   status: number;
   /** Seconds to wait, when a 429 says so (cooldowns and limiters both do). */
   retryAfter?: number;
-  constructor(status: number, message: string, retryAfter?: number) {
+  /** A machine-readable reason, when the server sends one (`linkRequiresPassword`). */
+  code?: string;
+  constructor(status: number, message: string, retryAfter?: number, code?: string) {
     super(message);
     this.status = status;
     this.retryAfter = retryAfter;
+    this.code = code;
   }
 }
 
@@ -52,12 +55,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       // the code page must replace the app (mobile parity).
       verificationRequiredHandler?.();
     }
-    const { error, retryAfter } = body as { error?: string; retryAfter?: number };
+    const { error, retryAfter, code } = body as { error?: string; retryAfter?: number; code?: string };
     throw new ApiError(
       res.status,
       error || `HTTP ${res.status}`,
-      typeof retryAfter === 'number' ? retryAfter : undefined
-    );
+      typeof retryAfter === 'number' ? retryAfter : undefined, code);
   }
   return body as T;
 }
@@ -396,10 +398,21 @@ export const fetchAuthProviders = () => api.get<AuthProviders>('/auth/providers'
  * answers with a pati session. `name` only ever carries Apple's first-
  * authorization gift: the one and only time it tells us the user's name.
  */
-export const socialLogin = (provider: SocialProvider, identityToken: string, name?: string) =>
+/**
+ * `password` is sent only when the server answered 409 `linkRequiresPassword`:
+ * the address belongs to an account from before e-mail verification, and the
+ * password proves it is the caller's before the provider is linked to it.
+ */
+export const socialLogin = (
+  provider: SocialProvider,
+  identityToken: string,
+  name?: string,
+  password?: string
+) =>
   api.post<{ user: User; token: string; created: boolean }>(`/auth/${provider}`, {
     identityToken,
     ...(name ? { name } : {}),
+    ...(password ? { password } : {}),
   });
 
 export const fetchMe = () => api.get<Me>('/users/me');

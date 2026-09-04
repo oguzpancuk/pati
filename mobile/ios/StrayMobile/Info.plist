@@ -12,8 +12,11 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<!-- Not $(PRODUCT_NAME): the Xcode target is still StrayMobile (internal
+	     rename pending), and iOS shows THIS name in system dialogs such as the
+	     "wants to use accounts.google.com to sign in" consent. -->
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>pati</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

@@ -23,7 +23,8 @@ interface AuthValue {
   loginWithProvider: (
     provider: SocialProvider,
     identityToken: string,
-    name?: string
+    name?: string,
+    password?: string
   ) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
@@ -122,8 +123,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const loginWithProvider = useCallback(
-    async (provider: SocialProvider, identityToken: string, name?: string) => {
-      const { token } = await apiSocialLogin(provider, identityToken, name);
+    async (provider: SocialProvider, identityToken: string, name?: string, password?: string) => {
+      const { token } = await apiSocialLogin(provider, identityToken, name, password);
       setToken(token);
       await refresh();
     },

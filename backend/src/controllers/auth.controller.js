@@ -406,7 +406,7 @@ async function findUserByIdentity(provider, subject) {
  */
 async function findByEmail(email) {
   const result = await pool.query(
-    `SELECT ${USER_COLUMNS}, email_verified, suspended_at, suspended_reason
+    `SELECT ${USER_COLUMNS}, email_verified, password_hash, suspended_at, suspended_reason
        FROM users WHERE lower(email) = lower($1)
        ORDER BY email_verified DESC, id
        LIMIT 1`,
@@ -416,13 +416,19 @@ async function findByEmail(email) {
 }
 
 /**
- * The address belongs to an account nobody ever proved owns it — a plain
- * registration. Linking into it is the takeover this refuses; signing in with
- * the password is the way in.
+ * The address belongs to a grandfathered account — registered before e-mail
+ * verification existed, so nobody ever proved it owns the address. Linking
+ * into it on the strength of the e-mail alone would be the takeover ADR-0003
+ * describes, so the caller is asked for the account's password instead; the
+ * `code` lets both clients open the "enter your password to link" dialog
+ * rather than show a dead end. Owner decision, 2026-09-04: link with
+ * password confirmation, not automatically. Accounts verified by code
+ * (ADR-0004) never reach this — they are proven and link directly.
  */
-function refuseUnprovenAccount(res) {
+function requirePasswordToLink(res) {
   return res.status(409).json({
-    error: 'Bu e-posta şifreli bir pati hesabına ait; şifrenle giriş yap',
+    error: 'Bu e-postayla bir pati hesabın var; bağlamak için şifreni gir',
+    code: 'linkRequiresPassword',
   });
 }
 
@@ -463,6 +469,9 @@ async function socialLogin(provider, req, res, next) {
       return res.status(400).json({ error: 'Kimlik doğrulama anahtarı eksik' });
     }
     const forwardedName = typeof req.body?.name === 'string' ? req.body.name : undefined;
+    // Only meaningful for a grandfathered password account; see
+    // requirePasswordToLink. Type-checked here, compared below.
+    const linkPassword = typeof req.body?.password === 'string' ? req.body.password : null;
 
     let identity;
     try {
@@ -498,7 +507,16 @@ async function socialLogin(provider, req, res, next) {
       // once, hold or no hold — otherwise a squatted address would stay
       // closed to its owner's Apple/Google sign-in forever (review finding).
       if (existing && !existing.email_verified && !existing.email_verification_pending) {
-        return refuseUnprovenAccount(res);
+        if (!linkPassword) return requirePasswordToLink(res);
+        if (!existing.password_hash || !(await bcrypt.compare(linkPassword, existing.password_hash))) {
+          // 403, not 401: both clients read a 401 as an expired session.
+          return res.status(403).json({ error: 'Şifre hatalı' });
+        }
+        // The password proves the account, the provider proves the address:
+        // from here on the account counts as proven, and a second provider
+        // links without being asked again.
+        await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [existing.id]);
+        existing.email_verified = true;
       }
       const pendingRow = existing && !existing.email_verified ? existing : null;
       user = pendingRow ? null : existing;
@@ -536,7 +554,7 @@ async function socialLogin(provider, req, res, next) {
             // it, and "use your password" would be the wrong instruction.
             return res.status(409).json({ error: 'Adres az önce değişti; tekrar dene' });
           }
-          if (!user.email_verified) return refuseUnprovenAccount(res);
+          if (!user.email_verified) return requirePasswordToLink(res);
         } finally {
           client.release();
         }
@@ -569,6 +587,7 @@ async function socialLogin(provider, req, res, next) {
     delete user.suspended_at;
     delete user.suspended_reason;
     delete user.email_verified;
+    delete user.password_hash;
     res.status(created ? 201 : 200).json({ user, token, created });
   } catch (err) {
     next(err);

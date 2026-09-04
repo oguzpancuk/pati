@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AuthProviders, SocialProvider } from '../api';
-import { fetchAuthProviders } from '../api';
+import { ApiError, fetchAuthProviders } from '../api';
 import { useAuth } from '../auth';
 import { appleReady, googleReady, isAppleCancellation, renderGoogleButton, signInWithApple } from '../socialAuth';
 import { resolvedThemeName } from '../theme';
@@ -18,6 +18,16 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
   const { loginWithProvider } = useAuth();
   const [providers, setProviders] = useState<AuthProviders | null>(null);
   const [busy, setBusy] = useState<SocialProvider | null>(null);
+  // Set when the server answered 409 `linkRequiresPassword`: the address
+  // belongs to an account from before e-mail verification, and only its
+  // password proves it is this person's (ADR-0003). The provider token is
+  // kept for the retry; Apple's lives ten minutes, Google's an hour.
+  const [linkPending, setLinkPending] = useState<{
+    provider: SocialProvider;
+    token: string;
+    name?: string;
+  } | null>(null);
+  const [linkPassword, setLinkPassword] = useState('');
   const googleSlot = useRef<HTMLDivElement>(null);
   const theme = resolvedThemeName();
 
@@ -33,12 +43,18 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
   }, []);
 
   const signIn = useCallback(
-    async (provider: SocialProvider, token: string, name?: string) => {
+    async (provider: SocialProvider, token: string, name?: string, password?: string) => {
       setBusy(provider);
       onError(null);
       try {
-        await loginWithProvider(provider, token, name);
+        await loginWithProvider(provider, token, name, password);
+        setLinkPending(null);
       } catch (err) {
+        if (err instanceof ApiError && err.code === 'linkRequiresPassword') {
+          setLinkPending({ provider, token, name });
+          setLinkPassword('');
+          return;
+        }
         onError(err instanceof Error ? err.message : 'Giriş yapılamadı');
       } finally {
         setBusy(null);
@@ -46,6 +62,12 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
     },
     [loginWithProvider, onError]
   );
+
+  function submitLink(e: FormEvent) {
+    e.preventDefault();
+    if (!linkPending || !linkPassword) return;
+    signIn(linkPending.provider, linkPending.token, linkPending.name, linkPassword);
+  }
 
   const googleClientId = googleReady(providers);
   useEffect(() => {
@@ -99,6 +121,40 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
           aria-busy={busy === 'google'}
           style={busy ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
         />
+      )}
+
+      {linkPending && (
+        <form className="social-link" onSubmit={submitLink}>
+          <p>
+            Bu e-postayla zaten bir pati hesabın var. Şifreni girersen{' '}
+            {linkPending.provider === 'apple' ? 'Apple' : 'Google'} hesabın ona bağlanır ve bir
+            daha sorulmaz.
+          </p>
+          <label className="field">
+            <span>şifren</span>
+            <input
+              type="password"
+              value={linkPassword}
+              onChange={(e) => setLinkPassword(e.target.value)}
+              autoComplete="current-password"
+              autoFocus
+            />
+          </label>
+          <button className="btn full" disabled={!linkPassword || !!busy}>
+            {busy ? 'Bekleyin…' : 'Bağla ve giriş yap'}
+          </button>
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              setLinkPending(null);
+              onError(null);
+            }}
+            disabled={!!busy}
+          >
+            Vazgeç
+          </button>
+        </form>
       )}
 
       <p className="subtle social-consent">

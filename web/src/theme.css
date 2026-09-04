@@ -1179,3 +1179,25 @@ strong {
 .social-consent a {
   color: var(--brand);
 }
+
+/* "Enter your password to link" — shown under the provider buttons when the
+   address belongs to an account from before e-mail verification. */
+.social-link {
+  margin-top: 14px;
+  padding: 14px 16px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.social-link p {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+
+.social-link .link {
+  display: block;
+  margin: 8px auto 0;
+}

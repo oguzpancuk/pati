@@ -625,14 +625,15 @@ work: Apple Developer / Google Cloud console configuration.
   could check a password against the wrong row of a case-variant pair. The
   pattern is worth remembering: fixes written under the pressure of a named
   defect are where the next defect comes from.
-- **Follow-up this opened:** an existing password account can no longer
-  pick up a provider, because registration never confirms an e-mail and
-  linking into an unproven address is a takeover (ADR-0003). The sharper
-  version of the same gap: someone who registers on an address they do not
-  own denies it permanently — the real owner cannot register, cannot sign in
-  with a provider, has no password, and there is no reset, no confirmation
-  and no admin user deletion, so only direct database access frees it. Two
-  cures, both on the quality list above.
+- **Linking into an existing password account** (September 4): accounts
+  verified by code (ADR-0004) link directly; accounts from before
+  verification — usable, never proven — get an "enter your password to
+  link" dialog on both clients instead of the earlier dead-end 409 (owner
+  decision: confirmation, not automatic linking, because a squatted address
+  would otherwise merge its owner into the squatter's account). Verified:
+  check-suite step 10 (409 with `code`, 403 on a wrong password, 200 and
+  `authProviders` on the right one, a second provider then links without
+  asking — 49 assertions), and the owner's own Google account on web.
 - **NOT verified — three gaps, stated plainly.** (1) No real round trip
   with Apple's or Google's own servers: every token in the evidence came
   from a local issuer whose key the checks control, so the logic is proven

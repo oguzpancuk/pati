@@ -82,11 +82,22 @@ export async function fetchAuthProviders(): Promise<AuthProviders> {
 export async function socialLogin(
   provider: SocialProvider,
   identityToken: string,
-  name?: string
+  name?: string,
+  // Sent only after a 409 `linkRequiresPassword`: the address belongs to an
+  // account from before e-mail verification, and the password proves it is
+  // the caller's before the provider is linked to it.
+  password?: string
 ): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>(`/auth/${provider}`, {
     identityToken,
     ...(name ? { name } : {}),
+    ...(password ? { password } : {}),
   });
   return data;
+}
+
+/** True when the server wants the account's password before linking. */
+export function isLinkRequiresPassword(err: unknown): boolean {
+  const r = (err as { response?: { status?: number; data?: { code?: string } } } | null)?.response;
+  return r?.status === 409 && r?.data?.code === 'linkRequiresPassword';
 }

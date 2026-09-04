@@ -37,9 +37,16 @@ requires in-app deletion to keep working).
   `POST /auth/register` confirms nothing, so anyone can register on someone
   else's address; without the second clause the victim's first "Google ile
   giriş" would drop them inside an account the squatter holds a password for.
-  Those users get a 409 telling them to sign in with their password. The
-  first version of this decision had only the provider-side clause, and
-  review reproduced the takeover it left open.
+  Those users get a 409 carrying `code: linkRequiresPassword`, and both
+  clients turn it into an "enter your password to link" dialog: the password
+  proves the account is theirs, the provider proves the address, the account
+  becomes proven and the identity is linked — once; a second provider then
+  links without asking (owner decision, 2026-09-04, chosen over automatic
+  linking precisely because of the squatter case). Accounts verified by code
+  (ADR-0004) never see the dialog; they are proven and link directly, so the
+  dialog is for accounts from before verification existed. The first version
+  of this decision had only the provider-side clause, and review reproduced
+  the takeover it left open.
   Addresses are compared case-insensitively and stored lower-cased: providers
   always report lower-case, so an exact match would send anyone who typed a
   capital at registration to a second, empty account instead of the 409.
@@ -79,14 +86,13 @@ requires in-app deletion to keep working).
   needs OAuth client ids. Both are owner-side; the steps are in
   docs/DEPLOYMENT.md. Sign in with Apple is bound to the App ID, and
   therefore to the bundle id — settled as `com.oguzpancuk.pati`.
-- **Squatting an address is now permanent until support intervenes.**
-  Registration proves nothing, so anyone can take `victim@gmail.com`. The
-  victim then cannot register (409), cannot sign in with a provider (the new
-  409), has no password, and the app has neither password reset, e-mail
-  confirmation, nor admin user deletion — so only direct database access
-  frees the address. The `/api/auth` rate limit keeps this targeted rather
-  than mass. Accepted knowingly: the alternative is the takeover above. The
-  ROADMAP carries both cures (e-mail confirmation, an admin path).
+- **A squatted grandfathered address stays closed to its owner's provider
+  sign-in** until support intervenes: the dialog asks for a password only the
+  squatter has. New registrations cannot squat any more (ADR-0004 verifies
+  the address by code, and a provider's verified e-mail takes a pending row
+  over), so this is bounded to accounts that predate verification. The
+  `/api/auth` rate limit keeps it targeted rather than mass. The ROADMAP
+  carries the admin path that would free such an address.
 - **"The clients ask the server which buttons to draw" cannot be the whole
   story on iOS.** Google's SDK needs the reversed client id as a URL scheme
   in `Info.plist`, which is a build-time value: a runtime-configured

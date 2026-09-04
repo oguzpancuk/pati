@@ -13,7 +13,8 @@ interface AuthContextValue {
   loginWithProvider: (
     provider: authApi.SocialProvider,
     identityToken: string,
-    name?: string
+    name?: string,
+    password?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
   /**
@@ -110,9 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function loginWithProvider(
     provider: authApi.SocialProvider,
     identityToken: string,
-    name?: string
+    name?: string,
+    password?: string
   ) {
-    const response = await authApi.socialLogin(provider, identityToken, name);
+    const response = await authApi.socialLogin(provider, identityToken, name, password);
     await persistSession(response);
   }
 
