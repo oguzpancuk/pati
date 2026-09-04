@@ -530,7 +530,12 @@ async function socialLogin(provider, req, res, next) {
         // the row is marked proven together with the identity write below.
         provenByPassword = true;
       }
-      const pendingRow = existing && !existing.email_verified ? existing : null;
+      // A row the caller just proved with its password is neither pending nor
+      // unproven — without this clause it fell through to the INSERT, hit the
+      // unique index, and only answered 200 via the race branch's second
+      // compare, burning a sequence id each time (review finding).
+      const pendingRow =
+        existing && !existing.email_verified && !provenByPassword ? existing : null;
       user = pendingRow ? null : existing;
 
       if (!user) {

@@ -633,7 +633,8 @@ work: Apple Developer / Google Cloud console configuration.
   would otherwise merge its owner into the squatter's account). Verified:
   check-suite step 10 (409 with `code`, 403 on a wrong password, 200 and
   `authProviders` on the right one, a second provider then links without
-  asking, and a wrong password leaves the row unproven — 50 assertions),
+  asking, a wrong password leaves the row unproven, and a right one links
+  without burning a user id — 51 assertions),
   and the owner's own Google account on web: a grandfathered fixture on
   `oguzpancuk@gmail.com` got the dialog, took the password and linked (row
   1858: `email_verified` true, password kept, `google` identity at 07:35Z).

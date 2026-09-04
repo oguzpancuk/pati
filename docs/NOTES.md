@@ -1434,10 +1434,18 @@ then. Rollback reference: image `deployment-01M1BM856N8K1MP4ZEXGZSGAVP`
   clients turn the 409 into a dialog. Accounts verified by code never see it.
   Check-suite step 10 covers all of it, including that a wrong password
   leaves the row unproven — the one regression every other assertion would
-  have missed (50 assertions, mutation-tested); the test-plan row S6 and
+  have missed (51 assertions, mutation-tested); the test-plan row S6 and
   ADR-0003 record the new rule. Review also moved the "mark proven" write
   after the suspension check, so a refused sign-in leaves no trace, and made
-  the 23505 race branch honour a password that came with the request.
+  the 23505 race branch honour a password that came with the request. That
+  move introduced its own defect, caught by the next round: the proven row
+  was still classified as pending one line later, so every successful link
+  went through a doomed INSERT, a rollback and the race branch's second
+  compare — right answer, one burned user id per link, and correct only
+  because the race branch had just learned to check the password. Fixed with
+  one clause; step 10 now reads the users id sequence before and after the
+  link (`last-user-id.js`), which is the only thing that tells the two paths
+  apart.
 - Harness lesson: in development registration is *pending* (the dev mail
   transport), so the "grandfathered" fixture has to be made explicitly with
   `backdate.js … grandfather` — a rewrite of step 10 that dropped that call

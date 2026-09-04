@@ -158,8 +158,12 @@ check "the account is untouched so far -> 200" 200 "$code"
 PJWT=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).token")
 PME=$(curl -s "$API/users/me" -H "Authorization: Bearer $PJWT")
 check "no provider attached yet" '[]' "$(node -pe "JSON.stringify(JSON.parse(process.argv[1]).authProviders)" "$PME")"
+SEQ_BEFORE=$(node scripts/social-auth-check/last-user-id.js)
 code=$(post auth/google "{\"idToken\":\"$GT2\",\"password\":\"parola1234\"}")
 check "right password -> 200 into the same account" 200 "$code"
+# The outcome alone cannot tell a clean link from one that went through a
+# doomed INSERT, a rollback and the race branch; the id sequence can.
+check "…without burning a user id on the way" "$SEQ_BEFORE" "$(node scripts/social-auth-check/last-user-id.js)"
 check "same user id" "$PUID" "$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).user?.id ?? 'none'")"
 PME=$(curl -s "$API/users/me" -H "Authorization: Bearer $PJWT")
 check "google now attached" '["google"]' "$(node -pe "JSON.stringify(JSON.parse(process.argv[1]).authProviders)" "$PME")"
