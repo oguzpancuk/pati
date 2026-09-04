@@ -1506,3 +1506,28 @@ the first without the second would switch the buttons off in production.
   disappears and Google keeps working from the secrets.
 - Lesson for the deploy checklist: "no secrets in the diff" is not the same
   as "no secrets in the image" — the image is what leaves the machine.
+
+## 2026-09-04 — eighth deploy (v25): Google live from Fly secrets, Apple hidden, no .env in the image
+
+- **CI was skipped for this deploy — owner decision.** Both CI runs of the
+  day (attempt 2 of `0bdb9eb`, then `ad247b2`) sat in `npm ci` on GitHub's
+  runner for 20+ minutes with the Docker job stalled the same way; nothing
+  in the code was involved. Instead of a third wait the owner said to
+  skip it. What stood in for it: the reviewer's real `docker build` over
+  this checkout (`ad247b2` approved on that evidence), the quick battery on
+  the tree, and the full battery earlier today on `7e5ed6b`; the deploy's
+  own build stage compiles web and admin either way. Recorded here because
+  "CI green before deploy" is the project rule and this is the exception.
+- **Built from a clean export, not the working tree.** Another session was
+  mid-change in this checkout (`backend/package.json` with `sharp` and
+  `@anthropic-ai/sdk`, uncommitted), and `fly deploy` ships the directory
+  it runs in. `git archive ad247b2` into a scratch directory gave an image
+  of exactly the pushed commit — no half-finished dependency, no `.env`.
+- **Observed afterwards:** `pati-app.com/api/auth/providers` → `apple:
+  enabled false`, `google: enabled true` with both client ids — now coming
+  from Fly secrets, not from a baked file; `/app/.env` is gone from the
+  image (`ls` fails on the machine); the production login page shows the
+  Google button only (screenshots before/after in the session). Release
+  v25.
+- Still to do on the Google side: publish the OAuth consent screen (it is
+  in Testing, so only the listed test users can sign in on production).
