@@ -192,5 +192,19 @@ code=$(get_auth "animals/match?species=cat&breed=Tekir&color=gri&lat=$LAT&lng=$L
 check "GET match still answers" 200 "$code"
 check "…photoChecked false" false "$(field .photoChecked)"
 
+echo "9. An answer whose indexes cannot be attributed is dropped, not shifted"
+# A 0-based answer would otherwise put B's "same" onto A; each of these must
+# leave the field-only ranking (A first, no photo reasons).
+for raw in '[{"index":0,"verdict":"different"},{"index":1,"verdict":"same"}]' \
+           '[{"index":2,"verdict":"same"},{"index":2,"verdict":"same"}]' \
+           '[{"index":2,"verdict":"same"}]' \
+           '[{"index":1,"verdict":"different"},{"index":2,"verdict":"same"},{"index":3,"verdict":"same"}]'; do
+  mode "{\"mode\":\"match\",\"candidates\":$raw}"
+  code=$(upload animals/match "$JWT" species=cat breed=Tekir color=gri lat=$LAT lng=$LNG)
+  check "match -> 200" 200 "$code"
+  check "photoChecked false for $raw" false "$(field .photoChecked)"
+  check "A still first" "$A" "$(field .candidates[0].id)"
+done
+
 echo ""
 if [ "$FAILED" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; exit 1; fi

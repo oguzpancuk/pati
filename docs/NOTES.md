@@ -1573,7 +1573,7 @@ the first without the second would switch the buttons off in production.
 - **Evidence.** `backend/scripts/ai-check/run.sh`: throwaway backend on
   3103 against `fake-anthropic.js` on 4600 — a stand-in whose verdict the
   harness picks and which refuses any request the real API would (no key,
-  no image, no JSON schema); 63 assertions, ALL PASS: token round trip and
+  no image, no JSON schema); 75 assertions, ALL PASS: token round trip and
   replay, type/user/forgery refusals, reject + delete, direct-upload
   enforcement, dead model and refusal failing open, matching with verdicts
   (three cats, one without a photo, exactly three images sent) and without.
@@ -1628,5 +1628,14 @@ the first without the second would switch the buttons off in production.
   step after a lost response.
 - `AI_MATCH_CANDIDATES` is validated (1–20, warn and default otherwise).
 - Harness asserts the effort levels and the Host-header replay; the
-  per-run grid is documented with its real collision odds; the count is
+  per-run grid is documented with its real collision odds; the count was
   63, not 60 (the earlier number included the ALL PASS line).
+- Second and third rounds (APPROVE each): the schema range keywords
+  (`minimum`/`maxItems`) were dropped — not in the documented
+  structured-output subset, and a refused schema would have failed open
+  into field-only matching with only a log line to show for it; the
+  runtime "every candidate exactly once" check carries the rule alone, and
+  now has negative tests (0-based, duplicated, short and long answers all
+  leave the field ranking untouched — fake `control.candidates`). The web
+  409 branch refreshes like a success and reports a failed refresh. Total:
+  75 assertions.

@@ -16,6 +16,7 @@
  *
  *   POST /control {"mode":"approve"|"reject"|"error"|"refusal"}
  *   POST /control {"mode":"match","verdicts":["same","different",...]}
+ *   POST /control {"mode":"match","candidates":[{"index":0,"verdict":"same"}]}  (raw answer)
  *   GET  /last    → what the last /v1/messages request looked like
  */
 const http = require('http');
@@ -130,6 +131,11 @@ http
       });
     }
     if (last.kind === 'match') {
+      // `candidates` is the raw answer, for the negative tests of the
+      // index guard (0-based, duplicated, short answers).
+      if (Array.isArray(control.candidates)) {
+        return answer(res, body.model, { candidates: control.candidates });
+      }
       const verdicts = Array.isArray(control.verdicts) ? control.verdicts : [];
       return answer(res, body.model, {
         candidates: verdicts
