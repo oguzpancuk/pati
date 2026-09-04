@@ -50,6 +50,9 @@ const limits = {
   careDelete: userRateLimit({ windowMs: HOUR, limit: 20, action: 'kayıt silme' }),
   // Registering a whole colony in one sitting is ~15 animals.
   createAnimal: userRateLimit({ windowMs: HOUR, limit: 20, action: 'hayvan kaydı' }),
+  // Photo matching: one vision request holding up to nine images per call,
+  // the most expensive thing a user can trigger; a colony still fits.
+  matchAnimals: userRateLimit({ windowMs: HOUR, limit: 30, action: 'eşleştirme' }),
   // Chat is the loosest: a lively conversation is still under one/minute.
   comments: userRateLimit({ windowMs: HOUR, limit: 60, action: 'yorum' }),
   // Sightings, follows and photo additions share a "profile touch" budget.

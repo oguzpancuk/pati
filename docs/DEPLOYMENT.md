@@ -156,6 +156,33 @@ boots a throwaway backend whose mail goes to a file and drives the flow end
 to end (93 assertions). In ordinary development the code is printed to the
 backend log (`/tmp/pati-backend.log`) — there is no mail to open.
 
+## Photo checks and photo matching (ADR-0005)
+
+The food/water photo check and the photo comparison in the add-animal flow
+call Claude vision from the backend. Both are **off until the key exists**:
+photos are accepted unchecked and matching is field-only, exactly as
+before, and the boot log prints `ai: NOT CONFIGURED …`. To turn them on:
+
+```bash
+fly secrets set --app pati-app ANTHROPIC_API_KEY="sk-ant-…"
+# optional, defaults to claude-opus-5:
+fly secrets set --app pati-app AI_MODEL="claude-opus-5"
+```
+
+After the deploy the boot log says `ai: claude-opus-5 (photo checks and
+photo matching on)`. A dead or revoked key never blocks users — every
+failure fails open and is logged with an `[ai:…]` tag, so grep the Fly log
+for that after turning it on.
+
+**Schema:** `migrations/004_ai_checks.sql` adds `care_actions.ai_check`
+idempotently on every deploy.
+
+**Local check:** `bash backend/scripts/ai-check/run.sh` boots a throwaway
+backend against a fake Messages API and drives every branch (approve,
+reject, dead model, matching); `node backend/scripts/ai-check/live-sample.js`
+sends real photos to the real model with your key — that is the accuracy
+check, and it costs money per call.
+
 ## Custom domains
 
 ```bash

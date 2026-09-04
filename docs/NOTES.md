@@ -1531,3 +1531,74 @@ the first without the second would switch the buttons off in production.
   v25.
 - Still to do on the Google side: publish the OAuth consent screen (it is
   in Testing, so only the listed test users can sign in on production).
+
+## 2026-09-04 — the photo AI is real: Claude vision behind the check and the matching (ADR-0005)
+
+- **Both placeholders replaced in one session.** The S6 "AI inceliyor"
+  interstitial and the add-animal "AI eşleştiriyor" screen now do what they
+  say: one Anthropic Messages API request each (`@anthropic-ai/sdk`,
+  `backend/src/utils/ai.js`), JSON-schema output, `claude-opus-5` by
+  default (`AI_MODEL`). The ROADMAP §1 plan — DINOv2 embeddings in a Python
+  service plus pgvector — is retired, not deferred; the ADR says why.
+- **Care photos: check first, confirm with a token.** `POST
+  /care-actions/check` (multipart) runs the check and answers `verdict`
+  (approved / unavailable) plus a 15-minute `photoToken` signed over the
+  stored file, user and action type; `POST /care-actions` takes the token
+  instead of a file, refuses a replay (409, the photo URL is already on a
+  record), a wrong type/user (400) and an expired token (400 — both
+  clients drop to "take it again"). A direct upload to `POST /care-actions`
+  is still accepted and checked inline, so no client can skip the check. A
+  rejected photo is deleted and answered 422 `photoRejected` with the
+  model's one Turkish sentence, which the clients show under "Bu fotoğraf
+  uygun görünmüyor" with "Yeniden çek". No "add anyway" (owner decision in
+  the ADR: the check would be decoration otherwise). `care_actions.ai_check`
+  (JSONB, migration 004) keeps verdict/subject/reason/model/ms.
+- **Matching: the photo goes with the fields.** `POST /animals/match`
+  (multipart, first photo) ranks by the old field score, then sends the
+  photo with the cover photos of the top `AI_MATCH_CANDIDATES` (8) in one
+  request; per-candidate verdicts move the score (same +4 → high, similar
+  +1, different −3 → low) and add `photo_same` / `photo_similar` reasons
+  ("Fotoğrafta aynı hayvan" / "Fotoğraf benziyor"). GET stays field-only.
+  `photoChecked` in the response drives the results banner wording.
+  `MIN_MATCHING_MS` is 800 ms on both clients — no longer a fake wait, only
+  a floor so the instant field-only answer does not flash.
+- **Fail open, everywhere.** No key, network error, refusal, malformed
+  JSON, undecodable image (HEIC on sharp's prebuilt binaries): the check
+  says `unavailable` (accepted, confirm screen says "Fotoğraf hazır", no
+  `ai_check` row) and matching returns the field ranking. Production without
+  `ANTHROPIC_API_KEY` is byte-for-byte the old behaviour; the boot log
+  prints the state next to the mail line. Images are EXIF-rotated and fitted
+  to 1024 px JPEG by `sharp` before leaving the server (a phone photo is
+  3–8 MB; the API caps images at 5 MB).
+- **Evidence.** `backend/scripts/ai-check/run.sh`: throwaway backend on
+  3103 against `fake-anthropic.js` on 4600 — a stand-in whose verdict the
+  harness picks and which refuses any request the real API would (no key,
+  no image, no JSON schema); 60 assertions, ALL PASS: token round trip and
+  replay, type/user/forgery refusals, reject + delete, direct-upload
+  enforcement, dead model and refusal failing open, matching with verdicts
+  (three cats, one without a photo, exactly three images sent) and without.
+  Screenshots (web via Playwright against the same fake, iOS on the
+  simulator with a gallery pick): approved, rejected, and the results list
+  with "Fotoğrafta aynı hayvan · yüksek benzerlik" on both clients; the
+  simulator's confirm wrote care action 22464 with `ai_check.verdict =
+  approved`, and its match request carried 9 images.
+- **NOT verified: the real model.** There is no Anthropic key on this
+  machine, so every verdict above came from the fake. Accuracy — does Opus
+  approve a real bowl of kibble, reject a selfie, and tell two tabbies
+  apart — is the owner's afternoon with the key:
+  `node backend/scripts/ai-check/live-sample.js care food <photos…>` and
+  `… match <new> <candidates…>`, then tune the two prompts in `ai.js` and
+  record the result here. Until then the prompts are a best guess written
+  to be lenient. The request shape itself is checked by the fake against
+  the SDK's types (`output_config.format.type = 'json_schema'`, base64 JPEG
+  image blocks), not against the live API.
+- **Accepted for now.** A checked-but-never-confirmed photo stays in the
+  uploads volume (rejected ones are deleted) — bytes, not records; object
+  storage with lifecycle rules is already on the roadmap. The web check
+  request has no client timeout (fetch, as before); mobile bounds it at
+  60 s and the match at 90 s. Rate: matching has its own 30/h bucket, the
+  check shares the 40/h drop bucket.
+- Harness lesson: bash 3.2 + `set -u` rejects `"${args[@]}"` on an empty
+  array — use `${args[@]+"${args[@]}"}`; and a harness that leaves rows
+  behind must pick a different spot per run, or a rerun's candidate list
+  includes yesterday's cats and the ordering assertions lie.

@@ -1,6 +1,8 @@
 const fs = require('fs');
 const pool = require('../config/db');
+const { UPLOADS_DIR } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
+const ai = require('../utils/ai');
 const { HEALTH_RECORD_TYPES, isValidChoice } = require('../utils/taxonomy');
 
 // Tracking state is not a column; it derives from existing data:
@@ -108,14 +110,22 @@ const MATCH_LIMIT = 20;
 
 /**
  * Similarity is a tier (high/medium/low), not a probability. We show no
- * numeric percentage because the only signal is a few user-entered fields;
+ * numeric percentage because a cosine or a model's confidence is not one;
  * "73% similar" would promise a precision that doesn't exist. Scoring:
  *   same pattern +2 (the most discriminating field)
  *   same color   +1
  *   within 200 m +1 (same street/block)
- * Species is already a filter — a cat never matches a dog. When photo
- * matching (AI) arrives it adds to this score; the UI tiers stay the same.
+ * and, when the new photo could be compared with a candidate's cover photo
+ * (ADR-0005):
+ *   the model says the same individual  +4  → high whatever the fields say
+ *   the model says it could be           +1
+ *   the model says clearly another animal −3 → low, sorted to the bottom
+ * Species is already a filter — a cat never matches a dog. The user still
+ * makes the final call; nothing is merged automatically.
  */
+const PHOTO_SCORE = { same: 4, similar: 1, different: -3, unsure: 0 };
+const PHOTO_REASON = { same: 'photo_same', similar: 'photo_similar' };
+
 function normalizeChoice(value) {
   return typeof value === 'string' ? value.trim().toLocaleLowerCase('tr-TR') : '';
 }
@@ -135,13 +145,28 @@ function similarityFor(candidate, input) {
     score += 1;
     reasons.push('distance');
   }
-  const level = score >= 3 ? 'high' : score === 2 ? 'medium' : 'low';
-  return { level, score, reasons };
+  return { score, reasons };
 }
 
+function tierFor(score) {
+  return score >= 3 ? 'high' : score === 2 ? 'medium' : 'low';
+}
+
+function byScoreThenDistance(a, b) {
+  return b._score - a._score || Number(a.distance_meters) - Number(b.distance_meters);
+}
+
+/**
+ * GET carries the fields only; POST (multipart) adds the first photo, and
+ * the photo is compared with the cover photos of the best field-ranked
+ * candidates. The upload is a scratch file: it is deleted here whatever
+ * happens, the animal's photos are added after the user decides.
+ */
 async function matchAnimals(req, res, next) {
+  const photoPath = req.file?.path;
   try {
-    const { lat, lng, species, breed, color } = req.query;
+    const source = req.method === 'POST' ? req.body : req.query;
+    const { lat, lng, species, breed, color } = source;
     if (!species || !['cat', 'dog'].includes(species)) {
       return res.status(400).json({ error: 'species cat veya dog olmalıdır' });
     }
@@ -163,18 +188,48 @@ async function matchAnimals(req, res, next) {
     );
 
     const input = { breed, color };
-    const candidates = result.rows
+    const scored = result.rows
       .map((row) => {
-        const { level, score, reasons } = similarityFor(row, input);
-        return { ...row, similarity: level, similarity_reasons: reasons, _score: score };
+        const { score, reasons } = similarityFor(row, input);
+        return { ...row, _score: score, _reasons: reasons };
       })
-      .sort((a, b) => b._score - a._score || Number(a.distance_meters) - Number(b.distance_meters))
-      .slice(0, MATCH_LIMIT)
-      .map(({ _score, ...rest }) => rest);
+      .sort(byScoreThenDistance);
 
-    res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS });
+    // The photo is compared with the field-ranked front of the list: the
+    // request holds a bounded number of images, and a look-alike two
+    // streets away with a different pattern is not the animal in hand.
+    let photoChecked = false;
+    if (photoPath && ai.isConfigured()) {
+      const comparable = scored
+        .map((row) => ({
+          id: row.id,
+          filePath: ai.uploadPathFromUrl(row.cover_photo_url, UPLOADS_DIR),
+        }))
+        .filter((c) => c.filePath);
+      const verdicts = await ai.compareAnimalPhotos(photoPath, comparable, species);
+      if (verdicts) {
+        photoChecked = true;
+        for (const row of scored) {
+          const verdict = verdicts.get(row.id);
+          if (!verdict) continue;
+          row._score += PHOTO_SCORE[verdict];
+          if (PHOTO_REASON[verdict]) row._reasons.unshift(PHOTO_REASON[verdict]);
+        }
+        scored.sort(byScoreThenDistance);
+      }
+    }
+
+    const candidates = scored.slice(0, MATCH_LIMIT).map(({ _score, _reasons, ...rest }) => ({
+      ...rest,
+      similarity: tierFor(_score),
+      similarity_reasons: _reasons,
+    }));
+
+    res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS, photoChecked });
   } catch (err) {
     next(err);
+  } finally {
+    if (photoPath) fs.unlink(photoPath, () => {});
   }
 }
 

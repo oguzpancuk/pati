@@ -34,7 +34,10 @@ const MAX_PHOTOS = 6;
 // The server usually responds instantly; show the "AI matching" screen for
 // at least this long so the user perceives that a scan happened (same as
 // mobile).
-const MIN_MATCHING_MS = 2000;
+// The matching screen stays up for the real comparison (ADR-0005), which
+// takes seconds; this floor only keeps the field-only answer — instant when
+// the model is off — from flashing past as a glitch.
+const MIN_MATCHING_MS = 800;
 
 const SIMILARITY_LABEL: Record<SimilarityLevel, string> = {
   high: 'Yüksek benzerlik',
@@ -47,6 +50,8 @@ const SIMILARITY_TONE: Record<SimilarityLevel, string> = {
   low: 'neutral',
 };
 const REASON_LABEL: Record<SimilarityReason, string> = {
+  photo_same: 'Fotoğrafta aynı hayvan',
+  photo_similar: 'Fotoğraf benziyor',
   breed: 'Aynı desen',
   color: 'Aynı renk',
   distance: 'Aynı sokakta',
@@ -258,6 +263,9 @@ export default function AddAnimalPage() {
   const [name, setName] = useState(draft?.name ?? '');
   const [markings, setMarkings] = useState(draft?.markings ?? '');
   const [photos, setPhotos] = useState<File[]>([]);
+  // Whether the model compared the photo — the results banner says which
+  // comparison the tiers came from.
+  const [photoChecked, setPhotoChecked] = useState(false);
   // Blob URLs are minted once per photo list and revoked when replaced or on
   // unmount: minting in render re-decoded every full-size photo on each
   // keystroke and grew the URL registry until page unload (review finding).
@@ -363,7 +371,14 @@ export default function AddAnimalPage() {
       // (locationNote), the flow isn't interrupted.
       const loc = await getCurrentLocation().catch(() => FALLBACK_CENTER);
       setLocation(loc);
-      const result = await matchAnimals({ lat: loc.lat, lng: loc.lng, species, breed, color });
+      const result = await matchAnimals({
+        lat: loc.lat,
+        lng: loc.lng,
+        species,
+        breed,
+        color,
+        photo: photos[0],
+      });
 
       // Show the waiting screen for at least MIN_MATCHING_MS.
       const elapsed = Date.now() - startedAt;
@@ -373,6 +388,7 @@ export default function AddAnimalPage() {
 
       setCandidates(result.candidates);
       setMatchRadius(result.radiusMeters);
+      setPhotoChecked(result.photoChecked);
       if (result.candidates.length === 0) {
         // No same-species records nearby: nothing to ask, save directly.
         await createNewAnimal(loc);
@@ -429,8 +445,8 @@ export default function AddAnimalPage() {
         </div>
         <h2 style={{ marginBottom: 4 }}>Yapay zekâ eşleştiriyor…</h2>
         <p className="muted" style={{ textAlign: 'center', maxWidth: 300 }}>
-          Girdiğin bilgiler sistemdeki hayvanlarla karşılaştırılıyor. Aynı hayvanın iki kez
-          kaydedilmesini önlemek için yakındaki kayıtlar taranıyor.
+          Fotoğrafın ve girdiğin bilgiler yakındaki kayıtlarla karşılaştırılıyor. Aynı hayvanın iki
+          kez kaydedilmesini önlemek için birkaç saniye sürebilir.
         </p>
       </div>
     );
@@ -443,7 +459,7 @@ export default function AddAnimalPage() {
         {error && <div className="error">{error}</div>}
         <div className="card flat">
           <p className="muted" style={{ margin: 0 }}>
-            🔎 Girdiğin bilgiler{' '}
+            🔎 {photoChecked ? 'Fotoğrafın ve girdiğin bilgiler' : 'Girdiğin bilgiler'}{' '}
             {matchRadius >= 1000 ? `${matchRadius / 1000} km` : `${matchRadius} m`} içindeki{' '}
             {species === 'cat' ? 'kedilerle' : 'köpeklerle'} karşılaştırıldı. Birine dokunup
             profiline bak; oysa &quot;bu o&quot; de — konumu güncellenir ve bakım listene eklenir.

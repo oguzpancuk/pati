@@ -55,11 +55,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       // the code page must replace the app (mobile parity).
       verificationRequiredHandler?.();
     }
-    const { error, retryAfter, code } = body as { error?: string; retryAfter?: number; code?: string };
+    const { error, retryAfter, code } = body as {
+      error?: string;
+      retryAfter?: number;
+      code?: string;
+    };
     throw new ApiError(
       res.status,
       error || `HTTP ${res.status}`,
-      typeof retryAfter === 'number' ? retryAfter : undefined, code);
+      typeof retryAfter === 'number' ? retryAfter : undefined,
+      code
+    );
   }
   return body as T;
 }
@@ -351,7 +357,7 @@ export interface AnimalComment {
 }
 
 export type SimilarityLevel = 'high' | 'medium' | 'low';
-export type SimilarityReason = 'breed' | 'color' | 'distance';
+export type SimilarityReason = 'photo_same' | 'photo_similar' | 'breed' | 'color' | 'distance';
 
 export interface AnimalMatch extends Animal {
   distance_meters: number;
@@ -436,13 +442,40 @@ export const fetchCareActionsInBounds = (
 export const fetchCareStatus = (lat: number, lng: number, actionType: 'food' | 'water') =>
   api.get<CareStatus>(`/care-actions/status?lat=${lat}&lng=${lng}&actionType=${actionType}`);
 
-export function addCareAction(lat: number, lng: number, actionType: 'food' | 'water', photo: File) {
+/**
+ * What the photo check said. `unavailable` means the model was off or did
+ * not answer — the photo is accepted unchecked. A rejected photo never
+ * reaches here: the server answers 422 with `code: 'photoRejected'` and the
+ * reason as the message (mobile parity).
+ */
+export interface PhotoCheck {
+  verdict: 'approved' | 'unavailable';
+  reason?: string;
+  /** Redeemed by addCareAction; the photo itself travels only once. */
+  photoToken: string;
+}
+
+/** Step one of a drop: upload the photo, let the model look at it. */
+export function checkCarePhoto(actionType: 'food' | 'water', photo: File) {
   const form = new FormData();
-  form.append('lat', String(lat));
-  form.append('lng', String(lng));
   form.append('actionType', actionType);
   form.append('photo', photo);
-  return api.postForm<CareAction & WithNewBadges>('/care-actions', form);
+  return api.postForm<PhotoCheck>('/care-actions/check', form);
+}
+
+/** The explicit confirm: redeems the token the check handed back. */
+export function addCareAction(
+  lat: number,
+  lng: number,
+  actionType: 'food' | 'water',
+  photoToken: string
+) {
+  return api.post<CareAction & WithNewBadges>('/care-actions', {
+    lat,
+    lng,
+    actionType,
+    photoToken,
+  });
 }
 
 export interface MyCareAction {
@@ -543,21 +576,30 @@ export const addVaccination = (animalId: number, vaccineType: string, note?: str
  * and distance as high/medium/low similarity (no numeric percentage, on
  * purpose).
  */
+export interface MatchResult {
+  candidates: AnimalMatch[];
+  radiusMeters: number;
+  /** false when the model was off or did not answer: the ranking is field-only. */
+  photoChecked: boolean;
+}
+
 export const matchAnimals = (input: {
   lat: number;
   lng: number;
   species: 'cat' | 'dog';
   breed?: string | null;
   color?: string | null;
+  /** The first photo of the new animal, compared with the candidates' cover photos. */
+  photo: File;
 }) => {
-  const q = new URLSearchParams({
-    lat: String(input.lat),
-    lng: String(input.lng),
-    species: input.species,
-  });
-  if (input.breed) q.set('breed', input.breed);
-  if (input.color) q.set('color', input.color);
-  return api.get<{ candidates: AnimalMatch[]; radiusMeters: number }>(`/animals/match?${q}`);
+  const form = new FormData();
+  form.append('lat', String(input.lat));
+  form.append('lng', String(input.lng));
+  form.append('species', input.species);
+  if (input.breed) form.append('breed', input.breed);
+  if (input.color) form.append('color', input.color);
+  form.append('photo', input.photo);
+  return api.postForm<MatchResult>('/animals/match', form);
 };
 
 // Reports a sighting of a registered animal: moves its location and adds the

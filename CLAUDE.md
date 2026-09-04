@@ -76,6 +76,13 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   is what the code sets. Mail is off (registration unverified, as before)
   wherever `RESEND_API_KEY` is missing; in development the code is printed
   to the backend log.
+- **The photo AI fails open** (ADR-0005): the food/water photo check and
+  the photo comparison in add-animal call Claude vision from
+  `backend/src/utils/ai.js`; without `ANTHROPIC_API_KEY` (or on any error)
+  photos are accepted unchecked and matching is field-only. A care photo is
+  checked at `POST /care-actions/check` and confirmed with the returned
+  `photoToken`; a direct upload is checked inline, so the server always
+  decides. Evidence: `backend/scripts/ai-check/run.sh` (fake Messages API).
 - **`users.avatar_url` holds two kinds of values**: an uploaded photo URL or a
   built-in key like `pati-avatar:f3` (`backend/src/utils/avatars.js`). Never
   put it straight into `<img src>` / `<Image uri>`; mobile's `ui/Avatar`

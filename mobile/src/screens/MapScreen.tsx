@@ -20,9 +20,11 @@ import {
   addCareAction,
   CareAction,
   CareStatus,
+  checkCarePhoto,
   fetchCareActionsInBounds,
   fetchCareStatus,
   PhotoAsset,
+  PhotoCheck,
 } from '../api/care';
 import { Animal, fetchAnimals } from '../api/animals';
 import AdBanner from '../components/AdBanner';
@@ -100,14 +102,12 @@ const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 // must remain readable.
 const MAX_GREEN_ALPHA = 0.5;
 
-// The "AI is checking the photo" interstitial is a deliberate placeholder,
-// the same pattern as AddAnimalScreen's MIN_MATCHING_MS: it always
-// approves, the wait makes the check feel real and reserves the slot for
-// an actual model. Nothing uploads during the check — after "uygun
-// görünüyor" the user explicitly confirms, and only that confirm creates
-// the record (owner decision). When a real model lands it plugs into this
-// screen and gains a reject path; the wait constant goes.
-const AI_CHECK_MIN_MS = 2000;
+// The "AI is checking the photo" interstitial is real since ADR-0005: the
+// photo goes up during it and the model says whether it shows the food or
+// water the user claims. An approved (or unchecked — the model may be off)
+// photo comes back as a token; after "uygun görünüyor" the user explicitly
+// confirms, and only that confirm creates the record (owner decision). A
+// rejected photo shows the model's reason and offers a retake.
 
 function weightToGreenAlpha(weight: number) {
   return Math.min(Math.max(weight, 0), 1) * MAX_GREEN_ALPHA;
@@ -129,8 +129,12 @@ export default function MapScreen({ navigation }: any) {
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
   const [viewType, setViewType] = useState<'food' | 'water'>('food');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
+  const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved' | 'rejected'>('idle');
   const [pendingPhoto, setPendingPhoto] = useState<PhotoAsset | null>(null);
+  // The check's answer: the token the confirm redeems, or the reason a
+  // photo was turned down.
+  const [photoCheck, setPhotoCheck] = useState<PhotoCheck | null>(null);
+  const [rejectReason, setRejectReason] = useState<string | null>(null);
   // Invalidates in-flight check timers: closing mid-check (Android back)
   // and reopening must not let the stale timer flip a fresh sheet to a
   // photo-less "approved". Bumped on open, cancel, and close.
@@ -349,30 +353,54 @@ export default function MapScreen({ navigation }: any) {
         return;
       }
 
-      // The check is a placeholder and needs no server, so NOTHING uploads
-      // yet: after "uygun görünüyor" the user confirms explicitly and only
-      // then does the record get created (owner decision — the check must
-      // not auto-add).
-      setPendingPhoto({ uri: asset.uri, type: asset.type, fileName: asset.fileName });
+      // The photo goes up now and the model looks at it; nothing is
+      // recorded yet — after "uygun görünüyor" the user confirms explicitly
+      // and only then does the record get created (owner decision — the
+      // check must not auto-add).
+      const photo = { uri: asset.uri, type: asset.type, fileName: asset.fileName };
+      setPendingPhoto(photo);
+      setPhotoCheck(null);
+      setRejectReason(null);
       setAiCheck('checking');
       const run = ++aiCheckRunRef.current;
-      await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS));
-      if (run !== aiCheckRunRef.current) return;
-      setAiCheck('approved');
+      try {
+        const result = await checkCarePhoto(viewType, photo);
+        if (run !== aiCheckRunRef.current) return;
+        setPhotoCheck(result);
+        setAiCheck('approved');
+      } catch (err: any) {
+        if (run !== aiCheckRunRef.current) return;
+        if (err?.response?.data?.code === 'photoRejected') {
+          setRejectReason(err.response.data.error ?? null);
+          setAiCheck('rejected');
+          return;
+        }
+        throw err;
+      }
     } catch (err: any) {
       setAiCheck('idle');
       setPendingPhoto(null);
-      Alert.alert('Fotoğraf alınamadı', err?.message ?? 'Bir hata oluştu');
+      Alert.alert(
+        'Fotoğraf alınamadı',
+        err?.code === 'ECONNABORTED'
+          ? 'Bağlantı zaman aşımına uğradı. Tekrar dener misin?'
+          : err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
+      );
     }
   }
 
   /** The explicit "add it" after the AI check approved the photo. */
   async function handleConfirmDrop(actionType: 'food' | 'water') {
-    if (!pendingPhoto) return;
+    if (!pendingPhoto || !photoCheck) return;
     setSubmitting(true);
     try {
       const device = await getCurrentLocation();
-      const created = await addCareAction(device.lat, device.lng, actionType, pendingPhoto);
+      const created = await addCareAction(
+        device.lat,
+        device.lng,
+        actionType,
+        photoCheck.photoToken
+      );
       // aiCheck/pendingPhoto reset when the modal next opens, not here:
       // resetting before the close would flash the confirm content behind
       // the fade-out.
@@ -381,9 +409,16 @@ export default function MapScreen({ navigation }: any) {
       celebrateNearbyAnimals(device, refreshed ?? animals);
       celebrate(created);
     } catch (err: any) {
-      // Stay on the approval step so the user can retry the confirm.
+      // Stay on the approval step so the user can retry the confirm —
+      // unless the token has expired, which only a fresh check can fix.
       if (err instanceof LocationPermissionError) {
         alertLocationPermission();
+      } else if (err?.response?.data?.code === 'photoTokenInvalid') {
+        Alert.alert('Fotoğrafı tekrar çek', err.response.data.error);
+        aiCheckRunRef.current++;
+        setAiCheck('idle');
+        setPendingPhoto(null);
+        setPhotoCheck(null);
       } else {
         Alert.alert(
           'Eklenemedi',
@@ -729,25 +764,61 @@ export default function MapScreen({ navigation }: any) {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             {aiCheck !== 'idle' ? (
-              /* The photo-check interstitial (placeholder AI — see
-                 AI_CHECK_MIN_MS above). Nothing has uploaded yet; the
-                 approved step waits for an explicit confirm. */
+              /* The photo-check interstitial (ADR-0005). The photo is up,
+                 nothing is recorded; the approved step waits for an
+                 explicit confirm, the rejected step offers a retake. */
               <>
                 <View style={styles.modalIcon}>
                   {aiCheck === 'checking' ? (
                     <ActivityIndicator color={colors.brand} />
+                  ) : aiCheck === 'rejected' ? (
+                    <Icon name="close" size={26} color={colors.danger} />
                   ) : (
                     <Icon name="check" size={26} color={colors.success} />
                   )}
                 </View>
                 <Text variant="heading" center>
-                  {aiCheck === 'checking' ? 'Yapay zeka fotoğrafı inceliyor' : 'Uygun görünüyor'}
+                  {aiCheck === 'checking'
+                    ? 'Yapay zeka fotoğrafı inceliyor'
+                    : aiCheck === 'rejected'
+                    ? 'Bu fotoğraf uygun görünmüyor'
+                    : photoCheck?.verdict === 'approved'
+                    ? 'Uygun görünüyor'
+                    : 'Fotoğraf hazır'}
                 </Text>
                 <Text variant="body" center style={styles.modalDesc}>
                   {aiCheck === 'checking'
                     ? `Fotoğraftaki ${typeLabel} kontrol ediliyor…`
-                    : `Kayıt eklensin mi? Şu anki konumuna ${typeLabel} kaydı düşecek.`}
+                    : aiCheck === 'rejected'
+                    ? rejectReason ?? `Fotoğrafta ${typeLabel} görünmüyor. Tekrar çeker misin?`
+                    : `${
+                        photoCheck?.reason ? `${photoCheck.reason} ` : ''
+                      }Kayıt eklensin mi? Şu anki konumuna ${typeLabel} kaydı düşecek.`}
                 </Text>
+                {aiCheck === 'rejected' && (
+                  <>
+                    {pendingPhoto?.uri && (
+                      <Image source={{ uri: pendingPhoto.uri }} style={styles.modalPhoto} />
+                    )}
+                    <Button
+                      title="Yeniden çek"
+                      onPress={handleChooseAction}
+                      icon={<Icon name="camera" size={18} color={colors.textOnBrand} />}
+                      fullWidth
+                    />
+                    <Button
+                      title="Vazgeç"
+                      variant="ghost"
+                      onPress={() => {
+                        aiCheckRunRef.current++;
+                        setAiCheck('idle');
+                        setPendingPhoto(null);
+                      }}
+                      fullWidth
+                      style={styles.modalCancel}
+                    />
+                  </>
+                )}
                 {aiCheck === 'approved' && (
                   <>
                     {pendingPhoto?.uri && (

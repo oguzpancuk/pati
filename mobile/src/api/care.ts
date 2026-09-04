@@ -87,15 +87,30 @@ export interface PhotoAsset {
  * they stand. That's why the previously separate `deviceLat`/`deviceLng`
  * are gone.
  */
-export async function addCareAction(
-  lat: number,
-  lng: number,
+/**
+ * What the photo check said. `unavailable` means the model was off or did
+ * not answer — the photo is accepted unchecked, exactly as before the check
+ * existed. A rejected photo never reaches here: the server answers 422 with
+ * `code: 'photoRejected'` and the reason as `error`.
+ */
+export interface PhotoCheck {
+  verdict: 'approved' | 'unavailable';
+  reason?: string;
+  /** Redeemed by addCareAction; the photo itself travels only once. */
+  photoToken: string;
+}
+
+/**
+ * Step one of a drop: upload the photo, let the model look at it. The
+ * interstitial has no cancel button, so this request must be bounded: a
+ * stalled upload would otherwise spin forever (axios has no default
+ * timeout). 60 s covers a large photo on slow cellular plus the model.
+ */
+export async function checkCarePhoto(
   actionType: 'food' | 'water',
   photo: PhotoAsset
-): Promise<CareAction & WithNewBadges> {
+): Promise<PhotoCheck> {
   const form = new FormData();
-  form.append('lat', String(lat));
-  form.append('lng', String(lng));
   form.append('actionType', actionType);
   form.append('photo', {
     uri: photo.uri,
@@ -103,12 +118,24 @@ export async function addCareAction(
     name: photo.fileName ?? 'photo.jpg',
   } as unknown as Blob);
 
-  const { data } = await apiClient.post<CareAction & WithNewBadges>('/care-actions', form, {
+  const { data } = await apiClient.post<PhotoCheck>('/care-actions/check', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    // The AI-check interstitial has no cancel button, so this request must
-    // be bounded: a stalled upload would otherwise spin forever (axios has
-    // no default timeout). 60 s covers a large photo on slow cellular.
     timeout: 60000,
   });
+  return data;
+}
+
+/** The explicit confirm: redeems the token the check handed back. */
+export async function addCareAction(
+  lat: number,
+  lng: number,
+  actionType: 'food' | 'water',
+  photoToken: string
+): Promise<CareAction & WithNewBadges> {
+  const { data } = await apiClient.post<CareAction & WithNewBadges>(
+    '/care-actions',
+    { lat, lng, actionType, photoToken },
+    { timeout: 30000 }
+  );
   return data;
 }

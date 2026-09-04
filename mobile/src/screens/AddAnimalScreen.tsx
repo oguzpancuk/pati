@@ -52,7 +52,10 @@ const MAX_PHOTOS = 6;
  * arrives, real processing time replaces this and the constant goes away
  * (see docs/NOTES.md).
  */
-const MIN_MATCHING_MS = 2000;
+// The matching screen stays up for the real comparison (ADR-0005), which
+// takes seconds; this floor only keeps the field-only answer — instant when
+// the model is off — from flashing past as a glitch.
+const MIN_MATCHING_MS = 800;
 
 const SIMILARITY_LABEL: Record<SimilarityLevel, string> = {
   high: 'Yüksek benzerlik',
@@ -65,6 +68,8 @@ const SIMILARITY_TONE: Record<SimilarityLevel, 'success' | 'warning' | 'neutral'
   low: 'neutral',
 };
 const REASON_LABEL: Record<SimilarityReason, string> = {
+  photo_same: 'Fotoğrafta aynı hayvan',
+  photo_similar: 'Fotoğraf benziyor',
   breed: 'Aynı desen',
   color: 'Aynı renk',
   distance: 'Aynı sokakta',
@@ -92,6 +97,9 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   const [breed, setBreed] = useState<string | null>(null);
   const [markings, setMarkings] = useState('');
   const [photos, setPhotos] = useState<PhotoAsset[]>([]);
+  // Whether the model compared the photo — the results banner says which
+  // comparison the tiers came from.
+  const [photoChecked, setPhotoChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Flow: form → (save) → matching wait → candidates → new record or an
@@ -165,7 +173,14 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     try {
       const loc = await getCurrentLocation();
       setLocation(loc);
-      const result = await matchAnimals({ lat: loc.lat, lng: loc.lng, species, breed, color });
+      const result = await matchAnimals({
+        lat: loc.lat,
+        lng: loc.lng,
+        species,
+        breed,
+        color,
+        photo: photos[0],
+      });
 
       // Show the waiting screen for at least MIN_MATCHING_MS; if the server
       // returned faster, hold for the remainder.
@@ -176,6 +191,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
 
       setCandidates(result.candidates);
       setMatchRadius(result.radiusMeters);
+      setPhotoChecked(result.photoChecked);
       if (result.candidates.length === 0) {
         // No same-species records nearby: nothing to ask, save directly.
         await createNewAnimal(loc);
@@ -274,7 +290,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
           tone="info"
           emoji="🔎"
           title="Benzer kayıtlar bulundu"
-          description={`Girdiğin bilgiler ${
+          description={`${photoChecked ? 'Fotoğrafın ve girdiğin bilgiler' : 'Girdiğin bilgiler'} ${
             matchRadius >= 1000 ? `${matchRadius / 1000} km` : `${matchRadius} m`
           } içindeki ${
             species === 'cat' ? 'kedilerle' : 'köpeklerle'
@@ -304,7 +320,9 @@ export default function AddAnimalScreen({ navigation, route }: any) {
               <Text variant="caption" numberOfLines={1}>
                 {[animal.breed, animal.color].filter(Boolean).join(' · ') || 'Desen belirtilmemiş'}
               </Text>
-              <Text variant="micro" color="brand" numberOfLines={1} style={styles.candidateReasons}>
+              {/* Two lines: the photo reasons ("Fotoğrafta aynı hayvan") pushed
+                  the distance off the end of one. */}
+              <Text variant="micro" color="brand" numberOfLines={2} style={styles.candidateReasons}>
                 {[
                   ...animal.similarity_reasons.map((r) => REASON_LABEL[r]),
                   formatDistance(animal.distance_meters),
@@ -523,8 +541,8 @@ function MatchingState({ species, breed }: { species: Species; breed: string | n
         Yapay zekâ eşleştiriyor…
       </Text>
       <Text variant="caption" center style={styles.matchingDesc}>
-        Girdiğin bilgiler sistemdeki hayvanlarla karşılaştırılıyor. Aynı hayvanın iki kez
-        kaydedilmesini önlemek için yakındaki kayıtlar taranıyor.
+        Fotoğrafın ve girdiğin bilgiler yakındaki kayıtlarla karşılaştırılıyor. Aynı hayvanın iki
+        kez kaydedilmesini önlemek için birkaç saniye sürebilir.
       </Text>
     </View>
   );

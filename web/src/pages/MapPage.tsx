@@ -9,10 +9,13 @@ import { circlePolygon, circleRing, featureCollection, pointFeature } from '@mob
 import {
   addCareAction,
   Animal,
+  ApiError,
   CareStatus,
+  checkCarePhoto,
   fetchAnimals,
   fetchCareActionsInBounds,
   fetchCareStatus,
+  type PhotoCheck,
 } from '../api';
 import {
   FALLBACK_CENTER,
@@ -60,9 +63,13 @@ const USER_RADIUS_STROKE = 'rgba(33, 32, 30, 0.35)';
 const BREATH_PERIOD_MS = 4500;
 const BREATH_TICK_MS = 150;
 
-// Same number as mobile MapScreen — the interstitial must feel identical
-// on every client. Change one, change the other.
-const AI_CHECK_MIN_MS = 2000;
+// The "AI is checking the photo" interstitial is real since ADR-0005: the
+// photo goes up during it and the model says whether it shows the food or
+// water the user claims. An approved (or unchecked — the model may be off)
+// photo comes back as a token; after "uygun görünüyor" the user explicitly
+// confirms, and only that confirm creates the record (owner decision). A
+// rejected photo shows the model's reason and offers a retake (mobile
+// parity).
 const BREATH_MIN = 0.78;
 
 type ViewType = 'food' | 'water';
@@ -113,7 +120,11 @@ export default function MapPage() {
   // Placeholder "AI is checking the photo" interstitial — same pattern and
   // constants as mobile MapScreen (always approves; the upload runs behind
   // it; a real model later gains the reject path here).
-  const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved'>('idle');
+  const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved' | 'rejected'>('idle');
+  // The check's answer: the token the confirm redeems, or the reason a
+  // photo was turned down.
+  const [photoCheck, setPhotoCheck] = useState<PhotoCheck | null>(null);
+  const [rejectReason, setRejectReason] = useState<string | null>(null);
   const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
   // Invalidates in-flight check timers: dismissing mid-check and reopening
   // must not let the stale timer flip a fresh sheet to a photo-less
@@ -429,23 +440,38 @@ export default function MapPage() {
   }
 
   /**
-   * Photo picked → the placeholder AI check runs (client-side only, nothing
-   * uploads) → the approved step waits for an explicit confirm (owner
-   * decision — the check must not auto-add).
+   * Photo picked → it goes up and the model looks at it → the approved step
+   * waits for an explicit confirm (owner decision — the check must not
+   * auto-add); a rejected photo shows the reason and a retake.
    */
   async function handlePhotoPicked(file: File) {
     setError(null);
     setPendingPhoto(file);
+    setPhotoCheck(null);
+    setRejectReason(null);
     setAiCheck('checking');
     const run = ++aiCheckRunRef.current;
-    await new Promise((resolve) => setTimeout(resolve, AI_CHECK_MIN_MS));
-    if (run !== aiCheckRunRef.current) return;
-    setAiCheck('approved');
+    try {
+      const result = await checkCarePhoto(viewType, file);
+      if (run !== aiCheckRunRef.current) return;
+      setPhotoCheck(result);
+      setAiCheck('approved');
+    } catch (err) {
+      if (run !== aiCheckRunRef.current) return;
+      if (err instanceof ApiError && err.code === 'photoRejected') {
+        setRejectReason(err.message);
+        setAiCheck('rejected');
+        return;
+      }
+      setAiCheck('idle');
+      setPendingPhoto(null);
+      setError(err instanceof Error ? err.message : 'Fotoğraf yüklenemedi');
+    }
   }
 
   /** The explicit "add it" after the AI check approved the photo. */
   async function handleConfirmDrop() {
-    if (!pendingPhoto) return;
+    if (!pendingPhoto || !photoCheck) return;
     setBusy(true);
     setError(null);
     try {
@@ -460,7 +486,7 @@ export default function MapPage() {
         return center ? { lat: center.lat, lng: center.lng } : FALLBACK_CENTER;
       });
       setMyLocation(loc);
-      const created = await addCareAction(loc.lat, loc.lng, viewType, pendingPhoto);
+      const created = await addCareAction(loc.lat, loc.lng, viewType, photoCheck.photoToken);
       if (usedFallback) setError(`${usedFallback} Kayıt haritanın ortasına düştü.`);
       // aiCheck/pendingPhoto reset when the modal next opens, not here:
       // resetting before the close would flash the confirm content behind it.
@@ -471,7 +497,14 @@ export default function MapPage() {
       celebrateNearbyAnimals(loc);
       celebrate(created);
     } catch (err) {
-      // Stay on the approval step so the user can retry the confirm.
+      // Stay on the approval step so the user can retry the confirm —
+      // unless the token has expired, which only a fresh check can fix.
+      if (err instanceof ApiError && err.code === 'photoTokenInvalid') {
+        aiCheckRunRef.current++;
+        setAiCheck('idle');
+        setPendingPhoto(null);
+        setPhotoCheck(null);
+      }
       setError(err instanceof Error ? err.message : 'Eklenemedi');
     } finally {
       setBusy(false);
@@ -583,9 +616,9 @@ export default function MapPage() {
         >
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             {aiCheck !== 'idle' ? (
-              /* The photo-check interstitial (placeholder AI — see
-                 AI_CHECK_MIN_MS). Nothing has uploaded yet; the approved
-                 step waits for an explicit confirm. */
+              /* The photo-check interstitial (ADR-0005). The photo is up,
+                 nothing is recorded; the approved step waits for an
+                 explicit confirm, the rejected step offers a retake. */
               <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
                 <div
                   className="matching-stage"
@@ -593,18 +626,57 @@ export default function MapPage() {
                 >
                   {aiCheck === 'checking' ? (
                     <span className="matching-ring" />
+                  ) : aiCheck === 'rejected' ? (
+                    <span style={{ fontSize: 44, color: 'var(--danger)' }}>✕</span>
                   ) : (
                     <span style={{ fontSize: 44, color: 'var(--success)' }}>✓</span>
                   )}
                 </div>
                 <h2 style={{ marginBottom: 4 }}>
-                  {aiCheck === 'checking' ? 'Yapay zeka fotoğrafı inceliyor' : 'Uygun görünüyor'}
+                  {aiCheck === 'checking'
+                    ? 'Yapay zeka fotoğrafı inceliyor'
+                    : aiCheck === 'rejected'
+                    ? 'Bu fotoğraf uygun görünmüyor'
+                    : photoCheck?.verdict === 'approved'
+                    ? 'Uygun görünüyor'
+                    : 'Fotoğraf hazır'}
                 </h2>
                 <p className="muted">
                   {aiCheck === 'checking'
                     ? `Fotoğraftaki ${typeLabel} kontrol ediliyor…`
-                    : `Kayıt eklensin mi? Şu anki konumuna ${typeLabel} kaydı düşecek.`}
+                    : aiCheck === 'rejected'
+                    ? rejectReason ?? `Fotoğrafta ${typeLabel} görünmüyor. Tekrar çeker misin?`
+                    : `${
+                        photoCheck?.reason ? `${photoCheck.reason} ` : ''
+                      }Kayıt eklensin mi? Şu anki konumuna ${typeLabel} kaydı düşecek.`}
                 </p>
+                {aiCheck === 'rejected' && (
+                  <>
+                    {pendingPhotoUrl && (
+                      <img
+                        src={pendingPhotoUrl}
+                        alt=""
+                        width={84}
+                        height={84}
+                        style={{ objectFit: 'cover', borderRadius: 14, margin: '4px auto 12px' }}
+                      />
+                    )}
+                    <button className="btn full" onClick={() => fileRef.current?.click()}>
+                      Yeniden çek
+                    </button>
+                    <button
+                      className="btn ghost full"
+                      onClick={() => {
+                        aiCheckRunRef.current++;
+                        setAiCheck('idle');
+                        setPendingPhoto(null);
+                        setError(null);
+                      }}
+                    >
+                      Vazgeç
+                    </button>
+                  </>
+                )}
                 {aiCheck === 'approved' && (
                   <>
                     {error && <div className="error">{error}</div>}

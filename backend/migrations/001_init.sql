@@ -192,6 +192,9 @@ CREATE TABLE IF NOT EXISTS care_actions (
     user_id INTEGER NOT NULL REFERENCES users(id),
     action_type VARCHAR(20) NOT NULL CHECK (action_type IN ('food', 'water')),
     photo_url TEXT NOT NULL,
+    -- What the photo check said at upload time (ADR-0005); NULL when the
+    -- check was unavailable or the row predates it. Also in 004_ai_checks.sql.
+    ai_check JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

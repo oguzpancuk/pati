@@ -103,7 +103,7 @@ export async function fetchAnimals(options: FetchAnimalsOptions = {}): Promise<A
 }
 
 export type SimilarityLevel = 'high' | 'medium' | 'low';
-export type SimilarityReason = 'breed' | 'color' | 'distance';
+export type SimilarityReason = 'photo_same' | 'photo_similar' | 'breed' | 'color' | 'distance';
 
 export interface AnimalMatch extends Animal {
   distance_meters: number;
@@ -117,29 +117,43 @@ export interface MatchAnimalsInput {
   species: 'cat' | 'dog';
   breed?: string | null;
   color?: string | null;
+  /** The first photo of the new animal, compared with the candidates' cover photos. */
+  photo: PhotoAsset;
+}
+
+export interface MatchResult {
+  candidates: AnimalMatch[];
+  radiusMeters: number;
+  /** false when the model was off or did not answer: the ranking is field-only. */
+  photoChecked: boolean;
 }
 
 /**
  * "Is this animal already registered?" candidates before opening a new
  * record. The server ranks same-species animals within 1 km by the entered
- * pattern/color and distance as high/medium/low similarity (no numeric
- * percentage, on purpose).
+ * pattern/color and distance, then has the model compare the photo with
+ * the best candidates' cover photos — high/medium/low similarity, no
+ * numeric percentage, on purpose.
  */
-export async function matchAnimals(
-  input: MatchAnimalsInput
-): Promise<{ candidates: AnimalMatch[]; radiusMeters: number }> {
-  const { data } = await apiClient.get<{ candidates: AnimalMatch[]; radiusMeters: number }>(
-    '/animals/match',
-    {
-      params: {
-        lat: input.lat,
-        lng: input.lng,
-        species: input.species,
-        breed: input.breed || undefined,
-        color: input.color || undefined,
-      },
-    }
-  );
+export async function matchAnimals(input: MatchAnimalsInput): Promise<MatchResult> {
+  const form = new FormData();
+  form.append('lat', String(input.lat));
+  form.append('lng', String(input.lng));
+  form.append('species', input.species);
+  if (input.breed) form.append('breed', input.breed);
+  if (input.color) form.append('color', input.color);
+  form.append('photo', {
+    uri: input.photo.uri,
+    type: input.photo.type ?? 'image/jpeg',
+    name: input.photo.fileName ?? 'photo.jpg',
+  } as unknown as Blob);
+
+  const { data } = await apiClient.post<MatchResult>('/animals/match', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    // The matching screen has no cancel: bound the wait. The model reads up
+    // to nine photos, so this is longer than a plain upload.
+    timeout: 90000,
+  });
   return data;
 }
 

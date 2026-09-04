@@ -2,6 +2,7 @@ require('dotenv').config();
 const app = require('./app');
 const { startDemoGuideRefresh } = require('./utils/demoGuideRefresh');
 const { describeTransport } = require('./utils/mailer');
+const { describeAi } = require('./utils/ai');
 
 const PORT = process.env.PORT || 3000;
 
@@ -10,6 +11,9 @@ app.listen(PORT, () => {
   // A production deploy without RESEND_API_KEY silently registers accounts
   // unverified, as before this feature; the release log should say so.
   console.log(`mail: ${describeTransport()}`);
+  // Likewise without ANTHROPIC_API_KEY: photos are accepted unchecked and
+  // matching is field-only, exactly as before ADR-0005.
+  console.log(`ai: ${describeAi()}`);
 });
 
 // Hourly refresh keeping the guide (demo) areas alive on the map;

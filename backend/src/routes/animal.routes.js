@@ -22,7 +22,10 @@ const router = express.Router();
 
 router.get('/', listAnimals);
 // The literal '/match' path must precede '/:id', or "match" parses as an id.
+// GET is the field-only form; POST carries the first photo for the model
+// comparison and is limited on its own — each call is one vision request.
 router.get('/match', requireAuth, matchAnimals);
+router.post('/match', requireAuth, limits.matchAnimals, upload.single('photo'), matchAnimals);
 router.get('/:id', requireAuth, getAnimal);
 router.post('/', requireAuth, limits.createAnimal, createAnimal);
 router.post('/:id/sightings', requireAuth, limits.animalTouch, reportSighting);

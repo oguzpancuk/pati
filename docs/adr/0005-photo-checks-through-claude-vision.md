@@ -1,0 +1,101 @@
+# ADR-0005: Photo checks and animal matching go through Claude vision, and fail open
+
+Status: accepted · Date: 2026-09-04
+
+## Context
+
+Two product moments were built as deliberate placeholders waiting for "the
+real model": the "AI is checking the photo" interstitial after a food/water
+photo (S6, always approved after a two-second wait) and the "is this animal
+already registered?" step of the add-animal flow (ROADMAP §1, a rule over
+pattern, colour and distance behind a two-second wait). The ROADMAP's plan
+for the second was an image-embedding microservice (DINOv2/CLIP in Python)
+with `pgvector`; its spike measured the cost and speed but stalled on
+accuracy, because trained weights could not be downloaded where the spike
+ran and nobody had labelled street-animal pairs to score against.
+
+The owner asked for both to become real now.
+
+## Decision
+
+- **A hosted multimodal model, not an embedding service.** Both moments are
+  one request each to the Anthropic Messages API through the official Node
+  SDK, from the existing backend. The care photo goes up with the claim
+  ("the user says this shows the food they left out") and comes back as a
+  verdict; the new animal's first photo goes up together with the cover
+  photos of the best field-ranked nearby candidates and comes back as one
+  verdict per candidate. No Python service, no vector column, no batch
+  vectorisation of existing photos, nothing to train, and the accuracy
+  question becomes something the owner can check in an afternoon with the
+  live-sample script rather than a research task. The embedding plan is
+  retired, not deferred: if a same-individual verdict from a general model
+  ever proves too weak, that is the moment to revisit it, with the
+  feedback this decision starts collecting.
+- **Verdicts, not scores; the user still decides.** The model answers a
+  JSON schema (`output_config.format`), so the backend branches on an enum
+  and never parses prose. For matching, "same" lifts a candidate to high
+  whatever the fields said, "similar" adds a point, "different" sinks it
+  to low; the tiers and the "it's this one / new record" choice stay
+  exactly as they were. Nothing is merged automatically and no percentage
+  reaches a screen (the ROADMAP's probability trap).
+- **The check is enforced by the server and the photo travels once.**
+  `POST /care-actions/check` uploads the photo, runs the check and answers
+  with a short-lived signed `photoToken` over the stored file (user, type,
+  verdict); the explicit confirm sends the token instead of the photo.
+  `POST /care-actions` with a file still works and is checked inline, so a
+  client that skips the check step gains nothing. A token is bound to its
+  user and action type, expires in fifteen minutes and is redeemable once
+  (a photo URL already on a record is refused). A rejected photo is
+  deleted at once and answered 422 with the model's one-line Turkish reason;
+  there is no "add anyway" — the check would be decoration otherwise.
+- **Lenient by prompt.** The care check approves anything that plausibly
+  shows food or water — a bowl, kibble, a bottle, an animal eating, blur,
+  darkness, the bowl out of frame — and rejects only clearly unrelated
+  content or a claim that contradicts the picture (food claimed, only water
+  shown). Matching judges the individual's markings, not the breed. Both
+  prompts are English; the one sentence the user sees is produced in
+  Turkish.
+- **Everything fails open.** Without `ANTHROPIC_API_KEY`, or on a network
+  error, a refusal, a malformed answer or an unreadable image, the check
+  answers `unavailable` (the photo is accepted, the confirm screen says
+  "Fotoğraf hazır" rather than "Uygun görünüyor", nothing is stored in
+  `ai_check`) and matching returns the field-only ranking with
+  `photoChecked: false`. The product never blocks on the vendor, and a
+  production deploy without the key behaves exactly as before this ADR —
+  the boot log says which.
+- **What the model said is kept.** `care_actions.ai_check` (JSONB: verdict,
+  subject, reason, model, milliseconds) records every checked photo. It is
+  the raw material for calibrating the prompt against real photos and for
+  the moderation queue; it is not shown to users.
+- **Images are downscaled before they leave the server.** `sharp` rotates
+  by EXIF and fits every photo into 1024 px JPEG: a phone photo is 3–8 MB,
+  the API refuses images over 5 MB, and the model reads nothing extra from
+  4000 px that it cannot read from 1024. HEIC cannot be decoded by the
+  prebuilt binaries, and is treated as unavailable (fail open) — the mobile
+  camera produces JPEG, so this only affects gallery picks.
+- **Model and candidate count are configuration.** `AI_MODEL` defaults to
+  `claude-opus-5` (the SDK guidance's default; matching is a fine visual
+  discrimination task where the strongest model is the cheap choice next to
+  a duplicate record), `AI_MATCH_CANDIDATES` to 8. The care check runs at
+  low effort, matching at medium. Photo matching has its own per-user
+  limiter (30/h): one request carries up to nine images and is the most
+  expensive thing a user can trigger.
+
+## Consequences
+
+- The backend gains two dependencies: `@anthropic-ai/sdk` and `sharp`.
+  Both are the boring choice — the SDK is what the API vendor documents,
+  and Node has no image decoding of its own.
+- A checked-but-unconfirmed photo stays in the uploads volume (rejected
+  ones are deleted). Accepted for now: it is bytes on a volume, not a
+  record on the map, and object storage with lifecycle rules is already on
+  the roadmap.
+- The two-second waits are gone in spirit: the interstitials now show for
+  as long as the real request takes. An 800 ms floor remains on the
+  matching screen so the field-only answer (instant when the model is off)
+  does not flash past as a glitch.
+- Verification: `backend/scripts/ai-check/run.sh` drives every branch
+  against a fake Messages API whose verdict the harness chooses and which
+  refuses any request the real API would refuse (60 assertions);
+  `backend/scripts/ai-check/live-sample.js` sends real photos to the real
+  model, which is how accuracy gets judged, by a person, with the key.

@@ -1,8 +1,17 @@
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
+const ai = require('../utils/ai');
+
+// A checked photo is handed back to the client as a signed claim over the
+// stored file; the confirm step sends it instead of uploading again. Short
+// lived: the confirm follows the check within seconds, and a leaked token
+// should not stay usable.
+const PHOTO_TOKEN_TTL = '15m';
+const PHOTO_TOKEN_KIND = 'carePhoto';
 
 // A record can only be deleted shortly after it was made: the feature exists
 // to fix a mistaken tap, not to rewrite history — older records are the
@@ -32,35 +41,162 @@ function windowHoursFor(actionType) {
  * "are you within 20 m of your chosen point" check therefore went away: it
  * had come to mean comparing the device's location with itself.
  */
-async function addCareAction(req, res, next) {
+/**
+ * Step one of a drop: the photo goes up, the model looks at it, and the
+ * client learns the verdict before anything is recorded (ADR-0005). An
+ * approved (or unchecked — the model may be off) photo comes back as a
+ * `photoToken` the confirm step redeems, so the photo travels once and the
+ * server, not the client, is what decided it was acceptable. A rejected
+ * photo is deleted on the spot and answered with 422 and the model's
+ * one-line reason in Turkish.
+ */
+async function checkCarePhoto(req, res, next) {
   try {
-    const { lat, lng, actionType } = req.body;
-
-    if (lat === undefined || lng === undefined) {
-      return res.status(400).json({ error: 'lat ve lng zorunludur' });
-    }
+    const { actionType } = req.body;
     if (!['food', 'water'].includes(actionType)) {
+      if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ error: 'actionType food veya water olmalıdır' });
     }
     if (!req.file) {
       return res.status(400).json({ error: 'Fotoğraf zorunludur' });
     }
 
+    const check = await ai.checkCarePhoto(req.file.path, actionType);
+    if (check.verdict === 'rejected') {
+      fs.unlink(req.file.path, () => {});
+      return res.status(422).json({
+        error: check.reason || rejectionMessage(actionType),
+        code: 'photoRejected',
+        verdict: 'rejected',
+        reason: check.reason,
+      });
+    }
+
+    const photoToken = jwt.sign(
+      {
+        kind: PHOTO_TOKEN_KIND,
+        userId: req.user.userId,
+        file: req.file.filename,
+        actionType,
+        check: aiCheckRecord(check),
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: PHOTO_TOKEN_TTL }
+    );
+    res.json({ verdict: check.verdict, reason: check.reason, photoToken });
+  } catch (err) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    next(err);
+  }
+}
+
+function rejectionMessage(actionType) {
+  return actionType === 'food'
+    ? 'Fotoğrafta mama görünmüyor. Bıraktığın mamayı çekip tekrar dener misin?'
+    : 'Fotoğrafta su görünmüyor. Bıraktığın suyu çekip tekrar dener misin?';
+}
+
+/** What gets stored in care_actions.ai_check — null when nothing was checked. */
+function aiCheckRecord(check) {
+  if (!check || check.verdict === 'unavailable') return null;
+  const { verdict, subject, reason, model, ms } = check;
+  return { verdict, subject, reason, model, ms };
+}
+
+/**
+ * Redeems a photoToken from checkCarePhoto: ours, this user's, this action
+ * type, the file still on disk, and not already used for a record (a token
+ * replayed within its lifetime would otherwise mint duplicate drops).
+ * Returns the stored filename plus the check record, or a refusal.
+ */
+async function redeemPhotoToken(token, userId, actionType) {
+  let claims;
+  try {
+    claims = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return { error: 'Fotoğraf kontrolünün süresi doldu. Fotoğrafı tekrar çeker misin?' };
+  }
+  if (
+    claims.kind !== PHOTO_TOKEN_KIND ||
+    claims.userId !== userId ||
+    claims.actionType !== actionType ||
+    typeof claims.file !== 'string' ||
+    path.basename(claims.file) !== claims.file
+  ) {
+    return { error: 'Fotoğraf bu kayıtla eşleşmiyor. Fotoğrafı tekrar çeker misin?' };
+  }
+  if (!fs.existsSync(path.join(UPLOADS_DIR, claims.file))) {
+    return { error: 'Fotoğraf bulunamadı. Fotoğrafı tekrar çeker misin?' };
+  }
+  return { file: claims.file, check: claims.check ?? null };
+}
+
+async function addCareAction(req, res, next) {
+  try {
+    const { lat, lng, actionType, photoToken } = req.body;
+
+    if (lat === undefined || lng === undefined) {
+      if (req.file) fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: 'lat ve lng zorunludur' });
+    }
+    if (!['food', 'water'].includes(actionType)) {
+      if (req.file) fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ error: 'actionType food veya water olmalıdır' });
+    }
+    if (!req.file && !photoToken) {
+      return res.status(400).json({ error: 'Fotoğraf zorunludur' });
+    }
+
     const pinLat = Number(lat);
     const pinLng = Number(lng);
     if (!Number.isFinite(pinLat) || !Number.isFinite(pinLng)) {
-      fs.unlink(req.file.path, () => {});
+      if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ error: 'lat ve lng sayı olmalıdır' });
     }
 
-    const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    // Two ways in: a photoToken from the check step (both apps), or a
+    // direct upload, which is checked here so that no client can skip the
+    // check by not calling it.
+    let file;
+    let check;
+    if (req.file) {
+      const result = await ai.checkCarePhoto(req.file.path, actionType);
+      if (result.verdict === 'rejected') {
+        fs.unlink(req.file.path, () => {});
+        return res.status(422).json({
+          error: result.reason || rejectionMessage(actionType),
+          code: 'photoRejected',
+          verdict: 'rejected',
+          reason: result.reason,
+        });
+      }
+      file = req.file.filename;
+      check = aiCheckRecord(result);
+    } else {
+      const redeemed = await redeemPhotoToken(String(photoToken), req.user.userId, actionType);
+      if (redeemed.error) {
+        return res.status(400).json({ error: redeemed.error, code: 'photoTokenInvalid' });
+      }
+      file = redeemed.file;
+      check = redeemed.check;
+    }
+
+    const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${file}`;
+    const used = await pool.query('SELECT 1 FROM care_actions WHERE photo_url = $1 LIMIT 1', [
+      photoUrl,
+    ]);
+    if (used.rowCount > 0) {
+      return res
+        .status(409)
+        .json({ error: 'Bu fotoğraf zaten kaydedildi.', code: 'photoAlreadyUsed' });
+    }
 
     const result = await pool.query(
-      `INSERT INTO care_actions (location, user_id, action_type, photo_url)
-       VALUES (ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3, $4, $5)
+      `INSERT INTO care_actions (location, user_id, action_type, photo_url, ai_check)
+       VALUES (ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3, $4, $5, $6)
        RETURNING id, action_type, photo_url, created_at,
                  ST_AsGeoJSON(location)::json AS location`,
-      [pinLng, pinLat, req.user.userId, actionType, photoUrl]
+      [pinLng, pinLat, req.user.userId, actionType, photoUrl, check ? JSON.stringify(check) : null]
     );
 
     // Newly earned badges ride along in the response so the client can show
@@ -265,6 +401,7 @@ async function deleteCareAction(req, res, next) {
 }
 
 module.exports = {
+  checkCarePhoto,
   addCareAction,
   listCareActions,
   getCareStatus,
