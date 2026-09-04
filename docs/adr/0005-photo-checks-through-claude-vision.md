@@ -83,10 +83,10 @@ The owner asked for both to become real now.
   limiter (30/h): one request carries up to nine images and is the most
   expensive thing a user can trigger; the care photo check has its own too
   (80/h), so the drop budget the route limiter was sized for stays whole.
-  The match answer's candidate indexes are pinned by the schema to the
-  range actually sent and must cover every candidate exactly once;
-  anything else is dropped (fail open) rather than attributed to the
-  wrong animal.
+  The match answer's candidate indexes must cover every candidate sent
+  exactly once — checked at runtime, not by schema range keywords, which
+  the structured-output format does not document as supported; anything
+  else is dropped (fail open) rather than attributed to the wrong animal.
 
 ## Consequences
 

@@ -474,13 +474,15 @@ export default function MapPage() {
     if (!pendingPhoto || !photoCheck) return;
     setBusy(true);
     setError(null);
+    // Hoisted: the "already recorded" branch below refreshes around it.
+    let loc: Awaited<ReturnType<typeof getCurrentLocation>> | null = null;
     try {
       // Without a location (http origin, no permission), instead of blocking
       // the user we use the map center and state the reason: people drop at
       // the spot they're looking at anyway. The mobile app requires the real
       // location; web is more lenient (see docs/NOTES.md).
       let usedFallback: string | null = null;
-      const loc = await getCurrentLocation().catch((err) => {
+      loc = await getCurrentLocation().catch((err) => {
         usedFallback = describeLocationError(err);
         const center = mapRef.current?.getCenter();
         return center ? { lat: center.lat, lng: center.lng } : FALLBACK_CENTER;
@@ -501,9 +503,17 @@ export default function MapPage() {
       // unless the token has expired, which only a fresh check can fix.
       if (err instanceof ApiError && err.code === 'photoAlreadyUsed') {
         // The earlier confirm went through and its response was lost: the
-        // drop exists, so close and refresh instead of stranding the user.
+        // drop exists, so close and refresh like a success — and say so if
+        // the same flaky connection fails the refresh too.
         setConfirmOpen(false);
-        await loadCircles();
+        const at = loc;
+        try {
+          await Promise.all([loadCircles(), at ? loadAnimals(at) : Promise.resolve()]);
+          const s = at ? await fetchCareStatus(at.lat, at.lng, viewType).catch(() => null) : null;
+          if (s) setStatus(s);
+        } catch (refreshErr) {
+          setError(refreshErr instanceof Error ? refreshErr.message : 'Harita yenilenemedi');
+        }
         return;
       }
       if (err instanceof ApiError && err.code === 'photoTokenInvalid') {

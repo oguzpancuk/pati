@@ -219,24 +219,23 @@ Judge by the individual's own markings — coat pattern and where the patches si
 
 Verdicts: "same" only when the marks match well enough that you would bet on it; "similar" when it could be the same animal but the photos do not show enough to decide; "different" when it is clearly another animal; "unsure" when a photo is too poor to judge at all. Return exactly one entry per candidate, in the order given.`;
 
-// Built per request: the index range is pinned to the candidates actually
-// sent, so a 0-based or out-of-range answer is refused by the schema rather
-// than shifted onto the wrong animal (review finding).
+// Built per request so the description names the exact range; the range
+// itself is enforced below, at runtime — JSON-schema range and length
+// keywords (minimum/maximum/minItems/maxItems) are not in the subset the
+// structured-output format documents as supported, and a refused schema
+// would fail open into field-only matching without anyone noticing.
 function matchSchema(count) {
   return {
     type: 'object',
     properties: {
       candidates: {
         type: 'array',
-        minItems: count,
-        maxItems: count,
+        description: `Exactly ${count} entries, one per candidate, in the order given`,
         items: {
           type: 'object',
           properties: {
             index: {
               type: 'integer',
-              minimum: 1,
-              maximum: count,
               description: `1-based candidate number as labelled ("Candidate 1" … "Candidate ${count}")`,
             },
             verdict: { type: 'string', enum: ['same', 'similar', 'different', 'unsure'] },
