@@ -1482,3 +1482,27 @@ any local-only secret in that file rides along in the (private) registry
 image. Suggested fix: add `backend/.env` to `.dockerignore` and set the six
 provider variables with `fly secrets set` before the next deploy — doing
 the first without the second would switch the buttons off in production.
+
+## 2026-09-04 — the production image carried the developer's .env
+
+- **Symptom:** right after the seventh deploy, `pati-app.com/api/auth/providers`
+  reported `apple.enabled: true` with the Service ID and return URL — and the
+  Apple button was live on the production login page (screenshot in the
+  session) — although `fly secrets list` showed no `APPLE_*` or `GOOGLE_*`
+  at all. Apple sign-in was meant to stay hidden until the App ID exists.
+- **Cause:** the Dockerfile copies `backend/` wholesale and `.dockerignore`
+  never excluded `.env`, so the deploying machine's `backend/.env` (793
+  bytes, edited that morning) sat at `/app/.env` in the image; `dotenv`
+  loaded it for every variable Fly had not set. Fly's secrets win where
+  they exist (`dotenv` does not override the process environment), which is
+  why `JWT_SECRET` and `DATABASE_URL` were never the local ones — but any
+  variable only present locally went live. This has been true since the
+  first deploy; today was the first time the local file carried something
+  production should not have.
+- **Fix:** `.dockerignore` now excludes `**/.env` and `**/.env.*` (keeping
+  `.env.example`), so the next build ships no environment file at all. The
+  three Google client ids were set as Fly secrets, which is where they
+  belonged; `APPLE_*` stays unset, so after the next deploy the Apple button
+  disappears and Google keeps working from the secrets.
+- Lesson for the deploy checklist: "no secrets in the diff" is not the same
+  as "no secrets in the image" — the image is what leaves the machine.

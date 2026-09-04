@@ -9,3 +9,11 @@ ds-bundle
 docs
 spikes
 .git
+
+# Local secrets and environment files must never enter the image: the
+# Dockerfile copies backend/ wholesale, and a developer .env baked in here
+# turned Apple sign-in on in production (2026-09-04). Fly secrets are the
+# only environment production gets.
+**/.env
+**/.env.*
+!**/.env.example
