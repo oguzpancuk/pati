@@ -28,6 +28,10 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>pati</string>
+				<!-- Google sign-in returns to the app through the reversed iOS
+				     client id. Must equal IOS_GOOGLE_CLIENT_ID in
+				     src/googleClientId.ts (a jest test enforces the pairing). -->
+				<string>com.googleusercontent.apps.223239218396-o34fhrm0v2f23ev4o18g9pc5v6517fvn</string>
 			</array>
 		</dict>
 	</array>

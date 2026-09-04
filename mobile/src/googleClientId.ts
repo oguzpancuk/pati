@@ -14,4 +14,5 @@
  * server reports is exactly this one. Changing it means changing Info.plist
  * in the same commit and shipping a new build.
  */
-export const IOS_GOOGLE_CLIENT_ID: string | null = null;
+export const IOS_GOOGLE_CLIENT_ID: string | null =
+  '223239218396-o34fhrm0v2f23ev4o18g9pc5v6517fvn.apps.googleusercontent.com';
