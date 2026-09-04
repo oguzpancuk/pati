@@ -193,8 +193,8 @@ check "GET match still answers" 200 "$code"
 check "…photoChecked false" false "$(field .photoChecked)"
 
 echo "9. An answer whose indexes cannot be attributed is dropped, not shifted"
-# A 0-based answer would otherwise put B's "same" onto A; each of these must
-# leave the field-only ranking (A first, no photo reasons).
+# A 0-based answer would otherwise put B's "same" onto A — A stays first
+# either way, so "no photo reasons" is the assertion that catches that one.
 for raw in '[{"index":0,"verdict":"different"},{"index":1,"verdict":"same"}]' \
            '[{"index":2,"verdict":"same"},{"index":2,"verdict":"same"}]' \
            '[{"index":2,"verdict":"same"}]' \
@@ -204,6 +204,7 @@ for raw in '[{"index":0,"verdict":"different"},{"index":1,"verdict":"same"}]' \
   check "match -> 200" 200 "$code"
   check "photoChecked false for $raw" false "$(field .photoChecked)"
   check "A still first" "$A" "$(field .candidates[0].id)"
+  check "no photo reasons" none "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.flatMap(c=>c.similarity_reasons).find(r=>r.startsWith('photo')) ?? 'none'")"
 done
 
 echo ""

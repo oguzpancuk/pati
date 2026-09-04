@@ -1573,7 +1573,7 @@ the first without the second would switch the buttons off in production.
 - **Evidence.** `backend/scripts/ai-check/run.sh`: throwaway backend on
   3103 against `fake-anthropic.js` on 4600 — a stand-in whose verdict the
   harness picks and which refuses any request the real API would (no key,
-  no image, no JSON schema); 75 assertions, ALL PASS: token round trip and
+  no image, no JSON schema); 79 assertions, ALL PASS: token round trip and
   replay, type/user/forgery refusals, reject + delete, direct-upload
   enforcement, dead model and refusal failing open, matching with verdicts
   (three cats, one without a photo, exactly three images sent) and without.
@@ -1638,4 +1638,4 @@ the first without the second would switch the buttons off in production.
   now has negative tests (0-based, duplicated, short and long answers all
   leave the field ranking untouched — fake `control.candidates`). The web
   409 branch refreshes like a success and reports a failed refresh. Total:
-  75 assertions.
+  79 assertions.
