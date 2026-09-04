@@ -413,6 +413,12 @@ export default function MapScreen({ navigation }: any) {
       // unless the token has expired, which only a fresh check can fix.
       if (err instanceof LocationPermissionError) {
         alertLocationPermission();
+      } else if (err?.response?.data?.code === 'photoAlreadyUsed') {
+        // The earlier confirm went through and its response was lost (a
+        // timeout on cellular): the drop exists, so behave as if it had
+        // just succeeded instead of stranding the user on this step.
+        setConfirmOpen(false);
+        await load();
       } else if (err?.response?.data?.code === 'photoTokenInvalid') {
         Alert.alert('Fotoğrafı tekrar çek', err.response.data.error);
         aiCheckRunRef.current++;

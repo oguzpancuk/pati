@@ -12,3 +12,9 @@
 -- every deploy.
 
 ALTER TABLE care_actions ADD COLUMN IF NOT EXISTS ai_check JSONB;
+
+-- The id of the photoToken a record was confirmed with; the unique index is
+-- what makes a token single-use (NULL for direct uploads and older rows —
+-- a unique index ignores NULLs).
+ALTER TABLE care_actions ADD COLUMN IF NOT EXISTS photo_token_jti TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_care_actions_photo_token_jti ON care_actions (photo_token_jti);

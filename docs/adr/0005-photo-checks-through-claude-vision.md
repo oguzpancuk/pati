@@ -45,7 +45,9 @@ The owner asked for both to become real now.
   `POST /care-actions` with a file still works and is checked inline, so a
   client that skips the check step gains nothing. A token is bound to its
   user and action type, expires in fifteen minutes and is redeemable once
-  (a photo URL already on a record is refused). A rejected photo is
+  (its id is stored in a unique column, so a replay fails on the index,
+  not on a read). A `kind` claim marks it, and `requireAuth` refuses any
+  token carrying one: a purpose token is never a session. A rejected photo is
   deleted at once and answered 422 with the model's one-line Turkish reason;
   there is no "add anyway" — the check would be decoration otherwise.
 - **Lenient by prompt.** The care check approves anything that plausibly
@@ -79,7 +81,12 @@ The owner asked for both to become real now.
   a duplicate record), `AI_MATCH_CANDIDATES` to 8. The care check runs at
   low effort, matching at medium. Photo matching has its own per-user
   limiter (30/h): one request carries up to nine images and is the most
-  expensive thing a user can trigger.
+  expensive thing a user can trigger; the care photo check has its own too
+  (80/h), so the drop budget the route limiter was sized for stays whole.
+  The match answer's candidate indexes are pinned by the schema to the
+  range actually sent and must cover every candidate exactly once;
+  anything else is dropped (fail open) rather than attributed to the
+  wrong animal.
 
 ## Consequences
 
@@ -96,6 +103,6 @@ The owner asked for both to become real now.
   does not flash past as a glitch.
 - Verification: `backend/scripts/ai-check/run.sh` drives every branch
   against a fake Messages API whose verdict the harness chooses and which
-  refuses any request the real API would refuse (60 assertions);
+  refuses any request the real API would refuse (63 assertions);
   `backend/scripts/ai-check/live-sample.js` sends real photos to the real
   model, which is how accuracy gets judged, by a person, with the key.

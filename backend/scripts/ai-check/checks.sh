@@ -75,6 +75,7 @@ check "one image in the request" 1 "$(last .images)"
 check "json_schema output requested" json_schema "$(last .format)"
 check "model from AI_MODEL default" claude-opus-5 "$(last .model)"
 check "care prompt used" care "$(last .kind)"
+check "care runs at low effort" low "$(last .effort)"
 
 echo "2. The confirm redeems the token — once"
 code=$(post_auth care-actions "$JWT" "{\"lat\":40.99,\"lng\":29.03,\"actionType\":\"food\",\"photoToken\":\"$TOKEN\"}")
@@ -85,6 +86,10 @@ check "ai_check stored" approved "$(ai_check_of "$CARE1")"
 code=$(post_auth care-actions "$JWT" "{\"lat\":40.99,\"lng\":29.03,\"actionType\":\"food\",\"photoToken\":\"$TOKEN\"}")
 check "replay -> 409" 409 "$code"
 check "…photoAlreadyUsed" photoAlreadyUsed "$(field .code)"
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/care-actions" -H "Authorization: Bearer $JWT" -H "Host: elsewhere.example:3103" -H 'Content-Type: application/json' -d "{\"lat\":40.99,\"lng\":29.03,\"actionType\":\"food\",\"photoToken\":\"$TOKEN\"}")
+check "replay under another Host -> 409" 409 "$code"
+code=$(curl -s -o "$BODY" -w '%{http_code}' "$API/users/me" -H "Authorization: Bearer $TOKEN")
+check "a photoToken is not a session -> 401" 401 "$code"
 
 echo "3. A token cannot be bent to another type, user, or forged"
 mode '{"mode":"approve"}'
@@ -141,10 +146,14 @@ check "a refusal also fails open" unavailable "$(field .verdict)"
 
 echo "7. Photo matching folds the model's verdicts into the tiers"
 mode '{"mode":"approve"}'
-# An empty corner of the map, away from the seed — and a different one per
+# An empty corner of the map, away from the seed — and a different cell per
 # run: the animals stay behind, and a rerun's candidates must not include
-# them (the assertions count exactly three).
-LAT=$(node -pe "41.21 + ($STAMP % 997) * 0.02"); LNG=$(node -pe "29.41 + ($STAMP % 97) * 0.02")
+# them (the assertions count exactly three). Cells are 0.02° of latitude
+# (2.2 km) by 0.03° of longitude (≥2.1 km up to 51°N) apart, with the
+# animals inside 0.004° of the cell origin, so only a rerun landing in the
+# SAME cell can pollute the list — stamps equal modulo both 499 and 89,
+# about once in twelve hours.
+LAT=$(node -pe "41.21 + ($STAMP % 499) * 0.02"); LNG=$(node -pe "29.41 + ($STAMP % 89) * 0.03")
 code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Yakın Tekir\",\"breed\":\"Tekir\",\"color\":\"gri\",\"lat\":$LAT,\"lng\":$LNG}")
 check "animal A -> 201" 201 "$code"; A=$(field .id)
 code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Uzak Tekir\",\"breed\":\"Tekir\",\"color\":\"gri\",\"lat\":$LAT,\"lng\":$(node -pe "$LNG + 0.004")}")
@@ -161,6 +170,7 @@ check "match -> 200" 200 "$code"
 check "photoChecked" true "$(field .photoChecked)"
 check "new photo + two cover photos sent (C has none)" 3 "$(last .images)"
 check "match prompt used" match "$(last .kind)"
+check "matching runs at medium effort" medium "$(last .effort)"
 # A is the field-ranked first candidate (all fields equal, A is nearest) and
 # was told "different"; B came second and was told "same".
 check "B (same) ranks first" "$B" "$(field .candidates[0].id)"

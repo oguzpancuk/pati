@@ -1573,7 +1573,7 @@ the first without the second would switch the buttons off in production.
 - **Evidence.** `backend/scripts/ai-check/run.sh`: throwaway backend on
   3103 against `fake-anthropic.js` on 4600 — a stand-in whose verdict the
   harness picks and which refuses any request the real API would (no key,
-  no image, no JSON schema); 60 assertions, ALL PASS: token round trip and
+  no image, no JSON schema); 63 assertions, ALL PASS: token round trip and
   replay, type/user/forgery refusals, reject + delete, direct-upload
   enforcement, dead model and refusal failing open, matching with verdicts
   (three cats, one without a photo, exactly three images sent) and without.
@@ -1602,3 +1602,31 @@ the first without the second would switch the buttons off in production.
   array — use `${args[@]+"${args[@]}"}`; and a harness that leaves rows
   behind must pick a different spot per run, or a rerun's candidate list
   includes yesterday's cats and the ordering assertions lie.
+
+### Review round: NEEDS_WORK, seven findings, all fixed
+
+- **The check shared the 40/h drop bucket**, so a feeding route hit 429 at
+  drop 21. Own bucket now (80/h).
+- **A photoToken was a valid session**: same secret, a `userId` claim, and
+  `requireAuth` never looked further. Purpose tokens carry `kind`, and the
+  middleware refuses any token that has one (harness: `/users/me` with a
+  photoToken → 401).
+- **The model's self-reported candidate index was trusted**: a 0-based
+  answer would have shifted every verdict onto the previous animal. The
+  schema is now built per request (`minimum: 1`, `maximum: n`, exactly n
+  items) and an answer that does not cover every candidate exactly once is
+  dropped.
+- **"Redeemable once" was a SELECT-then-INSERT keyed on a URL that
+  contained the request's Host header.** The token now carries a `jti`
+  stored in a unique column (`care_actions.photo_token_jti`, migration
+  004); the replay lands on the index → 409, whatever the Host says. The
+  unique index lives in 004 only — 001 is re-run on every deploy, and on an
+  existing table its column would not exist yet at that point (this failed
+  the harness once).
+- Clients treat 409 `photoAlreadyUsed` as "the earlier confirm went
+  through" (close + refresh) instead of stranding the user on the approved
+  step after a lost response.
+- `AI_MATCH_CANDIDATES` is validated (1–20, warn and default otherwise).
+- Harness asserts the effort levels and the Host-header replay; the
+  per-run grid is documented with its real collision odds; the count is
+  63, not 60 (the earlier number included the ALL PASS line).

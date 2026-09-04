@@ -29,8 +29,18 @@ const MODEL = process.env.AI_MODEL || 'claude-opus-5';
 // ~1500 px, and the API refuses images over 5 MB. 1024 px keeps a cat's
 // markings legible at roughly a thousand tokens per image.
 const MAX_IMAGE_EDGE = 1024;
-// One request holds the new photo plus this many candidates.
-const MAX_MATCH_CANDIDATES = Number(process.env.AI_MATCH_CANDIDATES || 8);
+// One request holds the new photo plus this many candidates. Validated at
+// the boundary: a bad value would silently turn matching field-only.
+const MAX_MATCH_CANDIDATES = (() => {
+  const raw = process.env.AI_MATCH_CANDIDATES;
+  if (raw === undefined || raw === '') return 8;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 20) {
+    console.warn(`[ai] AI_MATCH_CANDIDATES=${JSON.stringify(raw)} is not 1–20; using 8`);
+    return 8;
+  }
+  return n;
+})();
 // A photo check has a person waiting behind an interstitial with no cancel;
 // a stuck request must give up before the client's own 60 s timeout.
 const REQUEST_TIMEOUT_MS = 45_000;
@@ -209,25 +219,37 @@ Judge by the individual's own markings — coat pattern and where the patches si
 
 Verdicts: "same" only when the marks match well enough that you would bet on it; "similar" when it could be the same animal but the photos do not show enough to decide; "different" when it is clearly another animal; "unsure" when a photo is too poor to judge at all. Return exactly one entry per candidate, in the order given.`;
 
-const MATCH_SCHEMA = {
-  type: 'object',
-  properties: {
-    candidates: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          index: { type: 'integer' },
-          verdict: { type: 'string', enum: ['same', 'similar', 'different', 'unsure'] },
+// Built per request: the index range is pinned to the candidates actually
+// sent, so a 0-based or out-of-range answer is refused by the schema rather
+// than shifted onto the wrong animal (review finding).
+function matchSchema(count) {
+  return {
+    type: 'object',
+    properties: {
+      candidates: {
+        type: 'array',
+        minItems: count,
+        maxItems: count,
+        items: {
+          type: 'object',
+          properties: {
+            index: {
+              type: 'integer',
+              minimum: 1,
+              maximum: count,
+              description: `1-based candidate number as labelled ("Candidate 1" … "Candidate ${count}")`,
+            },
+            verdict: { type: 'string', enum: ['same', 'similar', 'different', 'unsure'] },
+          },
+          required: ['index', 'verdict'],
+          additionalProperties: false,
         },
-        required: ['index', 'verdict'],
-        additionalProperties: false,
       },
     },
-  },
-  required: ['candidates'],
-  additionalProperties: false,
-};
+    required: ['candidates'],
+    additionalProperties: false,
+  };
+}
 
 /**
  * @param {string} newPhotoPath  the just-taken photo on disk
@@ -265,18 +287,33 @@ async function compareAnimalPhotos(newPhotoPath, candidates, species) {
   const answer = await ask({
     system: MATCH_SYSTEM,
     content,
-    schema: MATCH_SCHEMA,
+    schema: matchSchema(sent.length),
     effort: 'medium',
     tag: 'match',
   });
   if (!answer || !Array.isArray(answer.candidates)) return null;
 
+  // One verdict per candidate, each index exactly once — anything else is
+  // an answer we cannot attribute, and a misattributed "same" is worse
+  // than no answer. Fail open.
   const verdicts = new Map();
   for (const entry of answer.candidates) {
-    const candidate = sent[Number(entry?.index) - 1];
-    if (candidate && ['same', 'similar', 'different', 'unsure'].includes(entry.verdict)) {
-      verdicts.set(candidate.id, entry.verdict);
+    const index = Number(entry?.index);
+    const candidate = Number.isInteger(index) ? sent[index - 1] : undefined;
+    if (!candidate || verdicts.has(candidate.id)) {
+      console.warn(
+        `[ai:match] unusable candidate index ${JSON.stringify(entry?.index)}; ignoring the answer`
+      );
+      return null;
     }
+    if (!['same', 'similar', 'different', 'unsure'].includes(entry.verdict)) return null;
+    verdicts.set(candidate.id, entry.verdict);
+  }
+  if (verdicts.size !== sent.length) {
+    console.warn(
+      `[ai:match] ${verdicts.size} verdicts for ${sent.length} candidates; ignoring the answer`
+    );
+    return null;
   }
   return verdicts;
 }

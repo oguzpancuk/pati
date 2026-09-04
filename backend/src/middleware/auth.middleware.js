@@ -22,6 +22,12 @@ function authenticator({ allowPending }) {
     } catch (err) {
       return res.status(401).json({ error: 'Geçersiz veya süresi dolmuş token' });
     }
+    // Purpose tokens (the care photoToken, ADR-0005) are signed with the same
+    // secret and carry a userId; a `kind` claim marks them and they must
+    // never pass as a session (review finding).
+    if (payload.kind !== undefined) {
+      return res.status(401).json({ error: 'Geçersiz veya süresi dolmuş token' });
+    }
 
     try {
       // Even with a valid token the user may no longer exist (e.g. after a dev

@@ -44,6 +44,10 @@ const HOUR = 60 * 60 * 1000;
 const limits = {
   // A big feeding route: 40 spots/hour is one drop every 90 seconds, nonstop.
   careActions: userRateLimit({ windowMs: HOUR, limit: 40, action: 'mama/su kaydı' }),
+  // The photo check before each drop, plus retakes after a rejection: one
+  // vision request each, so bounded on its own rather than out of the
+  // drop budget above.
+  carePhotoCheck: userRateLimit({ windowMs: HOUR, limit: 80, action: 'fotoğraf kontrolü' }),
   // Deletes get their own bucket: a mistaken drop at the end of a full
   // 40-drop route must still be correctable (sharing the create budget
   // would 429 exactly then), and deletes must not eat create budget.

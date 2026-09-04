@@ -195,6 +195,11 @@ CREATE TABLE IF NOT EXISTS care_actions (
     -- What the photo check said at upload time (ADR-0005); NULL when the
     -- check was unavailable or the row predates it. Also in 004_ai_checks.sql.
     ai_check JSONB,
+    -- The photoToken id the record was confirmed with; the unique index that
+    -- makes it single-use lives in 004_ai_checks.sql only: this file is
+    -- re-run on every deploy and on an existing table the column arrives
+    -- after this statement, so an index here would fail the deploy.
+    photo_token_jti TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

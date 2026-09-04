@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR } = require('../config/upload');
@@ -72,6 +73,8 @@ async function checkCarePhoto(req, res, next) {
       });
     }
 
+    // The jti is what makes the token single-use: the confirm stores it in
+    // a unique column, so two redemptions race on the index, not on a read.
     const photoToken = jwt.sign(
       {
         kind: PHOTO_TOKEN_KIND,
@@ -81,7 +84,7 @@ async function checkCarePhoto(req, res, next) {
         check: aiCheckRecord(check),
       },
       process.env.JWT_SECRET,
-      { expiresIn: PHOTO_TOKEN_TTL }
+      { expiresIn: PHOTO_TOKEN_TTL, jwtid: crypto.randomUUID() }
     );
     res.json({ verdict: check.verdict, reason: check.reason, photoToken });
   } catch (err) {
@@ -121,14 +124,15 @@ async function redeemPhotoToken(token, userId, actionType) {
     claims.userId !== userId ||
     claims.actionType !== actionType ||
     typeof claims.file !== 'string' ||
-    path.basename(claims.file) !== claims.file
+    path.basename(claims.file) !== claims.file ||
+    typeof claims.jti !== 'string'
   ) {
     return { error: 'Fotoğraf bu kayıtla eşleşmiyor. Fotoğrafı tekrar çeker misin?' };
   }
   if (!fs.existsSync(path.join(UPLOADS_DIR, claims.file))) {
     return { error: 'Fotoğraf bulunamadı. Fotoğrafı tekrar çeker misin?' };
   }
-  return { file: claims.file, check: claims.check ?? null };
+  return { file: claims.file, check: claims.check ?? null, jti: claims.jti };
 }
 
 async function addCareAction(req, res, next) {
@@ -159,6 +163,7 @@ async function addCareAction(req, res, next) {
     // check by not calling it.
     let file;
     let check;
+    let jti = null;
     if (req.file) {
       const result = await ai.checkCarePhoto(req.file.path, actionType);
       if (result.verdict === 'rejected') {
@@ -179,25 +184,38 @@ async function addCareAction(req, res, next) {
       }
       file = redeemed.file;
       check = redeemed.check;
+      jti = redeemed.jti;
     }
 
     const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${file}`;
-    const used = await pool.query('SELECT 1 FROM care_actions WHERE photo_url = $1 LIMIT 1', [
-      photoUrl,
-    ]);
-    if (used.rowCount > 0) {
-      return res
-        .status(409)
-        .json({ error: 'Bu fotoğraf zaten kaydedildi.', code: 'photoAlreadyUsed' });
+    let result;
+    try {
+      result = await pool.query(
+        `INSERT INTO care_actions (location, user_id, action_type, photo_url, ai_check, photo_token_jti)
+         VALUES (ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3, $4, $5, $6, $7)
+         RETURNING id, action_type, photo_url, created_at,
+                   ST_AsGeoJSON(location)::json AS location`,
+        [
+          pinLng,
+          pinLat,
+          req.user.userId,
+          actionType,
+          photoUrl,
+          check ? JSON.stringify(check) : null,
+          jti,
+        ]
+      );
+    } catch (err) {
+      // The unique index on the jti is the single-use rule: a replayed
+      // token — a double tap, a retried request, another Host header —
+      // lands here instead of minting a second drop.
+      if (err.code === '23505' && jti) {
+        return res
+          .status(409)
+          .json({ error: 'Bu fotoğraf zaten kaydedildi.', code: 'photoAlreadyUsed' });
+      }
+      throw err;
     }
-
-    const result = await pool.query(
-      `INSERT INTO care_actions (location, user_id, action_type, photo_url, ai_check)
-       VALUES (ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3, $4, $5, $6)
-       RETURNING id, action_type, photo_url, created_at,
-                 ST_AsGeoJSON(location)::json AS location`,
-      [pinLng, pinLat, req.user.userId, actionType, photoUrl, check ? JSON.stringify(check) : null]
-    );
 
     // Newly earned badges ride along in the response so the client can show
     // the celebration popup without an extra request.

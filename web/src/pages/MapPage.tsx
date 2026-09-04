@@ -499,6 +499,13 @@ export default function MapPage() {
     } catch (err) {
       // Stay on the approval step so the user can retry the confirm —
       // unless the token has expired, which only a fresh check can fix.
+      if (err instanceof ApiError && err.code === 'photoAlreadyUsed') {
+        // The earlier confirm went through and its response was lost: the
+        // drop exists, so close and refresh instead of stranding the user.
+        setConfirmOpen(false);
+        await loadCircles();
+        return;
+      }
       if (err instanceof ApiError && err.code === 'photoTokenInvalid') {
         aiCheckRunRef.current++;
         setAiCheck('idle');
