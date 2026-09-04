@@ -1416,18 +1416,28 @@ then. Rollback reference: image `deployment-01M1BM856N8K1MP4ZEXGZSGAVP`
   and iOS shows `CFBundleName` — still `$(PRODUCT_NAME)` = StrayMobile — in
   that consent dialog; it is now pinned to `pati` in `Info.plist` without
   touching the Xcode target.
-- **Owner signed in with Google on web** against the local backend. The
-  first attempt hit the grandfathered-account 409 (the address was the local
-  admin's password account); after freeing the address the sign-in created
-  user 1799 — verified, passwordless, `google` identity. The first real
-  provider-created account.
+- **Owner signed in with Google on web** against the local backend, twice.
+  The first attempt hit the grandfathered-account 409 (the address was the
+  local admin's password account); after freeing the address the sign-in
+  created user 1799 — verified, passwordless, `google` identity: the first
+  real provider-created account. Then, with the linking rule built, a fresh
+  grandfathered fixture on the same address (row 1858, password set by
+  hand) got the dialog, took the password and linked — observed in the
+  database afterwards: `email_verified` true, password kept, `google`
+  identity at 07:35Z. That is the web dialog exercised with a real token.
+  The **mobile modal has not been**: it needs the same fixture again and
+  the owner on the simulator.
 - **Owner decision: link a grandfathered account with its password**, not
   automatically. `POST /auth/{apple,google}` answers such an address with 409
   `code: linkRequiresPassword`; sent again with `password`, a wrong one is
   403 and the right one links, marks the account proven and signs in. Both
   clients turn the 409 into a dialog. Accounts verified by code never see it.
-  Check-suite step 10 covers all of it (49 assertions); the test-plan row S6
-  and ADR-0003 record the new rule.
+  Check-suite step 10 covers all of it, including that a wrong password
+  leaves the row unproven — the one regression every other assertion would
+  have missed (50 assertions, mutation-tested); the test-plan row S6 and
+  ADR-0003 record the new rule. Review also moved the "mark proven" write
+  after the suspension check, so a refused sign-in leaves no trace, and made
+  the 23505 race branch honour a password that came with the request.
 - Harness lesson: in development registration is *pending* (the dev mail
   transport), so the "grandfathered" fixture has to be made explicitly with
   `backdate.js … grandfather` — a rewrite of step 10 that dropped that call

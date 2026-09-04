@@ -433,6 +433,21 @@ function requirePasswordToLink(res) {
 }
 
 /**
+ * Answers for a grandfathered row: 409 when no password came, 403 when the
+ * wrong one did, null when the caller proved the account. Marking the row
+ * proven is NOT done here — that write belongs after the suspension check,
+ * so a refused sign-in leaves no trace (see the link block below).
+ */
+async function checkLinkPassword(row, linkPassword, res) {
+  if (!linkPassword) return requirePasswordToLink(res);
+  if (!row.password_hash || !(await bcrypt.compare(linkPassword, row.password_hash))) {
+    // 403, not 401: both clients read a 401 as an expired session.
+    return res.status(403).json({ error: 'Şifre hatalı' });
+  }
+  return null;
+}
+
+/**
  * Sign in with Apple / Google.
  *
  * Resolution order — identity first, e-mail second, new account last:
@@ -483,6 +498,8 @@ async function socialLogin(provider, req, res, next) {
 
     let user = await findUserByIdentity(provider, identity.subject);
     let created = false;
+    // A grandfathered row whose password the caller just typed.
+    let provenByPassword = false;
     // Known identities are already linked; only a freshly resolved account
     // needs the row, and only after the suspension check below.
     const needsLink = !user;
@@ -507,16 +524,11 @@ async function socialLogin(provider, req, res, next) {
       // once, hold or no hold — otherwise a squatted address would stay
       // closed to its owner's Apple/Google sign-in forever (review finding).
       if (existing && !existing.email_verified && !existing.email_verification_pending) {
-        if (!linkPassword) return requirePasswordToLink(res);
-        if (!existing.password_hash || !(await bcrypt.compare(linkPassword, existing.password_hash))) {
-          // 403, not 401: both clients read a 401 as an expired session.
-          return res.status(403).json({ error: 'Şifre hatalı' });
-        }
-        // The password proves the account, the provider proves the address:
-        // from here on the account counts as proven, and a second provider
-        // links without being asked again.
-        await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [existing.id]);
-        existing.email_verified = true;
+        const refused = await checkLinkPassword(existing, linkPassword, res);
+        if (refused) return refused;
+        // The password proves the account, the provider proves the address;
+        // the row is marked proven together with the identity write below.
+        provenByPassword = true;
       }
       const pendingRow = existing && !existing.email_verified ? existing : null;
       user = pendingRow ? null : existing;
@@ -554,7 +566,14 @@ async function socialLogin(provider, req, res, next) {
             // it, and "use your password" would be the wrong instruction.
             return res.status(409).json({ error: 'Adres az önce değişti; tekrar dene' });
           }
-          if (!user.email_verified) return requirePasswordToLink(res);
+          if (!user.email_verified) {
+            // The winner was a grandfathered row: the same password rule
+            // applies to what we read back, including a password that came
+            // with this very request.
+            const refused = await checkLinkPassword(user, linkPassword, res);
+            if (refused) return refused;
+            provenByPassword = true;
+          }
         } finally {
           client.release();
         }
@@ -575,6 +594,12 @@ async function socialLogin(provider, req, res, next) {
     }
 
     if (needsLink) {
+      if (provenByPassword) {
+        // Written only now, after the suspension check: the password was
+        // right, but a suspended account must not be touched by a refused
+        // sign-in. From here a second provider links without asking.
+        await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [user.id]);
+      }
       await pool.query(
         `INSERT INTO user_identities (user_id, provider, subject, email)
          VALUES ($1, $2, $3, $4)

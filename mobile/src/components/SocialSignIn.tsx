@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Modal, Pressable, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
+  Pressable,
+  TextInput,
+  View,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import {
   fetchAuthProviders,
@@ -193,6 +203,12 @@ export default function SocialSignIn() {
         animationType="fade"
         onRequestClose={() => !busy && setLinkPending(null)}
       >
+        {/* The card carries a paragraph, a field and two buttons: on a small
+            device the keyboard would cover the submit button without this. */}
+        <KeyboardAvoidingView
+          style={styles.flex}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
         <Pressable style={styles.backdrop} onPress={() => !busy && setLinkPending(null)}>
           <Pressable style={styles.card} onPress={() => {}}>
             <Text variant="micro" center>
@@ -214,6 +230,8 @@ export default function SocialSignIn() {
               onChangeText={setLinkPassword}
               autoComplete="current-password"
               autoFocus
+              returnKeyType="go"
+              onSubmitEditing={submitLink}
             />
             {linkError && (
               <Text variant="caption" color="danger" center style={styles.cardError}>
@@ -236,6 +254,7 @@ export default function SocialSignIn() {
             />
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Registration asks for an explicit tick (owner decision); a provider
@@ -312,6 +331,7 @@ function GoogleMark() {
 
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
   wrap: { marginTop: spacing.lg },
+  flex: { flex: 1 },
   backdrop: {
     flex: 1,
     backgroundColor: c.overlay,

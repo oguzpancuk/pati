@@ -633,12 +633,18 @@ work: Apple Developer / Google Cloud console configuration.
   would otherwise merge its owner into the squatter's account). Verified:
   check-suite step 10 (409 with `code`, 403 on a wrong password, 200 and
   `authProviders` on the right one, a second provider then links without
-  asking — 49 assertions), and the owner's own Google account on web.
-- **NOT verified — three gaps, stated plainly.** (1) No real round trip
-  with Apple's or Google's own servers: every token in the evidence came
-  from a local issuer whose key the checks control, so the logic is proven
-  and the providers' actual behaviour is not — this cannot change until the
-  consoles are filled in. (2) **No Android build at all**: there is no SDK
+  asking, and a wrong password leaves the row unproven — 50 assertions),
+  and the owner's own Google account on web: a grandfathered fixture on
+  `oguzpancuk@gmail.com` got the dialog, took the password and linked (row
+  1858: `email_verified` true, password kept, `google` identity at 07:35Z).
+  The **mobile modal has not been exercised with a real token** — the same
+  test on the simulator needs a fresh grandfathered fixture and the owner.
+- **NOT verified — three gaps, stated plainly.** (1) Apple's servers have
+  never been in the loop: no App ID exists yet, and Apple sign-in is
+  deliberately deferred (its button stays hidden in production by leaving
+  `APPLE_*` unset). Google's have, on web (two real sign-ins on September
+  4: a fresh account, then the link dialog) and on iOS as far as Google's
+  own sign-in page; the iOS sign-in was not completed. (2) **No Android build at all**: there is no SDK
   on the development machine, so the `applicationId` change and Android
   Google sign-in (which needs its own OAuth client + SHA-1) were never
   exercised. (3) **No iOS release build**: the "fails gracefully" evidence

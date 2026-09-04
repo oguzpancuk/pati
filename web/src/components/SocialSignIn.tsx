@@ -28,6 +28,9 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
     name?: string;
   } | null>(null);
   const [linkPassword, setLinkPassword] = useState('');
+  // Shown inside the form: the page-level error lands above the login
+  // fields, off-screen from where the user is typing (review finding).
+  const [linkError, setLinkError] = useState<string | null>(null);
   const googleSlot = useRef<HTMLDivElement>(null);
   const theme = resolvedThemeName();
 
@@ -53,9 +56,14 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
         if (err instanceof ApiError && err.code === 'linkRequiresPassword') {
           setLinkPending({ provider, token, name });
           setLinkPassword('');
+          setLinkError(null);
           return;
         }
-        onError(err instanceof Error ? err.message : 'Giriş yapılamadı');
+        const message = err instanceof Error ? err.message : 'Giriş yapılamadı';
+        // A failed link attempt reports next to the password field, not at
+        // the top of the page.
+        if (password) setLinkError(message);
+        else onError(message);
       } finally {
         setBusy(null);
       }
@@ -140,6 +148,7 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
               autoFocus
             />
           </label>
+          {linkError && <div className="error">{linkError}</div>}
           <button className="btn full" disabled={!linkPassword || !!busy}>
             {busy ? 'Bekleyin…' : 'Bağla ve giriş yap'}
           </button>
@@ -148,6 +157,7 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
             className="link"
             onClick={() => {
               setLinkPending(null);
+              setLinkError(null);
               onError(null);
             }}
             disabled={!!busy}

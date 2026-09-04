@@ -148,6 +148,11 @@ check "without a password -> 409" 409 "$code"
 contains "…and the body says a password is needed" "linkRequiresPassword" "$(body)"
 code=$(post auth/google "{\"idToken\":\"$GT2\",\"password\":\"yanlis-parola\"}")
 check "wrong password -> 403, nothing linked" 403 "$code"
+# A wrong password must not have marked the row proven: asked again without
+# one, the server must still want it. Every other assertion here stays green
+# if the UPDATE runs before the comparison (review finding).
+code=$(post auth/google "{\"idToken\":\"$GT2\"}")
+check "…and it is still unproven: no password -> 409 again" 409 "$code"
 code=$(post auth/login "{\"email\":\"$PMAIL\",\"password\":\"parola1234\"}")
 check "the account is untouched so far -> 200" 200 "$code"
 PJWT=$(node -pe "JSON.parse(require('fs').readFileSync('/tmp/s7-body.json')).token")
