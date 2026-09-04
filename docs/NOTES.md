@@ -1384,3 +1384,22 @@ grandfather fixture, express-rate-limit's `message` function):
   it was in flight; it updates functionally and only onto the same user.
 - A comment claimed `GET /users/me` may write badge awards; it does not,
   and the redundant delete is gone.
+
+## 2026-09-04 — sixth deploy: S7 + e-mail verification live (verification off)
+
+`fly deploy` of `d751cbc` (previous release v20 was `473c829`, August 31,
+so this is also S7's first time in production). Before it: evaluator-qa
+PASS on every claim — both harnesses (93 + 41), the full battery on a
+clean tree, the production-mode "mail off" boot registering an unverified
+account exactly as before, `migrate.js` run twice with an identical
+`users` checksum, the gate enumerated (four pending-tolerant routes, 22
+others answering 403), a grandfathered account logging in without a code
+screen, and both clients rendering the code screen. Release command ran
+`003_email_verification.sql`; `/health` ok, web and admin 200,
+`/api/auth/providers` reports both providers disabled (consoles not
+filled in), and the boot log says `mail: NOT CONFIGURED — e-mail
+verification is off` — which is the intended state until the owner adds
+`RESEND_API_KEY` (docs/DEPLOYMENT.md). Nothing changes for users until
+then. Rollback reference: image `deployment-01M1BM856N8K1MP4ZEXGZSGAVP`
+(v20). QA's one nit fixed here: the S7 harness prints 41 PASS lines, not
+42, as the test plan claimed.
