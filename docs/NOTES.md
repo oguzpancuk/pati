@@ -1451,3 +1451,34 @@ then. Rollback reference: image `deployment-01M1BM856N8K1MP4ZEXGZSGAVP`
   `backdate.js … grandfather` — a rewrite of step 10 that dropped that call
   passed for a different reason (the pending row was taken over) until the
   assertions on the account id caught it.
+
+## 2026-09-04 — seventh deploy: grandfathered-account linking live (v23)
+
+`fly deploy` of `0bdb9eb` (previous code release v21 was `d751cbc`; v22 was
+the same image, re-released when the owner set `RESEND_API_KEY`). Before it:
+full battery green on a clean tree, secret scan of `d751cbc..HEAD` clean
+(only the harness's test password), no migrations in the range,
+evaluator-qa PASS — quick battery, S7 harness 51/51 with step 10's "no
+burned user id" assertion, and hand-driven regression paths (suspended row
+with the right password leaves no trace; pending row still taken over;
+proven row links without a password; non-string password → 409). Release
+command ran (`Migrations complete.`, nothing new to apply); `/health` ok,
+web and admin 200, boot log `mail: Resend (from: Pati <noreply@pati-app.com>)`
+— e-mail verification is ON in production from v22 on. Rollback reference:
+image `deployment-01M1NFH5SWR0SBBXDXAZMR6EC8` (v21/v22).
+
+**Warning found during the deploy, not fixed here (owner decision):**
+`GET /api/auth/providers` answered `enabled:false` for both providers on
+v22 and `enabled:true` with the real Apple service id and Google client ids
+on v23 — yet no `APPLE_*`/`GOOGLE_*` variable exists in `fly secrets list`
+or `fly.toml`. The only remaining channel is the developer's local
+`backend/.env`: `.dockerignore` does not exclude it, the Dockerfile's `COPY
+backend/ ./` ships it, and `server.js` loads it with dotenv (Fly's own
+secrets win where names collide, which is why `DATABASE_URL`/`JWT_SECRET`
+are unaffected). Not confirmed by `ls /app/.env` on the machine — the
+session's classifier blocked the SSH command. Consequences: the production
+provider configuration is whatever the deploying machine's `.env` holds, and
+any local-only secret in that file rides along in the (private) registry
+image. Suggested fix: add `backend/.env` to `.dockerignore` and set the six
+provider variables with `fly secrets set` before the next deploy — doing
+the first without the second would switch the buttons off in production.
