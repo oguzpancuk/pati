@@ -1986,3 +1986,30 @@ the next docs touch.
   all "skipping". The QA's rehearsal had applied 005 alone to that shape,
   never the whole file order; the load-bearing fact in CLAUDE.md now
   says the rehearsal must run migrate.js on a production-shaped copy.
+
+## 2026-09-07 (night) — tenth deploy note (v29): pre-pilot sprint live, purge pending
+
+- `fly deploy` v29 on `3643d3c` after v28's migration failure: release
+  command applied 005 (`Applying 005_face_thumbs.sql … Migrations
+  complete`), machine healthy, `/health` ok, web and admin 200. Carries
+  whole-circle matching with the high/medium filter, the nearest-first
+  animals list, face cut-outs, the add-animal permission gate on both
+  clients and the purge script. Range deployed: `3848507..3643d3c`.
+  Production screenshot not taken: no production credentials in the
+  session (the animals page needs a login).
+- P1 on production: volume snapshot of `vol_r68dyneyeqy5noq4` scheduled,
+  then the dry run over ssh: 371 demo users, 4005 animals, 8011 photos,
+  777 health records, 1242 vaccinations, 11432 comments, 329324 care
+  actions, 4704 badge awards, 1 content report to delete; 18 real
+  accounts kept (3 tombstones), 3 friendships, 44 upload files to remove.
+  `--apply` waits for the owner's word.
+- P1 applied (owner: "silme işlemini başlat"), after a fresh volume
+  snapshot (`vs_9Q574nL3OolUjA2ljbY7ZAY`, 3 minutes before): committed,
+  371 demo users deleted, content emptied, 44/44 upload files removed —
+  the counts matched the dry run exactly. Left on production: 18 accounts
+  (3 tombstones), 3 friendships, no animals, no care actions. The owner
+  also ordered the four hand-made test accounts (`@test.com` ×3, `o@o.o`)
+  deleted; an ad-hoc delete over `fly ssh console` was refused by the
+  session's permission classifier twice, so they are still there —
+  either the owner runs the one-liner, or a reviewed repo script does it
+  in the next deploy.
