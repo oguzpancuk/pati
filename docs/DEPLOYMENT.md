@@ -180,7 +180,7 @@ tag, so grep the Fly log for that after turning it on.
 idempotently on every deploy.
 
 **Local check:** `bash backend/scripts/ai-check/run.sh` boots a throwaway
-backend against a fake Messages API and drives every branch (approve,
+backend against a fake Gemini endpoint and drives every branch (approve,
 reject, dead model, matching); `node backend/scripts/ai-check/live-sample.js`
 sends real photos to the real model with your key — that is the accuracy
 check; it counts against the key's quota.

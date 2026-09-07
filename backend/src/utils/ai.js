@@ -29,10 +29,11 @@ const API_KEY = process.env.GEMINI_API_KEY;
 const MODEL = process.env.AI_MODEL || 'gemini-3.8-flash';
 // Where requests go. Overridable outside production only — that is how
 // the check harness points the backend at its fake (scripts/ai-check).
-const BASE_URL =
+const BASE_URL = (
   process.env.NODE_ENV !== 'production' && process.env.AI_BASE_URL
     ? process.env.AI_BASE_URL
-    : 'https://generativelanguage.googleapis.com';
+    : 'https://generativelanguage.googleapis.com'
+).replace(/\/+$/, '');
 // Images sent to the model are downscaled to this box: a phone photo is
 // 4000 px wide and 3–8 MB, the model reads nothing extra from it above
 // ~1500 px, and inline request bodies are capped at 20 MB. 1024 px keeps a
@@ -121,7 +122,11 @@ async function ask({ system, parts, schema, tag }) {
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: schema,
-      maxOutputTokens: 2048,
+      // Thinking tokens count against this cap on the flash models; a cap
+      // that fits the answer alone can be spent on thought and come back
+      // as MAX_TOKENS with no text (review finding). The answers are tiny,
+      // so the headroom costs nothing.
+      maxOutputTokens: 8192,
     },
   };
   let response;
@@ -180,6 +185,12 @@ Reject only when the photo clearly shows something else: a person or selfie as t
 
 Answer with: subject (what the photo actually shows), matches (does it plausibly show what the user claims), reason (one short, friendly Turkish sentence for the user, at most 90 characters, no blame — e.g. "Kapta mama görünüyor." or "Fotoğrafta mama değil su var gibi.").`;
 
+// Schemas use only the subset Gemini's responseSchema documents (type,
+// properties, required, enum, description, items, minimum/maximum …).
+// No `additionalProperties`: it is outside the subset and a refused
+// schema fails open on EVERY call — the feature would be off with one log
+// line to show for it. The harness fake rejects keywords outside the
+// allowlist for the same reason.
 const CARE_CHECK_SCHEMA = {
   type: 'object',
   properties: {

@@ -82,7 +82,7 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   photos are accepted unchecked and matching is field-only. A care photo is
   checked at `POST /care-actions/check` and confirmed with the returned
   `photoToken`; a direct upload is checked inline, so the server always
-  decides. Evidence: `backend/scripts/ai-check/run.sh` (fake Messages API).
+  decides. Evidence: `backend/scripts/ai-check/run.sh` (fake `generateContent` endpoint).
 - **`users.avatar_url` holds two kinds of values**: an uploaded photo URL or a
   built-in key like `pati-avatar:f3` (`backend/src/utils/avatars.js`). Never
   put it straight into `<img src>` / `<Image uri>`; mobile's `ui/Avatar`

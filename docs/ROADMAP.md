@@ -56,7 +56,7 @@ For the technical-debt list that must close before production, see
 > `GEMINI_API_KEY` the ranking is field-only, as before. The embedding
 > service + pgvector plan below is retired — the spike's numbers are kept
 > for the record. Evidence: `backend/scripts/ai-check/run.sh` (78
-> assertions against a fake Messages API); accuracy against real photos is
+> assertions against a fake `generateContent` endpoint); accuracy against real photos is
 > the owner's call with `live-sample.js` and the key.
 
 ### 📊 Spike results (August 18, 2026) — cost and speed measured

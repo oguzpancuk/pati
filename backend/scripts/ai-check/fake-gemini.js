@@ -52,6 +52,52 @@ function invalid(res, message) {
   send(res, 400, { error: { code: 400, message, status: 'INVALID_ARGUMENT' } });
 }
 
+// The keywords Gemini's responseSchema documents. Anything else (say
+// `additionalProperties`, which the first version carried over from the
+// Claude schema) is a 400 on the real API and, through fail-open, a
+// silently disabled feature — so the fake refuses it too.
+const SCHEMA_KEYWORDS = new Set([
+  'type',
+  'properties',
+  'required',
+  'enum',
+  'description',
+  'title',
+  'items',
+  'prefixItems',
+  'format',
+  'nullable',
+  'minimum',
+  'maximum',
+  'minItems',
+  'maxItems',
+  'propertyOrdering',
+  'anyOf',
+]);
+function unsupportedKeyword(schema) {
+  if (Array.isArray(schema)) {
+    for (const s of schema) {
+      const bad = unsupportedKeyword(s);
+      if (bad) return bad;
+    }
+    return null;
+  }
+  if (!schema || typeof schema !== 'object') return null;
+  for (const [key, value] of Object.entries(schema)) {
+    if (!SCHEMA_KEYWORDS.has(key)) return key;
+    if (key === 'properties') {
+      for (const sub of Object.values(value)) {
+        const bad = unsupportedKeyword(sub);
+        if (bad) return bad;
+      }
+    } else if (key === 'items' || key === 'prefixItems' || key === 'anyOf') {
+      const bad = unsupportedKeyword(value);
+      if (bad) return bad;
+    }
+  }
+  return null;
+}
+
 function answer(res, payload) {
   send(res, 200, {
     candidates: [
@@ -108,6 +154,8 @@ http
     if (badImage) return invalid(res, 'image part is not base64 jpeg');
     if (last.format !== 'application/json') return invalid(res, 'responseMimeType is not JSON');
     if (!last.schema) return invalid(res, 'responseSchema missing');
+    const badKeyword = unsupportedKeyword(body.generationConfig.responseSchema);
+    if (badKeyword) return invalid(res, `unsupported schema keyword: ${badKeyword}`);
     if (typeof system !== 'string') return invalid(res, 'systemInstruction missing');
 
     const { mode } = control;
