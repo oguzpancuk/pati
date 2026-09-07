@@ -1881,3 +1881,19 @@ the next docs touch.
 - Cost: one extra Gemini call per animal photo (2–6 per registration),
   fractions of a cent; the upload takes ~2–3 s longer, uploads run in
   parallel from both clients.
+- **Add-animal permission gate (owner decision, same evening).** The
+  location prompt fires the moment "Ekle" / "+" / "Yeni hayvan ekle" is
+  tapped, and without permission the form does not open: mobile
+  `addAnimalGate.ts` (`ensureLocationPermission` → Settings alert on a
+  denial), web `addAnimalGate.ts` (browser prompt → the reason under the
+  button), and the web form itself refuses a direct URL without a location
+  and no longer falls back to the default centre on save. Verified: on the
+  simulator with a fresh account (no dev override) and the permission
+  reset, tapping "Ekle" opens the iOS prompt; after "İzin Verme" the form
+  stays closed and the next tap shows the Settings alert (the alert did
+  not appear on the very first denial — iOS reports the denial on the next
+  request; noted, not chased). On web without permission the "+ Yeni"
+  click stays on the list with the reason, and `/hayvanlar/yeni` shows a
+  refusal card. Screenshots taken. Also: a cut-out that fails to load
+  falls back to the pattern avatar (the harness's throwaway-port URLs had
+  shown broken-image icons on web).
