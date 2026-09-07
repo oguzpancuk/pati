@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The photo check / photo matching checks. Started by run.sh, which boots
-# the backend and the fake Anthropic API first; run that, not this.
+# the backend and the fake Gemini API first; run that, not this.
 #
 # The backend has no test suite (docs/ROADMAP.md), so these curl checks are
 # the evidence for ADR-0005: an approved photo becomes a token the confirm
@@ -72,10 +72,10 @@ TOKEN=$(field .photoToken)
 check "photoToken present" true "$([ ${#TOKEN} -gt 40 ] && echo true || echo false)"
 check "file kept in uploads" "$((before + 1))" "$(uploads_count)"
 check "one image in the request" 1 "$(last .images)"
-check "json_schema output requested" json_schema "$(last .format)"
-check "model from AI_MODEL default" claude-opus-5 "$(last .model)"
+check "JSON output with a schema requested" application/json "$(last .format)"
+check "…schema present" true "$(last .schema)"
+check "model from AI_MODEL default" gemini-3.8-flash "$(last .model)"
 check "care prompt used" care "$(last .kind)"
-check "care runs at low effort" low "$(last .effort)"
 
 echo "2. The confirm redeems the token — once"
 code=$(post_auth care-actions "$JWT" "{\"lat\":40.99,\"lng\":29.03,\"actionType\":\"food\",\"photoToken\":\"$TOKEN\"}")
@@ -140,9 +140,9 @@ TOKEN=$(field .photoToken)
 code=$(post_auth care-actions "$JWT" "{\"lat\":40.99,\"lng\":29.03,\"actionType\":\"food\",\"photoToken\":\"$TOKEN\"}")
 check "confirm -> 201" 201 "$code"
 check "ai_check is null" null "$(ai_check_of "$(field .id)")"
-mode '{"mode":"refusal"}'
+mode '{"mode":"blocked"}'
 code=$(upload care-actions/check "$JWT" actionType=food)
-check "a refusal also fails open" unavailable "$(field .verdict)"
+check "a safety block also fails open" unavailable "$(field .verdict)"
 
 echo "7. Photo matching folds the model's verdicts into the tiers"
 mode '{"mode":"approve"}'
@@ -170,7 +170,6 @@ check "match -> 200" 200 "$code"
 check "photoChecked" true "$(field .photoChecked)"
 check "new photo + two cover photos sent (C has none)" 3 "$(last .images)"
 check "match prompt used" match "$(last .kind)"
-check "matching runs at medium effort" medium "$(last .effort)"
 # A is the field-ranked first candidate (all fields equal, A is nearest) and
 # was told "different"; B came second and was told "same".
 check "B (same) ranks first" "$B" "$(field .candidates[0].id)"

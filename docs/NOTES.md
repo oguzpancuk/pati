@@ -1573,7 +1573,7 @@ the first without the second would switch the buttons off in production.
 - **Evidence.** `backend/scripts/ai-check/run.sh`: throwaway backend on
   3103 against `fake-anthropic.js` on 4600 — a stand-in whose verdict the
   harness picks and which refuses any request the real API would (no key,
-  no image, no JSON schema); 79 assertions, ALL PASS: token round trip and
+  no image, no JSON schema); 78 assertions, ALL PASS: token round trip and
   replay, type/user/forgery refusals, reject + delete, direct-upload
   enforcement, dead model and refusal failing open, matching with verdicts
   (three cats, one without a photo, exactly three images sent) and without.
@@ -1638,4 +1638,30 @@ the first without the second would switch the buttons off in production.
   now has negative tests (0-based, duplicated, short and long answers all
   leave the field ranking untouched — fake `control.candidates`). The web
   409 branch refreshes like a success and reports a failed refresh. Total:
-  79 assertions.
+  78 assertions.
+
+## 2026-09-07 — the photo AI moves to Gemini (owner decision: no separate bill)
+
+- The owner watched the local run, asked what the comparison would cost,
+  and set the constraint: the app must not create API charges beyond
+  existing subscriptions. A Claude subscription cannot serve other users
+  and Anthropic has no free tier, so the provider is now **Gemini's free
+  tier** (`gemini-3.8-flash`, `GEMINI_API_KEY` from AI Studio). ADR-0005
+  is amended (and renamed to "…a hosted vision model"); the trade-off —
+  free-tier content may be used by Google to improve its products — has to
+  reach the privacy text before the key goes to production.
+- Code: `ai.js`'s transport only — `generateContent` over `fetch`, no SDK
+  (`@anthropic-ai/sdk` removed; `sharp` stays). Prompts, schemas, verdict
+  handling, the token scheme, the clients and the harness assertions are
+  unchanged; the fake is now `fake-gemini.js` (same control modes; the
+  refusal case became a `promptFeedback.blockReason` safety block) and the
+  backend reaches it through `AI_BASE_URL`, honoured outside production
+  only. The two effort assertions went (no such knob here); the model
+  default assertion says `gemini-3.8-flash`.
+- Still NOT verified with the real model — the owner is adding the key to
+  `backend/.env` next and will drive the flows on the simulator and web
+  before pushing; `live-sample.js` first.
+- Environment note: Docker Desktop was down after the weekend, so
+  `stray-db` was unreachable and the harness's migrate step failed with
+  ECONNREFUSED on 5433 — the first thing to check when the harness prints
+  "migrate failed".

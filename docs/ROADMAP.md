@@ -16,7 +16,7 @@ For the technical-debt list that must close before production, see
 ✅ 1. Admin panel (item 5)  ──┬──> ✅ 2. Ads (item 3)
    + role infrastructure      └──> ⏸️  Donations (item 2) — deferred until
                                        external parties are settled
-✅ 3. AI animal matching (item 1) — live through Claude vision (ADR-0005)
+✅ 3. AI animal matching (item 1) — live through a hosted vision model (ADR-0005)
 ✅ 4. Design system + UI (item 4)
 🚀 5. Launch sprint               ← NEXT, the only mandatory block left
 ```
@@ -46,15 +46,16 @@ For the technical-debt list that must close before production, see
 
 ## 1. AI animal matching
 
-> **Status (September 4, 2026): live, through Claude vision — ADR-0005.**
+> **Status (September 4, 2026): live, through a hosted vision model —
+> ADR-0005 (Gemini since September 7, owner decision: no separate bill).**
 > `POST /api/animals/match` takes the first photo; the server ranks nearby
-> same-species records by the fields as before, then one Messages API
+> same-species records by the fields as before, then one `generateContent`
 > request compares the photo with the best candidates' cover photos and
 > lifts/sinks them (same → high, similar → +1, different → low). Tiers,
 > screens and the user's final say are unchanged; without
-> `ANTHROPIC_API_KEY` the ranking is field-only, as before. The embedding
+> `GEMINI_API_KEY` the ranking is field-only, as before. The embedding
 > service + pgvector plan below is retired — the spike's numbers are kept
-> for the record. Evidence: `backend/scripts/ai-check/run.sh` (79
+> for the record. Evidence: `backend/scripts/ai-check/run.sh` (78
 > assertions against a fake Messages API); accuracy against real photos is
 > the owner's call with `live-sample.js` and the key.
 
@@ -600,7 +601,7 @@ deliberate-wait pattern as AddAnimal matching (`MIN_MATCHING_MS`).
 - **Done when:** screenshot of the interstitial; NOTES entry marking the
   placeholder (like the matching one).
 - **Real model (September 4, 2026, ADR-0005):** the photo goes up during
-  the interstitial (`POST /care-actions/check`), Claude vision says whether
+  the interstitial (`POST /care-actions/check`), the vision model says whether
   it shows the claimed food/water, and the confirm redeems a signed
   `photoToken` — the photo travels once, the server is what decided. A
   rejected photo shows the model's Turkish reason with "Yeniden çek"; no

@@ -8,26 +8,35 @@
  *     (compareAnimalPhotos): which of the nearby same-species records, if
  *     any, is the animal in the new photo?
  *
- * Both are one Claude vision request each, through the official SDK, with a
- * JSON schema on the output so the answer is a verdict we can branch on and
- * not prose we have to parse. No model is trained or hosted here — see the
- * ADR for why the embedding-service plan was dropped.
+ * Both are one Gemini `generateContent` request each, over Node's own
+ * `fetch` (no SDK — the call is thirty lines, and swapping providers means
+ * changing them; the first version ran on Claude, see the ADR), with a JSON
+ * schema on the output so the answer is a verdict we can branch on and not
+ * prose we have to parse. No model is trained or hosted here.
  *
- * Every function here FAILS OPEN: without ANTHROPIC_API_KEY, on a network
- * error, a refusal, a malformed answer or an unreadable photo the caller
- * gets `unavailable` (or an empty map) and the product behaves exactly as
+ * Every function here FAILS OPEN: without GEMINI_API_KEY, on a network
+ * error, a safety block, a malformed answer or an unreadable photo the
+ * caller gets `unavailable` (or null) and the product behaves exactly as
  * it did before this existed. The boot log says whether the checks are on.
  */
 const fs = require('fs');
 const path = require('path');
-const Anthropic = require('@anthropic-ai/sdk');
 const sharp = require('sharp');
 
-const MODEL = process.env.AI_MODEL || 'claude-opus-5';
+const API_KEY = process.env.GEMINI_API_KEY;
+// The free tier serves the flash models; the id is configuration so a
+// newer one is a secret change, not a deploy.
+const MODEL = process.env.AI_MODEL || 'gemini-3.8-flash';
+// Where requests go. Overridable outside production only — that is how
+// the check harness points the backend at its fake (scripts/ai-check).
+const BASE_URL =
+  process.env.NODE_ENV !== 'production' && process.env.AI_BASE_URL
+    ? process.env.AI_BASE_URL
+    : 'https://generativelanguage.googleapis.com';
 // Images sent to the model are downscaled to this box: a phone photo is
 // 4000 px wide and 3–8 MB, the model reads nothing extra from it above
-// ~1500 px, and the API refuses images over 5 MB. 1024 px keeps a cat's
-// markings legible at roughly a thousand tokens per image.
+// ~1500 px, and inline request bodies are capped at 20 MB. 1024 px keeps a
+// cat's markings legible at a few hundred tokens per image.
 const MAX_IMAGE_EDGE = 1024;
 // One request holds the new photo plus this many candidates. Validated at
 // the boundary: a bad value would silently turn matching field-only.
@@ -45,17 +54,8 @@ const MAX_MATCH_CANDIDATES = (() => {
 // a stuck request must give up before the client's own 60 s timeout.
 const REQUEST_TIMEOUT_MS = 45_000;
 
-let client = null;
-function getClient() {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  if (!client) {
-    client = new Anthropic({ timeout: REQUEST_TIMEOUT_MS, maxRetries: 1 });
-  }
-  return client;
-}
-
 function isConfigured() {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return Boolean(API_KEY);
 }
 
 /** One line for the boot log, next to the mail transport. */
@@ -66,13 +66,13 @@ function describeAi() {
 }
 
 /**
- * Reads an upload from disk and returns a base64 image block the API
+ * Reads an upload from disk and returns an inline image part the API
  * accepts: EXIF-rotated (phones store portrait shots sideways with a
  * rotation tag), fitted into MAX_IMAGE_EDGE, re-encoded as JPEG. Anything
  * sharp cannot decode (HEIC on the prebuilt binaries, a corrupt file)
  * throws, and the caller treats that as "unavailable".
  */
-async function imageBlock(filePath) {
+async function imagePart(filePath) {
   const data = await sharp(filePath)
     .rotate()
     .resize({
@@ -83,10 +83,7 @@ async function imageBlock(filePath) {
     })
     .jpeg({ quality: 80 })
     .toBuffer();
-  return {
-    type: 'image',
-    source: { type: 'base64', media_type: 'image/jpeg', data: data.toString('base64') },
-  };
+  return { inline_data: { mime_type: 'image/jpeg', data: data.toString('base64') } };
 }
 
 /**
@@ -115,39 +112,60 @@ function uploadPathFromUrl(url, uploadsDir) {
  * logged with a tag so a dead key or a quota problem shows up in the Fly
  * log without ever reaching a user.
  */
-async function ask({ system, content, schema, effort, tag }) {
-  const api = getClient();
-  if (!api) return null;
+async function ask({ system, parts, schema, tag }) {
+  if (!isConfigured()) return null;
+  const url = `${BASE_URL}/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
+  const body = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: schema,
+      maxOutputTokens: 2048,
+    },
+  };
+  let response;
   try {
-    const response = await api.messages.create({
-      model: MODEL,
-      max_tokens: 2048,
-      system,
-      messages: [{ role: 'user', content }],
-      output_config: { effort, format: { type: 'json_schema', schema } },
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'x-goog-api-key': API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-    if (response.stop_reason === 'refusal') {
-      console.warn(`[ai:${tag}] refused: ${response.stop_details?.category ?? 'unknown'}`);
-      return null;
-    }
-    const text = response.content.find((block) => block.type === 'text')?.text;
-    if (!text) {
-      console.warn(`[ai:${tag}] no text block (stop_reason ${response.stop_reason})`);
-      return null;
-    }
-    return JSON.parse(text);
   } catch (err) {
-    // Most specific first, as the SDK documents; everything ends up as a
-    // logged line and a null — the product never blocks on the vendor.
-    if (err instanceof Anthropic.AuthenticationError) {
-      console.error(`[ai:${tag}] API key rejected — checks are effectively off`);
-    } else if (err instanceof Anthropic.RateLimitError) {
-      console.warn(`[ai:${tag}] rate limited`);
-    } else if (err instanceof Anthropic.APIError) {
-      console.warn(`[ai:${tag}] API error ${err.status}: ${err.message}`);
-    } else {
-      console.warn(`[ai:${tag}] ${err?.message ?? err}`);
-    }
+    console.warn(`[ai:${tag}] ${err?.name === 'TimeoutError' ? 'timed out' : err?.message ?? err}`);
+    return null;
+  }
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!response.ok) {
+    // 400/403 is a dead or wrong key, 429 the free tier's quota; both are
+    // a logged line and a null — the product never blocks on the vendor.
+    const message = payload?.error?.message ?? response.statusText;
+    if (response.status === 429) console.warn(`[ai:${tag}] rate limited: ${message}`);
+    else if (response.status === 400 || response.status === 403)
+      console.error(`[ai:${tag}] API refused the request (${response.status}): ${message}`);
+    else console.warn(`[ai:${tag}] API error ${response.status}: ${message}`);
+    return null;
+  }
+  if (payload?.promptFeedback?.blockReason) {
+    console.warn(`[ai:${tag}] blocked: ${payload.promptFeedback.blockReason}`);
+    return null;
+  }
+  const candidate = payload?.candidates?.[0];
+  const text = candidate?.content?.parts?.find((p) => typeof p.text === 'string')?.text;
+  if (!text) {
+    console.warn(`[ai:${tag}] no text in the answer (finishReason ${candidate?.finishReason})`);
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    console.warn(`[ai:${tag}] answer is not JSON (finishReason ${candidate?.finishReason})`);
     return null;
   }
 }
@@ -173,7 +191,6 @@ const CARE_CHECK_SCHEMA = {
     reason: { type: 'string' },
   },
   required: ['subject', 'matches', 'reason'],
-  additionalProperties: false,
 };
 
 /**
@@ -186,7 +203,7 @@ async function checkCarePhoto(filePath, actionType) {
 
   let image;
   try {
-    image = await imageBlock(filePath);
+    image = await imagePart(filePath);
   } catch (err) {
     console.warn(`[ai:care] cannot read photo: ${err?.message ?? err}`);
     return done({ verdict: 'unavailable' });
@@ -194,12 +211,8 @@ async function checkCarePhoto(filePath, actionType) {
   const claim = actionType === 'food' ? 'food' : 'water';
   const answer = await ask({
     system: CARE_CHECK_SYSTEM,
-    content: [
-      image,
-      { type: 'text', text: `The user says this photo shows the ${claim} they left out.` },
-    ],
+    parts: [image, { text: `The user says this photo shows the ${claim} they left out.` }],
     schema: CARE_CHECK_SCHEMA,
-    effort: 'low',
     tag: 'care',
   });
   if (!answer || typeof answer.matches !== 'boolean') return done({ verdict: 'unavailable' });
@@ -220,10 +233,9 @@ Judge by the individual's own markings — coat pattern and where the patches si
 Verdicts: "same" only when the marks match well enough that you would bet on it; "similar" when it could be the same animal but the photos do not show enough to decide; "different" when it is clearly another animal; "unsure" when a photo is too poor to judge at all. Return exactly one entry per candidate, in the order given.`;
 
 // Built per request so the description names the exact range; the range
-// itself is enforced below, at runtime — JSON-schema range and length
-// keywords (minimum/maximum/minItems/maxItems) are not in the subset the
-// structured-output format documents as supported, and a refused schema
-// would fail open into field-only matching without anyone noticing.
+// itself is enforced below, at runtime — a misattributed "same" is worse
+// than no answer, and we do not rely on the provider's schema support for
+// that (the fake API in the check harness does not validate schemas).
 function matchSchema(count) {
   return {
     type: 'object',
@@ -241,12 +253,10 @@ function matchSchema(count) {
             verdict: { type: 'string', enum: ['same', 'similar', 'different', 'unsure'] },
           },
           required: ['index', 'verdict'],
-          additionalProperties: false,
         },
       },
     },
     required: ['candidates'],
-    additionalProperties: false,
   };
 }
 
@@ -262,32 +272,31 @@ async function compareAnimalPhotos(newPhotoPath, candidates, species) {
 
   let newImage;
   try {
-    newImage = await imageBlock(newPhotoPath);
+    newImage = await imagePart(newPhotoPath);
   } catch (err) {
     console.warn(`[ai:match] cannot read the new photo: ${err?.message ?? err}`);
     return null;
   }
   // A candidate whose photo cannot be read is left out of the request and
   // simply keeps its field-based score; the others still get compared.
-  const content = [{ type: 'text', text: `New ${species} to compare:` }, newImage];
+  const parts = [{ text: `New ${species} to compare:` }, newImage];
   const sent = [];
   for (const candidate of chosen) {
     try {
-      const image = await imageBlock(candidate.filePath);
+      const image = await imagePart(candidate.filePath);
       sent.push(candidate);
-      content.push({ type: 'text', text: `Candidate ${sent.length}:` }, image);
+      parts.push({ text: `Candidate ${sent.length}:` }, image);
     } catch (err) {
       console.warn(`[ai:match] skipping animal ${candidate.id}: ${err?.message ?? err}`);
     }
   }
   if (sent.length === 0) return null;
-  content.push({ type: 'text', text: `Give a verdict for each of the ${sent.length} candidates.` });
+  parts.push({ text: `Give a verdict for each of the ${sent.length} candidates.` });
 
   const answer = await ask({
     system: MATCH_SYSTEM,
-    content,
+    parts,
     schema: matchSchema(sent.length),
-    effort: 'medium',
     tag: 'match',
   });
   if (!answer || !Array.isArray(answer.candidates)) return null;

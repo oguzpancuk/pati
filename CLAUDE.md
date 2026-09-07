@@ -77,8 +77,8 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   wherever `RESEND_API_KEY` is missing; in development the code is printed
   to the backend log.
 - **The photo AI fails open** (ADR-0005): the food/water photo check and
-  the photo comparison in add-animal call Claude vision from
-  `backend/src/utils/ai.js`; without `ANTHROPIC_API_KEY` (or on any error)
+  the photo comparison in add-animal call Gemini (`generateContent`, plain
+  fetch) from `backend/src/utils/ai.js`; without `GEMINI_API_KEY` (or on any error)
   photos are accepted unchecked and matching is field-only. A care photo is
   checked at `POST /care-actions/check` and confirmed with the returned
   `photoToken`; a direct upload is checked inline, so the server always

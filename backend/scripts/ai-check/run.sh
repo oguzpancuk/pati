@@ -5,12 +5,12 @@
 #   bash backend/scripts/ai-check/run.sh
 #
 # Boots a throwaway backend on port 3103 (against the ordinary local
-# database, migrations applied first) whose Anthropic calls go to the fake
+# database, migrations applied first) whose Gemini calls go to the fake
 # API on 4600, and runs checks.sh. Both processes are stopped on the way
 # out; the dev server on 3000 is left alone.
 #
 # What the fake cannot prove — that the real model reads a real photo the
-# way we hope — is the job of live-sample.js, which needs ANTHROPIC_API_KEY.
+# way we hope — is the job of live-sample.js, which needs GEMINI_API_KEY.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -29,20 +29,20 @@ trap cleanup EXIT
 
 npm run migrate >/tmp/pati-ai-migrate.log 2>&1 || { echo "migrate failed:"; cat /tmp/pati-ai-migrate.log; exit 1; }
 
-node scripts/ai-check/fake-anthropic.js "$FAKE_PORT" >/tmp/pati-fake-anthropic.log 2>&1 &
+node scripts/ai-check/fake-gemini.js "$FAKE_PORT" >/tmp/pati-fake-gemini.log 2>&1 &
 FAKE_PID=$!
 
-# The key is a placeholder: the SDK refuses to start without one, and the
-# fake only checks that a key header is present.
+# The key is a placeholder: without one the checks are off, and the fake
+# only checks that a key header is present.
 MAIL_OUTBOX_FILE="$OUTBOX" \
 AUTH_RATE_LIMIT=200 \
-ANTHROPIC_API_KEY="test-key" \
-ANTHROPIC_BASE_URL="$FAKE" \
+GEMINI_API_KEY="test-key" \
+AI_BASE_URL="$FAKE" \
 PORT=$PORT node src/server.js >/tmp/pati-ai-check-api.log 2>&1 &
 API_PID=$!
 
 source scripts/check-lib.sh
-wait_for_ours "$FAKE_PORT" "$FAKE_PID" "fake Anthropic" "$FAKE/last" /tmp/pati-fake-anthropic.log || exit 1
+wait_for_ours "$FAKE_PORT" "$FAKE_PID" "fake Gemini" "$FAKE/last" /tmp/pati-fake-gemini.log || exit 1
 wait_for_ours "$PORT" "$API_PID" "backend" "http://localhost:$PORT/health" /tmp/pati-ai-check-api.log || exit 1
 
 bash scripts/ai-check/checks.sh

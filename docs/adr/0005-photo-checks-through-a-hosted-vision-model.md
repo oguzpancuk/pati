@@ -1,6 +1,6 @@
-# ADR-0005: Photo checks and animal matching go through Claude vision, and fail open
+# ADR-0005: Photo checks and animal matching go through a hosted vision model, and fail open
 
-Status: accepted · Date: 2026-09-04
+Status: accepted · Date: 2026-09-04 · Amended 2026-09-07 (provider: Gemini, see the end)
 
 ## Context
 
@@ -103,6 +103,42 @@ The owner asked for both to become real now.
   does not flash past as a glitch.
 - Verification: `backend/scripts/ai-check/run.sh` drives every branch
   against a fake Messages API whose verdict the harness chooses and which
-  refuses any request the real API would refuse (79 assertions);
+  refuses any request the real API would refuse (78 assertions);
   `backend/scripts/ai-check/live-sample.js` sends real photos to the real
   model, which is how accuracy gets judged, by a person, with the key.
+
+## Amendment (2026-09-07): the provider is Gemini, not Claude
+
+The owner's constraint arrived after the first version shipped locally:
+**no separate bill** — the app must not create API charges on top of the
+owner's existing subscriptions. A consumer Claude subscription cannot be
+used by a server that serves other people, and Anthropic's API has no free
+tier, so the calls moved to **Gemini's free tier** (`gemini-3.8-flash` by
+default, `AI_MODEL` to change it; key from Google AI Studio as
+`GEMINI_API_KEY`).
+
+What changed and what did not:
+
+- Only `backend/src/utils/ai.js`'s transport changed: a `generateContent`
+  request over Node's own `fetch` (no SDK — the same reasoning as the mail
+  transport in ADR-0004: thirty lines, and swapping providers means
+  changing them, which is exactly what just happened). The prompts, the
+  schemas, the verdict handling, the token scheme, the fail-open contract,
+  the clients and the harness's assertions are unchanged; the fake in the
+  harness now speaks Gemini's shape (`fake-gemini.js`).
+- The runtime guard on candidate indexes stays the only enforcement of
+  "every candidate exactly once"; Gemini documents `minimum`/`maximum`
+  as supported, but the guard no longer depends on any provider.
+- `AI_BASE_URL` (honoured outside production only) is how the harness
+  points the backend at its fake, the same pattern as the JWKS overrides
+  in ADR-0003.
+- **The trade-off is data use.** Google's free tier states that content
+  sent to it may be used to improve their products; the paid tier does
+  not. Users' care photos and animal photos therefore leave the service
+  under those terms, and the privacy text must say so before the feature
+  is turned on in production. Rate limits on the free tier are per key
+  and visible in AI Studio; when exhausted the checks fail open (429 →
+  `unavailable`), so a busy day degrades to the old behaviour rather than
+  blocking anyone.
+- Cost lever kept: a paid Gemini key or a different model is a secret
+  change; moving back to Claude is the thirty lines again.

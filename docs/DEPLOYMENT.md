@@ -159,20 +159,22 @@ backend log (`/tmp/pati-backend.log`) — there is no mail to open.
 ## Photo checks and photo matching (ADR-0005)
 
 The food/water photo check and the photo comparison in the add-animal flow
-call Claude vision from the backend. Both are **off until the key exists**:
-photos are accepted unchecked and matching is field-only, exactly as
-before, and the boot log prints `ai: NOT CONFIGURED …`. To turn them on:
+call Gemini from the backend (owner decision: the free tier, no separate
+bill — its data-use terms are the trade-off, see the ADR). Both are **off
+until the key exists**: photos are accepted unchecked and matching is
+field-only, exactly as before, and the boot log prints
+`ai: NOT CONFIGURED …`. The key comes from Google AI Studio. To turn them on:
 
 ```bash
-fly secrets set --app pati-app ANTHROPIC_API_KEY="sk-ant-…"
-# optional, defaults to claude-opus-5:
-fly secrets set --app pati-app AI_MODEL="claude-opus-5"
+fly secrets set --app pati-app GEMINI_API_KEY="AIza…"
+# optional, defaults to gemini-3.8-flash:
+fly secrets set --app pati-app AI_MODEL="gemini-3.8-flash"
 ```
 
-After the deploy the boot log says `ai: claude-opus-5 (photo checks and
-photo matching on)`. A dead or revoked key never blocks users — every
-failure fails open and is logged with an `[ai:…]` tag, so grep the Fly log
-for that after turning it on.
+After the deploy the boot log says `ai: gemini-3.8-flash (photo checks and
+photo matching on)`. A dead key or an exhausted free-tier quota never
+blocks users — every failure fails open and is logged with an `[ai:…]`
+tag, so grep the Fly log for that after turning it on.
 
 **Schema:** `migrations/004_ai_checks.sql` adds `care_actions.ai_check`
 idempotently on every deploy.
@@ -181,7 +183,7 @@ idempotently on every deploy.
 backend against a fake Messages API and drives every branch (approve,
 reject, dead model, matching); `node backend/scripts/ai-check/live-sample.js`
 sends real photos to the real model with your key — that is the accuracy
-check, and it costs money per call.
+check; it counts against the key's quota.
 
 ## Custom domains
 

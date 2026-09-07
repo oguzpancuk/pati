@@ -1,7 +1,7 @@
 /**
  * Sends real photos to the real model and prints what it says — the
- * accuracy check no fake can do (ADR-0005). Needs ANTHROPIC_API_KEY in the
- * environment or backend/.env; costs real money per call.
+ * accuracy check no fake can do (ADR-0005). Needs GEMINI_API_KEY in the
+ * environment or backend/.env; counts against the key's quota.
  *
  *   node scripts/ai-check/live-sample.js care food  photo.jpg [more.jpg …]
  *   node scripts/ai-check/live-sample.js care water photo.jpg [more.jpg …]
@@ -20,7 +20,7 @@ const ai = require('../../src/utils/ai');
 async function main() {
   const [mode, ...rest] = process.argv.slice(2);
   if (!ai.isConfigured()) {
-    console.error('ANTHROPIC_API_KEY is not set — nothing to sample');
+    console.error('GEMINI_API_KEY is not set — nothing to sample');
     process.exit(1);
   }
   console.log(`model: ${ai.MODEL}`);
