@@ -177,15 +177,22 @@ code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Uzak Tekir\",\"
 check "animal B -> 201" 201 "$code"; B=$(field .id)
 code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Fotoğrafsız\",\"breed\":\"Tekir\",\"color\":\"gri\",\"lat\":$LAT,\"lng\":$(node -pe "$LNG + 0.001")}")
 check "animal C (no photo) -> 201" 201 "$code"; C=$(field .id)
+# D: same pattern, other colour, past the 200 m ring → fields say 2 = medium,
+# the only fixture on the medium boundary; the fake calls it "unsure", which
+# moves nothing, so it must survive the filter as medium.
+code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Orta Tekir\",\"breed\":\"Tekir\",\"color\":\"siyah\",\"lat\":$LAT,\"lng\":$(node -pe "$LNG + 0.003")}")
+check "animal D (medium by fields) -> 201" 201 "$code"; D=$(field .id)
 code=$(upload "animals/$A/photos" "$JWT"); check "A photo -> 201" 201 "$code"
 code=$(upload "animals/$B/photos" "$JWT"); check "B photo -> 201" 201 "$code"
+code=$(upload "animals/$D/photos" "$JWT"); check "D photo -> 201" 201 "$code"
 
-mode '{"mode":"match","verdicts":["different","same"]}'
+# Field-ranked order of the animals with a photo: A (4, nearest), B (4), D (2).
+mode '{"mode":"match","verdicts":["different","same","unsure"]}'
 before=$(uploads_count)
 code=$(upload animals/match "$JWT" species=cat breed=Tekir color=gri lat=$LAT lng=$LNG)
 check "match -> 200" 200 "$code"
 check "photoChecked" true "$(field .photoChecked)"
-check "new photo + two cover photos sent (C has none)" 3 "$(last .images)"
+check "new photo + three cover photos sent (C has none)" 4 "$(last .images)"
 check "match prompt used" match "$(last .kind)"
 # A is the field-ranked first candidate (all fields equal, A is nearest) and
 # was told "different"; B came second and was told "same".
@@ -194,15 +201,18 @@ check "B is high" high "$(field .candidates[0].similarity)"
 check "B's first reason is photo_same" photo_same "$(field .candidates[0].similarity_reasons[0])"
 check "A (different → low) is not listed" none "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$A)?.id ?? 'none'")"
 check "C (no photo) keeps its field tier" high "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$C).similarity")"
-check "only the two that clear medium are listed" 2 "$(field .candidates.length)"
+check "D (unsure, fields medium) is listed as medium" medium "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$D)?.similarity ?? 'none'")"
+check "exactly the three that clear medium are listed" 3 "$(field .candidates.length)"
 check "scratch upload deleted" "$before" "$(uploads_count)"
 
-echo "8. Matching without the model's answer is the field-only ranking"
+echo "8. Matching without the model's answer is the field-only ranking — nothing hidden"
 mode '{"mode":"error"}'
 code=$(upload animals/match "$JWT" species=cat breed=Tekir color=gri lat=$LAT lng=$LNG)
 check "match -> 200" 200 "$code"
 check "photoChecked false" false "$(field .photoChecked)"
 check "A (nearest, same fields) ranks first" "$A" "$(field .candidates[0].id)"
+check "all four are listed (fail-open keeps the old list)" 4 "$(field .candidates.length)"
+check "…D included as medium" medium "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$D)?.similarity ?? 'none'")"
 check "no photo reasons" none "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.flatMap(c=>c.similarity_reasons).find(r=>r.startsWith('photo')) ?? 'none'")"
 code=$(get_auth "animals/match?species=cat&breed=Tekir&color=gri&lat=$LAT&lng=$LNG" "$JWT")
 check "GET match still answers" 200 "$code"
@@ -214,7 +224,7 @@ echo "9. An answer whose indexes cannot be attributed is dropped, not shifted"
 for raw in '[{"index":0,"verdict":"different"},{"index":1,"verdict":"same"}]' \
            '[{"index":2,"verdict":"same"},{"index":2,"verdict":"same"}]' \
            '[{"index":2,"verdict":"same"}]' \
-           '[{"index":1,"verdict":"different"},{"index":2,"verdict":"same"},{"index":3,"verdict":"same"}]'; do
+           '[{"index":1,"verdict":"different"},{"index":2,"verdict":"same"},{"index":3,"verdict":"same"},{"index":4,"verdict":"same"}]'; do
   mode "{\"mode\":\"match\",\"candidates\":$raw}"
   code=$(upload animals/match "$JWT" species=cat breed=Tekir color=gri lat=$LAT lng=$LNG)
   check "match -> 200" 200 "$code"

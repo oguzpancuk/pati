@@ -50,8 +50,11 @@ const MAX_MATCH_CANDIDATES = (() => {
   const raw = process.env.AI_MATCH_CANDIDATES;
   if (raw === undefined || raw === '') return 40;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1 || n > 60) {
-    console.warn(`[ai] AI_MATCH_CANDIDATES=${JSON.stringify(raw)} is not 1–60; using 40`);
+  // 48 is where 48 × ~250 KB × 4/3 (base64) still clears the 20 MB inline
+  // limit with room for the new photo; above it every dense-circle match
+  // would be a 400 and fail open — the failure this guard exists to stop.
+  if (!Number.isInteger(n) || n < 1 || n > 48) {
+    console.warn(`[ai] AI_MATCH_CANDIDATES=${JSON.stringify(raw)} is not 1–48; using 40`);
     return 40;
   }
   return n;

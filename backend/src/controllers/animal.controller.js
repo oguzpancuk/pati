@@ -106,6 +106,9 @@ async function listAnimals(req, res, next) {
 // area, and a wider search surfaced irrelevant candidates that buried the
 // real match.
 const MATCH_RADIUS_METERS = 1000;
+// When the model did not answer, the field-only list is capped as it was
+// before the photo comparison existed.
+const FALLBACK_LIST_LIMIT = 20;
 
 /**
  * Similarity is a tier (high/medium/low), not a probability. We show no
@@ -221,15 +224,21 @@ async function matchAnimals(req, res, next) {
       }
     }
 
-    // Everything that clears medium, on one page — no cap: the tier filter
-    // is the cap, and a hidden true match would be worse than a long list.
-    const candidates = scored
-      .filter(({ _score }) => tierFor(_score) !== 'low')
-      .map(({ _score, _reasons, ...rest }) => ({
-        ...rest,
-        similarity: tierFor(_score),
-        similarity_reasons: _reasons,
-      }));
+    // With the photo compared, everything that clears medium, on one page
+    // — no cap: the tier filter is the cap, and "low" now means the model
+    // saw another animal (or the fields alone could not lift it). Without
+    // the model's answer a low tier means nothing of the kind, so the
+    // fallback keeps the old field-ranked list — an empty list would send
+    // both clients straight to "create", the duplicate this exists to
+    // prevent (review finding).
+    const shown = photoChecked
+      ? scored.filter(({ _score }) => tierFor(_score) !== 'low')
+      : scored.slice(0, FALLBACK_LIST_LIMIT);
+    const candidates = shown.map(({ _score, _reasons, ...rest }) => ({
+      ...rest,
+      similarity: tierFor(_score),
+      similarity_reasons: _reasons,
+    }));
 
     res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS, photoChecked });
   } catch (err) {

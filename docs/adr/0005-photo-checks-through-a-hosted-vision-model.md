@@ -41,7 +41,10 @@ The owner asked for both to become real now.
   exactly as they were — except that, since 2026-09-07 (owner decision),
   only high and medium reach the list, on one page with no cap, and the
   photo is compared with every animal in the 1 km circle that has a cover
-  photo (up to 40 per request), not a short field-ranked list. Nothing is merged automatically and no percentage
+  photo (up to 40 per request), not a short field-ranked list. The filter
+  applies only when the model answered: without a verdict "low" means
+  nothing about the photo, so the fallback keeps the old field-ranked list
+  (capped at 20) rather than sending the user straight to "create". Nothing is merged automatically and no percentage
   reaches a screen (the ROADMAP's probability trap).
 - **The check is enforced by the server and the photo travels once.**
   `POST /care-actions/check` uploads the photo, runs the check and answers
@@ -86,9 +89,11 @@ The owner asked for both to become real now.
   to `claude-opus-5` (the SDK guidance's default; matching is a fine
   visual discrimination task where the strongest model is the cheap choice
   next to a duplicate record) and now to `gemini-3.5-flash` (amendment);
-  `AI_MATCH_CANDIDATES` to 8. The care check ran at low effort and now
+  `AI_MATCH_CANDIDATES` to 8 then and 40 now (every animal in the circle;
+  the 1–48 range is what the 20 MB inline limit allows). The care check
+  ran at low effort and now
   with thinking off; matching keeps the model's default. Photo matching has its own per-user
-  limiter (30/h): one request carries up to nine images and is the most
+  limiter (30/h): one request carries up to 41 images and is the most
   expensive thing a user can trigger; the care photo check has its own too
   (80/h), so the drop budget the route limiter was sized for stays whole.
   The match answer's candidate indexes must cover every candidate sent
@@ -113,7 +118,7 @@ The owner asked for both to become real now.
   does not flash past as a glitch.
 - Verification: `backend/scripts/ai-check/run.sh` drives every branch
   against a fake provider endpoint whose verdict the harness chooses and which
-  refuses any request the real API would refuse (84 assertions);
+  refuses any request the real API would refuse (89 assertions);
   `backend/scripts/ai-check/live-sample.js` sends real photos to the real
   model, which is how accuracy gets judged, by a person, with the key.
 

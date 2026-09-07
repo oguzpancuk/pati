@@ -1798,6 +1798,17 @@ the next docs touch.
   filter is the cap). `cd3e029`; the KVKK paragraph says "en yakın en
   fazla kırk tanesi"; harness step 7 asserts the "different" animal is
   absent and exactly two are listed (84).
+- Review of that commit caught three things, fixed in the next: the tier
+  filter also ran when the model had NOT answered, so a wrong breed plus a
+  timeout emptied the list and both clients went straight to "create" —
+  the duplicate this exists to prevent; the filter is now gated on
+  `photoChecked` and the fallback keeps the old field-ranked list (cap 20).
+  The harness proved "low is dropped" but not "medium is kept" — fixture D
+  (same pattern, other colour, 250 m → 2 points) with an `unsure` verdict
+  must be listed as medium, and step 8 asserts all four are listed when the
+  model is down. The ADR carried both 8 and 40; `AI_MATCH_CANDIDATES` is
+  capped at 48 (the 20 MB inline limit); "en yakın" left the KVKK sentence
+  because the selection is field-ranked, not distance-ranked. 89.
 - Real-model end to end, both clients: web — cat A (cover kedi-d1, same
   fields) and cat B (cover kedi-b, other fields) at an empty spot, new
   animal with kedi-d2 → one candidate, A, "Fotoğrafta aynı hayvan · yüksek
