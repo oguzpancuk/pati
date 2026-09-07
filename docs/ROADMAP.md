@@ -47,7 +47,8 @@ For the technical-debt list that must close before production, see
 ## 1. AI animal matching
 
 > **Status (September 4, 2026): live, through a hosted vision model —
-> ADR-0005 (Gemini since September 7, owner decision: no separate bill).**
+> ADR-0005 (Gemini since September 7; owner decision the same day: its
+> paid tier — the free one is ~20 requests a day).**
 > `POST /api/animals/match` takes the first photo; the server ranks nearby
 > same-species records by the fields as before, then one `generateContent`
 > request compares the photo with the best candidates' cover photos and

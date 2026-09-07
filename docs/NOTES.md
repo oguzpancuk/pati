@@ -1698,7 +1698,7 @@ the first without the second would switch the buttons off in production.
   retry is 503-only (a 429 is the quota — retrying only spends it), the
   fake has a `busy` mode (503 n times) and step 6b asserts one retry and
   no third request; the garbled-reason guard tests the whole string before
-  cutting it. Count: 82.
+  cutting it. Count: 82 (84 after the 429 case landed in the next commit).
 
 ### Second live run (2026-09-07 afternoon): the owner's sample photos
 
@@ -1713,7 +1713,7 @@ text, five cats — two of them the same cat), `gemini-3.5-flash`:
 | su1 (cat drinking from a dish) | food | **rejected (water)** | "Fotoğrafta mama yerine su kabı ve su içen bir kedi görünüyor." |
 | su2 (water dish) | food | **rejected (water)** | "Fotoğrafta sokak hayvanları için su kabı görünüyor." |
 | kedi_a (a cat, no bowl) | food | approved (animal_only) | "Fotoğrafta sevimli bir dostumuz görünüyor…" |
-| room / person at a computer / waterfall | food | rejected (unrelated) | sensible one-liners |
+| room / person at a computer / waterfall (the morning's photos, carried over — not re-run) | food | rejected (unrelated) | sensible one-liners |
 
 Matching: kedi-d1 against d2 (same cat), b, c, a → **same, different,
 different, different**; kedi_a against b, c, d1 → all different. Every
@@ -1721,9 +1721,14 @@ verdict right on this set, 12–13 s per comparison. Care checks took 6–16 s.
 
 Not measured: the water claims (su1/su2 → approve, mama → reject) and the
 two "yanlış" photos (the tap cat, the poster) — the key's quota ran out
-first. **The free tier is ~20 requests per key per day**, not per minute:
-after ~25 calls every request answered 429 `…free_tier_requests, limit:
-20` for the rest of the afternoon, whatever the "retry in N s" hint said.
+first. **The free tier is ~20 requests per day**, not per minute: after
+about 25 calls over the whole day (the morning run, the four thinking-knob
+probes, the afternoon's ten, plus the odd 503 retry — each a request
+against the quota, the failed ones included) every request answered 429
+`…free_tier_requests, limit: 20` for the rest of the afternoon, whatever
+the "retry in N s" hint said. One key was observed; Google applies the
+quota per project and per model, so a second key in the same project
+would not double it.
 Also learned: `gemini-3.5-flash-lite` refuses `thinkingConfig` (400), and
 `gemini-2.5-flash` is retired for new users (404, points at 3.6-flash).
 Decision pending with the owner: Google's paid tier (fractions of a cent

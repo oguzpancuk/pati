@@ -159,17 +159,31 @@ backend log (`/tmp/pati-backend.log`) — there is no mail to open.
 ## Photo checks and photo matching (ADR-0005)
 
 The food/water photo check and the photo comparison in the add-animal flow
-call Gemini from the backend (owner decision: the free tier, no separate
-bill — its data-use terms are the trade-off, see the ADR). Both are **off
-until the key exists**: photos are accepted unchecked and matching is
-field-only, exactly as before, and the boot log prints
-`ai: NOT CONFIGURED …`. The key comes from Google AI Studio. To turn them on:
+call Gemini from the backend on **Google's paid tier** (owner decision,
+2026-09-07: the free tier is about 20 requests per project per day —
+enough to test, not to run — and its data-use terms are unwanted; see the
+ADR amendment). Both are **off until the key exists**: photos are accepted
+unchecked and matching is field-only, exactly as before, and the boot log
+prints `ai: NOT CONFIGURED …`. To turn them on:
+
+1. In Google AI Studio, enable billing on the project that owns the key
+   (AI Studio → API keys → the project → billing). Without this step the
+   key still works, but on the free tier: after ~20 requests in a day
+   every check fails open for the rest of it, and the photos go out under
+   the free tier's data-use clause. Confirm on the AI Studio rate-limit
+   page that the project shows a paid tier before the next step.
+2. Set the secret:
 
 ```bash
 fly secrets set --app pati-app GEMINI_API_KEY="AIza…"
-# optional, defaults to gemini-3.5-flash:
+# optional, defaults to gemini-3.5-flash. Any other model must accept
+# generationConfig.thinkingConfig (gemini-3.5-flash-lite does not: every
+# care check would 400 and fail open while matching kept working).
 fly secrets set --app pati-app AI_MODEL="gemini-3.5-flash"
 ```
+
+3. Before the key reaches production, the privacy text must name Google
+   as a processor of uploaded photos.
 
 After the deploy the boot log says `ai: gemini-3.5-flash (photo checks and
 photo matching on)`. A dead key or an exhausted free-tier quota never
