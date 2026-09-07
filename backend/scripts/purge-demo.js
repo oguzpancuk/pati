@@ -97,16 +97,21 @@ async function main() {
        WHERE NOT (a.email ILIKE $1 OR a.email ILIKE $2) AND NOT (b.email ILIKE $1 OR b.email ILIKE $2)`,
       DEMO_EMAIL_PATTERNS
     );
-    console.log(
-      `  real accounts: ${(
-        await client.query(
-          `SELECT email FROM users WHERE NOT (${demoWhere}) ORDER BY id`,
-          DEMO_EMAIL_PATTERNS
-        )
-      ).rows
-        .map((r) => r.email)
-        .join(', ')}`
-    );
+    // The accounts that stay, for the owner to eyeball before --apply. On a
+    // developer database the harnesses leave hundreds of throwaway
+    // accounts behind, so the list is capped; production has a handful.
+    const kept = (
+      await client.query(
+        `SELECT email FROM users WHERE NOT (${demoWhere}) ORDER BY id`,
+        DEMO_EMAIL_PATTERNS
+      )
+    ).rows.map((r) => r.email);
+    const tombstones = kept.filter((e) => e.endsWith('@deleted.pati-app.com')).length;
+    const shown = kept.filter((e) => !e.endsWith('@deleted.pati-app.com')).slice(0, 60);
+    console.log(`  real accounts (${kept.length}, ${tombstones} of them deletion tombstones):`);
+    for (const email of shown) console.log(`    ${email}`);
+    if (kept.length - tombstones > shown.length)
+      console.log(`    … and ${kept.length - tombstones - shown.length} more`);
 
     // Files to unlink after the commit: only what the deleted rows point
     // at, only under UPLOADS_DIR. Built-in avatar keys are not files.
