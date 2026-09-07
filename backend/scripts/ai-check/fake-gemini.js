@@ -17,6 +17,7 @@
  *   node scripts/ai-check/fake-gemini.js [port]
  *
  *   POST /control {"mode":"approve"|"reject"|"error"|"blocked"}
+ *   POST /control {"mode":"busy","times":1}   (503 that many times, then approve)
  *   POST /control {"mode":"match","verdicts":["same","different",...]}
  *   POST /control {"mode":"match","candidates":[{"index":0,"verdict":"same"}]}  (raw answer)
  *   GET  /last    → what the last generateContent request looked like
@@ -27,6 +28,7 @@ const PORT = Number(process.argv[2] || 4600);
 
 let control = { mode: 'approve' };
 let last = null;
+let requests = 0;
 
 function readJson(req) {
   return new Promise((resolve, reject) => {
@@ -120,7 +122,7 @@ http
       return send(res, 200, { ok: true, control });
     }
     if (req.method === 'GET' && url.pathname === '/last') {
-      return send(res, 200, last ?? {});
+      return send(res, 200, { ...(last ?? {}), requests });
     }
     const match = /^\/v1beta\/models\/([^/:]+):generateContent$/.exec(url.pathname);
     if (req.method !== 'POST' || !match) {
@@ -132,6 +134,7 @@ http
         error: { code: 403, message: 'API key missing', status: 'PERMISSION_DENIED' },
       });
     }
+    requests += 1;
     const body = await readJson(req);
     const parts = body.contents?.[0]?.parts;
     const blocks = Array.isArray(parts) ? parts : [];
@@ -160,6 +163,17 @@ http
     if (typeof system !== 'string') return invalid(res, 'systemInstruction missing');
 
     const { mode } = control;
+    if (mode === 'busy' && control.times > 0) {
+      // The free tier's "high demand" answer, for the retry path.
+      control.times -= 1;
+      return send(res, 503, {
+        error: {
+          code: 503,
+          message: 'This model is currently experiencing high demand.',
+          status: 'UNAVAILABLE',
+        },
+      });
+    }
     if (mode === 'error') {
       return send(res, 500, { error: { code: 500, message: 'boom', status: 'INTERNAL' } });
     }

@@ -144,6 +144,18 @@ mode '{"mode":"blocked"}'
 code=$(upload care-actions/check "$JWT" actionType=food)
 check "a safety block also fails open" unavailable "$(field .verdict)"
 
+echo "6b. A 503 is retried once — and only once"
+mode '{"mode":"busy","times":1}'
+before_requests=$(last .requests)
+code=$(upload care-actions/check "$JWT" actionType=food)
+check "one 503 then an answer -> approved" approved "$(field .verdict)"
+check "two requests were made" "$((before_requests + 2))" "$(last .requests)"
+mode '{"mode":"busy","times":2}'
+before_requests=$(last .requests)
+code=$(upload care-actions/check "$JWT" actionType=food)
+check "two 503s -> unavailable" unavailable "$(field .verdict)"
+check "no third request" "$((before_requests + 2))" "$(last .requests)"
+
 echo "7. Photo matching folds the model's verdicts into the tiers"
 mode '{"mode":"approve"}'
 # An empty corner of the map, away from the seed — and a different cell per

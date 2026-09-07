@@ -54,7 +54,9 @@ const MAX_MATCH_CANDIDATES = (() => {
   return n;
 })();
 // A photo check has a person waiting behind an interstitial with no cancel;
-// a stuck request must give up before the client's own 60 s timeout.
+// a stuck request must give up before the client's own 60 s timeout. One
+// deadline per ask() — the retry below runs under the same signal, so the
+// pair together never exceeds it.
 const REQUEST_TIMEOUT_MS = 45_000;
 const RETRY_DELAY_MS = 1_500;
 
@@ -137,22 +139,26 @@ async function ask({ system, parts, schema, tag, thinking = true }) {
       ...(thinking ? {} : { thinkingConfig: { thinkingBudget: 0 } }),
     },
   };
+  const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const payloadText = JSON.stringify(body);
   const send = () =>
     fetch(url, {
       method: 'POST',
       headers: { 'x-goog-api-key': API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      body: payloadText,
+      signal: deadline,
     });
   let response;
   try {
     response = await send();
     // The free tier answers 503 "high demand" in bursts that last a
     // second or two (seen on the first live run: two of three calls). One
-    // retry after a short pause turns most of those into answers; more
-    // would keep a person waiting behind the interstitial.
-    if (response.status === 503 || response.status === 429) {
+    // retry after a short pause turns most of those into answers, under
+    // the same deadline. Not on 429: that is the quota, and a second call
+    // a moment later only spends another request against it.
+    if (response.status === 503) {
       await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      if (deadline.aborted) throw deadline.reason;
       response = await send();
     }
   } catch (err) {
@@ -223,17 +229,19 @@ const CARE_CHECK_SCHEMA = {
 };
 
 /**
- * The one sentence a user sees. A flash model once answered with mojibake
- * and HTML entities ("Fotođrafta … g&#246;r&#252;n&#252;yor", a run of
- * apostrophes); a garbled reason is worse than the fixed fallback the
- * controller has, so anything that does not look like a sentence is
- * dropped rather than shown.
+ * The one sentence a user sees. A flash model once answered with HTML
+ * entities and a run of apostrophes ("… i''''cin g&#246;r&#252;n&#252;yor");
+ * a garbled reason is worse than the fixed fallback the controller has.
+ * This catches exactly those three shapes — entities, apostrophe runs,
+ * control bytes — not mojibake in general ("Fotođrafta" passes); the
+ * whole string is tested before it is cut to length, so an entity at the
+ * end cannot hide behind the cut.
  */
 function cleanReason(reason) {
   if (typeof reason !== 'string') return undefined;
-  const text = reason.trim().slice(0, 120);
+  const text = reason.trim();
   if (!text || /&#\d+;|&[a-z]+;|'{2,}|[\u0000-\u0008\u000b-\u001f]/.test(text)) return undefined;
-  return text;
+  return text.slice(0, 120);
 }
 
 /**
