@@ -26,6 +26,7 @@ import {
   PhotoAsset,
   PhotoCheck,
 } from '../api/care';
+import { openAddAnimal } from '../addAnimalGate';
 import { Animal, fetchAnimals } from '../api/animals';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
@@ -687,7 +688,7 @@ export default function MapScreen({ navigation }: any) {
               away from the map. */}
           <Pressable
             style={[styles.roundButton, styles.fab]}
-            onPress={() => navigation.navigate('AddAnimal')}
+            onPress={() => openAddAnimal(navigation)}
             accessibilityLabel="Yeni hayvan ekle"
           >
             <Icon name="plus" size={22} color={colors.brand} />

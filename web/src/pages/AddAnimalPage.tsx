@@ -21,12 +21,7 @@ import {
 import { AnimalAvatar } from '../avatars';
 import { useBadgeAwards } from '../badgeAwards';
 import { ChipRow } from '../components/ChipRow';
-import {
-  Coordinates,
-  FALLBACK_CENTER,
-  getCurrentLocation,
-  describeLocationError,
-} from '../location';
+import { Coordinates, getCurrentLocation, describeLocationError } from '../location';
 
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
@@ -277,15 +272,25 @@ export default function AddAnimalPage() {
     [photoUrls]
   );
   const [error, setError] = useState<string | null>(null);
-  // The location is tried as soon as the form opens: if unavailable (http
-  // origin, no permission) the user sees it before saving, and if the browser
-  // will ask for permission, it asks now.
+  // The form needs a location before it opens (owner decision, 2026-09-07):
+  // the entry buttons already asked, but a typed URL or a reload lands
+  // here directly — so the page asks again and shows a refusal instead of
+  // the form when there is none.
   const [locationNote, setLocationNote] = useState<string | null>(null);
+  const [locationBlocked, setLocationBlocked] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     getCurrentLocation()
-      .then(() => alive && setLocationNote(null))
-      .catch((err) => alive && setLocationNote(describeLocationError(err)));
+      .then(() => {
+        if (!alive) return;
+        setLocationNote(null);
+        setLocationBlocked(null);
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setLocationNote(describeLocationError(err));
+        setLocationBlocked(describeLocationError(err));
+      });
     return () => {
       alive = false;
     };
@@ -366,10 +371,10 @@ export default function AddAnimalPage() {
     setStep('matching');
     const startedAt = Date.now();
     try {
-      // Without a location (http origin, no permission) the record falls to
-      // the default center; the reason already shows on the form
-      // (locationNote), the flow isn't interrupted.
-      const loc = await getCurrentLocation().catch(() => FALLBACK_CENTER);
+      // No fallback centre any more: a record without the real location is
+      // not a record (owner decision). A failure here sends the user back
+      // to the form with the reason.
+      const loc = await getCurrentLocation();
       setLocation(loc);
       const result = await matchAnimals({
         lat: loc.lat,
@@ -436,6 +441,22 @@ export default function AddAnimalPage() {
   /** No direct sighting report from the candidate list without a "that's the
       one" decision; the review happens on the profile, same flow as mobile. */
 
+  if (locationBlocked) {
+    return (
+      <div className="page">
+        <h1 style={{ marginTop: 0 }}>Yeni hayvan</h1>
+        <div className="card flat">
+          <p className="muted" style={{ margin: 0 }}>
+            {locationBlocked} Konum olmadan hayvan eklenemez: kayıt, bulunduğun yere düşer.
+          </p>
+        </div>
+        <button className="btn ghost full" style={{ marginTop: 12 }} onClick={() => navigate(-1)}>
+          Geri dön
+        </button>
+      </div>
+    );
+  }
+
   if (step === 'matching' && species) {
     return (
       <div className="page center-page">
@@ -474,7 +495,12 @@ export default function AddAnimalPage() {
             style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
             onClick={() => reviewCandidate(animal)}
           >
-            <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={52} />
+            <AnimalAvatar
+              species={animal.species}
+              breed={animal.breed}
+              photoUrl={animal.cover_thumb_url}
+              size={52}
+            />
             <div className="grow">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <strong>{animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>

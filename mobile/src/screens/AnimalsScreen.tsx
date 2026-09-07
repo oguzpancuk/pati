@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
 import { Coordinates, getCurrentLocation } from '../location';
+import { openAddAnimal } from '../addAnimalGate';
 import { mergeById } from '../paging';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
 import AnimalAvatar from '../components/AnimalAvatar';
@@ -113,7 +114,7 @@ export default function AnimalsScreen({ navigation }: any) {
             title="Ekle"
             size="sm"
             icon={<Icon name="plus" size={16} color={colors.textOnBrand} />}
-            onPress={() => navigation.navigate('AddAnimal')}
+            onPress={() => openAddAnimal(navigation)}
           />
         </View>
         <View style={styles.filterRow}>
@@ -176,7 +177,7 @@ export default function AnimalsScreen({ navigation }: any) {
               title="Henüz kayıt yok"
               description="Kayıtlı hayvan bulunamadı. İlkini sen ekleyebilirsin."
               actionTitle="Yeni hayvan ekle"
-              onAction={() => navigation.navigate('AddAnimal')}
+              onAction={() => openAddAnimal(navigation)}
             />
           ) : null
         }

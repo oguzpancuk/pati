@@ -3,6 +3,7 @@
 import { maplibregl, styleFor } from '../mapSetup';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { gateAddAnimal } from '../addAnimalGate';
 import { animalAvatarSvg } from '@shared/animalAvatarSvg';
 import { logoSvg } from '@shared/logoSvg';
 import { circlePolygon, circleRing, featureCollection, pointFeature } from '@mobile/map/geo';
@@ -569,7 +570,10 @@ export default function MapPage() {
         className="fab"
         aria-label="Yeni hayvan ekle"
         style={{ bottom: 'calc(196px + env(safe-area-inset-bottom))' }}
-        onClick={() => navigate('/hayvanlar/yeni')}
+        onClick={async () => {
+          const refused = await gateAddAnimal(navigate);
+          if (refused) setError(refused);
+        }}
       >
         +
       </button>

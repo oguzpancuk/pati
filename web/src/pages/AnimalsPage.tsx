@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { gateAddAnimal } from '../addAnimalGate';
 import { mergeById } from '@mobile/paging';
 import { Animal, fetchAnimals } from '../api';
 import { AnimalAvatar } from '../avatars';
@@ -18,6 +19,7 @@ function formatDistance(m?: number) {
 }
 
 export default function AnimalsPage() {
+  const navigate = useNavigate();
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [filter, setFilter] = useState<Filter>('');
   const [error, setError] = useState<string | null>(null);
@@ -99,9 +101,17 @@ export default function AnimalsPage() {
     <div className="page">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0 }}>Hayvanlar</h1>
-        <Link to="/hayvanlar/yeni" className="btn small" style={{ textDecoration: 'none' }}>
+        {/* The location prompt fires on this click; without a location the
+            form does not open (owner decision, 2026-09-07). */}
+        <button
+          className="btn small"
+          onClick={async () => {
+            const refused = await gateAddAnimal(navigate);
+            if (refused) setError(refused);
+          }}
+        >
           + Yeni
-        </Link>
+        </button>
       </div>
       <p className="muted" style={{ marginTop: 4 }}>
         {noLocation ? 'Konum izni yok — en yeni kayıtlar.' : 'Sana en yakından uzağa.'}
@@ -142,7 +152,12 @@ export default function AnimalsPage() {
           className="card row"
           style={{ textDecoration: 'none', color: 'inherit' }}
         >
-          <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={48} />
+          <AnimalAvatar
+            species={animal.species}
+            breed={animal.breed}
+            photoUrl={animal.cover_thumb_url}
+            size={48}
+          />
           <div className="grow">
             <strong>{animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
             <div className="muted">
