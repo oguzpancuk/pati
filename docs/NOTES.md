@@ -1656,8 +1656,9 @@ the first without the second would switch the buttons off in production.
   unchanged; the fake is now `fake-gemini.js` (same control modes; the
   refusal case became a `promptFeedback.blockReason` safety block) and the
   backend reaches it through `AI_BASE_URL`, honoured outside production
-  only. The two effort assertions went (no such knob here); the model
-  default assertion says `gemini-3.8-flash`.
+  only. The two effort assertions went (no such knob here), a "schema
+  present" one came, so the count is 78 (was 79); the model default
+  assertion says `gemini-3.8-flash`.
 - Still NOT verified with the real model — the owner is adding the key to
   `backend/.env` next and will drive the flows on the simulator and web
   before pushing; `live-sample.js` first.

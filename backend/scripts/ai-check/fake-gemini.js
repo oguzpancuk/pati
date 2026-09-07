@@ -52,7 +52,9 @@ function invalid(res, message) {
   send(res, 400, { error: { code: 400, message, status: 'INVALID_ARGUMENT' } });
 }
 
-// The keywords Gemini's responseSchema documents. Anything else (say
+// The keywords Gemini's OpenAPI-style responseSchema documents, kept
+// deliberately narrow: a keyword missing here fails the harness loudly,
+// one wrongly present would pass it and 400 live. Anything else (say
 // `additionalProperties`, which the first version carried over from the
 // Claude schema) is a 400 on the real API and, through fail-open, a
 // silently disabled feature — so the fake refuses it too.
@@ -64,7 +66,6 @@ const SCHEMA_KEYWORDS = new Set([
   'description',
   'title',
   'items',
-  'prefixItems',
   'format',
   'nullable',
   'minimum',
@@ -90,7 +91,7 @@ function unsupportedKeyword(schema) {
         const bad = unsupportedKeyword(sub);
         if (bad) return bad;
       }
-    } else if (key === 'items' || key === 'prefixItems' || key === 'anyOf') {
+    } else if (key === 'items' || key === 'anyOf') {
       const bad = unsupportedKeyword(value);
       if (bad) return bad;
     }
