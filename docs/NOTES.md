@@ -1741,3 +1741,15 @@ way, only the key's billing changes.
   as a processor before the key reaches production). Owner-side steps:
   enable billing on the key in AI Studio, then `fly secrets set
   GEMINI_API_KEY=…` per docs/DEPLOYMENT.md.
+
+### Paid tier, third run (2026-09-07 evening): the remaining eight checks
+
+Billing enabled, a new key in `backend/.env`. Every remaining verdict
+right: su1/su2 with the water claim → approved; mama-1 with the water
+claim → rejected ("su yerine mama yiyen bir kedi"); mama 2 → approved
+(both); the cat drinking from a tap → approved as water, rejected as food;
+the winter poster → rejected under both claims ("bu bir afiş görselidir").
+Latency on the paid tier: **1.3–2.6 s per check**, against 6–16 s on the
+free tier the same afternoon — the interstitial is now a short pause
+rather than a wait. Across the day: 19 care verdicts and 2 comparisons on
+the owner's photos, none wrong; the prompts stay as they are.
