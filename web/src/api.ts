@@ -163,6 +163,7 @@ export interface UserComment {
   animal_name: string | null;
   animal_breed: string | null;
   animal_photo_url: string | null;
+  animal_thumb_url?: string | null;
 }
 
 // The record of the moment a badge was earned; the celebration popup shows it.
@@ -204,6 +205,7 @@ export interface Me extends User {
 export type FriendshipStatus = 'none' | 'self' | 'friends' | 'pending_sent' | 'pending_received';
 
 export interface ProfileAnimal {
+  cover_thumb_url?: string | null;
   id: number;
   species: 'cat' | 'dog';
   name: string | null;
@@ -306,6 +308,8 @@ export interface CareStatus {
 }
 
 export interface Animal {
+  /** The face cut-out of the best photo (P3); null → the SVG avatar stands in. */
+  cover_thumb_url?: string | null;
   id: number;
   species: 'cat' | 'dog';
   name: string | null;
@@ -342,6 +346,8 @@ export interface Vaccination {
 export interface AnimalPhoto {
   id: number;
   url: string;
+  thumb_url?: string | null;
+  face_score?: number | null;
 }
 
 export interface AnimalComment {

@@ -388,8 +388,67 @@ async function compareAnimalPhotos(newPhotoPath, candidates, species) {
   return verdicts;
 }
 
+// ------------------------------------------------------------ face cut-outs
+
+const FACE_SYSTEM = `You locate the FACE of a street animal in a photo, for a small round profile picture. Return the bounding box of the animal's head — ears to chin — as [ymin, xmin, ymax, xmax] on a 0–1000 grid of the image (0,0 is the top-left corner). If several animals are visible, take the most prominent one. Also rate how well this crop would work as a profile picture, 0 to 1: a sharp, well-lit face looking roughly at the camera is near 1; a face from behind, tiny, blurred or half out of frame is near 0. If no cat or dog head is visible at all, set found to false.`;
+
+const FACE_SCHEMA = {
+  type: 'object',
+  properties: {
+    found: { type: 'boolean' },
+    ymin: { type: 'integer' },
+    xmin: { type: 'integer' },
+    ymax: { type: 'integer' },
+    xmax: { type: 'integer' },
+    score: { type: 'number' },
+  },
+  required: ['found', 'ymin', 'xmin', 'ymax', 'xmax', 'score'],
+};
+
+/**
+ * @returns {Promise<{found: true, box: {ymin:number,xmin:number,ymax:number,xmax:number}, score: number} | {found: false} | null>}
+ *   null when the model did not answer (fail open: no cut-out, the SVG
+ *   avatar stays).
+ */
+async function locateAnimalFace(filePath, species) {
+  if (!isConfigured()) return null;
+  let image;
+  try {
+    image = await imagePart(filePath);
+  } catch (err) {
+    console.warn(`[ai:face] cannot read photo: ${err?.message ?? err}`);
+    return null;
+  }
+  const answer = await ask({
+    system: FACE_SYSTEM,
+    parts: [
+      image,
+      { text: `This is a ${species === 'dog' ? 'dog' : 'cat'} registered in the app.` },
+    ],
+    schema: FACE_SCHEMA,
+    tag: 'face',
+    thinking: false,
+  });
+  if (!answer || typeof answer.found !== 'boolean') return null;
+  if (!answer.found) return { found: false };
+  const clamp = (v) => Math.max(0, Math.min(1000, Math.round(Number(v))));
+  const box = {
+    ymin: clamp(answer.ymin),
+    xmin: clamp(answer.xmin),
+    ymax: clamp(answer.ymax),
+    xmax: clamp(answer.xmax),
+  };
+  // A box with no area is not a face; treat it as "none" rather than cut
+  // a sliver.
+  if (!Number.isFinite(box.ymin) || box.ymax - box.ymin < 20 || box.xmax - box.xmin < 20)
+    return { found: false };
+  const score = Math.max(0, Math.min(1, Number(answer.score) || 0));
+  return { found: true, box, score };
+}
+
 module.exports = {
   MODEL,
+  locateAnimalFace,
   isConfigured,
   describeAi,
   uploadPathFromUrl,

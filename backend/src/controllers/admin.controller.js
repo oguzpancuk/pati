@@ -1,5 +1,6 @@
 const fs = require('fs');
 const pool = require('../config/db');
+const { coverPhotoJoin } = require('../utils/coverPhoto');
 const { writeAuditLog } = require('../utils/auditLog');
 const { SLOTS } = require('./ad.controller');
 
@@ -225,16 +226,14 @@ async function listAnimals(req, res, next) {
                 a.created_at, a.location_updated_at,
                 ST_AsGeoJSON(a.location)::json AS location,
                 u.id AS created_by_id, u.name AS created_by_name,
-                cover.url AS cover_photo_url,
+                cover.url AS cover_photo_url, cover.thumb_url AS cover_thumb_url,
                 (SELECT count(*) FROM animal_photos p WHERE p.animal_id = a.id)::int AS photo_count,
                 (SELECT count(*) FROM animal_comments c WHERE c.animal_id = a.id)::int AS comment_count,
                 (SELECT count(*) FROM user_animal_care uac WHERE uac.animal_id = a.id)::int AS carer_count,
                 (SELECT count(*) FROM vaccinations v WHERE v.animal_id = a.id)::int AS vaccination_count
          FROM animals a
          JOIN users u ON u.id = a.created_by
-         LEFT JOIN LATERAL (
-           SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
-         ) cover ON true
+         ${coverPhotoJoin('a')}
          ${filter.where}
          ORDER BY a.created_at DESC
          ${paged.limitClause}`,

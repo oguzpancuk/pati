@@ -111,8 +111,14 @@ CREATE TABLE IF NOT EXISTS animal_photos (
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
     uploaded_by INTEGER NOT NULL REFERENCES users(id),
+    -- The face cut-out and how clearly the face shows (P3, ADR-0005);
+    -- NULL when the model found none. Also in 005_face_thumbs.sql.
+    thumb_url TEXT,
+    face_score REAL,
+    face_box JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_animal_photos_animal ON animal_photos (animal_id, face_score DESC NULLS LAST, created_at);
 
 -- Health records: ILLNESS and INJURY only.
 -- Vaccinations live in their own table: a vaccine has no "recovered" state,

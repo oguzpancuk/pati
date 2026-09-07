@@ -242,5 +242,37 @@ for raw in '[{"index":0,"verdict":"different"},{"index":1,"verdict":"same"}]' \
   check "no photo reasons" none "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.flatMap(c=>c.similarity_reasons).find(r=>r.startsWith('photo')) ?? 'none'")"
 done
 
+echo "10. A photo upload cuts a face thumbnail; the best face is the animal's picture"
+mode '{"mode":"approve"}'
+code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Yüzlü\",\"breed\":\"Tekir\",\"color\":\"gri\",\"lat\":$LAT,\"lng\":$(node -pe "$LNG + 0.0045")}")
+check "animal F -> 201" 201 "$code"; F=$(field .id)
+mode '{"mode":"face","found":false}'
+code=$(upload "animals/$F/photos" "$JWT")
+check "photo without a face -> 201" 201 "$code"
+check "…no thumbnail" none "$(field .thumb_url)"
+check "…no score" none "$(field .face_score)"
+mode '{"mode":"face","found":true,"box":[100,150,600,650],"score":0.4}'
+code=$(upload "animals/$F/photos" "$JWT")
+check "photo with a face -> 201" 201 "$code"
+THUMB=$(field .thumb_url)
+contains "…thumbnail is a -face.jpg next to the photo" "-face.jpg" "$THUMB"
+check "…score stored" 0.4 "$(field .face_score)"
+check "…thumbnail file exists" yes "$([ -f "$UPLOADS/$(basename "$THUMB")" ] && echo yes || echo no)"
+check "…thumbnail is a square" 320x320 "$(node -e "require('sharp')(process.argv[1]).metadata().then(m=>console.log(m.width+'x'+m.height))" "$UPLOADS/$(basename "$THUMB")")"
+check "face prompt used" face "$(last .kind)"
+mode '{"mode":"face","found":true,"box":[200,200,700,700],"score":0.9}'
+code=$(upload "animals/$F/photos" "$JWT")
+BEST=$(field .thumb_url)
+code=$(get_auth "animals/$F" "$JWT")
+check "detail -> 200" 200 "$code"
+check "the animal's picture is the best-scored face" "$BEST" "$(field .cover_thumb_url)"
+check "photos carry their thumbnails" 3 "$(field .photos.length)"
+code=$(get_auth "animals?lat=$LAT&lng=$LNG&limit=50" "$JWT")
+check "the list carries cover_thumb_url" "$BEST" "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.find(a=>a.id===$F)?.cover_thumb_url ?? 'none'")"
+mode '{"mode":"error"}'
+code=$(upload "animals/$F/photos" "$JWT")
+check "model down: photo still saved -> 201" 201 "$code"
+check "…without a thumbnail" none "$(field .thumb_url)"
+
 echo ""
 if [ "$FAILED" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; exit 1; fi

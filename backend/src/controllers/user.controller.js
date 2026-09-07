@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../config/db');
+const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
 const { UPLOADS_DIR } = require('../config/upload');
 const { writeAuditLog } = require('../utils/auditLog');
 const { getUserBadges } = require('../utils/badges');
@@ -212,12 +213,10 @@ async function clearAvatar(req, res, next) {
 const CARED_ANIMALS_SQL = `
   SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
          ST_AsGeoJSON(a.location)::json AS location,
-         cover.url AS cover_photo_url
+         ${COVER_COLUMNS}
   FROM animals a
   JOIN user_animal_care uac ON uac.animal_id = a.id
-  LEFT JOIN LATERAL (
-    SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
-  ) cover ON true
+  ${coverPhotoJoin('a')}
   WHERE uac.user_id = $1
   ORDER BY uac.created_at DESC
   LIMIT $2::int OFFSET $3::int`;
@@ -248,12 +247,10 @@ const USER_COMMENTS_SQL = `
   SELECT c.id, c.body, c.created_at, c.health_record_id,
          a.id AS animal_id, a.species AS animal_species,
          a.name AS animal_name, a.breed AS animal_breed,
-         cover.url AS animal_photo_url
+         cover.url AS animal_photo_url, cover.thumb_url AS animal_thumb_url
   FROM animal_comments c
   JOIN animals a ON a.id = c.animal_id
-  LEFT JOIN LATERAL (
-    SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
-  ) cover ON true
+  ${coverPhotoJoin('a')}
   WHERE c.user_id = $1
   ORDER BY c.created_at DESC
   LIMIT $2::int OFFSET $3::int`;

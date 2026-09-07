@@ -427,7 +427,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
             style={styles.animalRow}
             onPress={() => navigation.navigate('AnimalProfile', { animalId: animal.id })}
           >
-            <AnimalAvatar species={animal.species} breed={animal.breed} size={44} />
+            <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={44} />
             <View style={styles.animalText}>
               <Text variant="subheading" numberOfLines={1}>
                 {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}

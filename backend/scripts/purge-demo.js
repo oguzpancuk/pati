@@ -11,7 +11,9 @@
  *   - every badge award goes (points derive from content, which is gone);
  *   - the demo advertisers and their event counters go;
  *   - content reports go (they point at content that is gone);
- *   - the audit log stays (history is not content).
+ *   - the audit log stays (history is not content);
+ *   - real users' points/rank snapshot is reset (it was computed from rows
+ *     that are gone).
  *
  * Real users keep their account: name, e-mail, password, provider links,
  * avatar, verification state, friendships among themselves.
@@ -116,8 +118,10 @@ async function main() {
     // Files to unlink after the commit: only what the deleted rows point
     // at, only under UPLOADS_DIR. Built-in avatar keys are not files.
     const files = new Set();
-    for (const r of (await client.query('SELECT url FROM animal_photos')).rows)
+    for (const r of (await client.query('SELECT url, thumb_url FROM animal_photos')).rows) {
       files.add(uploadFile(r.url));
+      files.add(uploadFile(r.thumb_url));
+    }
     for (const r of (await client.query('SELECT photo_url FROM care_actions')).rows)
       files.add(uploadFile(r.photo_url));
     for (const r of (await client.query('SELECT image_url FROM advertisers')).rows)
@@ -148,6 +152,10 @@ async function main() {
     await client.query('DELETE FROM care_actions');
     await client.query('DELETE FROM animals');
     await client.query('DELETE FROM user_badge_awards');
+    // The "previous points / previous rank" snapshot the badge popup and the
+    // admin table read must not outlive the rows it was computed from
+    // (review finding) — the same reset account deletion does.
+    await client.query('UPDATE users SET last_points = 0, last_rank = NULL');
     const gone = await client.query(`DELETE FROM users WHERE ${demoWhere}`, DEMO_EMAIL_PATTERNS);
     await client.query('COMMIT');
     console.log(`Committed: ${gone.rowCount} demo users deleted, content emptied.`);

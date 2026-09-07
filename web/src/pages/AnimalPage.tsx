@@ -305,7 +305,7 @@ export default function AnimalPage() {
       {error && <div className="error">{error}</div>}
 
       <div className="row" style={{ alignItems: 'flex-start' }}>
-        <AnimalAvatar species={animal.species} breed={animal.breed} size={64} />
+        <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={64} />
         <div className="grow">
           <h1 style={{ margin: '4px 0 2px', fontSize: 25 }}>{displayName}</h1>
           <div className="muted" style={{ fontSize: 13.5 }}>

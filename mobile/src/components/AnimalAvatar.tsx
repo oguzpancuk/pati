@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 import AnimalPatternAvatar from './avatars/AnimalPatternAvatar';
 import { makeStyles } from '../theme';
 
@@ -7,21 +7,32 @@ interface Props {
   species: 'cat' | 'dog';
   breed?: string | null;
   size?: number;
+  /** The face cut-out (`cover_thumb_url`); without one the pattern avatar shows. */
+  photoUrl?: string | null;
 }
 
 /**
- * The animal's round "face": a cartoon avatar drawn from species/pattern,
- * used everywhere (map, lists, comments). Photos are deliberately not used —
- * street photos were rarely legible in a small circle, and each animal's
- * look depended on photo quality. Photos live in the profile gallery; the
- * avatar is the pattern's consistent representation (see
- * avatars/AnimalPatternAvatar).
+ * The animal's round "face": since P3 (owner decision, 2026-09-07) the
+ * face cut out of its best photo by the server, when there is one; the
+ * cartoon pattern avatar (avatars/AnimalPatternAvatar) stands in for
+ * animals without a usable photo — and stays in the code for that. Photos
+ * used to be avoided here because raw street photos were illegible in a
+ * small circle; the cut-out is what makes them legible.
  */
-export default function AnimalAvatar({ species, breed, size = 36 }: Props) {
+export default function AnimalAvatar({ species, breed, size = 36, photoUrl }: Props) {
   const styles = useStyles();
+  const inner = size - 4;
   return (
     <View style={[styles.frame, { width: size, height: size, borderRadius: size / 2 }]}>
-      <AnimalPatternAvatar species={species} breed={breed} size={size - 4} />
+      {photoUrl ? (
+        <Image
+          source={{ uri: photoUrl }}
+          style={{ width: inner, height: inner, borderRadius: inner / 2 }}
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <AnimalPatternAvatar species={species} breed={breed} size={inner} />
+      )}
     </View>
   );
 }

@@ -142,7 +142,7 @@ export default function AnimalsPage() {
           className="card row"
           style={{ textDecoration: 'none', color: 'inherit' }}
         >
-          <AnimalAvatar species={animal.species} breed={animal.breed} size={48} />
+          <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={48} />
           <div className="grow">
             <strong>{animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
             <div className="muted">

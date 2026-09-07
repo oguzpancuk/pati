@@ -319,7 +319,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             descriptive line — pattern, color and markings read as a sentence
             instead of a stack of labeled fields. */}
         <View style={styles.header}>
-          <AnimalAvatar species={animal.species} breed={animal.breed} size={64} />
+          <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={64} />
           <View style={styles.headerText}>
             <Text variant="title" numberOfLines={1}>
               {displayName}

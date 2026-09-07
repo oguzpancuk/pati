@@ -380,7 +380,20 @@ export default function MapPage() {
         // 42px white circle (handoff size).
         const el = document.createElement('div');
         el.className = 'animal-marker';
-        el.innerHTML = animalAvatarSvg(animal.species, animal.breed, 30);
+        // The face cut-out when the animal has one, the pattern avatar
+        // otherwise (P3) — the same rule as AnimalAvatar.
+        if (animal.cover_thumb_url) {
+          const img = document.createElement('img');
+          img.src = animal.cover_thumb_url;
+          img.alt = '';
+          img.width = 30;
+          img.height = 30;
+          img.style.cssText =
+            'width:30px;height:30px;border-radius:50%;object-fit:cover;display:block';
+          el.replaceChildren(img);
+        } else {
+          el.innerHTML = animalAvatarSvg(animal.species, animal.breed, 30);
+        }
         el.addEventListener('click', () => navigate(`/hayvanlar/${animal.id}`));
         return new maplibregl.Marker({ element: el }).setLngLat([lng, lat]);
       });

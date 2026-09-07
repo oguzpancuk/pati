@@ -306,7 +306,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             style={styles.candidateRow}
             onPress={() => handleReviewCandidate(animal)}
           >
-            <AnimalAvatar species={animal.species} breed={animal.breed} size={52} />
+            <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={52} />
             <View style={styles.candidateText}>
               <View style={styles.candidateHead}>
                 <Text variant="subheading" numberOfLines={1} style={styles.candidateName}>

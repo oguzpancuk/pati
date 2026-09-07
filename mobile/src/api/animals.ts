@@ -13,6 +13,8 @@ export interface Animal {
   location: GeoJSON.Point;
   distance_meters?: number;
   cover_photo_url?: string | null;
+  /** The face cut-out of the best photo (P3); null → the SVG avatar stands in. */
+  cover_thumb_url?: string | null;
 }
 
 // Health records come in just two types. Treatment/medication is not a
@@ -52,6 +54,8 @@ export interface Vaccination {
 export interface AnimalPhoto {
   id: number;
   url: string;
+  thumb_url?: string | null;
+  face_score?: number | null;
   created_at: string;
 }
 

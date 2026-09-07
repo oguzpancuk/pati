@@ -474,7 +474,7 @@ export default function AddAnimalPage() {
             style={{ width: '100%', textAlign: 'left', cursor: 'pointer' }}
             onClick={() => reviewCandidate(animal)}
           >
-            <AnimalAvatar species={animal.species} breed={animal.breed} size={52} />
+            <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={52} />
             <div className="grow">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <strong>{animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>

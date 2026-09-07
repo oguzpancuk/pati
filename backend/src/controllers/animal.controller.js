@@ -3,6 +3,8 @@ const pool = require('../config/db');
 const { UPLOADS_DIR } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const ai = require('../utils/ai');
+const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
+const { makeFaceThumb } = require('../utils/faceThumb');
 const { HEALTH_RECORD_TYPES, isValidChoice } = require('../utils/taxonomy');
 
 // Tracking state is not a column; it derives from existing data:
@@ -36,11 +38,8 @@ const VACCINATION_SELECT_SQL = `
   JOIN users u ON u.id = v.recorded_by
 `;
 
-const COVER_PHOTO_JOIN = `
-  LEFT JOIN LATERAL (
-    SELECT url FROM animal_photos WHERE animal_id = a.id ORDER BY created_at ASC LIMIT 1
-  ) cover ON true
-`;
+// The animal's picture: see utils/coverPhoto.js (best face cut-out first).
+const COVER_PHOTO_JOIN = coverPhotoJoin('a');
 
 // Pagination: without `limit` the old behavior holds (the map pulls its
 // whole surroundings in one request); list screens ask for small pages.
@@ -71,15 +70,25 @@ async function listAnimals(req, res, next) {
       const bounded = radiusMeters !== undefined && radiusMeters !== '';
       const params = bounded ? [lng, lat, radiusMeters, limit, offset] : [lng, lat, limit, offset];
       const point = 'ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography';
+      // The page is cut INSIDE the subquery, ordered by `<->` alone: that is
+      // the shape the planner turns into a KNN index scan (a tiebreaker or
+      // the cover-photo join in the same ORDER BY made it sort the whole
+      // table — review measured 621 ms against 13 ms). The cover photo is
+      // joined to the page's rows only; the outer ORDER BY just fixes ties
+      // within the page.
       let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
-                        ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url,
-                        ST_Distance(a.location, ${point}) AS distance_meters
-                 FROM animals a
+                        ST_AsGeoJSON(a.location)::json AS location, ${COVER_COLUMNS},
+                        a.distance_meters
+                 FROM (
+                   SELECT a.*, ST_Distance(a.location, ${point}) AS distance_meters
+                   FROM animals a
+                   WHERE ${bounded ? `ST_DWithin(a.location, ${point}, $3)` : 'true'}
+                   ${speciesFilter}
+                   ORDER BY a.location <-> ${point}
+                   LIMIT $${bounded ? 4 : 3}::int OFFSET $${bounded ? 5 : 4}::int
+                 ) a
                  ${COVER_PHOTO_JOIN}
-                 WHERE ${bounded ? `ST_DWithin(a.location, ${point}, $3)` : 'true'}
-                 ${speciesFilter}
-                 ORDER BY a.location <-> ${point}, a.id
-                 LIMIT $${bounded ? 4 : 3}::int OFFSET $${bounded ? 5 : 4}::int`;
+                 ORDER BY a.distance_meters, a.id`;
       if (species) {
         params.push(species);
         sql = sql.replace('$SPECIES', `$${params.length}`);
@@ -90,7 +99,7 @@ async function listAnimals(req, res, next) {
 
     const params = [limit, offset];
     let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
-                      ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url
+                      ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url, cover.thumb_url AS cover_thumb_url
                FROM animals a
                ${COVER_PHOTO_JOIN}
                WHERE true
@@ -188,7 +197,7 @@ async function matchAnimals(req, res, next) {
 
     const result = await pool.query(
       `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
-              ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url,
+              ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url, cover.thumb_url AS cover_thumb_url,
               ST_Distance(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
        FROM animals a
        ${COVER_PHOTO_JOIN}
@@ -269,7 +278,7 @@ async function getAnimal(req, res, next) {
 
     const [photos, healthRecords, vaccinations, carers] = await Promise.all([
       pool.query(
-        'SELECT id, url, uploaded_by, created_at FROM animal_photos WHERE animal_id = $1 ORDER BY created_at DESC',
+        'SELECT id, url, thumb_url, face_score, uploaded_by, created_at FROM animal_photos WHERE animal_id = $1 ORDER BY created_at DESC',
         [req.params.id]
       ),
       pool.query(
@@ -295,8 +304,14 @@ async function getAnimal(req, res, next) {
 
     const isCarer = carers.rows.some((c) => c.id === req.user.userId);
 
+    // The picture on the profile header: the best-scored face cut-out, the
+    // same rule as coverPhotoJoin so lists and the profile never disagree.
+    const best = [...photos.rows]
+      .filter((p) => p.thumb_url)
+      .sort((a, b) => (b.face_score ?? 0) - (a.face_score ?? 0))[0];
     res.json({
       ...animalResult.rows[0],
+      cover_thumb_url: best?.thumb_url ?? null,
       photos: photos.rows,
       healthRecords: healthRecords.rows,
       vaccinations: vaccinations.rows,
@@ -396,12 +411,32 @@ async function addPhoto(req, res, next) {
       return res.status(400).json({ error: 'Fotoğraf zorunludur' });
     }
 
-    const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    const base = `${req.protocol}://${req.get('host')}/uploads/`;
+    const photoUrl = `${base}${req.file.filename}`;
     const result = await pool.query(
-      'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, uploaded_by, created_at',
+      'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
       [req.params.id, photoUrl, req.user.userId]
     );
-    res.status(201).json(result.rows[0]);
+    // The profile picture is cut around the face the model finds (P3).
+    // Fail open: no face, no answer, or a photo sharp cannot cut leaves the
+    // row without a thumbnail and the SVG avatar stands in.
+    const row = result.rows[0];
+    const species = (await pool.query('SELECT species FROM animals WHERE id = $1', [req.params.id]))
+      .rows[0]?.species;
+    const face = await ai.locateAnimalFace(req.file.path, species);
+    if (face?.found) {
+      try {
+        const thumb = await makeFaceThumb(req.file.filename, face.box);
+        const updated = await pool.query(
+          'UPDATE animal_photos SET thumb_url = $1, face_score = $2, face_box = $3 WHERE id = $4 RETURNING thumb_url, face_score',
+          [`${base}${thumb}`, face.score, JSON.stringify(face.box), row.id]
+        );
+        Object.assign(row, updated.rows[0]);
+      } catch (err) {
+        console.warn(`[face] could not cut photo ${row.id}: ${err?.message ?? err}`);
+      }
+    }
+    res.status(201).json(row);
   } catch (err) {
     if (req.file) {
       fs.unlink(req.file.path, () => {});

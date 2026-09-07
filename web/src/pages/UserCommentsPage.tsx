@@ -69,7 +69,12 @@ export default function UserCommentsPage() {
           className="card flat row"
           style={{ textDecoration: 'none', color: 'inherit', alignItems: 'flex-start' }}
         >
-          <AnimalAvatar species={c.animal_species} breed={c.animal_breed} size={40} />
+          <AnimalAvatar
+            species={c.animal_species}
+            breed={c.animal_breed}
+            photoUrl={c.animal_thumb_url}
+            size={40}
+          />
           <div className="grow">
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <strong>{c.animal_name ?? (c.animal_species === 'cat' ? 'Kedi' : 'Köpek')}</strong>

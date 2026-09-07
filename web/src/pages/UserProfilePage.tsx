@@ -203,7 +203,7 @@ export default function UserProfilePage() {
             className="card flat row"
             style={{ textDecoration: 'none', color: 'inherit' }}
           >
-            <AnimalAvatar species={a.species} breed={a.breed} size={44} />
+            <AnimalAvatar species={a.species} breed={a.breed} photoUrl={a.cover_thumb_url} size={44} />
             <div className="grow">
               <strong>{a.name ?? (a.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
               <div className="muted">{a.breed ?? 'Türü belirtilmemiş'}</div>

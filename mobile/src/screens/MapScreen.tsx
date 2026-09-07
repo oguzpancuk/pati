@@ -594,6 +594,7 @@ export default function MapScreen({ navigation }: any) {
                 <AnimalAvatar
                   species={animal.species}
                   breed={animal.breed}
+                  photoUrl={animal.cover_thumb_url}
                   size={ANIMAL_MARKER_SIZE}
                 />
               </Pressable>

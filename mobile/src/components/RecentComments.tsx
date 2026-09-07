@@ -54,7 +54,12 @@ export default function RecentComments({
             style={styles.row}
             onPress={() => onOpenAnimal(comment.animal_id)}
           >
-            <AnimalAvatar species={comment.animal_species} breed={comment.animal_breed} size={36} />
+            <AnimalAvatar
+              species={comment.animal_species}
+              breed={comment.animal_breed}
+              photoUrl={comment.animal_thumb_url}
+              size={36}
+            />
             <View style={styles.body}>
               <View style={styles.metaRow}>
                 <Text variant="bodyStrong" style={styles.animalName} numberOfLines={1}>

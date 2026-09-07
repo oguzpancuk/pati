@@ -40,6 +40,7 @@ export interface UserComment {
   animal_name: string | null;
   animal_breed: string | null;
   animal_photo_url: string | null;
+  animal_thumb_url?: string | null;
 }
 
 // The record of the moment a badge was earned. rankBefore can be null: with
@@ -96,6 +97,7 @@ export interface Me {
 export type FriendshipStatus = 'none' | 'self' | 'friends' | 'pending_sent' | 'pending_received';
 
 export interface ProfileAnimal {
+  cover_thumb_url?: string | null;
   id: number;
   species: 'cat' | 'dog';
   name: string | null;

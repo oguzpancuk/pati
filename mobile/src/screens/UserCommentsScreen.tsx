@@ -74,7 +74,12 @@ export default function UserCommentsScreen({ route, navigation }: any) {
             style={styles.row}
             onPress={() => navigation.push('AnimalProfile', { animalId: item.animal_id })}
           >
-            <AnimalAvatar species={item.animal_species} breed={item.animal_breed} size={44} />
+            <AnimalAvatar
+              species={item.animal_species}
+              breed={item.animal_breed}
+              photoUrl={item.animal_thumb_url}
+              size={44}
+            />
             <View style={styles.body}>
               <View style={styles.metaRow}>
                 <Text variant="bodyStrong" style={styles.animalName} numberOfLines={1}>

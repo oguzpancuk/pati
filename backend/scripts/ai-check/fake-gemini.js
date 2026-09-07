@@ -21,6 +21,7 @@
  *   POST /control {"mode":"busy","times":1,"status":429}   (the quota answer instead)
  *   POST /control {"mode":"match","verdicts":["same","different",...]}
  *   POST /control {"mode":"match","candidates":[{"index":0,"verdict":"same"}]}  (raw answer)
+ *   POST /control {"mode":"face","found":true,"box":[100,150,600,650],"score":0.9}  (face requests)
  *   GET  /last    → what the last generateContent request looked like
  */
 const http = require('http');
@@ -152,7 +153,12 @@ http
       images: images.length,
       format: body.generationConfig?.responseMimeType ?? null,
       schema: Boolean(body.generationConfig?.responseSchema),
-      kind: typeof system === 'string' && system.includes('SAME INDIVIDUAL') ? 'match' : 'care',
+      kind:
+        typeof system === 'string' && system.includes('SAME INDIVIDUAL')
+          ? 'match'
+          : typeof system === 'string' && system.includes('FACE of a street animal')
+          ? 'face'
+          : 'care',
       maxTokens: body.generationConfig?.maxOutputTokens,
     };
     if (images.length === 0) return invalid(res, 'no image part');
@@ -193,6 +199,16 @@ http
         promptFeedback: { blockReason: 'SAFETY' },
         usageMetadata: { promptTokenCount: 10, totalTokenCount: 10 },
       });
+    }
+    if (last.kind === 'face') {
+      // Default: a face in the upper-left quadrant, scored 0.9; `found:false`
+      // or a custom box/score through /control.
+      const found = control.mode === 'face' && control.found === false ? false : true;
+      const [ymin, xmin, ymax, xmax] = Array.isArray(control.box)
+        ? control.box
+        : [100, 150, 600, 650];
+      const score = typeof control.score === 'number' ? control.score : 0.9;
+      return answer(res, { found, ymin, xmin, ymax, xmax, score });
     }
     if (last.kind === 'match') {
       // `candidates` is the raw answer, for the negative tests of the

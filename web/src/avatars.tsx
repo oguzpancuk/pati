@@ -7,15 +7,32 @@ import { patiAvatarSvg } from '@shared/avatarSvg';
  * no user input reaches the HTML (an unrecognized avatar key returns null
  * and falls back to the initial letter).
  */
+// The face cut-out of the animal's best photo when the server has one
+// (P3, owner decision 2026-09-07); the pattern avatar stands in otherwise
+// and stays in the code for that (mobile parity: mobile/AnimalAvatar).
 export function AnimalAvatar({
   species,
   breed,
   size = 40,
+  photoUrl,
 }: {
   species: 'cat' | 'dog';
   breed?: string | null;
   size?: number;
+  photoUrl?: string | null;
 }) {
+  if (photoUrl) {
+    return (
+      <img
+        className="round"
+        src={photoUrl}
+        alt=""
+        width={size}
+        height={size}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }}
+      />
+    );
+  }
   return (
     <span
       className="round"

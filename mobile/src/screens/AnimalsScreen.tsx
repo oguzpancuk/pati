@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
-import { Coordinates, getCurrentLocation, LocationPermissionError } from '../location';
+import { Coordinates, getCurrentLocation } from '../location';
 import { mergeById } from '../paging';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
 import AnimalAvatar from '../components/AnimalAvatar';
@@ -60,8 +60,9 @@ export default function AnimalsScreen({ navigation }: any) {
         try {
           locationRef.current = await getCurrentLocation();
           setNoLocation(false);
-        } catch (err) {
-          if (!(err instanceof LocationPermissionError)) throw err;
+        } catch {
+          // Permission denied, GPS off, a timeout — all the same to the
+          // list: newest first, and the caption says so (web parity).
           locationRef.current = null;
           setNoLocation(true);
         }
@@ -151,7 +152,12 @@ export default function AnimalsScreen({ navigation }: any) {
           >
             {/* The list visual is the pattern avatar too: independent of
                 photo quality, species/pattern reads at a glance. */}
-            <AnimalAvatar species={item.species} breed={item.breed} size={52} />
+            <AnimalAvatar
+              species={item.species}
+              breed={item.breed}
+              photoUrl={item.cover_thumb_url}
+              size={52}
+            />
             <View style={styles.rowText}>
               <Text variant="subheading" numberOfLines={1}>
                 {item.name ?? (item.species === 'cat' ? 'Kedi' : 'Köpek')}
