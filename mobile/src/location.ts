@@ -142,14 +142,43 @@ export async function ensureLocationPermission(): Promise<void> {
     if (!granted) throw new LocationPermissionError();
     return;
   }
-  await new Promise<void>((resolve, reject) => {
+  // A first, short position request: granted → a fix or a cached one
+  // comes back at once; denied → code 1 at once. A timeout (code 3) means
+  // either the prompt is open and the user is still reading it, or the
+  // permission exists but no fix arrived — and on the first-run prompt the
+  // native timer keeps running behind the sheet, so a slow "İzin Verme"
+  // used to look like "granted" (review finding).
+  const first = await new Promise<'granted' | 'denied' | 'timeout' | 'other'>((resolve) => {
     Geolocation.getCurrentPosition(
-      () => resolve(),
-      (error) => {
-        if (error.code === 1) reject(new LocationPermissionError());
-        else resolve();
-      },
+      () => resolve('granted'),
+      (error) => resolve(error.code === 1 ? 'denied' : error.code === 3 ? 'timeout' : 'other'),
       { enableHighAccuracy: false, timeout: 4000, maximumAge: 600000 }
+    );
+  });
+  if (first === 'denied') throw new LocationPermissionError();
+  if (first !== 'timeout') return;
+
+  // Wait for the actual decision: requestAuthorization's callbacks fire the
+  // moment the sheet is answered (they never fire when the status was
+  // already settled, so they cannot be the only path), and a second, long
+  // position request settles the already-authorized case — a fix, a
+  // timeout, or code 1 if the answer was no.
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+    Geolocation.requestAuthorization(
+      () => settle(resolve),
+      () => settle(() => reject(new LocationPermissionError()))
+    );
+    Geolocation.getCurrentPosition(
+      () => settle(resolve),
+      (error) =>
+        settle(() => (error.code === 1 ? reject(new LocationPermissionError()) : resolve())),
+      { enableHighAccuracy: false, timeout: 30000, maximumAge: 600000 }
     );
   });
 }

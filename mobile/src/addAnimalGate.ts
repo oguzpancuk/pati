@@ -13,7 +13,13 @@ import {
  * Any other failure (GPS off, a timeout) lets the form open — the save
  * step retries the fix and handles it.
  */
+let inFlight = false;
+
 export async function openAddAnimal(navigation: { navigate: (screen: 'AddAnimal') => void }) {
+  // A second tap while the sheet is up must not queue a second prompt or
+  // a second navigation.
+  if (inFlight) return;
+  inFlight = true;
   try {
     await ensureLocationPermission();
   } catch (err) {
@@ -21,6 +27,8 @@ export async function openAddAnimal(navigation: { navigate: (screen: 'AddAnimal'
       alertLocationPermission();
       return;
     }
+  } finally {
+    inFlight = false;
   }
   navigation.navigate('AddAnimal');
 }

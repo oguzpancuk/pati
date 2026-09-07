@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   colorsFor,
   fixedColorFor,
@@ -19,6 +19,7 @@ import {
   SimilarityReason,
 } from '../api';
 import { AnimalAvatar } from '../avatars';
+import { isPermissionFailure } from '../addAnimalGate';
 import { useBadgeAwards } from '../badgeAwards';
 import { ChipRow } from '../components/ChipRow';
 import { Coordinates, getCurrentLocation, describeLocationError } from '../location';
@@ -276,25 +277,21 @@ export default function AddAnimalPage() {
   // the entry buttons already asked, but a typed URL or a reload lands
   // here directly — so the page asks again and shows a refusal instead of
   // the form when there is none.
-  const [locationNote, setLocationNote] = useState<string | null>(null);
   const [locationBlocked, setLocationBlocked] = useState<string | null>(null);
+  const [locationAttempt, setLocationAttempt] = useState(0);
   useEffect(() => {
     let alive = true;
     getCurrentLocation()
-      .then(() => {
-        if (!alive) return;
-        setLocationNote(null);
-        setLocationBlocked(null);
-      })
+      .then(() => alive && setLocationBlocked(null))
       .catch((err) => {
-        if (!alive) return;
-        setLocationNote(describeLocationError(err));
-        setLocationBlocked(describeLocationError(err));
+        // Only a missing permission blocks (mobile parity); a fix that is
+        // slow today is the save step's problem.
+        if (alive && isPermissionFailure(err)) setLocationBlocked(describeLocationError(err));
       });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [locationAttempt]);
   const [busy, setBusy] = useState(false);
 
   // Flow: form → (save) → matching wait → candidates → new record or an
@@ -450,9 +447,18 @@ export default function AddAnimalPage() {
             {locationBlocked} Konum olmadan hayvan eklenemez: kayıt, bulunduğun yere düşer.
           </p>
         </div>
-        <button className="btn ghost full" style={{ marginTop: 12 }} onClick={() => navigate(-1)}>
-          Geri dön
+        {/* A typed URL has no history to go back to: real links, and a
+            retry for the case where the permission was just granted. */}
+        <button
+          className="btn full"
+          style={{ marginTop: 12 }}
+          onClick={() => setLocationAttempt((n) => n + 1)}
+        >
+          Tekrar dene
         </button>
+        <Link to="/hayvanlar" replace className="btn ghost full" style={{ marginTop: 8 }}>
+          Hayvanlara dön
+        </Link>
       </div>
     );
   }
@@ -713,11 +719,7 @@ export default function AddAnimalPage() {
         }}
       />
 
-      <p className="subtle">
-        {locationNote
-          ? `${locationNote} Kayıt varsayılan merkeze (Kadıköy) düşecek.`
-          : 'Konumun otomatik olarak kaydedilecek.'}
-      </p>
+      <p className="subtle">Konumun otomatik olarak kaydedilecek.</p>
       <button className="btn full" disabled={busy} onClick={submit}>
         {busy ? 'Kaydediliyor…' : 'Hayvanı kaydet'}
       </button>
