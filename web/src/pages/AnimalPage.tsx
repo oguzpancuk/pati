@@ -368,7 +368,12 @@ export default function AnimalPage() {
             boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)',
           }}
         >
-          <AnimalAvatar species={animal.species} breed={animal.breed} size={34} />
+          <AnimalAvatar
+            species={animal.species}
+            breed={animal.breed}
+            photoUrl={animal.cover_thumb_url}
+            size={34}
+          />
         </span>
       </MiniMap>
 

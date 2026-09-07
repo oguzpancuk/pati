@@ -377,7 +377,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           >
             <Camera defaultSettings={{ centerCoordinate: [longitude, latitude], zoomLevel: 16 }} />
             <MarkerView coordinate={[longitude, latitude]} anchor={{ x: 0.5, y: 0.5 }}>
-              <AnimalAvatar species={animal.species} breed={animal.breed} size={32} />
+              <AnimalAvatar
+                species={animal.species}
+                breed={animal.breed}
+                photoUrl={animal.cover_thumb_url}
+                size={32}
+              />
             </MarkerView>
           </MapView>
         </View>
