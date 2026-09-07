@@ -167,11 +167,11 @@ field-only, exactly as before, and the boot log prints
 
 ```bash
 fly secrets set --app pati-app GEMINI_API_KEY="AIza…"
-# optional, defaults to gemini-3.8-flash:
-fly secrets set --app pati-app AI_MODEL="gemini-3.8-flash"
+# optional, defaults to gemini-3.5-flash:
+fly secrets set --app pati-app AI_MODEL="gemini-3.5-flash"
 ```
 
-After the deploy the boot log says `ai: gemini-3.8-flash (photo checks and
+After the deploy the boot log says `ai: gemini-3.5-flash (photo checks and
 photo matching on)`. A dead key or an exhausted free-tier quota never
 blocks users — every failure fails open and is logged with an `[ai:…]`
 tag, so grep the Fly log for that after turning it on.

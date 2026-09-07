@@ -113,8 +113,9 @@ The owner's constraint arrived after the first version shipped locally:
 **no separate bill** — the app must not create API charges on top of the
 owner's existing subscriptions. A consumer Claude subscription cannot be
 used by a server that serves other people, and Anthropic's API has no free
-tier, so the calls moved to **Gemini's free tier** (`gemini-3.8-flash` by
-default, `AI_MODEL` to change it; key from Google AI Studio as
+tier, so the calls moved to **Gemini's free tier** (`gemini-3.5-flash` by
+default — the newer 3.8 answered 503 to half the calls and timed out on
+every comparison on the first live day — `AI_MODEL` to change it; key from Google AI Studio as
 `GEMINI_API_KEY`).
 
 What changed and what did not:

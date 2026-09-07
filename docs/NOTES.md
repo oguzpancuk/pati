@@ -1666,3 +1666,29 @@ the first without the second would switch the buttons off in production.
   `stray-db` was unreachable and the harness's migrate step failed with
   ECONNREFUSED on 5433 — the first thing to check when the harness prints
   "migrate failed".
+
+### First live run (2026-09-07, owner's key in backend/.env)
+
+- The key and the request shape work: boot log `ai: … on`, and every
+  answer came back as schema-valid JSON with a Turkish reason.
+- **`gemini-3.8-flash` was not usable today**: 503 "high demand" on half
+  the care checks and on plain text probes, and a 45 s timeout on every
+  comparison (three photos). **`gemini-3.5-flash` answered everything**
+  (care 6–8 s, comparison 9–12 s), so it is the default now; the id stays
+  configuration.
+- Probed the thinking knob with a scratch script: `thinkingConfig:
+  {thinkingBudget: 0}` is accepted by both models (thought tokens drop to
+  zero); `thinkingLevel: "minimal"` is refused by 3.8 and unknown as a
+  top-level field. The care check now runs with thinking off; the
+  comparison keeps the default.
+- Two hardenings from what the live run showed: one retry after 1.5 s on
+  503/429 (bursts lasted a second or two), and a garbled-reason guard —
+  3.5 once answered "Fotođrafta … i''''cin g&#246;r&#252;n&#252;yor" with
+  HTML entities and a run of apostrophes; a reason that does not look like
+  a sentence is dropped and the controller's fixed Turkish fallback shows.
+- Verdicts so far, all on non-food photos (the only ones on this machine):
+  an indoor room, a person at a computer and a waterfall → all
+  **rejected (unrelated)** with sensible reasons; comparing them as
+  "animals" → **unsure**, which is the right answer for photos with no
+  animal. The positive side — a real bowl of food, a real water dish, the
+  same cat twice — is still unmeasured: it needs the owner's own photos.

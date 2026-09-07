@@ -74,7 +74,7 @@ check "file kept in uploads" "$((before + 1))" "$(uploads_count)"
 check "one image in the request" 1 "$(last .images)"
 check "JSON output with a schema requested" application/json "$(last .format)"
 check "…schema present" true "$(last .schema)"
-check "model from AI_MODEL default" gemini-3.8-flash "$(last .model)"
+check "model from AI_MODEL default" gemini-3.5-flash "$(last .model)"
 check "care prompt used" care "$(last .kind)"
 
 echo "2. The confirm redeems the token — once"

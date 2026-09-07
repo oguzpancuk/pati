@@ -25,8 +25,10 @@ const sharp = require('sharp');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 // The free tier serves the flash models; the id is configuration so a
-// newer one is a secret change, not a deploy.
-const MODEL = process.env.AI_MODEL || 'gemini-3.8-flash';
+// newer one is a secret change, not a deploy. 3.5 rather than the newest
+// 3.8: on the first live day 3.8 answered 503 "high demand" to half the
+// calls and timed out on every comparison, 3.5 answered all of them.
+const MODEL = process.env.AI_MODEL || 'gemini-3.5-flash';
 // Where requests go. Overridable outside production only — that is how
 // the check harness points the backend at its fake (scripts/ai-check).
 const BASE_URL = (
@@ -54,6 +56,7 @@ const MAX_MATCH_CANDIDATES = (() => {
 // A photo check has a person waiting behind an interstitial with no cancel;
 // a stuck request must give up before the client's own 60 s timeout.
 const REQUEST_TIMEOUT_MS = 45_000;
+const RETRY_DELAY_MS = 1_500;
 
 function isConfigured() {
   return Boolean(API_KEY);
@@ -113,7 +116,7 @@ function uploadPathFromUrl(url, uploadsDir) {
  * logged with a tag so a dead key or a quota problem shows up in the Fly
  * log without ever reaching a user.
  */
-async function ask({ system, parts, schema, tag }) {
+async function ask({ system, parts, schema, tag, thinking = true }) {
   if (!isConfigured()) return null;
   const url = `${BASE_URL}/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
   const body = {
@@ -127,16 +130,31 @@ async function ask({ system, parts, schema, tag }) {
       // as MAX_TOKENS with no text (review finding). The answers are tiny,
       // so the headroom costs nothing.
       maxOutputTokens: 8192,
+      // The care check is a classification: thinking off halves its
+      // latency and spends nothing on thought (probed: `thinkingBudget: 0`
+      // is the knob these models accept; `thinkingLevel` is not). The
+      // comparison keeps the model's default — markings deserve a look.
+      ...(thinking ? {} : { thinkingConfig: { thinkingBudget: 0 } }),
     },
   };
-  let response;
-  try {
-    response = await fetch(url, {
+  const send = () =>
+    fetch(url, {
       method: 'POST',
       headers: { 'x-goog-api-key': API_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
+  let response;
+  try {
+    response = await send();
+    // The free tier answers 503 "high demand" in bursts that last a
+    // second or two (seen on the first live run: two of three calls). One
+    // retry after a short pause turns most of those into answers; more
+    // would keep a person waiting behind the interstitial.
+    if (response.status === 503 || response.status === 429) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      response = await send();
+    }
   } catch (err) {
     console.warn(`[ai:${tag}] ${err?.name === 'TimeoutError' ? 'timed out' : err?.message ?? err}`);
     return null;
@@ -205,6 +223,20 @@ const CARE_CHECK_SCHEMA = {
 };
 
 /**
+ * The one sentence a user sees. A flash model once answered with mojibake
+ * and HTML entities ("Fotođrafta … g&#246;r&#252;n&#252;yor", a run of
+ * apostrophes); a garbled reason is worse than the fixed fallback the
+ * controller has, so anything that does not look like a sentence is
+ * dropped rather than shown.
+ */
+function cleanReason(reason) {
+  if (typeof reason !== 'string') return undefined;
+  const text = reason.trim().slice(0, 120);
+  if (!text || /&#\d+;|&[a-z]+;|'{2,}|[\u0000-\u0008\u000b-\u001f]/.test(text)) return undefined;
+  return text;
+}
+
+/**
  * @returns {Promise<{verdict: 'approved'|'rejected'|'unavailable', subject?: string, reason?: string, model?: string, ms: number}>}
  */
 async function checkCarePhoto(filePath, actionType) {
@@ -225,12 +257,13 @@ async function checkCarePhoto(filePath, actionType) {
     parts: [image, { text: `The user says this photo shows the ${claim} they left out.` }],
     schema: CARE_CHECK_SCHEMA,
     tag: 'care',
+    thinking: false,
   });
   if (!answer || typeof answer.matches !== 'boolean') return done({ verdict: 'unavailable' });
   return done({
     verdict: answer.matches ? 'approved' : 'rejected',
     subject: answer.subject,
-    reason: typeof answer.reason === 'string' ? answer.reason.slice(0, 120) : undefined,
+    reason: cleanReason(answer.reason),
     model: MODEL,
   });
 }
