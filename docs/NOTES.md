@@ -1788,3 +1788,25 @@ the next docs touch.
   nothing left "for the next docs touch". The order of events for the
   privacy text: v26 set the key on an image that could not use it; v27
   shipped the checks and the KVKK paragraph together.
+
+## 2026-09-07 — matching covers the whole 1 km circle; only high/medium are listed
+
+- Owner decisions after watching the real model: compare the photo with
+  every animal in the 1 km circle that has a cover photo (cap 40 per
+  request, `AI_MATCH_CANDIDATES`, was 8), show only high and medium
+  similarity, all on one page (the 20-candidate cap is gone — the tier
+  filter is the cap). `cd3e029`; the KVKK paragraph says "en yakın en
+  fazla kırk tanesi"; harness step 7 asserts the "different" animal is
+  absent and exactly two are listed (84).
+- Real-model end to end, both clients: web — cat A (cover kedi-d1, same
+  fields) and cat B (cover kedi-b, other fields) at an empty spot, new
+  animal with kedi-d2 → one candidate, A, "Fotoğrafta aynı hayvan · yüksek
+  benzerlik", B hidden, 4.3 s. Mobile — the same cat added at the
+  simulator's Kadıköy location, where the seed puts dozens of cats within
+  1 km (placeholder photos) → two candidates, both "aynı hayvan": the cat
+  registered for the test and Besir, a record the owner had made of the
+  same cat earlier in the day; every seed cat hidden as "different";
+  ~10 s with up to 40 candidate images in the request. Screenshots taken.
+- Cost/latency note: a full circle of 40 photos is ~40 × 260 tokens on
+  Gemini's fixed per-image tiling, a fraction of a cent, and 10 s on the
+  paid tier; the mobile match timeout is 90 s, the server deadline 45 s.
