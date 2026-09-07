@@ -24,7 +24,11 @@ export async function openAddAnimal(navigation: { navigate: (screen: 'AddAnimal'
     await ensureLocationPermission();
   } catch (err) {
     if (err instanceof LocationPermissionError) {
-      alertLocationPermission();
+      // The denial can arrive while the system sheet is still animating
+      // away, and an alert presented at that instant is dropped by iOS
+      // (seen on the simulator: form closed, no alert). A short pause
+      // lets the sheet finish.
+      setTimeout(alertLocationPermission, 700);
       return;
     }
   } finally {
