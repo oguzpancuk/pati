@@ -33,9 +33,9 @@ const ANIMALS =
     ? String(process.argv[animalsArg + 1] || '')
         .split(',')
         .map(Number)
-        .filter(Number.isInteger)
     : null;
-if (ANIMALS && ANIMALS.length === 0) {
+if (ANIMALS && (ANIMALS.length === 0 || !ANIMALS.every((n) => Number.isInteger(n) && n > 0))) {
+  // A typo must not silently narrow the run to the ids that parsed.
   console.error('--animals needs a comma-separated list of animal ids');
   process.exit(2);
 }
