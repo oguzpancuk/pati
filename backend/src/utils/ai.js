@@ -24,8 +24,8 @@ const path = require('path');
 const sharp = require('sharp');
 
 const API_KEY = process.env.GEMINI_API_KEY;
-// The free tier serves the flash models; the id is configuration so a
-// newer one is a secret change, not a deploy. 3.5 rather than the newest
+// A flash model on Google's paid tier (ADR-0005 amendment); the id is
+// configuration so a newer one is a secret change, not a deploy. 3.5 rather than the newest
 // 3.8: on the first live day 3.8 answered 503 "high demand" to half the
 // calls and timed out on every comparison, 3.5 answered all of them.
 const MODEL = process.env.AI_MODEL || 'gemini-3.5-flash';

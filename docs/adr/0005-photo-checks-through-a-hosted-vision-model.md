@@ -19,8 +19,9 @@ The owner asked for both to become real now.
 ## Decision
 
 - **A hosted multimodal model, not an embedding service.** Both moments are
-  one request each to the Anthropic Messages API through the official Node
-  SDK, from the existing backend. The care photo goes up with the claim
+  one request each to a hosted vision API from the existing backend
+  (originally the Anthropic Messages API through its Node SDK; since the
+  2026-09-07 amendment below, Gemini's `generateContent` over `fetch`). The care photo goes up with the claim
   ("the user says this shows the food they left out") and comes back as a
   verdict; the new animal's first photo goes up together with the cover
   photos of the best field-ranked nearby candidates and comes back as one
@@ -57,8 +58,9 @@ The owner asked for both to become real now.
   shown). Matching judges the individual's markings, not the breed. Both
   prompts are English; the one sentence the user sees is produced in
   Turkish.
-- **Everything fails open.** Without `ANTHROPIC_API_KEY`, or on a network
-  error, a refusal, a malformed answer or an unreadable image, the check
+- **Everything fails open.** Without the provider key (`ANTHROPIC_API_KEY`
+  then, `GEMINI_API_KEY` now), or on a network error, a refusal, a
+  malformed answer or an unreadable image, the check
   answers `unavailable` (the photo is accepted, the confirm screen says
   "Fotoğraf hazır" rather than "Uygun görünüyor", nothing is stored in
   `ai_check`) and matching returns the field-only ranking with
@@ -75,11 +77,12 @@ The owner asked for both to become real now.
   4000 px that it cannot read from 1024. HEIC cannot be decoded by the
   prebuilt binaries, and is treated as unavailable (fail open) — the mobile
   camera produces JPEG, so this only affects gallery picks.
-- **Model and candidate count are configuration.** `AI_MODEL` defaults to
-  `claude-opus-5` (the SDK guidance's default; matching is a fine visual
-  discrimination task where the strongest model is the cheap choice next to
-  a duplicate record), `AI_MATCH_CANDIDATES` to 8. The care check runs at
-  low effort, matching at medium. Photo matching has its own per-user
+- **Model and candidate count are configuration.** `AI_MODEL` defaulted
+  to `claude-opus-5` (the SDK guidance's default; matching is a fine
+  visual discrimination task where the strongest model is the cheap choice
+  next to a duplicate record) and now to `gemini-3.5-flash` (amendment);
+  `AI_MATCH_CANDIDATES` to 8. The care check ran at low effort and now
+  with thinking off; matching keeps the model's default. Photo matching has its own per-user
   limiter (30/h): one request carries up to nine images and is the most
   expensive thing a user can trigger; the care photo check has its own too
   (80/h), so the drop budget the route limiter was sized for stays whole.
@@ -90,9 +93,9 @@ The owner asked for both to become real now.
 
 ## Consequences
 
-- The backend gains two dependencies: `@anthropic-ai/sdk` and `sharp`.
-  Both are the boring choice — the SDK is what the API vendor documents,
-  and Node has no image decoding of its own.
+- The backend gains `sharp` (Node has no image decoding of its own). The
+  first version also added `@anthropic-ai/sdk`; the amendment removed it —
+  the Gemini call is plain `fetch`.
 - A checked-but-unconfirmed photo stays in the uploads volume (rejected
   ones are deleted). Accepted for now: it is bytes on a volume, not a
   record on the map, and object storage with lifecycle rules is already on
@@ -102,7 +105,7 @@ The owner asked for both to become real now.
   matching screen so the field-only answer (instant when the model is off)
   does not flash past as a glitch.
 - Verification: `backend/scripts/ai-check/run.sh` drives every branch
-  against a fake Messages API whose verdict the harness chooses and which
+  against a fake provider endpoint whose verdict the harness chooses and which
   refuses any request the real API would refuse (84 assertions);
   `backend/scripts/ai-check/live-sample.js` sends real photos to the real
   model, which is how accuracy gets judged, by a person, with the key.
@@ -152,6 +155,8 @@ What changed and what did not:
   key; flash pricing is a fraction of a cent per photo, and paid traffic is
   not used to improve their products) or leaving the checks off — an owner
   decision recorded in NOTES when made.
+- Cost lever kept: a paid Gemini key or a different model is a secret
+  change; moving back to Claude is the thirty lines again.
 
 **Decided the same day (2026-09-07): Google's paid tier.** Once the daily
 cap was measured the owner withdrew the no-bill constraint: billing goes
@@ -160,7 +165,5 @@ as they are, the cap goes away, and paid traffic is outside the free
 tier's data-use clause. What remains of the constraint is the shape of the
 bill — fractions of a cent per photo on a flash model, capped by the
 per-user limiters. The runbook (docs/DEPLOYMENT.md) makes enabling billing
-the first step; the privacy text must name Google as a processor before
-the key reaches production.
-- Cost lever kept: a paid Gemini key or a different model is a secret
-  change; moving back to Claude is the thirty lines again.
+the first step; the privacy text names Google as a processor (done before
+the key reached production, deploy v27).

@@ -1,4 +1,4 @@
--- Photo checks through Claude vision (ADR-0005), September 2026.
+-- Photo checks through a hosted vision model (ADR-0005), September 2026.
 --
 -- 001_init.sql carries the same column for a database built from scratch;
 -- this file exists because production is never rebuilt and CREATE TABLE IF
