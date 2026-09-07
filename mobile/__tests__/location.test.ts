@@ -14,15 +14,11 @@ import {
   LocationPermissionError,
 } from '../src/location';
 
+// The library's own mock carries the real PERMISSIONS/RESULTS values, so a
+// version bump that changes the vocabulary fails this test instead of
+// passing on hand-copied strings (review finding).
 jest.mock('react-native-permissions', () => ({
-  PERMISSIONS: { IOS: { LOCATION_WHEN_IN_USE: 'ios.permission.LOCATION_WHEN_IN_USE' } },
-  RESULTS: {
-    UNAVAILABLE: 'unavailable',
-    DENIED: 'denied',
-    BLOCKED: 'blocked',
-    GRANTED: 'granted',
-    LIMITED: 'limited',
-  },
+  ...jest.requireActual('react-native-permissions/mock'),
   check: jest.fn(),
   request: jest.fn(),
 }));

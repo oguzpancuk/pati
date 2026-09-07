@@ -1928,7 +1928,11 @@ the next docs touch.
   keeps its separate background permission). The web Safari fallback
   remembers a grant per tab session (sessionStorage): iOS Safari's "Allow
   Once" and a revoke in Settings would otherwise leave a stale "granted"
-  and the list would prompt on entry. `pati://add-animal` (a live deep
+  and the list would prompt on entry (residual: a revoke in Settings
+  during the same tab session still prompts once on entry, and the denied
+  answer clears the flag — Safari offers nothing better). The always
+  usage string and the `location` background mode left Info.plist with
+  the request. `pati://add-animal` (a live deep
   link) landed on the form without the gate — the screen now checks on
   mount and leaves with the Settings alert. The 700 ms alert delay moved
   into `alertLocationPermission` so the map's drop button gets it too.
@@ -1936,7 +1940,16 @@ the next docs touch.
   leaves fine location denied, so the gate refuses it; Android 11+'s
   background-permission request opens Settings on every launch until
   "don't ask again". `mobile/__tests__/location.test.ts` pins the iOS
-  status mapping of the gate.
+  status mapping of the gate, with the vocabulary taken from the
+  library's own jest mock (jest now transpiles that package).
+- Evidence on the rebuilt app (pods without LocationAlways, Info.plist
+  without the always string), same fresh account: permission blocked →
+  `pati://add-animal` shows "Konum izni gerekli" and lands on the map,
+  no form; permission reset → animals page, "Ekle" → sheet, "Uygulamayı
+  Kullanırken İzin Ver" → the form opens. Earlier the same evening on the
+  previous build: the deep link with the permission undecided showed the
+  sheet on arrival and "İzin Verme" left with the alert. Web check rerun
+  after the sessionStorage change: identical results (0 / 1 / nearest).
 - Evidence, iOS simulator, fresh account, permission reset each time:
   animals page open 9 s → no sheet; "Ekle" → sheet; "İzin Verme" → form
   closed, "Konum izni gerekli" alert within 3 s; "Uygulamayı Kullanırken
