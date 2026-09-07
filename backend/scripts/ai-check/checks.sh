@@ -165,7 +165,7 @@ echo "7. Photo matching folds the model's verdicts into the tiers"
 mode '{"mode":"approve"}'
 # An empty corner of the map, away from the seed — and a different cell per
 # run: the animals stay behind, and a rerun's candidates must not include
-# them (the assertions count exactly three). Cells are 0.02° of latitude
+# them (the assertions count the fixtures exactly). Cells are 0.02° of latitude
 # (2.2 km) by 0.03° of longitude (≥2.1 km up to 51°N) apart, with the
 # animals inside 0.004° of the cell origin, so only a rerun landing in the
 # SAME cell can pollute the list — stamps equal modulo both 499 and 89,
@@ -177,16 +177,23 @@ code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Uzak Tekir\",\"
 check "animal B -> 201" 201 "$code"; B=$(field .id)
 code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Fotoğrafsız\",\"breed\":\"Tekir\",\"color\":\"gri\",\"lat\":$LAT,\"lng\":$(node -pe "$LNG + 0.001")}")
 check "animal C (no photo) -> 201" 201 "$code"; C=$(field .id)
-# D: same pattern, other colour, past the 200 m ring → fields say 2 = medium,
-# the only fixture on the medium boundary; the fake calls it "unsure", which
-# moves nothing, so it must survive the filter as medium.
-code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Orta Tekir\",\"breed\":\"Tekir\",\"color\":\"siyah\",\"lat\":$LAT,\"lng\":$(node -pe "$LNG + 0.003")}")
+# D: same pattern, other colour, past the 200 m ring (+0.0035° is ≥ 244 m at
+# every latitude the grid reaches) → fields say 2 = medium, the only fixture
+# on the medium boundary; the fake calls it "unsure", which moves nothing,
+# so it must survive the filter as medium.
+code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Orta Tekir\",\"breed\":\"Tekir\",\"color\":\"siyah\",\"lat\":$LAT,\"lng\":$(node -pe "$LNG + 0.0035")}")
 check "animal D (medium by fields) -> 201" 201 "$code"; D=$(field .id)
+# E: no photo, other pattern and colour, past the ring → fields say 0 = low.
+# The only fixture that is low by fields: hidden once the model answered,
+# listed when it did not — the case an ungated filter got wrong.
+code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Alakasız\",\"breed\":\"Sarman\",\"color\":\"turuncu\",\"lat\":$LAT,\"lng\":$(node -pe "$LNG + 0.003")}")
+check "animal E (low by fields, no photo) -> 201" 201 "$code"; E=$(field .id)
 code=$(upload "animals/$A/photos" "$JWT"); check "A photo -> 201" 201 "$code"
 code=$(upload "animals/$B/photos" "$JWT"); check "B photo -> 201" 201 "$code"
 code=$(upload "animals/$D/photos" "$JWT"); check "D photo -> 201" 201 "$code"
 
-# Field-ranked order of the animals with a photo: A (4, nearest), B (4), D (2).
+# Field-ranked order of the animals with a photo: A (4, nearest), B (3 —
+# breed + colour, outside the 200 m ring), D (2).
 mode '{"mode":"match","verdicts":["different","same","unsure"]}'
 before=$(uploads_count)
 code=$(upload animals/match "$JWT" species=cat breed=Tekir color=gri lat=$LAT lng=$LNG)
@@ -202,6 +209,7 @@ check "B's first reason is photo_same" photo_same "$(field .candidates[0].simila
 check "A (different → low) is not listed" none "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$A)?.id ?? 'none'")"
 check "C (no photo) keeps its field tier" high "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$C).similarity")"
 check "D (unsure, fields medium) is listed as medium" medium "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$D)?.similarity ?? 'none'")"
+check "E (low by fields) is not listed" none "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$E)?.id ?? 'none'")"
 check "exactly the three that clear medium are listed" 3 "$(field .candidates.length)"
 check "scratch upload deleted" "$before" "$(uploads_count)"
 
@@ -211,8 +219,9 @@ code=$(upload animals/match "$JWT" species=cat breed=Tekir color=gri lat=$LAT ln
 check "match -> 200" 200 "$code"
 check "photoChecked false" false "$(field .photoChecked)"
 check "A (nearest, same fields) ranks first" "$A" "$(field .candidates[0].id)"
-check "all four are listed (fail-open keeps the old list)" 4 "$(field .candidates.length)"
+check "all five are listed (fail-open keeps the old list)" 5 "$(field .candidates.length)"
 check "…D included as medium" medium "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$D)?.similarity ?? 'none'")"
+check "…E included as low — an ungated filter would hide it" low "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$E)?.similarity ?? 'none'")"
 check "no photo reasons" none "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.flatMap(c=>c.similarity_reasons).find(r=>r.startsWith('photo')) ?? 'none'")"
 code=$(get_auth "animals/match?species=cat&breed=Tekir&color=gri&lat=$LAT&lng=$LNG" "$JWT")
 check "GET match still answers" 200 "$code"

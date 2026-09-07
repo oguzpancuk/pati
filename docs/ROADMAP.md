@@ -56,7 +56,7 @@ For the technical-debt list that must close before production, see
 > screens and the user's final say are unchanged; without
 > `GEMINI_API_KEY` the ranking is field-only, as before. The embedding
 > service + pgvector plan below is retired — the spike's numbers are kept
-> for the record. Evidence: `backend/scripts/ai-check/run.sh` (89
+> for the record. Evidence: `backend/scripts/ai-check/run.sh` (92
 > assertions against a fake `generateContent` endpoint); accuracy against real photos is
 > the owner's call with `live-sample.js` and the key.
 

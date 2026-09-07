@@ -43,8 +43,8 @@ const BASE_URL = (
 const MAX_IMAGE_EDGE = 1024;
 // One request holds the new photo plus this many candidates — meant to
 // cover every animal in the 1 km circle (owner decision); the cap only
-// bounds the request (40 × ~150 KB well under the 20 MB inline limit) and
-// the privacy text names the same number. Validated at the boundary: a bad
+// bounds the request (40 × ~250 KB × 4/3 ≈ 13 MB, under the 20 MB inline
+// limit) and the privacy text names the same number. Validated at the boundary: a bad
 // value would silently turn matching field-only.
 const MAX_MATCH_CANDIDATES = (() => {
   const raw = process.env.AI_MATCH_CANDIDATES;

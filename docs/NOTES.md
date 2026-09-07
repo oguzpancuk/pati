@@ -1809,6 +1809,18 @@ the next docs touch.
   model is down. The ADR carried both 8 and 40; `AI_MATCH_CANDIDATES` is
   capped at 48 (the 20 MB inline limit); "en yakın" left the KVKK sentence
   because the selection is field-ranked, not distance-ranked. 89.
+- Second round: step 8 did not actually prove the gate — none of the four
+  fixtures was low by fields, so an ungated filter listed all four too.
+  Fixture E (no photo, other pattern and colour → 0 points) is hidden in
+  step 7 and listed as low in step 8; D moved to +0.0035° so its 200 m
+  margin holds at every latitude the grid reaches. `FALLBACK_LIST_LIMIT`
+  (20) is still unexercised — it would need 21 animals in one cell. 92.
+- Harness/gate observation for the maya layer (upstream candidate,
+  2026-09-07 · `.claude/hooks/review-mark.sh` · the marker records HEAD
+  when a review *finishes*, not the range it reviewed): a reviewer
+  started on commit X that finishes after commit Y was made marks Y as
+  reviewed. Seen twice today. The mark should be the reviewed range's
+  tip, passed in by the agent prompt or read from its transcript.
 - Real-model end to end, both clients: web — cat A (cover kedi-d1, same
   fields) and cat B (cover kedi-b, other fields) at an empty spot, new
   animal with kedi-d2 → one candidate, A, "Fotoğrafta aynı hayvan · yüksek

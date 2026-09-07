@@ -118,7 +118,7 @@ The owner asked for both to become real now.
   does not flash past as a glitch.
 - Verification: `backend/scripts/ai-check/run.sh` drives every branch
   against a fake provider endpoint whose verdict the harness chooses and which
-  refuses any request the real API would refuse (89 assertions);
+  refuses any request the real API would refuse (92 assertions);
   `backend/scripts/ai-check/live-sample.js` sends real photos to the real
   model, which is how accuracy gets judged, by a person, with the key.
 
