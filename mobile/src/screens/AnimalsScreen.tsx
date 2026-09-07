@@ -2,23 +2,18 @@ import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
-import {
-  alertLocationPermission,
-  Coordinates,
-  getCurrentLocation,
-  LocationPermissionError,
-} from '../location';
+import { Coordinates, getCurrentLocation, LocationPermissionError } from '../location';
 import { mergeById } from '../paging';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { Icon } from '../components/brand';
 import { makeStyles, spacing, useTheme } from '../theme';
 
-// 1 km: a distance you can walk to provide care. At 5 km the list filled
-// with dozens of irrelevant records; a street animal doesn't leave its own
-// neighborhood anyway.
-const NEARBY_RADIUS_METERS = 1000;
-const PAGE_SIZE = 20;
+// No radius (owner decision, 2026-09-07): the list is every animal, nearest
+// first, so the first page is your street and the last is the far end of
+// the country; you scroll as far as you care to. A page is about a
+// screenful — the rest loads as the end comes into view.
+const PAGE_SIZE = 10;
 
 type SpeciesFilter = 'all' | 'cat' | 'dog';
 
@@ -46,6 +41,9 @@ export default function AnimalsScreen({ navigation }: any) {
   // The location is taken on page one and kept: later pages must use the
   // same center, or pages blur together while the user walks.
   const locationRef = useRef<Coordinates | null>(null);
+  // Without location permission the list still shows — newest first — and
+  // says so, instead of the old dead end (an alert and an empty screen).
+  const [noLocation, setNoLocation] = useState(false);
   // The loading flag in state stays stale until the next render; with
   // onEndReached firing twice in one frame the same page could be requested
   // twice. The ref updates instantly, cutting off the second request.
@@ -58,14 +56,20 @@ export default function AnimalsScreen({ navigation }: any) {
     if (isFirstPage) setLoading(true);
     else setLoadingMore(true);
     try {
-      if (isFirstPage || !locationRef.current) {
-        locationRef.current = await getCurrentLocation();
+      if (isFirstPage) {
+        try {
+          locationRef.current = await getCurrentLocation();
+          setNoLocation(false);
+        } catch (err) {
+          if (!(err instanceof LocationPermissionError)) throw err;
+          locationRef.current = null;
+          setNoLocation(true);
+        }
       }
       const loc = locationRef.current;
       const data = await fetchAnimals({
-        lat: loc.lat,
-        lng: loc.lng,
-        radiusMeters: NEARBY_RADIUS_METERS,
+        lat: loc?.lat,
+        lng: loc?.lng,
         species: species === 'all' ? undefined : species,
         limit: PAGE_SIZE,
         offset,
@@ -73,11 +77,7 @@ export default function AnimalsScreen({ navigation }: any) {
       setAnimals((prev) => (isFirstPage ? data : mergeById(prev, data)));
       setHasMore(data.length === PAGE_SIZE);
     } catch (err: any) {
-      if (err instanceof LocationPermissionError) {
-        alertLocationPermission();
-      } else {
-        Alert.alert('Hayvanlar yüklenemedi', err?.message ?? 'Bilinmeyen hata');
-      }
+      Alert.alert('Hayvanlar yüklenemedi', err?.message ?? 'Bilinmeyen hata');
     } finally {
       inFlightRef.current = false;
       setLoading(false);
@@ -103,8 +103,10 @@ export default function AnimalsScreen({ navigation }: any) {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View style={styles.titleCol}>
-            <Text variant="title">Yakındakiler</Text>
-            <Text variant="caption">1 km içindeki kayıtlı hayvanlar</Text>
+            <Text variant="title">Hayvanlar</Text>
+            <Text variant="caption">
+              {noLocation ? 'Konum izni yok — en yeni kayıtlar' : 'Sana en yakından uzağa'}
+            </Text>
           </View>
           <Button
             title="Ekle"
@@ -165,8 +167,8 @@ export default function AnimalsScreen({ navigation }: any) {
           !loading ? (
             <EmptyState
               emoji="🐾"
-              title="Yakınında kayıt yok"
-              description="1 km içinde kayıtlı hayvan bulunamadı. İlkini sen ekleyebilirsin."
+              title="Henüz kayıt yok"
+              description="Kayıtlı hayvan bulunamadı. İlkini sen ekleyebilirsin."
               actionTitle="Yeni hayvan ekle"
               onAction={() => navigation.navigate('AddAnimal')}
             />

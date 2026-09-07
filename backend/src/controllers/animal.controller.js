@@ -63,16 +63,23 @@ async function listAnimals(req, res, next) {
     const speciesFilter = species ? 'AND a.species = $SPECIES' : '';
 
     if (lat && lng) {
-      const params = [lng, lat, radiusMeters || 2000, limit, offset];
+      // With a radius (the map's viewport pull) the circle bounds the set;
+      // without one (the animals list, owner decision 2026-09-07) the whole
+      // table is walked nearest-first — `<->` on geography is a KNN index
+      // scan on the GIST index, so page one costs the same in a city or a
+      // village and the list never runs out before the animals do.
+      const bounded = radiusMeters !== undefined && radiusMeters !== '';
+      const params = bounded ? [lng, lat, radiusMeters, limit, offset] : [lng, lat, limit, offset];
+      const point = 'ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography';
       let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
                         ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url,
-                        ST_Distance(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
+                        ST_Distance(a.location, ${point}) AS distance_meters
                  FROM animals a
                  ${COVER_PHOTO_JOIN}
-                 WHERE ST_DWithin(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
+                 WHERE ${bounded ? `ST_DWithin(a.location, ${point}, $3)` : 'true'}
                  ${speciesFilter}
-                 ORDER BY distance_meters, a.id
-                 LIMIT $4::int OFFSET $5::int`;
+                 ORDER BY a.location <-> ${point}, a.id
+                 LIMIT $${bounded ? 4 : 3}::int OFFSET $${bounded ? 5 : 4}::int`;
       if (species) {
         params.push(species);
         sql = sql.replace('$SPECIES', `$${params.length}`);

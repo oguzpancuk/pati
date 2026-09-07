@@ -499,10 +499,12 @@ export const fetchMyCareActions = (limit = 20, offset = 0) =>
 
 export const deleteCareAction = (id: number) => api.del<void>(`/care-actions/${id}`);
 
+// With lat/lng and no radius the server walks the whole table nearest
+// first (the animals list); with a radius it bounds the set (the map).
 export const fetchAnimals = (
   lat?: number,
   lng?: number,
-  radiusMeters = 10000,
+  radiusMeters?: number,
   species?: string,
   limit?: number,
   offset?: number
@@ -511,7 +513,7 @@ export const fetchAnimals = (
   if (lat !== undefined && lng !== undefined) {
     q.set('lat', String(lat));
     q.set('lng', String(lng));
-    q.set('radiusMeters', String(radiusMeters));
+    if (radiusMeters !== undefined) q.set('radiusMeters', String(radiusMeters));
   }
   if (species) q.set('species', species);
   if (limit) q.set('limit', String(limit));

@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { mergeById } from '@mobile/paging';
 import { Animal, fetchAnimals } from '../api';
 import { AnimalAvatar } from '../avatars';
-import { LoadMoreButton } from '../components/LoadMoreButton';
-import { Coordinates, FALLBACK_CENTER, getCurrentLocation } from '../location';
+import { Coordinates, getCurrentLocation } from '../location';
 
-// 1 km (same as mobile): a walkable care distance; pages of 20.
-const NEARBY_RADIUS_METERS = 1000;
-const PAGE_SIZE = 20;
+// No radius (owner decision, 2026-09-07, same as mobile): every animal,
+// nearest first; a page is about a screenful and the next one loads when
+// the end scrolls into view.
+const PAGE_SIZE = 10;
 
 type Filter = '' | 'cat' | 'dog';
 
@@ -24,17 +24,22 @@ export default function AnimalsPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  // Later pages must use the same center; the location is kept from page one.
-  const locationRef = useRef<Coordinates>(FALLBACK_CENTER);
+  // Later pages must use the same center; the location is kept from page
+  // one. Without a location (http origin, permission denied) the list is
+  // newest first and the caption says so — not "nearest to Kadıköy".
+  const locationRef = useRef<Coordinates | null>(null);
+  const [noLocation, setNoLocation] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<() => void>(() => {});
 
   async function loadMore() {
     setLoadingMore(true);
     try {
       const loc = locationRef.current;
       const data = await fetchAnimals(
-        loc.lat,
-        loc.lng,
-        NEARBY_RADIUS_METERS,
+        loc?.lat,
+        loc?.lng,
+        undefined,
         filter || undefined,
         PAGE_SIZE,
         animals.length
@@ -52,18 +57,17 @@ export default function AnimalsPage() {
     let alive = true;
     setLoading(true);
     getCurrentLocation()
-      .catch(() => FALLBACK_CENTER)
       .then((loc) => {
         locationRef.current = loc;
-        return fetchAnimals(
-          loc.lat,
-          loc.lng,
-          NEARBY_RADIUS_METERS,
-          filter || undefined,
-          PAGE_SIZE,
-          0
-        );
+        setNoLocation(false);
+        return loc;
       })
+      .catch(() => {
+        locationRef.current = null;
+        setNoLocation(true);
+        return null;
+      })
+      .then((loc) => fetchAnimals(loc?.lat, loc?.lng, undefined, filter || undefined, PAGE_SIZE, 0))
       .then((data) => {
         if (!alive) return;
         setAnimals(data);
@@ -76,6 +80,21 @@ export default function AnimalsPage() {
     };
   }, [filter]);
 
+  // Auto-load when the sentinel under the list scrolls into view; the ref
+  // always points at the latest loadMore so the observer sees fresh state.
+  loadMoreRef.current = () => {
+    if (hasMore && !loading && !loadingMore) loadMore();
+  };
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) loadMoreRef.current();
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loading, animals.length]);
+
   return (
     <div className="page">
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -85,7 +104,7 @@ export default function AnimalsPage() {
         </Link>
       </div>
       <p className="muted" style={{ marginTop: 4 }}>
-        1 km içindeki kayıtlı sokak dostları.
+        {noLocation ? 'Konum izni yok — en yeni kayıtlar.' : 'Sana en yakından uzağa.'}
       </p>
 
       <div className="chiprow">
@@ -111,7 +130,7 @@ export default function AnimalsPage() {
       {!loading && animals.length === 0 && (
         <div className="card flat">
           <p className="muted" style={{ margin: 0 }}>
-            Yakınında kayıt yok. İlk hayvanı sen ekle.
+            Henüz kayıt yok. İlk hayvanı sen ekle.
           </p>
         </div>
       )}
@@ -134,14 +153,9 @@ export default function AnimalsPage() {
           <span className="subtle">›</span>
         </Link>
       ))}
-      {hasMore && (
-        <LoadMoreButton
-          remaining={PAGE_SIZE}
-          loading={loadingMore}
-          onClick={loadMore}
-          label="Daha fazla yükle"
-        />
-      )}
+      {/* The sentinel: scrolling it into view loads the next page. */}
+      <div ref={sentinelRef} style={{ height: 1 }} />
+      {loadingMore && <p className="muted">Yükleniyor…</p>}
     </div>
   );
 }
