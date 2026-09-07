@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { animalAvatarSvg } from '@shared/animalAvatarSvg';
 import { patiAvatarSvg } from '@shared/avatarSvg';
 
@@ -21,7 +22,10 @@ export function AnimalAvatar({
   size?: number;
   photoUrl?: string | null;
 }) {
-  if (photoUrl) {
+  // A cut-out that fails to load falls back to the pattern avatar instead
+  // of the browser's broken-image icon.
+  const [failed, setFailed] = useState<string | null>(null);
+  if (photoUrl && failed !== photoUrl) {
     return (
       <img
         className="round"
@@ -29,6 +33,7 @@ export function AnimalAvatar({
         alt=""
         width={size}
         height={size}
+        onError={() => setFailed(photoUrl)}
         style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }}
       />
     );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, View } from 'react-native';
 import AnimalPatternAvatar from './avatars/AnimalPatternAvatar';
 import { makeStyles } from '../theme';
@@ -22,12 +22,17 @@ interface Props {
 export default function AnimalAvatar({ species, breed, size = 36, photoUrl }: Props) {
   const styles = useStyles();
   const inner = size - 4;
+  // A cut-out that fails to load (file gone, offline) falls back to the
+  // pattern avatar instead of an empty circle.
+  const [failed, setFailed] = useState<string | null>(null);
+  const showPhoto = photoUrl && failed !== photoUrl;
   return (
     <View style={[styles.frame, { width: size, height: size, borderRadius: size / 2 }]}>
-      {photoUrl ? (
+      {showPhoto ? (
         <Image
           source={{ uri: photoUrl }}
           style={{ width: inner, height: inner, borderRadius: inner / 2 }}
+          onError={() => setFailed(photoUrl)}
           accessibilityIgnoresInvertColors
         />
       ) : (
