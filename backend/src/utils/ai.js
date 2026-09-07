@@ -157,6 +157,10 @@ async function ask({ system, parts, schema, tag, thinking = true }) {
     // the same deadline. Not on 429: that is the quota, and a second call
     // a moment later only spends another request against it.
     if (response.status === 503) {
+      // Logged so the burst frequency stays visible once the retry masks
+      // it; the body is drained so the socket is released, not pinned.
+      console.warn(`[ai:${tag}] 503 high demand; retrying once`);
+      await response.arrayBuffer().catch(() => {});
       await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
       if (deadline.aborted) throw deadline.reason;
       response = await send();

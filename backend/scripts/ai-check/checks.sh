@@ -155,6 +155,11 @@ before_requests=$(last .requests)
 code=$(upload care-actions/check "$JWT" actionType=food)
 check "two 503s -> unavailable" unavailable "$(field .verdict)"
 check "no third request" "$((before_requests + 2))" "$(last .requests)"
+mode '{"mode":"busy","times":1,"status":429}'
+before_requests=$(last .requests)
+code=$(upload care-actions/check "$JWT" actionType=food)
+check "a 429 (quota) is not retried -> unavailable" unavailable "$(field .verdict)"
+check "one request only" "$((before_requests + 1))" "$(last .requests)"
 
 echo "7. Photo matching folds the model's verdicts into the tiers"
 mode '{"mode":"approve"}'

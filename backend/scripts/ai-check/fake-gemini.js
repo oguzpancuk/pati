@@ -18,6 +18,7 @@
  *
  *   POST /control {"mode":"approve"|"reject"|"error"|"blocked"}
  *   POST /control {"mode":"busy","times":1}   (503 that many times, then approve)
+ *   POST /control {"mode":"busy","times":1,"status":429}   (the quota answer instead)
  *   POST /control {"mode":"match","verdicts":["same","different",...]}
  *   POST /control {"mode":"match","candidates":[{"index":0,"verdict":"same"}]}  (raw answer)
  *   GET  /last    → what the last generateContent request looked like
@@ -164,8 +165,18 @@ http
 
     const { mode } = control;
     if (mode === 'busy' && control.times > 0) {
-      // The free tier's "high demand" answer, for the retry path.
+      // The free tier's "high demand" answer (503) for the retry path, or
+      // its quota answer (429), which must NOT be retried.
       control.times -= 1;
+      if (control.status === 429) {
+        return send(res, 429, {
+          error: {
+            code: 429,
+            message: 'Quota exceeded for metric: generate_content_free_tier_requests, limit: 20',
+            status: 'RESOURCE_EXHAUSTED',
+          },
+        });
+      }
       return send(res, 503, {
         error: {
           code: 503,

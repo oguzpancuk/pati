@@ -103,7 +103,7 @@ The owner asked for both to become real now.
   does not flash past as a glitch.
 - Verification: `backend/scripts/ai-check/run.sh` drives every branch
   against a fake Messages API whose verdict the harness chooses and which
-  refuses any request the real API would refuse (82 assertions);
+  refuses any request the real API would refuse (84 assertions);
   `backend/scripts/ai-check/live-sample.js` sends real photos to the real
   model, which is how accuracy gets judged, by a person, with the key.
 
@@ -137,9 +137,11 @@ What changed and what did not:
   sent to it may be used to improve their products; the paid tier does
   not. Users' care photos and animal photos therefore leave the service
   under those terms, and the privacy text must say so before the feature
-  is turned on in production. Rate limits on the free tier are per key
-  and visible in AI Studio; when exhausted the checks fail open (429 →
-  `unavailable`), so a busy day degrades to the old behaviour rather than
-  blocking anyone.
+  is turned on in production. Rate limits on the free tier are per key —
+  measured on the first live day: **20 requests per minute** on
+  `gemini-3.5-flash`, shared by every user of the app — and when exhausted
+  the checks fail open (429 → `unavailable`, not retried), so a busy
+  minute degrades to the old behaviour rather than blocking anyone. A 503
+  "high demand" answer is retried once under the same 45 s deadline.
 - Cost lever kept: a paid Gemini key or a different model is a secret
   change; moving back to Claude is the thirty lines again.
