@@ -1833,3 +1833,49 @@ the next docs touch.
 - Cost/latency note: a full circle of 40 photos is ~40 × 260 tokens on
   Gemini's fixed per-image tiling, a fraction of a cent, and 10 s on the
   paid tier; the mobile match timeout is 90 s, the server deadline 45 s.
+
+## 2026-09-07 — pre-pilot sprint P1–P3 built: purge script, nearest-first list, face cut-outs
+
+- **P1 — `backend/scripts/purge-demo.js`.** Dry run prints per-table counts
+  and the kept accounts (capped, tombstones counted separately); `--apply`
+  runs one transaction: ad events + advertisers, content reports, every
+  care action, every animal (cascades), every badge award, the kept users'
+  points/rank snapshot reset, then the `@stray.test` / `@pati.demo` users;
+  orphaned upload files (photos, thumbnails, drop photos, demo avatars,
+  ad images) unlinked after the commit. Rehearsed on a `pg_dump` clone of
+  the local database: 373 demo users gone, 855 accounts kept (harness
+  leftovers and 107 deletion tombstones included), every content table 0.
+  Not yet run on production: the script must be in the image first
+  (deploy), then `fly volumes snapshots create` on `pati-db`, dry run via
+  `fly ssh console`, the owner's yes on the counts, `--apply`.
+- **P2 — nearest first, no radius, more on scroll.** `GET /animals` with
+  lat/lng and no `radiusMeters` pages inside a subquery ordered by
+  `location <-> point` alone — the shape the planner turns into a KNN
+  index scan; the cover-photo lateral runs for the page's rows only, on a
+  new `animal_photos` index. Review measured the first version (tiebreaker
+  in the ORDER BY) at 621 ms against 13 ms; the final shape is 3.5 ms
+  with 4,000 animals. Both clients page by 10 and load on scroll (mobile
+  `onEndReached`, web an IntersectionObserver sentinel); any location
+  failure falls back to newest-first with a caption. Curl: Kadıköy → 0 m
+  first, Ankara → 274 km first (no radius), page 2 continues, the map's
+  bounded pull unchanged, no-location = newest. Screenshots: both clients,
+  first page and after scrolling (30 rows on web after two scrolls).
+- **P3 — face cut-outs.** Every animal photo upload asks Gemini for the
+  head box (0–1000 grid) and a 0–1 profile-picture score; `sharp` cuts a
+  square with a 35 % margin from the EXIF-rotated image into a 320 px
+  `-face.jpg` next to the photo (`thumb_url`, `face_score`, `face_box` —
+  migration 005). One lateral join (`utils/coverPhoto.js`) picks the
+  best-scored photo for every list, the profile header, the match
+  candidates, comment rows and the map markers on both clients; the SVG
+  pattern avatar stays as the fallback and in the code. Real model on the
+  owner's cats: boxes returned with scores 0.89–0.98, and the cut-outs are
+  exactly the faces (Pamuk's tabby face fills the circle; Duman's British
+  grey on the profile header and the list). Harness step 10: no face → no
+  thumbnail, a face → a 320×320 file and the score, the best-scored photo
+  is the picture in detail and list, model down → photo saved without a
+  thumbnail; 108 assertions. KVKK text now says every animal photo is sent
+  (three purposes). Backfill: `backfill-face-thumbs.js --apply
+  [--animals ids]` — production will have nothing to backfill after P1.
+- Cost: one extra Gemini call per animal photo (2–6 per registration),
+  fractions of a cent; the upload takes ~2–3 s longer, uploads run in
+  parallel from both clients.
