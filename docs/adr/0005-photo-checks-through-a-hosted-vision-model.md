@@ -33,7 +33,8 @@ The owner asked for both to become real now.
   ever proves too weak, that is the moment to revisit it, with the
   feedback this decision starts collecting.
 - **Verdicts, not scores; the user still decides.** The model answers a
-  JSON schema (`output_config.format`), so the backend branches on an enum
+  JSON schema (`output_config.format` then, `generationConfig.responseSchema`
+  now), so the backend branches on an enum
   and never parses prose. For matching, "same" lifts a candidate to high
   whatever the fields said, "similar" adds a point, "different" sinks it
   to low; the tiers and the "it's this one / new record" choice stay
@@ -73,7 +74,8 @@ The owner asked for both to become real now.
   the moderation queue; it is not shown to users.
 - **Images are downscaled before they leave the server.** `sharp` rotates
   by EXIF and fits every photo into 1024 px JPEG: a phone photo is 3–8 MB,
-  the API refuses images over 5 MB, and the model reads nothing extra from
+  the providers cap what a request may carry (5 MB per image then, 20 MB
+  per request now), and the model reads nothing extra from
   4000 px that it cannot read from 1024. HEIC cannot be decoded by the
   prebuilt binaries, and is treated as unavailable (fail open) — the mobile
   camera produces JPEG, so this only affects gallery picks.
@@ -87,9 +89,11 @@ The owner asked for both to become real now.
   expensive thing a user can trigger; the care photo check has its own too
   (80/h), so the drop budget the route limiter was sized for stays whole.
   The match answer's candidate indexes must cover every candidate sent
-  exactly once — checked at runtime, not by schema range keywords, which
-  the structured-output format does not document as supported; anything
-  else is dropped (fail open) rather than attributed to the wrong animal.
+  exactly once — checked at runtime rather than by schema range keywords
+  (the first provider's format did not document them; the current one
+  does, and the runtime check stays so the rule depends on no provider);
+  anything else is dropped (fail open) rather than attributed to the wrong
+  animal.
 
 ## Consequences
 
@@ -165,5 +169,7 @@ as they are, the cap goes away, and paid traffic is outside the free
 tier's data-use clause. What remains of the constraint is the shape of the
 bill — fractions of a cent per photo on a flash model, capped by the
 per-user limiters. The runbook (docs/DEPLOYMENT.md) makes enabling billing
-the first step; the privacy text names Google as a processor (done before
-the key reached production, deploy v27).
+the first step. The privacy text naming Google as a processor went live in
+the same deploy that first ran the checks (v27); the key itself had been
+set one release earlier (v26), on an image without the AI code, so no
+photo reached Google before the text was published.
