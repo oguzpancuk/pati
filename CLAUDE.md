@@ -67,11 +67,13 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   `002_social_auth.sql` and anything after it exist because production is
   never rebuilt. `CREATE TABLE IF NOT EXISTS` silently does nothing on an
   existing table, so **a new column belongs in a new numbered file as well as
-  in 001** — and every statement in it must survive being re-run. An index
-  on such a column goes in the new file only: 001 runs first and fails on
-  the column production does not have yet (v28). Before a deploy that
-  touches migrations, run `scripts/migrate.js` twice against a throwaway
-  database built from production's own files (`git show <deployed>:…`).
+  in 001** — and every statement in it must survive being re-run. Any
+  statement outside a `CREATE TABLE` body that names such a column (an
+  index, a standalone constraint, a partial-index `WHERE`) goes in the new
+  file only: 001 runs first and fails on the column production does not
+  have yet (v28). Before a deploy that touches migrations, run
+  `backend/scripts/migrate.js` twice against a throwaway database built
+  from production's own files (`git show <deployed>:…`).
 - **E-mail registration is gated until a 6-digit code is typed**
   (`users.email_verification_pending`, ADR-0004): `requireAuth` answers 403
   `emailUnverified` to a pending session everywhere except verification and

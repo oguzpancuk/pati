@@ -15,7 +15,10 @@ A fail stops the deploy — no "deploy anyway" without my explicit say-so.
 3. No secrets in the diff since last deploy (`git diff <last-tag>..HEAD`
    scanned for keys/tokens/passwords).
 4. Migrations/data changes: reversible, or the irreversibility is stated
-   and acknowledged.
+   and acknowledged. A touched migration is rehearsed first: the real
+   `backend/scripts/migrate.js` twice on a throwaway database built from
+   production's own files (CLAUDE.md, load-bearing facts; v28 failed
+   without it).
 5. Release notes exist for the range (offer /release-notes if not).
 
 ## Product steps
