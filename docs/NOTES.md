@@ -1753,3 +1753,28 @@ Latency on the paid tier: **1.3–2.6 s per check**, against 6–16 s on the
 free tier the same afternoon — the interstitial is now a short pause
 rather than a wait. Across the day: 19 care verdicts and 2 comparisons on
 the owner's photos, none wrong; the prompts stay as they are.
+
+## 2026-09-07 — ninth deploy (v27): the photo AI is live on Gemini's paid tier
+
+`fly deploy` of `3848507` (previous release v26 was the owner's
+`fly secrets set GEMINI_API_KEY`, same image as v25 `ad247b2`, so this is
+the first deploy of everything since the S7 fixes: the photo check, the
+photo matching, the KVKK/terms text). Gates: clean tree synced with
+origin, full battery (8 steps) green on the commit, secret scan of the
+diff clean, migration 004 reversible (nullable column + unique index),
+release notes written to chat, evaluator-qa PASS (harness 84/84,
+fail-open without a key proven on a throwaway backend, migration run
+twice with identical `\d care_actions`, the production image built for
+amd64 with sharp's musl binary and `AI_BASE_URL` ignored under
+NODE_ENV=production, the new KVKK text present in the web build). Release
+command ran `004_ai_checks.sql`; the machine reached a good state;
+`/health` ok, root and admin 200; boot log says
+`ai: gemini-3.5-flash (photo checks and photo matching on)` and the live
+`/gizlilik` page shows the "Fotoğraf kontrolü" paragraph (screenshot
+taken). Not yet observed in production: a real photo going through the
+check — the owner's first drop will show as an `[ai:care]`-free 201 in
+`fly logs`; any `[ai:…]` line there means a refused key or a quota.
+Rollback reference: image `deployment-01M1NSHF7BT4GT5G2NKFGHJ7R1` (v26).
+QA's docs nits (the ADR's original Decision text and the 004 header still
+say Claude/ANTHROPIC_API_KEY; superseded by the amendment) are left for
+the next docs touch.
