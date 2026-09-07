@@ -1969,3 +1969,20 @@ the next docs touch.
   `set -e`); fixed.
 - The map still asks on open — a map without a location is the one place
   the prompt belongs to the screen.
+
+## 2026-09-07 (night) — v28 release failed: an index in 001 on a column 005 adds
+
+- `fly deploy` v28 aborted in the release command: `column "face_score"
+  does not exist`. 001 re-runs first on every deploy and carried the
+  `idx_animal_photos_animal (animal_id, face_score …)` index; production's
+  `animal_photos` gets that column only when 005 runs, four files later.
+  The 004 jti index had taught this lesson already and was kept out of 001
+  for the same reason — the 005 index was not. v27 kept serving (health
+  ok, web and admin 200); nothing changed on production.
+- Fix: the index is in 005 only. Rehearsed the way the pre-deploy QA
+  should have: a throwaway database built from production's own 001–004
+  (`git show 3848507:…`), then the real `scripts/migrate.js` twice — both
+  runs complete, the columns and the index exist after run 1, run 2 is
+  all "skipping". The QA's rehearsal had applied 005 alone to that shape,
+  never the whole file order; the load-bearing fact in CLAUDE.md now
+  says the rehearsal must run migrate.js on a production-shaped copy.

@@ -118,7 +118,10 @@ CREATE TABLE IF NOT EXISTS animal_photos (
     face_box JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_animal_photos_animal ON animal_photos (animal_id, face_score DESC NULLS LAST, created_at);
+-- The (animal_id, face_score, created_at) index lives in 005 only: this file
+-- re-runs on every deploy before 005, and on a database that predates the
+-- face columns the index statement fails on the missing column (v28
+-- release failed exactly so). Same rule as the 004 jti index.
 
 -- Health records: ILLNESS and INJURY only.
 -- Vaccinations live in their own table: a vaccine has no "recovered" state,
