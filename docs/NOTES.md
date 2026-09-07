@@ -1699,3 +1699,33 @@ the first without the second would switch the buttons off in production.
   fake has a `busy` mode (503 n times) and step 6b asserts one retry and
   no third request; the garbled-reason guard tests the whole string before
   cutting it. Count: 82.
+
+### Second live run (2026-09-07 afternoon): the owner's sample photos
+
+Eleven photos in `~/Desktop/pati_ornek` (bowls of food, water dishes, a
+cat drinking from a tap, a winter poster with "1 kap su / 1 kap mama"
+text, five cats — two of them the same cat), `gemini-3.5-flash`:
+
+| photo | claim | verdict | reason (model's own words) |
+| --- | --- | --- | --- |
+| mama-1 (cat eating kibble) | food | approved (food) | "Kuru mamasını afiyetle yiyen bir dostumuz görünüyor." |
+| mama 2 (bowl + water behind) | food | approved (both) | "Mamalıkta kuru mama ve arkada su kabı görünüyor." |
+| su1 (cat drinking from a dish) | food | **rejected (water)** | "Fotoğrafta mama yerine su kabı ve su içen bir kedi görünüyor." |
+| su2 (water dish) | food | **rejected (water)** | "Fotoğrafta sokak hayvanları için su kabı görünüyor." |
+| kedi_a (a cat, no bowl) | food | approved (animal_only) | "Fotoğrafta sevimli bir dostumuz görünüyor…" |
+| room / person at a computer / waterfall | food | rejected (unrelated) | sensible one-liners |
+
+Matching: kedi-d1 against d2 (same cat), b, c, a → **same, different,
+different, different**; kedi_a against b, c, d1 → all different. Every
+verdict right on this set, 12–13 s per comparison. Care checks took 6–16 s.
+
+Not measured: the water claims (su1/su2 → approve, mama → reject) and the
+two "yanlış" photos (the tap cat, the poster) — the key's quota ran out
+first. **The free tier is ~20 requests per key per day**, not per minute:
+after ~25 calls every request answered 429 `…free_tier_requests, limit:
+20` for the rest of the afternoon, whatever the "retry in N s" hint said.
+Also learned: `gemini-3.5-flash-lite` refuses `thinkingConfig` (400), and
+`gemini-2.5-flash` is retired for new users (404, points at 3.6-flash).
+Decision pending with the owner: Google's paid tier (fractions of a cent
+per photo, no data-use clause) or checks off; the code is the same either
+way, only the key's billing changes.

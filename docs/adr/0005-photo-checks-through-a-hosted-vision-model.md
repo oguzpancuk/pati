@@ -138,10 +138,17 @@ What changed and what did not:
   not. Users' care photos and animal photos therefore leave the service
   under those terms, and the privacy text must say so before the feature
   is turned on in production. Rate limits on the free tier are per key —
-  measured on the first live day: **20 requests per minute** on
-  `gemini-3.5-flash`, shared by every user of the app — and when exhausted
-  the checks fail open (429 → `unavailable`, not retried), so a busy
-  minute degrades to the old behaviour rather than blocking anyone. A 503
-  "high demand" answer is retried once under the same 45 s deadline.
+  observed on the first live day (2026-09-07): after about 25 calls the
+  API answered every request with 429 `generate_content_free_tier_requests,
+  limit: 20` for the rest of the afternoon, on `gemini-3.5-flash`, so the
+  free tier is **roughly 20 requests per key per day**, shared by every
+  user of the app — enough to test, not to run. When exhausted the checks
+  fail open (429 → `unavailable`, not retried), so the product degrades to
+  the old behaviour rather than blocking anyone. A 503 "high demand"
+  answer is retried once under the same 45 s deadline. Running it for real
+  therefore means either Google's paid tier (a billing account on the same
+  key; flash pricing is a fraction of a cent per photo, and paid traffic is
+  not used to improve their products) or leaving the checks off — an owner
+  decision recorded in NOTES when made.
 - Cost lever kept: a paid Gemini key or a different model is a secret
   change; moving back to Claude is the thirty lines again.
