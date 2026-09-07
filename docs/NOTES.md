@@ -1692,3 +1692,10 @@ the first without the second would switch the buttons off in production.
   "animals" → **unsure**, which is the right answer for photos with no
   animal. The positive side — a real bowl of food, a real water dish, the
   same cat twice — is still unmeasured: it needs the owner's own photos.
+- Review of the fixes: the retry had doubled the server-side ceiling to
+  91 s (two 45 s signals) against the mobile client's 60 s, and no harness
+  case exercised it. Now one deadline per call covers both attempts, the
+  retry is 503-only (a 429 is the quota — retrying only spends it), the
+  fake has a `busy` mode (503 n times) and step 6b asserts one retry and
+  no third request; the garbled-reason guard tests the whole string before
+  cutting it. Count: 82.
