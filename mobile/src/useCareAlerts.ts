@@ -37,8 +37,8 @@ export function useCareAlerts(enabled: boolean) {
       if (!granted || cancelled) return;
       // The first location sheet belongs to a user action (the map, the
       // add-animal button), never to app start: without the when-in-use
-      // permission the alerts wait for a later launch. Only the "always"
-      // upgrade is asked here.
+      // permission the alerts wait for a later launch. Only Android's
+      // separate background permission is asked here.
       if (!(await hasLocationPermission()) || cancelled) return;
       await requestBackgroundLocationPermission();
       if (cancelled) return;

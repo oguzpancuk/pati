@@ -16,6 +16,7 @@ import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
   alertLocationPermission,
   Coordinates,
+  ensureLocationPermission,
   getCurrentLocation,
   LocationPermissionError,
 } from '../location';
@@ -246,6 +247,25 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   function handleReviewCandidate(animal: AnimalMatch) {
     navigation.navigate('AnimalProfile', { animalId: animal.id, matchReview: true });
   }
+
+  // The entry buttons go through the gate, but `pati://add-animal` (a
+  // live deep link, not dev-only) lands here directly — so the screen
+  // checks again and leaves with the Settings alert instead of showing a
+  // form that cannot be saved (web parity: the refusal card; review
+  // finding). With the permission already granted this is an instant read.
+  useEffect(() => {
+    let alive = true;
+    ensureLocationPermission().catch((err) => {
+      if (alive && err instanceof LocationPermissionError) {
+        alertLocationPermission();
+        navigation.goBack();
+      }
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const confirmedAnimalId: number | undefined = route.params?.confirmedAnimalId;
   useEffect(() => {

@@ -21,14 +21,20 @@ export class LocationPermissionError extends Error {
  * `Linking.openSettings()` lands on the exact screen with the switch.
  */
 export function alertLocationPermission() {
-  Alert.alert(
-    'Konum izni gerekli',
-    'Bu işlem için konumun gerekli. İzni Ayarlar’dan verebilirsin.',
-    [
-      { text: 'Vazgeç', style: 'cancel' },
-      { text: 'Ayarları aç', onPress: () => Linking.openSettings() },
-    ]
-  );
+  // The denial can arrive while the system sheet is still animating away,
+  // and an alert presented at that instant is dropped by iOS (seen on the
+  // simulator: no alert after "İzin Verme"). A short pause lets the sheet
+  // finish; every caller gets it, not just the add-animal gate.
+  setTimeout(() => {
+    Alert.alert(
+      'Konum izni gerekli',
+      'Bu işlem için konumun gerekli. İzni Ayarlar’dan verebilirsin.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Ayarları aç', onPress: () => Linking.openSettings() },
+      ]
+    );
+  }, 700);
 }
 
 export interface Coordinates {
@@ -109,13 +115,14 @@ function isGranted(status: string): boolean {
 }
 
 /**
- * Asks for the "always" permission so care checks can run in the background
- * too. Only called once the when-in-use permission exists (useCareAlerts):
- * the first location sheet belongs to a user action, never to app start
- * (owner rule, 2026-09-07). If refused, the app keeps working; only
- * background notifications stop. Through react-native-permissions because
- * the geolocation library's callbacks fire only on a status change — an
- * unchanged status left the old await hanging forever.
+ * The permission the care-alerts job needs. Android asks for the separate
+ * background permission (10+); iOS stays at when-in-use: the "always"
+ * upgrade cannot be requested through react-native-permissions once
+ * when-in-use is granted (its handler answers "blocked" without a sheet —
+ * review finding), and the JS timer that drives the checks is suspended in
+ * the background anyway, so iOS alerts are foreground-only. Only called
+ * once when-in-use exists (useCareAlerts): the first location sheet
+ * belongs to a user action, never to app start (owner rule, 2026-09-07).
  */
 export async function requestBackgroundLocationPermission(): Promise<boolean> {
   if (Platform.OS === 'android') {
@@ -128,7 +135,7 @@ export async function requestBackgroundLocationPermission(): Promise<boolean> {
     const granted = await PermissionsAndroid.request(permission as never);
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   }
-  return isGranted(await request(PERMISSIONS.IOS.LOCATION_ALWAYS));
+  return hasLocationPermission();
 }
 
 /** Whether the app may read the location right now — never shows a prompt. */

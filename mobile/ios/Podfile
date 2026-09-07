@@ -8,11 +8,11 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-# react-native-permissions compiles in only the handlers named here: the
-# add-animal gate reads the when-in-use status, the care alerts ask for the
-# always upgrade (Info.plist carries the usage strings).
+# react-native-permissions compiles in only the handlers named here; the
+# add-animal gate reads and requests the when-in-use status (Info.plist
+# carries the usage string).
 require_relative '../node_modules/react-native-permissions/scripts/setup'
-setup_permissions(['LocationWhenInUse', 'LocationAlways'])
+setup_permissions(['LocationWhenInUse'])
 
 linkage = ENV['USE_FRAMEWORKS']
 if linkage != nil

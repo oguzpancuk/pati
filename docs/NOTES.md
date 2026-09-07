@@ -1921,6 +1921,22 @@ the next docs touch.
   `ensureLocationPermission` (the gate) is now `check` → `request`: no
   timers, no guesses; `requestBackgroundLocationPermission` no longer
   hangs when the status does not change (the old await never resolved).
+  Review round: the iOS "always" upgrade is gone rather than pretended —
+  react-native-permissions answers "blocked" without a sheet once
+  when-in-use is granted, and the JS timer behind the checks is suspended
+  in the background anyway, so iOS care alerts are foreground-only (Android
+  keeps its separate background permission). The web Safari fallback
+  remembers a grant per tab session (sessionStorage): iOS Safari's "Allow
+  Once" and a revoke in Settings would otherwise leave a stale "granted"
+  and the list would prompt on entry. `pati://add-animal` (a live deep
+  link) landed on the form without the gate — the screen now checks on
+  mount and leaves with the Settings alert. The 700 ms alert delay moved
+  into `alertLocationPermission` so the map's drop button gets it too.
+  Known, pre-existing, not chased: Android 12's "approximate only" grant
+  leaves fine location denied, so the gate refuses it; Android 11+'s
+  background-permission request opens Settings on every launch until
+  "don't ask again". `mobile/__tests__/location.test.ts` pins the iOS
+  status mapping of the gate.
 - Evidence, iOS simulator, fresh account, permission reset each time:
   animals page open 9 s → no sheet; "Ekle" → sheet; "İzin Verme" → form
   closed, "Konum izni gerekli" alert within 3 s; "Uygulamayı Kullanırken

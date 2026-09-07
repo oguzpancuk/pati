@@ -63,13 +63,16 @@ export function getCurrentLocation(): Promise<Coordinates> {
 }
 
 // Safari has no permission query for geolocation, so the site remembers
-// the last answer it saw; the Permissions API is the source everywhere else.
+// the last answer it saw — for this tab's session only: iOS Safari's
+// "Allow Once" and a grant revoked in Settings both outlive a stored
+// flag, and a stale "granted" would make the list prompt on entry (review
+// finding). The Permissions API is the source everywhere else.
 const GRANT_KEY = 'pati.locationGranted';
 
 function rememberGrant(granted: boolean) {
   try {
-    if (granted) localStorage.setItem(GRANT_KEY, '1');
-    else localStorage.removeItem(GRANT_KEY);
+    if (granted) sessionStorage.setItem(GRANT_KEY, '1');
+    else sessionStorage.removeItem(GRANT_KEY);
   } catch {
     // Private mode / storage blocked: the list just stays newest-first.
   }
@@ -84,7 +87,7 @@ export async function hasLocationPermission(): Promise<boolean> {
     // No Permissions API, or geolocation not queryable (Safari).
   }
   try {
-    return localStorage.getItem(GRANT_KEY) === '1';
+    return sessionStorage.getItem(GRANT_KEY) === '1';
   } catch {
     return false;
   }
