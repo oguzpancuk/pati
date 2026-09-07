@@ -137,11 +137,13 @@ What changed and what did not:
   sent to it may be used to improve their products; the paid tier does
   not. Users' care photos and animal photos therefore leave the service
   under those terms, and the privacy text must say so before the feature
-  is turned on in production. Rate limits on the free tier are per key —
+  is turned on in production. Rate limits on the free tier are per
+  project and per model (one key was observed; a second key in the same
+  project shares the quota) —
   observed on the first live day (2026-09-07): after about 25 calls the
   API answered every request with 429 `generate_content_free_tier_requests,
   limit: 20` for the rest of the afternoon, on `gemini-3.5-flash`, so the
-  free tier is **roughly 20 requests per key per day**, shared by every
+  free tier is **roughly 20 requests per project per day**, shared by every
   user of the app — enough to test, not to run. When exhausted the checks
   fail open (429 → `unavailable`, not retried), so the product degrades to
   the old behaviour rather than blocking anyone. A 503 "high demand"
@@ -150,5 +152,15 @@ What changed and what did not:
   key; flash pricing is a fraction of a cent per photo, and paid traffic is
   not used to improve their products) or leaving the checks off — an owner
   decision recorded in NOTES when made.
+
+**Decided the same day (2026-09-07): Google's paid tier.** Once the daily
+cap was measured the owner withdrew the no-bill constraint: billing goes
+on the same AI Studio project and key, the code and the default model stay
+as they are, the cap goes away, and paid traffic is outside the free
+tier's data-use clause. What remains of the constraint is the shape of the
+bill — fractions of a cent per photo on a flash model, capped by the
+per-user limiters. The runbook (docs/DEPLOYMENT.md) makes enabling billing
+the first step; the privacy text must name Google as a processor before
+the key reaches production.
 - Cost lever kept: a paid Gemini key or a different model is a secret
   change; moving back to Claude is the thirty lines again.
