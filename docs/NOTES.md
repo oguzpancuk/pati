@@ -1729,3 +1729,10 @@ Also learned: `gemini-3.5-flash-lite` refuses `thinkingConfig` (400), and
 Decision pending with the owner: Google's paid tier (fractions of a cent
 per photo, no data-use clause) or checks off; the code is the same either
 way, only the key's billing changes.
+- **Owner decision (2026-09-07): Google's paid tier.** Billing goes on the
+  same AI Studio key, the code and the default model stay as they are; once
+  billing is on, the daily cap goes away and paid traffic is outside the
+  free tier's data-use clause (the privacy text still has to name Google
+  as a processor before the key reaches production). Owner-side steps:
+  enable billing on the key in AI Studio, then `fly secrets set
+  GEMINI_API_KEY=…` per docs/DEPLOYMENT.md.
