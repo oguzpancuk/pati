@@ -150,8 +150,8 @@ export default function AnimalsScreen({ navigation }: any) {
             style={styles.row}
             onPress={() => navigation.navigate('AnimalProfile', { animalId: item.id })}
           >
-            {/* The list visual is the pattern avatar too: independent of
-                photo quality, species/pattern reads at a glance. */}
+            {/* The face cut-out when the animal has one, the pattern avatar
+                otherwise (P3). */}
             <AnimalAvatar
               species={item.species}
               breed={item.breed}

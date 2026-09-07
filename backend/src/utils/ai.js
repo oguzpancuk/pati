@@ -431,17 +431,20 @@ async function locateAnimalFace(filePath, species) {
   });
   if (!answer || typeof answer.found !== 'boolean') return null;
   if (!answer.found) return { found: false };
-  const clamp = (v) => Math.max(0, Math.min(1000, Math.round(Number(v))));
+  // Every edge must be a number before it is clamped: a NaN would slip past
+  // the area test below and reach sharp's extract (review finding).
+  const raw = [answer.ymin, answer.xmin, answer.ymax, answer.xmax].map(Number);
+  if (!raw.every(Number.isFinite)) return { found: false };
+  const clamp = (v) => Math.max(0, Math.min(1000, Math.round(v)));
   const box = {
-    ymin: clamp(answer.ymin),
-    xmin: clamp(answer.xmin),
-    ymax: clamp(answer.ymax),
-    xmax: clamp(answer.xmax),
+    ymin: clamp(raw[0]),
+    xmin: clamp(raw[1]),
+    ymax: clamp(raw[2]),
+    xmax: clamp(raw[3]),
   };
   // A box with no area is not a face; treat it as "none" rather than cut
   // a sliver.
-  if (!Number.isFinite(box.ymin) || box.ymax - box.ymin < 20 || box.xmax - box.xmin < 20)
-    return { found: false };
+  if (box.ymax - box.ymin < 20 || box.xmax - box.xmin < 20) return { found: false };
   const score = Math.max(0, Math.min(1, Number(answer.score) || 0));
   return { found: true, box, score };
 }

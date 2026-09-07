@@ -22,7 +22,11 @@ const { makeFaceThumb } = require('../src/utils/faceThumb');
 
 const APPLY = process.argv.includes('--apply');
 const limitArg = process.argv.indexOf('--limit');
-const LIMIT = limitArg > -1 ? Number(process.argv[limitArg + 1]) || 100 : 100;
+const LIMIT = limitArg > -1 ? Number(process.argv[limitArg + 1]) : 100;
+if (!Number.isInteger(LIMIT) || LIMIT < 1) {
+  console.error('--limit must be a positive integer');
+  process.exit(2);
+}
 const animalsArg = process.argv.indexOf('--animals');
 const ANIMALS =
   animalsArg > -1
@@ -31,6 +35,10 @@ const ANIMALS =
         .map(Number)
         .filter(Number.isInteger)
     : null;
+if (ANIMALS && ANIMALS.length === 0) {
+  console.error('--animals needs a comma-separated list of animal ids');
+  process.exit(2);
+}
 
 async function main() {
   const pending = await pool.query(

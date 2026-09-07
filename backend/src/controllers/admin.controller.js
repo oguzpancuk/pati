@@ -1,4 +1,6 @@
 const fs = require('fs');
+const ai = require('../utils/ai');
+const { UPLOADS_DIR } = require('../config/upload');
 const pool = require('../config/db');
 const { coverPhotoJoin } = require('../utils/coverPhoto');
 const { writeAuditLog } = require('../utils/auditLog');
@@ -282,12 +284,21 @@ async function updateAnimal(req, res, next) {
 async function deleteAnimal(req, res, next) {
   try {
     const targetId = Number(req.params.id);
+    // The photo rows cascade; their files (and the face cut-outs) would
+    // stay on the volume forever — collect before, unlink after.
+    const files = (
+      await pool.query('SELECT url, thumb_url FROM animal_photos WHERE animal_id = $1', [targetId])
+    ).rows.flatMap((p) => [p.url, p.thumb_url]);
     const result = await pool.query(
       'DELETE FROM animals WHERE id = $1 RETURNING id, species, name, breed',
       [targetId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    }
+    for (const url of files) {
+      const file = ai.uploadPathFromUrl(url, UPLOADS_DIR);
+      if (file) fs.unlink(file, () => {});
     }
 
     // The deleted record's content goes into the audit log: the row is gone,

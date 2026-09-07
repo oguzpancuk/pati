@@ -306,9 +306,14 @@ async function getAnimal(req, res, next) {
 
     // The picture on the profile header: the best-scored face cut-out, the
     // same rule as coverPhotoJoin so lists and the profile never disagree.
-    const best = [...photos.rows]
+    const best = photos.rows
       .filter((p) => p.thumb_url)
-      .sort((a, b) => (b.face_score ?? 0) - (a.face_score ?? 0))[0];
+      .sort(
+        (a, b) =>
+          (b.face_score ?? 0) - (a.face_score ?? 0) ||
+          new Date(a.created_at) - new Date(b.created_at) ||
+          a.id - b.id
+      )[0];
     res.json({
       ...animalResult.rows[0],
       cover_thumb_url: best?.thumb_url ?? null,
@@ -406,21 +411,29 @@ async function createAnimal(req, res, next) {
 }
 
 async function addPhoto(req, res, next) {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Fotoğraf zorunludur' });
+  }
+  const base = `${req.protocol}://${req.get('host')}/uploads/`;
+  const photoUrl = `${base}${req.file.filename}`;
+  let row;
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Fotoğraf zorunludur' });
-    }
-
-    const base = `${req.protocol}://${req.get('host')}/uploads/`;
-    const photoUrl = `${base}${req.file.filename}`;
     const result = await pool.query(
       'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
       [req.params.id, photoUrl, req.user.userId]
     );
+    row = result.rows[0];
+  } catch (err) {
+    // Nothing references the file yet, so it goes with the failed insert.
+    // Past this point the row owns the file: a failure below must not
+    // delete it from under the gallery (review finding).
+    fs.unlink(req.file.path, () => {});
+    return next(err);
+  }
+  try {
     // The profile picture is cut around the face the model finds (P3).
     // Fail open: no face, no answer, or a photo sharp cannot cut leaves the
     // row without a thumbnail and the SVG avatar stands in.
-    const row = result.rows[0];
     const species = (await pool.query('SELECT species FROM animals WHERE id = $1', [req.params.id]))
       .rows[0]?.species;
     const face = await ai.locateAnimalFace(req.file.path, species);
@@ -438,9 +451,6 @@ async function addPhoto(req, res, next) {
     }
     res.status(201).json(row);
   } catch (err) {
-    if (req.file) {
-      fs.unlink(req.file.path, () => {});
-    }
     next(err);
   }
 }

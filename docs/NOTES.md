@@ -1869,8 +1869,10 @@ the next docs touch.
   candidates, comment rows and the map markers on both clients; the SVG
   pattern avatar stays as the fallback and in the code. Real model on the
   owner's cats: boxes returned with scores 0.89–0.98, and the cut-outs are
-  exactly the faces (Pamuk's tabby face fills the circle; Duman's British
-  grey on the profile header and the list). Harness step 10: no face → no
+  exactly the faces. Screenshots on both clients: the web list (Duman and
+  Pamuk with real faces, the rest pattern avatars) and the web profile
+  header; the mobile list and the mobile profile header (Duman's British
+  grey) — and, after the review, the profile mini-map marker too. Harness step 10: no face → no
   thumbnail, a face → a 320×320 file and the score, the best-scored photo
   is the picture in detail and list, model down → photo saved without a
   thumbnail; 108 assertions. KVKK text now says every animal photo is sent
