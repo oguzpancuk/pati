@@ -40,9 +40,13 @@ export function getCurrentLocation(): Promise<Coordinates> {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => {
+        rememberGrant(true);
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
+          rememberGrant(false);
           reject(
             new LocationError(
               'denied',
@@ -56,6 +60,50 @@ export function getCurrentLocation(): Promise<Coordinates> {
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     );
   });
+}
+
+// Safari has no permission query for geolocation, so the site remembers
+// the last answer it saw; the Permissions API is the source everywhere else.
+const GRANT_KEY = 'pati.locationGranted';
+
+function rememberGrant(granted: boolean) {
+  try {
+    if (granted) localStorage.setItem(GRANT_KEY, '1');
+    else localStorage.removeItem(GRANT_KEY);
+  } catch {
+    // Private mode / storage blocked: the list just stays newest-first.
+  }
+}
+
+/** Whether the site may read the location right now — never shows a prompt. */
+export async function hasLocationPermission(): Promise<boolean> {
+  try {
+    const status = await navigator.permissions.query({ name: 'geolocation' });
+    return status.state === 'granted';
+  } catch {
+    // No Permissions API, or geolocation not queryable (Safari).
+  }
+  try {
+    return localStorage.getItem(GRANT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The location when the permission is already granted, null otherwise —
+ * never shows the browser's prompt. Lists use this on mount: the prompt
+ * belongs to the moment the user does something that needs a location
+ * (the map, the add-animal button; owner decision, 2026-09-07, mobile
+ * parity), not to opening a list. A failed fix counts as "no location" too.
+ */
+export async function getCurrentLocationIfPermitted(): Promise<Coordinates | null> {
+  if (!(await hasLocationPermission())) return null;
+  try {
+    return await getCurrentLocation();
+  } catch {
+    return null;
+  }
 }
 
 export function describeLocationError(err: unknown): string {

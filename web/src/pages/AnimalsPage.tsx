@@ -4,7 +4,7 @@ import { gateAddAnimal } from '../addAnimalGate';
 import { mergeById } from '@mobile/paging';
 import { Animal, fetchAnimals } from '../api';
 import { AnimalAvatar } from '../avatars';
-import { Coordinates, getCurrentLocation } from '../location';
+import { Coordinates, getCurrentLocationIfPermitted } from '../location';
 
 // No radius (owner decision, 2026-09-07, same as mobile): every animal,
 // nearest first; a page is about a screenful and the next one loads when
@@ -58,16 +58,13 @@ export default function AnimalsPage() {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    getCurrentLocation()
+    // Never the browser's prompt from a list (owner decision, 2026-09-07):
+    // without a granted permission the list is newest-first and says so.
+    getCurrentLocationIfPermitted()
       .then((loc) => {
         locationRef.current = loc;
-        setNoLocation(false);
+        setNoLocation(loc === null);
         return loc;
-      })
-      .catch(() => {
-        locationRef.current = null;
-        setNoLocation(true);
-        return null;
       })
       .then((loc) => fetchAnimals(loc?.lat, loc?.lng, undefined, filter || undefined, PAGE_SIZE, 0))
       .then((data) => {

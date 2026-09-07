@@ -20,4 +20,5 @@ node -e 'const [f,u]=process.argv.slice(1);const fs=require("fs");const m=JSON.p
 xcrun simctl terminate "$D" com.oguzpancuk.pati 2>/dev/null || true
 xcrun simctl launch "$D" com.oguzpancuk.pati >/dev/null
 sleep "$WAIT"
-[ -n "$OUT" ] && xcrun simctl io "$D" screenshot "$OUT" >/dev/null 2>&1 && echo "screenshot: $OUT"
+# An empty OUT (launch only) must not turn into exit code 1 under set -e.
+if [ -n "$OUT" ]; then xcrun simctl io "$D" screenshot "$OUT" >/dev/null 2>&1 && echo "screenshot: $OUT"; fi

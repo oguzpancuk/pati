@@ -1897,3 +1897,46 @@ the next docs touch.
   refusal card. Screenshots taken. Also: a cut-out that fails to load
   falls back to the pattern avatar (the harness's throwaway-port URLs had
   shown broken-image icons on web).
+
+## 2026-09-07 (night) — the add-animal gate, second pass: where the sheet really came from
+
+- The "alert did not appear on the very first denial" note above was a
+  misdiagnosis, and the three gate rewrites that followed (timed probes,
+  polling, AppState) were chasing it. Instrumented on the simulator: the
+  gate code never ran on the first tap. The animals screen itself asked
+  for the location on mount (`getCurrentLocation` for nearest-first), so
+  the iOS sheet was already up when "Ekle" was tapped and the tap landed on
+  the sheet's backdrop. That is exactly the "asked on entering the page"
+  behaviour the owner ruled out.
+- Fix: a screen may only *read* the permission, never ask. iOS gives no
+  way to read the status through the geolocation library (its
+  `requestAuthorization` callbacks fire only on a change), so
+  `react-native-permissions` 4.1.5 is in (Podfile: `setup_permissions`
+  with LocationWhenInUse + LocationAlways; native build needed).
+  `hasLocationPermission()` / `getCurrentLocationIfPermitted()` on both
+  clients: the animals list, and the care-alerts job (which also asked at
+  app start, through `requestBackgroundLocationPermission`), use them;
+  the list says "Konum izni yok" without ever prompting. Web: the
+  Permissions API, with a remembered grant in localStorage for Safari.
+  `ensureLocationPermission` (the gate) is now `check` → `request`: no
+  timers, no guesses; `requestBackgroundLocationPermission` no longer
+  hangs when the status does not change (the old await never resolved).
+- Evidence, iOS simulator, fresh account, permission reset each time:
+  animals page open 9 s → no sheet; "Ekle" → sheet; "İzin Verme" → form
+  closed, "Konum izni gerekli" alert within 3 s; "Uygulamayı Kullanırken
+  İzin Ver" → the form opens. Web (playwright, three contexts): list with
+  the permission undecided → zero geolocation calls and the caption;
+  "+ Yeni" → exactly one call, refusal text, still on `/hayvanlar`;
+  permission granted → "Sana en yakından uzağa". Screenshots in the
+  session scratchpad.
+- Simulator trap worth knowing: `simctl privacy reset location` does not
+  clear a permission sheet the user never answered — locationd keeps the
+  request "in flight" for ten minutes and re-presents it on the next
+  launch ("Authorization request ignored because another authorization
+  effort is already in flight" in `log show --predicate 'process ==
+  "locationd"'`). Answer the sheet before resetting, or the next run tests
+  the old prompt. Also `simulator-goto.sh` returned exit 1 when called
+  without a screenshot path (the trailing `[ -n "$OUT" ] &&` under
+  `set -e`); fixed.
+- The map still asks on open — a map without a location is the one place
+  the prompt belongs to the screen.

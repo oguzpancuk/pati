@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { checkCareAndNotify, requestNotificationPermission } from './careAlerts';
-import { requestBackgroundLocationPermission } from './location';
+import { hasLocationPermission, requestBackgroundLocationPermission } from './location';
 
 // The check interval. iOS suspends the app in the background after a while,
 // so this timer is not guaranteed; a check also runs when the app
@@ -35,6 +35,11 @@ export function useCareAlerts(enabled: boolean) {
     async function start() {
       const granted = await requestNotificationPermission();
       if (!granted || cancelled) return;
+      // The first location sheet belongs to a user action (the map, the
+      // add-animal button), never to app start: without the when-in-use
+      // permission the alerts wait for a later launch. Only the "always"
+      // upgrade is asked here.
+      if (!(await hasLocationPermission()) || cancelled) return;
       await requestBackgroundLocationPermission();
       if (cancelled) return;
 

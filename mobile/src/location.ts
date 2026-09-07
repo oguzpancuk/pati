@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import { check, PERMISSIONS, request, RESULTS } from 'react-native-permissions';
 
 /**
  * The one location failure the user can actually fix: the app lacks the
@@ -96,9 +97,26 @@ async function requestAndroidPermission(): Promise<boolean> {
   return granted === PermissionsAndroid.RESULTS.GRANTED;
 }
 
-// Requests the "always" permission so location checks can run in the
-// background too. If denied, the app keeps working; only background
-// notifications stop (foreground checks still happen).
+// iOS has no way to read the location status through the geolocation
+// library (its callbacks fire only on a change), and every position request
+// with an undetermined status shows the system sheet. react-native-permissions
+// reads the status outright, so a screen can ask "may I?" without asking
+// the user.
+const IOS_LOCATION = PERMISSIONS.IOS.LOCATION_WHEN_IN_USE;
+
+function isGranted(status: string): boolean {
+  return status === RESULTS.GRANTED || status === RESULTS.LIMITED;
+}
+
+/**
+ * Asks for the "always" permission so care checks can run in the background
+ * too. Only called once the when-in-use permission exists (useCareAlerts):
+ * the first location sheet belongs to a user action, never to app start
+ * (owner rule, 2026-09-07). If refused, the app keeps working; only
+ * background notifications stop. Through react-native-permissions because
+ * the geolocation library's callbacks fire only on a status change — an
+ * unchanged status left the old await hanging forever.
+ */
 export async function requestBackgroundLocationPermission(): Promise<boolean> {
   if (Platform.OS === 'android') {
     const fine = await requestAndroidPermission();
@@ -110,27 +128,41 @@ export async function requestBackgroundLocationPermission(): Promise<boolean> {
     const granted = await PermissionsAndroid.request(permission as never);
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   }
+  return isGranted(await request(PERMISSIONS.IOS.LOCATION_ALWAYS));
+}
 
-  return new Promise((resolve) => {
-    Geolocation.requestAuthorization(
-      () => resolve(true),
-      () => resolve(false)
-    );
-  });
+/** Whether the app may read the location right now — never shows a prompt. */
+export async function hasLocationPermission(): Promise<boolean> {
+  if (await getLocationOverride()) return true;
+  if (Platform.OS === 'android') {
+    return PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+  }
+  return isGranted(await check(IOS_LOCATION));
 }
 
 /**
- * Fast permission preflight for flow entry points (e.g. the map's drop
- * button): throws LocationPermissionError when denied, triggers the native
- * prompt when undetermined, and otherwise resolves quickly.
- *
- * Deliberately NOT built on `Geolocation.requestAuthorization`: when the
- * permission is already denied, iOS never fires the status-change delegate,
- * so that API's callbacks simply never run and an await hangs forever. A
- * real `getCurrentPosition` probe errors immediately (code 1) on denial;
- * low accuracy + a generous cache + a short timeout keep the granted path
- * fast, and a timeout (code 3) counts as fine — the actual fetch's own
- * error handling covers it.
+ * The location when the permission is already granted, null otherwise —
+ * never shows the system prompt. Lists use this on mount: the prompt
+ * belongs to the moment the user does something that needs a location
+ * (the map, the add-animal button; owner decision, 2026-09-07), not to
+ * opening a list. A failed fix counts as "no location" too.
+ */
+export async function getCurrentLocationIfPermitted(): Promise<Coordinates | null> {
+  if (!(await hasLocationPermission())) return null;
+  try {
+    return await getCurrentLocation();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Permission preflight for flow entry points (the add-animal button, the
+ * map's drop button): resolves when the app may read the location, shows
+ * the system prompt right here when the user has not been asked yet, and
+ * throws LocationPermissionError when the permission is refused — just
+ * now, earlier in Settings, or because location services are off. Callers
+ * answer the error with the Settings alert.
  */
 export async function ensureLocationPermission(): Promise<void> {
   // Dev override accounts never touch the OS permission (same rule as
@@ -142,45 +174,12 @@ export async function ensureLocationPermission(): Promise<void> {
     if (!granted) throw new LocationPermissionError();
     return;
   }
-  // A first, short position request: granted → a fix or a cached one
-  // comes back at once; denied → code 1 at once. A timeout (code 3) means
-  // either the prompt is open and the user is still reading it, or the
-  // permission exists but no fix arrived — and on the first-run prompt the
-  // native timer keeps running behind the sheet, so a slow "İzin Verme"
-  // used to look like "granted" (review finding).
-  const first = await new Promise<'granted' | 'denied' | 'timeout' | 'other'>((resolve) => {
-    Geolocation.getCurrentPosition(
-      () => resolve('granted'),
-      (error) => resolve(error.code === 1 ? 'denied' : error.code === 3 ? 'timeout' : 'other'),
-      { enableHighAccuracy: false, timeout: 4000, maximumAge: 600000 }
-    );
-  });
-  if (first === 'denied') throw new LocationPermissionError();
-  if (first !== 'timeout') return;
-
-  // Wait for the actual decision: requestAuthorization's callbacks fire the
-  // moment the sheet is answered (they never fire when the status was
-  // already settled, so they cannot be the only path), and a second, long
-  // position request settles the already-authorized case — a fix, a
-  // timeout, or code 1 if the answer was no.
-  await new Promise<void>((resolve, reject) => {
-    let settled = false;
-    const settle = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      fn();
-    };
-    Geolocation.requestAuthorization(
-      () => settle(resolve),
-      () => settle(() => reject(new LocationPermissionError()))
-    );
-    Geolocation.getCurrentPosition(
-      () => settle(resolve),
-      (error) =>
-        settle(() => (error.code === 1 ? reject(new LocationPermissionError()) : resolve())),
-      { enableHighAccuracy: false, timeout: 30000, maximumAge: 600000 }
-    );
-  });
+  const status = await check(IOS_LOCATION);
+  if (isGranted(status)) return;
+  // DENIED here means "not asked yet" (BLOCKED is the refusal): the sheet
+  // resolves with the answer, no timers or guesses involved.
+  if (status === RESULTS.DENIED && isGranted(await request(IOS_LOCATION))) return;
+  throw new LocationPermissionError();
 }
 
 export async function getCurrentLocation(): Promise<Coordinates> {

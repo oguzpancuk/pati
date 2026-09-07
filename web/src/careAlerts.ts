@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { fetchCareStatus, getToken } from './api';
-import { getCurrentLocation } from './location';
+import { getCurrentLocationIfPermitted } from './location';
 
 /**
  * Care alerts (same rule as mobile's careAlerts): a browser notification
@@ -28,7 +28,10 @@ function readCooldown(): Record<string, number> {
 export async function checkCareAndNotify(): Promise<boolean> {
   if (!getToken() || typeof Notification === 'undefined') return false;
   if (Notification.permission !== 'granted') return false;
-  const loc = await getCurrentLocation();
+  // A background job never shows the browser's prompt (owner rule,
+  // 2026-09-07, mobile parity): without the permission there is nothing to check.
+  const loc = await getCurrentLocationIfPermitted();
+  if (!loc) return false;
   const [food, water] = await Promise.all([
     fetchCareStatus(loc.lat, loc.lng, 'food'),
     fetchCareStatus(loc.lat, loc.lng, 'water'),

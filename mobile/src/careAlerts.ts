@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import notifee, { AndroidImportance, AuthorizationStatus } from '@notifee/react-native';
 import { fetchCareStatus } from './api/care';
-import { getCurrentLocation } from './location';
+import { getCurrentLocationIfPermitted } from './location';
 
 const CHANNEL_ID = 'care-alerts';
 // No notification storm for the same area: after one alert, the same type
@@ -56,7 +56,10 @@ export async function checkCareAndNotify(): Promise<boolean> {
   const token = await AsyncStorage.getItem('token');
   if (!token) return false;
 
-  const location = await getCurrentLocation();
+  // A background job never shows the permission sheet (owner rule,
+  // 2026-09-07): without the permission there is simply nothing to check.
+  const location = await getCurrentLocationIfPermitted();
+  if (!location) return false;
   const [foodStatus, waterStatus] = await Promise.all([
     fetchCareStatus(location.lat, location.lng, 'food'),
     fetchCareStatus(location.lat, location.lng, 'water'),

@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Animal, fetchAnimals } from '../api/animals';
-import { Coordinates, getCurrentLocation } from '../location';
+import { Coordinates, getCurrentLocationIfPermitted } from '../location';
 import { openAddAnimal } from '../addAnimalGate';
 import { mergeById } from '../paging';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
@@ -58,15 +58,11 @@ export default function AnimalsScreen({ navigation }: any) {
     else setLoadingMore(true);
     try {
       if (isFirstPage) {
-        try {
-          locationRef.current = await getCurrentLocation();
-          setNoLocation(false);
-        } catch {
-          // Permission denied, GPS off, a timeout — all the same to the
-          // list: newest first, and the caption says so (web parity).
-          locationRef.current = null;
-          setNoLocation(true);
-        }
+        // Never the system prompt from a list (owner decision, 2026-09-07):
+        // no permission, GPS off, a timeout — all the same here: newest
+        // first, and the caption says so (web parity).
+        locationRef.current = await getCurrentLocationIfPermitted();
+        setNoLocation(locationRef.current === null);
       }
       const loc = locationRef.current;
       const data = await fetchAnimals({
