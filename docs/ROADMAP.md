@@ -687,3 +687,43 @@ extends the `/gizlilik` infrastructure (`web/src/legal.ts`), so it ships
 without an app-store release. Can run in parallel with any session.
 
 - **Done when:** owner-approved text is live and linked from the app.
+
+## 🧹 Pre-pilot sprint (planned September 7, 2026)
+
+Three owner requests after the photo AI went live. Serial, one session
+each, code-reviewer at the end of each; the first needs a production
+approval per step.
+
+### P1 — Production reset: demo data out, real accounts stay
+
+- Demo users are the seed's `@stray.test` accounts and the guide bots'
+  `@pati.demo` accounts; everything they own goes. Real users keep their
+  accounts (identity, password, provider links, avatar, friendships);
+  their animal records go too (owner decision) — and, pending the owner's
+  answer, their food/water drops and badge awards.
+- A script `backend/scripts/purge-demo.js` with a dry run that prints
+  per-table counts and an `--apply` that runs in one transaction; the seed
+  scripts stay in the repo. Run on production through `fly ssh console`
+  after a database snapshot, dry run first, owner approval on the counts.
+- **Done when:** dry-run counts shown and approved, apply reported with the
+  same counts, a real account still logs in, the animals list is empty.
+
+### P2 — Animals page: nearest first, no radius, infinite scroll
+
+- `GET /animals` with `lat`/`lng` and no radius orders by distance over the
+  whole table (PostGIS `<->` on the GIST index); first page sized to fill a
+  phone screen, the rest loads on scroll (mobile `onEndReached`, web an
+  intersection sentinel). Without a location the list falls back to
+  newest first and says why.
+- **Done when:** screenshots of both clients with the first page and the
+  loaded second page; curl of the ordering.
+
+### P3 — Profile pictures cut from the real photos
+
+- On every animal photo upload the model returns the animal's face box;
+  `sharp` cuts a square thumbnail around it (`animal_photos.thumb_url`,
+  `face_score`); the animal's picture is the photo with the best face
+  score; the SVG avatars stay as the fallback for animals without a usable
+  photo. A backfill script for existing photos.
+- **Done when:** screenshots of lists and profile headers on both clients
+  with real cut-outs; the backfill run on production reported.
