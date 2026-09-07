@@ -106,7 +106,6 @@ async function listAnimals(req, res, next) {
 // area, and a wider search surfaced irrelevant candidates that buried the
 // real match.
 const MATCH_RADIUS_METERS = 1000;
-const MATCH_LIMIT = 20;
 
 /**
  * Similarity is a tier (high/medium/low), not a probability. We show no
@@ -119,9 +118,12 @@ const MATCH_LIMIT = 20;
  * (ADR-0005):
  *   the model says the same individual  +4  → high whatever the fields say
  *   the model says it could be           +1
- *   the model says clearly another animal −3 → low, sorted to the bottom
- * Species is already a filter — a cat never matches a dog. The user still
- * makes the final call; nothing is merged automatically.
+ *   the model says clearly another animal −3 → low
+ * Only high and medium reach the client (owner decision, 2026-09-07): a low
+ * tier is noise on the "is it this one?" list, and with the photo compared
+ * it means "the model saw another animal". Species is already a filter —
+ * a cat never matches a dog. The user still makes the final call; nothing
+ * is merged automatically.
  */
 const PHOTO_SCORE = { same: 4, similar: 1, different: -3, unsure: 0 };
 const PHOTO_REASON = { same: 'photo_same', similar: 'photo_similar' };
@@ -195,9 +197,9 @@ async function matchAnimals(req, res, next) {
       })
       .sort(byScoreThenDistance);
 
-    // The photo is compared with the field-ranked front of the list: the
-    // request holds a bounded number of images, and a look-alike two
-    // streets away with a different pattern is not the animal in hand.
+    // The photo is compared with every animal in the circle that has a
+    // cover photo, nearest-by-fields first, up to the cap in ai.js (owner
+    // decision: the whole 1 km, not a short list).
     let photoChecked = false;
     if (photoPath && ai.isConfigured()) {
       const comparable = scored
@@ -219,11 +221,15 @@ async function matchAnimals(req, res, next) {
       }
     }
 
-    const candidates = scored.slice(0, MATCH_LIMIT).map(({ _score, _reasons, ...rest }) => ({
-      ...rest,
-      similarity: tierFor(_score),
-      similarity_reasons: _reasons,
-    }));
+    // Everything that clears medium, on one page — no cap: the tier filter
+    // is the cap, and a hidden true match would be worse than a long list.
+    const candidates = scored
+      .filter(({ _score }) => tierFor(_score) !== 'low')
+      .map(({ _score, _reasons, ...rest }) => ({
+        ...rest,
+        similarity: tierFor(_score),
+        similarity_reasons: _reasons,
+      }));
 
     res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS, photoChecked });
   } catch (err) {

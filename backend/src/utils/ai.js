@@ -41,15 +41,18 @@ const BASE_URL = (
 // ~1500 px, and inline request bodies are capped at 20 MB. 1024 px keeps a
 // cat's markings legible at a few hundred tokens per image.
 const MAX_IMAGE_EDGE = 1024;
-// One request holds the new photo plus this many candidates. Validated at
-// the boundary: a bad value would silently turn matching field-only.
+// One request holds the new photo plus this many candidates — meant to
+// cover every animal in the 1 km circle (owner decision); the cap only
+// bounds the request (40 × ~150 KB well under the 20 MB inline limit) and
+// the privacy text names the same number. Validated at the boundary: a bad
+// value would silently turn matching field-only.
 const MAX_MATCH_CANDIDATES = (() => {
   const raw = process.env.AI_MATCH_CANDIDATES;
-  if (raw === undefined || raw === '') return 8;
+  if (raw === undefined || raw === '') return 40;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1 || n > 20) {
-    console.warn(`[ai] AI_MATCH_CANDIDATES=${JSON.stringify(raw)} is not 1–20; using 8`);
-    return 8;
+  if (!Number.isInteger(n) || n < 1 || n > 60) {
+    console.warn(`[ai] AI_MATCH_CANDIDATES=${JSON.stringify(raw)} is not 1–60; using 40`);
+    return 40;
   }
   return n;
 })();

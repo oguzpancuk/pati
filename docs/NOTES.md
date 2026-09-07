@@ -1778,8 +1778,9 @@ Rollback reference: image `deployment-01M1NSHF7BT4GT5G2NKFGHJ7R1` (v26).
 QA's docs nits (the ADR's original Decision text and the 004 header still
 say Claude/ANTHROPIC_API_KEY; superseded by the amendment) are left for
 the next docs touch.
-- Addendum, same evening: CI on `3848507` was green (`gh run` succeeded at
-  08:23Z, before the 08:29Z deploy), so the CI-before-deploy rule held; the
+- Addendum, same evening: CI on `3848507` was green (`gh run` started
+  08:23Z, green 08:26Z, before the 08:29Z deploy), so the CI-before-deploy
+  rule held; the
   deployed range is `ad247b2..3848507` (v25 already carried `cb13ee3` and
   `ad247b2`). The docs nits listed above were fixed minutes later in
   `9e2597e` — the ADR body now reads "then/now", the 004 header and the

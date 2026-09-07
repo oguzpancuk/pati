@@ -294,7 +294,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             matchRadius >= 1000 ? `${matchRadius / 1000} km` : `${matchRadius} m`
           } içindeki ${
             species === 'cat' ? 'kedilerle' : 'köpeklerle'
-          } karşılaştırıldı. Birine dokunup profiline bak; oysa "bu o" de — konumu güncellenir ve bakım listene eklenir.`}
+          } karşılaştırıldı; yalnızca yüksek ve orta benzerlikteki kayıtlar listelendi. Birine dokunup profiline bak; oysa "bu o" de — konumu güncellenir ve bakım listene eklenir.`}
           style={styles.resultsBanner}
         />
 

@@ -461,8 +461,9 @@ export default function AddAnimalPage() {
           <p className="muted" style={{ margin: 0 }}>
             🔎 {photoChecked ? 'Fotoğrafın ve girdiğin bilgiler' : 'Girdiğin bilgiler'}{' '}
             {matchRadius >= 1000 ? `${matchRadius / 1000} km` : `${matchRadius} m`} içindeki{' '}
-            {species === 'cat' ? 'kedilerle' : 'köpeklerle'} karşılaştırıldı. Birine dokunup
-            profiline bak; oysa &quot;bu o&quot; de — konumu güncellenir ve bakım listene eklenir.
+            {species === 'cat' ? 'kedilerle' : 'köpeklerle'} karşılaştırıldı; yalnızca yüksek ve
+            orta benzerlikteki kayıtlar listelendi. Birine dokunup profiline bak; oysa &quot;bu
+            o&quot; de — konumu güncellenir ve bakım listene eklenir.
           </p>
         </div>
 

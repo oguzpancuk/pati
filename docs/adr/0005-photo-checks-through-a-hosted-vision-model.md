@@ -38,7 +38,10 @@ The owner asked for both to become real now.
   and never parses prose. For matching, "same" lifts a candidate to high
   whatever the fields said, "similar" adds a point, "different" sinks it
   to low; the tiers and the "it's this one / new record" choice stay
-  exactly as they were. Nothing is merged automatically and no percentage
+  exactly as they were — except that, since 2026-09-07 (owner decision),
+  only high and medium reach the list, on one page with no cap, and the
+  photo is compared with every animal in the 1 km circle that has a cover
+  photo (up to 40 per request), not a short field-ranked list. Nothing is merged automatically and no percentage
   reaches a screen (the ROADMAP's probability trap).
 - **The check is enforced by the server and the photo travels once.**
   `POST /care-actions/check` uploads the photo, runs the check and answers
@@ -172,4 +175,6 @@ per-user limiters. The runbook (docs/DEPLOYMENT.md) makes enabling billing
 the first step. The privacy text naming Google as a processor went live in
 the same deploy that first ran the checks (v27); the key itself had been
 set one release earlier (v26), on an image without the AI code, so no
-photo reached Google before the text was published.
+user photo reached Google from production before the text was published
+(the same day's accuracy runs used the owner's own photos, from the dev
+machine).
