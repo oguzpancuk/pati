@@ -2437,3 +2437,22 @@ the next docs touch.
   unchanged, web drives of the map/fan/chooser/locate, a quoted
   conversation, the profile ladder and follow round-trip, the inbox with a
   care row; mobile by tsc/jest and reading). Full battery 10/10 on ca4e867.
+
+## 2026-09-09 — P8 Track A″: logo on "Ekle", spokeless fans, round header control
+
+- Owner findings on P7 (items 1, 2, 4; answer to 5: every change lands on
+  web too). The map sheet's "Ekle" carries the pati logo, white on the
+  gradient with the heart as a real hole: both logo technologies
+  (`components/brand/Logo`, `shared/logoSvg`) now draw the pin and the
+  heart as ONE even-odd path when `accent` is `'transparent'` — the old
+  "paint the heart in the background colour" trick had no colour to paint
+  on a gradient and the first cut shipped a solid pin (review finding).
+  Fans keep their seats and lose the spokes on both clients. The
+  conversation header's group/avatar control is a 36 pt surface disc with
+  a hairline and a centred glyph on both clients; on mobile the styles
+  object (cached per theme name by `makeStyles`) sits in the header
+  effect's deps, so a theme flip re-renders the disc in the right colour.
+- Evidence: web playwright — the map (logo button with the hole, the
+  six-member fan without spokes), the group conversation header in light
+  and dark; simulator — the map and the group header (light). tsc ×2,
+  jest 47/47, quick battery green on each commit.
