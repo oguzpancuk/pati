@@ -2,8 +2,10 @@ import {
   careMarkerKey,
   careMarkerSvg,
   careMarkerVariants,
+  LOW_MAX_STEP,
   RING_STEPS,
   ringStep,
+  ringTone,
 } from '../src/map/careMarkers';
 import { CARE_MARKER_IMAGES } from '../src/map/markers';
 
@@ -22,6 +24,18 @@ describe('ringStep', () => {
     expect(ringStep(-1)).toBe(1);
     expect(ringStep(NaN)).toBe(1);
     expect(ringStep(2)).toBe(RING_STEPS);
+  });
+});
+
+describe('ringTone', () => {
+  it('turns red at a quarter of the window and below, green above', () => {
+    expect(ringTone(1)).toBe('ok');
+    expect(ringTone(0.26)).toBe('ok');
+    expect(ringTone(0.25)).toBe('low');
+    expect(ringTone(0.1)).toBe('low');
+    expect(ringTone(NaN)).toBe('low');
+    // Every low-tone weight maps to a step that has a red image.
+    expect(ringStep(0.25)).toBeLessThanOrEqual(LOW_MAX_STEP);
   });
 });
 
@@ -44,16 +58,20 @@ describe('careMarkerSvg', () => {
     expect(careMarkerSvg('water', 3, 'light')).toContain('M12 3.4s6.2');
     expect(careMarkerSvg('food', 3, 'light')).toContain('#34A853');
     expect(careMarkerSvg('food', 3, 'dark')).toContain('#4CC46B');
+    expect(careMarkerSvg('food', 3, 'light', 'low')).toContain('#E24C4C');
+    expect(careMarkerSvg('food', 3, 'light', 'low')).not.toContain('#34A853');
   });
 });
 
 describe('careMarkerVariants', () => {
   it('lists every type × step × theme once, keyed like the layer expression', () => {
     const variants = careMarkerVariants();
-    expect(variants).toHaveLength(2 * RING_STEPS * 2);
+    expect(variants).toHaveLength(2 * (RING_STEPS + LOW_MAX_STEP) * 2);
     expect(new Set(variants.map((v) => v.key)).size).toBe(variants.length);
-    expect(variants.map((v) => v.key)).toContain(careMarkerKey('water', 7, 'dark'));
-    expect(careMarkerKey('food', 1, 'light')).toBe('care-food-1-light');
+    expect(variants.map((v) => v.key)).toContain(careMarkerKey('water', 'ok', 7, 'dark'));
+    expect(variants.map((v) => v.key)).toContain(careMarkerKey('water', 'low', 3, 'dark'));
+    expect(variants.map((v) => v.key)).not.toContain(careMarkerKey('water', 'low', 4, 'dark'));
+    expect(careMarkerKey('food', 'ok', 1, 'light')).toBe('care-food-ok-1-light');
   });
 
   it('matches the generated PNG index the mobile map renders from', () => {

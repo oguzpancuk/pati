@@ -2199,3 +2199,35 @@ the next docs touch.
   on mobile now describes the real mechanism (style reload → image-missing
   path re-fetches from `<Images>`); web's "Hayvan ekle" tile shows the same
   paw as mobile. Both clients re-screenshotted after the fixes.
+
+## 2026-09-08 — P6 Track A: red last quarter, stacked markers, gradient actions
+
+- Owner decisions: the ring turns red once a quarter of the window is
+  left (both types: mama's last hour, su's last 90 minutes) — the tone is
+  decided on the exact weight (`ringTone`), so step 3 exists in both
+  colours and the PNG set grows to 52 variants; the three sheet actions
+  are gradient buttons again (icon 28 above the label, no discs; all
+  three carry the gradient by the owner's call); stacked markers get
+  three rules shared by both clients — a record within 12 m of an animal
+  moves to the avatar's shoulder (`icon-offset` by an `attached` flag),
+  the records hidden by collision placement open as a fan when the
+  visible one is tapped (members within 28 px spread on a 46 px circle
+  with spokes; positions are geographic for the zoom they opened at, any
+  move or blank tap closes it), and the user pin goes half transparent
+  when a record or an animal sits within 14 m of it.
+- Helpers `metersPerPixel`, `offsetMeters`, `distanceBetween`,
+  `segmentFeature` joined `mobile/src/map/geo.ts` (import-free, web reads
+  them through `@mobile`).
+- Evidence: jest (tone boundary, red SVG, 52 variants pinned to the PNG
+  index); web playwright — red rings at z16, the pin/avatar/record stack
+  at z18 with the record on the shoulder and the pin dimmed, the fan open
+  over a three-record stack; simulator — red rings, gradient buttons, the
+  shoulder offset and the dimmed pin at z18. Native shows the shoulder
+  offset mostly rightwards where web shows it diagonal (MapLibre native's
+  icon-offset handling); acceptable, noted. The native fan tap is NOT yet
+  observed: the simulator was being driven by another session (the
+  stardate Expo app kept coming to the foreground), so the tap test is
+  deferred to the merge pass. tsc ×2 clean.
+- Sample data for the owner's look: records 22693–22710 near Kadıköy
+  (varied ages, a red pair, a three-record stack at 29.029/40.9895, two on
+  the user spot where the seeded cat Ozi sits). Local only.

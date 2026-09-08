@@ -41,9 +41,9 @@ for (const scale of SCALES) {
     deviceScaleFactor: scale,
   });
   const page = await context.newPage();
-  for (const { key, type, step, theme } of variants) {
+  for (const { key, type, tone, step, theme } of variants) {
     await page.setContent(
-      `<body style="margin:0;background:transparent">${careMarkerSvg(type, step, theme)}</body>`
+      `<body style="margin:0;background:transparent">${careMarkerSvg(type, step, theme, tone)}</body>`
     );
     const png = await page.screenshot({ omitBackground: true, type: 'png' });
     writeFileSync(join(OUT, scale === 1 ? `${key}.png` : `${key}@${scale}x.png`), png);

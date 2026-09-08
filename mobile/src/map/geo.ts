@@ -90,3 +90,53 @@ export function featureCollection<G extends Geometry>(
 ): FeatureCollection<G> {
   return { type: 'FeatureCollection', features };
 }
+
+/**
+ * Ground distance covered by one screen pixel at a zoom level (Web
+ * Mercator, 512 px tiles as MapLibre uses). The fan-out and "attached to an
+ * animal" rules are screen-pixel rules, so the clients convert them to
+ * meters with this before comparing against record positions.
+ */
+export function metersPerPixel(zoom: number, latitude: number): number {
+  return (156543.03392 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoom + 1);
+}
+
+/** A point `east`/`north` meters away from `center`. */
+export function offsetMeters(center: LatLng, east: number, north: number): LatLng {
+  const lat = center.lat + (north / EARTH_RADIUS_M) * (180 / Math.PI);
+  const lng =
+    center.lng +
+    ((east / EARTH_RADIUS_M) * (180 / Math.PI)) / Math.cos((center.lat * Math.PI) / 180);
+  return { lat, lng };
+}
+
+/** Great-circle distance in meters (haversine) — import-free copy of the
+ * clients' own helpers so map code needs nothing from ../location. */
+export function distanceBetween(a: LatLng, b: LatLng): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
+}
+
+/** A straight segment between two points — the fan's spokes. */
+export function segmentFeature(
+  from: LatLng,
+  to: LatLng,
+  properties: GeoJsonProperties = {}
+): Feature<LineString> {
+  return {
+    type: 'Feature',
+    properties,
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [from.lng, from.lat],
+        [to.lng, to.lat],
+      ],
+    },
+  };
+}

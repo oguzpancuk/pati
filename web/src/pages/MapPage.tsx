@@ -6,7 +6,15 @@ import { useNavigate } from 'react-router-dom';
 import { gateAddAnimal } from '../addAnimalGate';
 import { animalAvatarSvg } from '@shared/animalAvatarSvg';
 import { logoSvg } from '@shared/logoSvg';
-import { circleRing, featureCollection, pointFeature } from '@mobile/map/geo';
+import {
+  circleRing,
+  distanceBetween,
+  featureCollection,
+  metersPerPixel,
+  offsetMeters,
+  pointFeature,
+  segmentFeature,
+} from '@mobile/map/geo';
 import {
   CARE_GLYPH_PATHS,
   CARE_MARKER_SCALE_SMALL,
@@ -16,12 +24,14 @@ import {
   careMarkerSvg,
   careMarkerVariants,
   ringStep,
+  ringTone,
   type CareType,
 } from '@mobile/map/careMarkers';
 import {
   addCareAction,
   Animal,
   ApiError,
+  CareAction,
   CareStatus,
   checkCarePhoto,
   fetchAnimals,
@@ -74,6 +84,20 @@ const USER_RADIUS_STROKE = 'rgba(33, 32, 30, 0.35)';
 
 const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
 
+// Stacked markers — the same three rules and numbers as mobile's MapScreen:
+// a record under an animal avatar moves to its shoulder (`attached`), the
+// records hidden by collision placement open as a fan when the visible one
+// is tapped (members within FAN_PICK_PX, spread on FAN_RADIUS_PX with
+// spokes; any move or blank tap closes it), and the user pin goes half
+// transparent when something sits under it.
+const ATTACH_METERS = 12;
+const ATTACH_OFFSET_PX: [number, number] = [22, -22];
+const FAN_PICK_PX = 28;
+const FAN_RADIUS_PX = 46;
+const PIN_DIM_METERS = 14;
+
+type Fan = { center: Coordinates; ids: number[]; mpp: number };
+
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 /**
@@ -86,7 +110,7 @@ const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', feature
 function registerCareMarkerImages(map: maplibregl.Map) {
   const ratio = Math.min(window.devicePixelRatio || 1, 3);
   const px = Math.round(CARE_MARKER_SIZE * ratio);
-  for (const { key, type, step, theme } of careMarkerVariants()) {
+  for (const { key, type, tone, step, theme } of careMarkerVariants()) {
     if (map.hasImage(key)) continue;
     const img = new Image(px, px);
     img.onload = () => {
@@ -102,7 +126,7 @@ function registerCareMarkerImages(map: maplibregl.Map) {
       map.addImage(key, ctx.getImageData(0, 0, px, px), { pixelRatio: ratio });
     };
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-      careMarkerSvg(type, step, theme)
+      careMarkerSvg(type, step, theme, tone)
     )}`;
   }
 }
@@ -114,7 +138,16 @@ export default function MapPage() {
   // Latest GeoJSON per source: setStyle (theme change) wipes sources and
   // layers, so `ensureLayers` re-adds them from these refs on style.load.
   const careMarkersRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
+  const fanIconsRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
+  const fanSpokesRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   const userRingRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
+  // The last fetched records, the open fan and the pin element: the map is
+  // imperative, so the stacking rules are re-applied from these refs by
+  // paintMarkers() whenever any of them changes.
+  const actionsRef = useRef<CareAction[]>([]);
+  const fanRef = useRef<Fan | null>(null);
+  const userMarkerElRef = useRef<HTMLElement | null>(null);
+  const myLocationRef = useRef<Coordinates | null>(null);
   const animalMarkersRef = useRef<maplibregl.Marker[]>([]);
   // Request generations for the racy loaders (see loadMarkers).
   const markersSeqRef = useRef(0);
@@ -162,6 +195,7 @@ export default function MapPage() {
     [pendingPhotoUrl]
   );
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
+  myLocationRef.current = myLocation;
   // Flips once the (rAF-deferred) map exists, so the data effects below
   // re-run instead of bailing out against a still-null mapRef.
   const [mapReady, setMapReady] = useState(false);
@@ -182,6 +216,110 @@ export default function MapPage() {
     // — otherwise a zoomed-out map just looks empty.
     setZoomHint(animalMarkersRef.current.length > 0 && !zoomedInRef.current);
   }, []);
+
+  const positionOf = (action: CareAction): Coordinates => {
+    const [lng, lat] = action.location.coordinates;
+    return { lat, lng };
+  };
+  const animalPositionOf = (animal: Animal): Coordinates => {
+    const [lng, lat] = animal.location.coordinates;
+    return { lat, lng };
+  };
+
+  /**
+   * Rebuilds the record layers from the refs: one point per record with
+   * type + tone + ring step (the image key) and weight (placement
+   * priority), `attached` for records under an avatar, `hidden` for the
+   * open fan's members; then the fan's own icons and spokes; then the pin's
+   * transparency.
+   */
+  const paintMarkers = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const actions = actionsRef.current;
+    const animals = animalsDataRef.current;
+    const fan = fanRef.current;
+    careMarkersRef.current = featureCollection(
+      actions.map((action) => {
+        const at = positionOf(action);
+        const weight = Number(action.weight);
+        const attached = animals.some(
+          (animal) => distanceBetween(at, animalPositionOf(animal)) <= ATTACH_METERS
+        );
+        // `step` as a string: the icon key is built with `concat`, and a
+        // string leaves no room for an engine to print a number as "5.0".
+        return pointFeature(at, {
+          id: action.id,
+          type: action.action_type,
+          tone: ringTone(weight),
+          step: String(ringStep(weight)),
+          weight,
+          attached: attached ? 1 : 0,
+          hidden: fan?.ids.includes(action.id) ? 1 : 0,
+        });
+      })
+    );
+    if (fan) {
+      const members = actions.filter((action) => fan.ids.includes(action.id));
+      const radius = FAN_RADIUS_PX * fan.mpp;
+      const points = members.map((action, i) => {
+        const angle = -Math.PI / 2 + (i / members.length) * 2 * Math.PI;
+        const weight = Number(action.weight);
+        const at = offsetMeters(fan.center, radius * Math.cos(angle), -radius * Math.sin(angle));
+        return {
+          at,
+          feature: pointFeature(at, {
+            id: action.id,
+            type: action.action_type,
+            tone: ringTone(weight),
+            step: String(ringStep(weight)),
+            weight,
+          }),
+        };
+      });
+      fanIconsRef.current = featureCollection(points.map((p) => p.feature));
+      fanSpokesRef.current = featureCollection(points.map((p) => segmentFeature(fan.center, p.at)));
+    } else {
+      fanIconsRef.current = EMPTY_FC;
+      fanSpokesRef.current = EMPTY_FC;
+    }
+    const source = (id: string) => map.getSource(id) as maplibregl.GeoJSONSource | undefined;
+    source('care-markers')?.setData(careMarkersRef.current);
+    source('care-fan')?.setData(fanIconsRef.current);
+    source('care-fan-spokes')?.setData(fanSpokesRef.current);
+
+    const me = myLocationRef.current;
+    if (me && userMarkerElRef.current) {
+      const near = (p: Coordinates) => distanceBetween(me, p) <= PIN_DIM_METERS;
+      const dimmed =
+        actions.some((action) => near(positionOf(action))) ||
+        animals.some((animal) => near(animalPositionOf(animal)));
+      userMarkerElRef.current.classList.toggle('dimmed', dimmed);
+    }
+  }, []);
+
+  /** A tap on a record: open the fan of everything stacked under it. */
+  const openFan = useCallback(
+    (tappedId: number) => {
+      const map = mapRef.current;
+      const tapped = actionsRef.current.find((action) => action.id === tappedId);
+      if (!map || !tapped) return;
+      const center = positionOf(tapped);
+      const mpp = metersPerPixel(map.getZoom(), center.lat);
+      const ids = actionsRef.current
+        .filter((action) => distanceBetween(center, positionOf(action)) <= FAN_PICK_PX * mpp)
+        .map((action) => action.id);
+      fanRef.current = ids.length >= 2 ? { center, ids, mpp } : null;
+      paintMarkers();
+    },
+    [paintMarkers]
+  );
+
+  const closeFan = useCallback(() => {
+    if (!fanRef.current) return;
+    fanRef.current = null;
+    paintMarkers();
+  }, [paintMarkers]);
 
   // The map is built once; data layers refresh in separate effects.
   // Creation is deferred by one animation frame so React StrictMode's
@@ -240,6 +378,8 @@ export default function MapPage() {
             'care-',
             ['get', 'type'],
             '-',
+            ['get', 'tone'],
+            '-',
             ['get', 'step'],
             `-${resolvedThemeName()}`,
           ],
@@ -252,9 +392,46 @@ export default function MapPage() {
             CARE_MARKER_ZOOM_FULL,
             1,
           ],
+          // Rule 1: a record under an animal avatar sits on its shoulder.
+          'icon-offset': [
+            'case',
+            ['==', ['get', 'attached'], 1],
+            ['literal', ATTACH_OFFSET_PX],
+            ['literal', [0, 0]],
+          ],
           'icon-allow-overlap': false,
           'icon-ignore-placement': false,
           'symbol-sort-key': ['-', 1, ['get', 'weight']],
+        },
+        filter: ['!=', ['get', 'hidden'], 1],
+      });
+      // Rule 2: the open fan — spokes under, members over, no collision
+      // rules so every member shows.
+      map.addSource('care-fan-spokes', { type: 'geojson', data: fanSpokesRef.current });
+      map.addLayer({
+        id: 'care-fan-spokes-line',
+        type: 'line',
+        source: 'care-fan-spokes',
+        paint: { 'line-color': USER_RADIUS_STROKE, 'line-width': 1.5 },
+      });
+      map.addSource('care-fan', { type: 'geojson', data: fanIconsRef.current });
+      map.addLayer({
+        id: 'care-fan-icon',
+        type: 'symbol',
+        source: 'care-fan',
+        layout: {
+          'icon-image': [
+            'concat',
+            'care-',
+            ['get', 'type'],
+            '-',
+            ['get', 'tone'],
+            '-',
+            ['get', 'step'],
+            `-${resolvedThemeName()}`,
+          ],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
         },
       });
       // The user's 200 m range (where animals draw) as a dashed ring — the
@@ -278,6 +455,20 @@ export default function MapPage() {
       }
     };
     map.on('zoom', onZoom);
+
+    // The fan opens from a tap on a visible record and closes on any move
+    // or a tap on bare map (a tap on a fanned member keeps it open).
+    map.on('click', 'care-markers-icon', (e) => {
+      const id = Number(e.features?.[0]?.properties?.id);
+      if (Number.isFinite(id)) openFan(id);
+    });
+    map.on('click', (e) => {
+      const hits = map.queryRenderedFeatures(e.point, {
+        layers: ['care-markers-icon', 'care-fan-icon'].filter((id) => !!map.getLayer(id)),
+      });
+      if (hits.length === 0) closeFan();
+    });
+    map.on('movestart', closeFan);
 
     // The OS can flip light/dark while the map is open; the app theme is CSS
     // (instant), the basemap needs a setStyle. ensureLayers restores our
@@ -308,6 +499,10 @@ export default function MapPage() {
         new maplibregl.Marker({ element: dot, anchor: 'bottom' })
           .setLngLat([loc.lng, loc.lat])
           .addTo(map);
+        // Rule 3 needs the element and the location before the next paint.
+        userMarkerElRef.current = dot;
+        myLocationRef.current = loc;
+        paintMarkers();
         userRingRef.current = featureCollection([circleRing(loc, ANIMAL_RADIUS_METERS)]);
         (map.getSource('user-ring') as maplibregl.GeoJSONSource | undefined)?.setData(
           userRingRef.current
@@ -334,24 +529,11 @@ export default function MapPage() {
     const seq = ++markersSeqRef.current;
     const actions = await fetchCareActionsInBounds(TURKEY_BOUNDS);
     if (seq !== markersSeqRef.current) return;
-    // One point per record; the layer picks the image from type + ring
-    // step and the weight decides who wins a collision (mobile parity).
-    careMarkersRef.current = featureCollection(
-      actions.map((action) => {
-        const [lng, lat] = action.location.coordinates;
-        const weight = Number(action.weight);
-        // `step` as a string: the icon key is built with `concat`, and a
-        // string leaves no room for an engine to print a number as "5.0".
-        return pointFeature(
-          { lat, lng },
-          { type: action.action_type, step: String(ringStep(weight)), weight }
-        );
-      })
-    );
-    (map.getSource('care-markers') as maplibregl.GeoJSONSource | undefined)?.setData(
-      careMarkersRef.current
-    );
-  }, []);
+    actionsRef.current = actions;
+    // A fresh list may no longer contain the fan's members.
+    fanRef.current = null;
+    paintMarkers();
+  }, [paintMarkers]);
 
   /** Both statuses around a point; a failed pair leaves the sheet cautious. */
   const loadStatuses = useCallback(async (center: Coordinates) => {
@@ -376,6 +558,8 @@ export default function MapPage() {
       const animals: Animal[] = await fetchAnimals(center.lat, center.lng, ANIMAL_RADIUS_METERS);
       if (seq !== animalsSeqRef.current) return;
       animalsDataRef.current = animals;
+      // Rule 1 depends on where the animals are.
+      paintMarkers();
       for (const marker of animalMarkersRef.current) marker.remove();
       animalMarkersRef.current = animals.map((animal) => {
         const [lng, lat] = animal.location.coordinates;
@@ -402,7 +586,7 @@ export default function MapPage() {
       });
       syncAnimalMarkers();
     },
-    [myLocation, navigate, syncAnimalMarkers]
+    [myLocation, navigate, paintMarkers, syncAnimalMarkers]
   );
 
   useEffect(() => {

@@ -19,9 +19,16 @@
 
 export type CareType = 'food' | 'water';
 export type CareTheme = 'light' | 'dark';
+/** Ring tone: green while there is time, red in the record's last quarter
+ * (owner decision, 2026-09-08 — both types, a quarter of their window). */
+export type CareTone = 'ok' | 'low';
 
 export const CARE_TYPES: CareType[] = ['food', 'water'];
 export const CARE_THEMES: CareTheme[] = ['light', 'dark'];
+export const CARE_TONES: CareTone[] = ['ok', 'low'];
+
+/** Remaining share of the window at or below which the ring turns red. */
+export const LOW_SHARE = 0.25;
 
 /** Ring resolution: 10 % per step. Steps run 1..RING_STEPS (a listed record
  * is always inside its window, so an empty ring never appears). */
@@ -46,10 +53,13 @@ export const CARE_GLYPH_PATHS: Record<CareType, string[]> = {
   water: ['M12 3.4s6.2 6.5 6.2 10.2a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.4 12 3.4Z'],
 };
 
-// theme/colors.ts: success / surface / borderStrong per theme.
-const MARKER_COLORS: Record<CareTheme, { ring: string; disc: string; edge: string }> = {
-  light: { ring: '#34A853', disc: '#FFFFFF', edge: '#F3E4D4' },
-  dark: { ring: '#4CC46B', disc: '#161412', edge: '#363028' },
+// theme/colors.ts: success (ok) / danger (low), surface, borderStrong per theme.
+const MARKER_COLORS: Record<
+  CareTheme,
+  { ring: Record<CareTone, string>; disc: string; edge: string }
+> = {
+  light: { ring: { ok: '#34A853', low: '#E24C4C' }, disc: '#FFFFFF', edge: '#F3E4D4' },
+  dark: { ring: { ok: '#4CC46B', low: '#FF7B6B' }, disc: '#161412', edge: '#363028' },
 };
 
 /**
@@ -61,25 +71,47 @@ export function ringStep(weight: number): number {
   return Math.max(1, Math.min(RING_STEPS, Math.ceil(w * RING_STEPS)));
 }
 
+/**
+ * The tone is decided on the exact weight, not the step: step 3 spans
+ * 0.21–0.30 and straddles the quarter, so both tones exist for it.
+ */
+export function ringTone(weight: number): CareTone {
+  const w = Number.isFinite(weight) ? weight : 0;
+  return w <= LOW_SHARE ? 'low' : 'ok';
+}
+
+/** The highest step a low-tone ring can show (ceil(LOW_SHARE × steps)). */
+export const LOW_MAX_STEP = Math.ceil(LOW_SHARE * RING_STEPS);
+
 /** The image key both clients use in the symbol layer's icon-image. */
-export function careMarkerKey(type: CareType, step: number, theme: CareTheme): string {
-  return `care-${type}-${step}-${theme}`;
+export function careMarkerKey(
+  type: CareType,
+  tone: CareTone,
+  step: number,
+  theme: CareTheme
+): string {
+  return `care-${type}-${tone}-${step}-${theme}`;
 }
 
 export interface CareMarkerVariant {
   key: string;
   type: CareType;
+  tone: CareTone;
   step: number;
   theme: CareTheme;
 }
 
-/** Every image the map may ask for: 2 types × RING_STEPS × 2 themes. */
+/** Every image the map may ask for: green for every step, red only for the
+ * steps a last-quarter ring can have. */
 export function careMarkerVariants(): CareMarkerVariant[] {
   const variants: CareMarkerVariant[] = [];
   for (const theme of CARE_THEMES) {
     for (const type of CARE_TYPES) {
-      for (let step = 1; step <= RING_STEPS; step += 1) {
-        variants.push({ key: careMarkerKey(type, step, theme), type, step, theme });
+      for (const tone of CARE_TONES) {
+        const maxStep = tone === 'low' ? LOW_MAX_STEP : RING_STEPS;
+        for (let step = 1; step <= maxStep; step += 1) {
+          variants.push({ key: careMarkerKey(type, tone, step, theme), type, tone, step, theme });
+        }
       }
     }
   }
@@ -94,10 +126,17 @@ const GLYPH_SCALE = 0.8;
 /**
  * The marker as a plain SVG string (CARE_MARKER_SIZE square, transparent
  * ground). The ring's remaining share starts at 12 o'clock and runs
- * clockwise; the faint full ring behind it is the track.
+ * clockwise; the faint full ring behind it is the track. In the low tone
+ * ring, track and glyph all go red — the whole marker reads as an alarm.
  */
-export function careMarkerSvg(type: CareType, step: number, theme: CareTheme): string {
-  const c = MARKER_COLORS[theme];
+export function careMarkerSvg(
+  type: CareType,
+  step: number,
+  theme: CareTheme,
+  tone: CareTone = 'ok'
+): string {
+  const palette = MARKER_COLORS[theme];
+  const c = { ring: palette.ring[tone], disc: palette.disc, edge: palette.edge };
   const size = CARE_MARKER_SIZE;
   const mid = size / 2;
   const share = Math.min(Math.max(step, 0), RING_STEPS) / RING_STEPS;
