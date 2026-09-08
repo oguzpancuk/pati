@@ -2258,3 +2258,34 @@ the next docs touch.
   zoom vs. camera zoom, reviewer's minor). Stated divergence: on mobile a
   tap on a fan member that overlaps a visible non-member is swallowed by
   the fan; on web it opens that marker's fan.
+
+## 2026-09-08 — P6 Track B merged: user-to-user messaging
+
+- Merged `track/messaging` into main with `--no-ff` (82a27ec; seven
+  reviewed commits, reviewer NEEDS_WORK → APPROVE → APPROVE). Owner
+  decisions: friends message each other one-to-one; groups are made from
+  one's own friends, named, with admins who rename, add, promote, remove
+  (never another admin) and delete any message; a member can leave (the
+  last admin hands over to the longest-standing member); 5-second
+  foreground polling (focus-gated on mobile, visibility-gated on web);
+  messages are reportable into content_reports as `target_type
+  'message'` (006 replaces the check constraint idempotently; the admin
+  queue shows them). Decisions taken during review: a member added later
+  sees history only from their `joined_at` on; rename is `PUT`.
+- Schema (006): conversations (`direct_key` partial unique index for the
+  DM pair), conversation_members (role, joined_at, last_read_at),
+  messages (soft delete: `deleted_at`, `deleted_by`, the row stays for
+  the moderator). Poll contract: `GET …/messages?after=&since=` returns
+  new messages plus `deleted: [{id, deletedBySender}]` and echoes `now`.
+- Evidence: the track's curl harness now lives in
+  `backend/scripts/messaging-check/` (run.sh boots a throwaway backend on
+  3104, checks.sh registers the two extra accounts when missing) — 75
+  checks incl. the interleaved two-sender case the first review found;
+  migration applied twice on the dev DB and twice on a fresh one; jest
+  `applyPoll.test.ts`; four web playwright screenshots (inbox,
+  conversation, group settings, new conversation). Mobile screens
+  verified with tsc + jest only during the track (the simulator is the
+  main session's); simulator screenshots are owed at the merge pass.
+- Known limitations, stated: a message the sender took back whose account
+  was later deleted reads "Yönetici bu mesajı sildi"; `POST /reports`
+  does not know `message` — reports go through `POST /messages/:id/report`.
