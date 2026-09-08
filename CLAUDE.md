@@ -27,7 +27,7 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
 | -------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | install        | `npm ci` in each of backend/, mobile/, web/, admin/; then `cd mobile/ios && pod install`                               |
 | dev            | `bash contracts/init.sh` (DB + backend + health check); `--ios` also launches the simulator                            |
-| test           | `cd mobile && npx jest` (backend/web/admin have no tests yet)                                                          |
+| test           | `cd mobile && npx jest`; `cd backend && node --test` (badge thresholds; web/admin have no tests yet)                  |
 | typecheck      | `npx tsc --noEmit` in mobile/, web/, admin/                                                                            |
 | lint           | `cd mobile && npm run lint` (mobile only; not yet in the battery)                                                      |
 | quick battery  | `bash .claude/hooks/verify.sh` (tsc ×3, jest, web css parse, backend load + node:test — what the push-gate runs)      |
