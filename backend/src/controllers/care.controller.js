@@ -152,9 +152,10 @@ async function addCareAction(req, res, next) {
       return res.status(400).json({ error: 'Fotoğraf zorunludur' });
     }
 
-    const pinLat = Number(lat);
-    const pinLng = Number(lng);
-    if (!Number.isFinite(pinLat) || !Number.isFinite(pinLng)) {
+    // finiteNumber, not Number: '' would otherwise record the drop at 0,0.
+    const pinLat = finiteNumber(lat);
+    const pinLng = finiteNumber(lng);
+    if (pinLat === null || pinLng === null) {
       if (req.file) fs.unlink(req.file.path, () => {});
       return res.status(400).json({ error: 'lat ve lng sayı olmalıdır' });
     }
@@ -250,7 +251,11 @@ const WITHIN_WINDOW_SQL = `created_at > now() - (${WINDOW_HOURS_SQL} * interval 
 async function listCareActions(req, res, next) {
   try {
     const { lat, lng, minLat, maxLat, minLng, maxLng, actionType } = req.query;
-    const radiusMeters = Number(req.query.radiusMeters) || DEFAULT_RADIUS_METERS;
+    // A junk radius must not fall back to the default silently.
+    if (isPresent(req.query.radiusMeters) && finiteNumber(req.query.radiusMeters) === null) {
+      return res.status(400).json({ error: 'radiusMeters sayı olmalıdır' });
+    }
+    const radiusMeters = finiteNumber(req.query.radiusMeters) ?? DEFAULT_RADIUS_METERS;
 
     // "Present" means given and non-empty: an empty corner falls through to
     // the radius branch and its "zorunludur" 400, as it always did.
@@ -318,7 +323,10 @@ async function listCareActions(req, res, next) {
 async function getCareStatus(req, res, next) {
   try {
     const { lat, lng, actionType } = req.query;
-    const radiusMeters = Number(req.query.radiusMeters) || DEFAULT_STATUS_RADIUS_METERS;
+    if (isPresent(req.query.radiusMeters) && finiteNumber(req.query.radiusMeters) === null) {
+      return res.status(400).json({ error: 'radiusMeters sayı olmalıdır' });
+    }
+    const radiusMeters = finiteNumber(req.query.radiusMeters) ?? DEFAULT_STATUS_RADIUS_METERS;
 
     if (!isPresent(lat) || !isPresent(lng)) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });

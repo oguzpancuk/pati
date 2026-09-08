@@ -599,10 +599,24 @@ export default function MapPage() {
     // instead of describing the fallback centre (review finding).
     if (myLocation) {
       loadStatuses(myLocation);
-    } else {
-      setStatuses(null);
-      setStatusFailed(false);
+      return;
     }
+    // No fix: tell a denied permission ("we don't know where you are")
+    // from a granted one that produced none (a failed lookup) — mobile
+    // does the same with hasLocationPermission (review finding).
+    setStatuses(null);
+    let cancelled = false;
+    navigator.permissions
+      ?.query({ name: 'geolocation' })
+      .then((perm) => {
+        if (!cancelled) setStatusFailed(perm.state === 'granted');
+      })
+      .catch(() => {
+        if (!cancelled) setStatusFailed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [myLocation, loadStatuses]);
 
   /**

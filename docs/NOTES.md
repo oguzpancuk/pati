@@ -2576,11 +2576,21 @@ the next docs touch.
     corners, both radius centres and the animals list's `radiusMeters`;
     the viewport branch is entered only when all four corners are present
     and non-empty, so a half-filled box still answers the old "zorunludur"
-    400 instead of silently querying from the equator. Live checks: 400
-    for `lat=abc`, `lat=`, `radiusMeters=abc` and a half-filled box on all
-    four public routes; 200 for the world box, a status call and an
-    animals call. `backend/test/coordinateGuards.test.js` pins all of it
-    without a database (13 backend tests).
+    400 instead of silently querying from the equator.
+  - Sixth round (the review kept finding holes the previous round claimed
+    closed, so these are the observed answers, route by route). `finiteNumber`
+    now decides every branch, not string truthiness: `GET /animals` refuses
+    a blank or half-given centre (`lat=41&lng=%20`, `lat=41` → 400 "lat ve
+    lng birlikte verilmelidir") and parses its radius, both care routes
+    refuse a junk `radiusMeters` instead of falling back to the default
+    (→ 400), and `POST /care-actions` parses its pin with `finiteNumber`,
+    so `lat: ""` is refused rather than recorded at 0,0. `GET /animals`
+    with no coordinates at all (or two empty ones) is still the unbounded
+    newest-first list — that is the animals tab, not an error. Web now
+    tells a denied permission from a granted one that produced no fix
+    (`navigator.permissions`), the parity the mobile fix left open.
+    `backend/test/coordinateGuards.test.js` pins all of it without a
+    database (15 backend tests).
   - The world view opens at zoom 2.2 with a floor of 2 on both clients:
     the generated basemap drops the low-zoom `natural_earth` raster, so
     below ~2 the vector layers paint nothing (blank cream). The build

@@ -75,6 +75,28 @@ test('listAnimals refuses a non-numeric centre or radius', async () => {
   }
 });
 
+test('listAnimals refuses half a centre and treats blanks as no centre', async () => {
+  for (const query of [{ lat: '41' }, { lat: '41', lng: '   ' }, { lng: '29' }]) {
+    const res = fakeRes();
+    await animals.listAnimals({ query }, res, (err) =>
+      assert.fail(`passed to next(): ${err}`)
+    );
+    assert.strictEqual(res.code, 400, JSON.stringify(query));
+    assert.match(res.body.error, /birlikte verilmelidir/);
+  }
+});
+
+test('a junk radius is refused rather than falling back to the default', async () => {
+  for (const handler of [care.listCareActions, care.getCareStatus]) {
+    const res = fakeRes();
+    await handler({ query: { lat: '41', lng: '29', radiusMeters: 'abc' } }, res, (err) =>
+      assert.fail(`passed to next(): ${err}`)
+    );
+    assert.strictEqual(res.code, 400);
+    assert.match(res.body.error, /radiusMeters sayı olmalıdır/);
+  }
+});
+
 test('an empty coordinate never reaches the database', async () => {
   for (const handler of [care.listCareActions, care.getCareStatus]) {
     const res = fakeRes();

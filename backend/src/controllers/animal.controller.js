@@ -156,14 +156,25 @@ async function listAnimals(req, res, next) {
     const { limit, offset } = pageParams(req.query);
     const speciesFilter = species ? 'AND a.species = $SPECIES' : '';
 
-    if (lat && lng) {
+    // The parsed numbers decide the branch, not the raw strings: a blank
+    // "   " is truthy but not a coordinate (review finding). Half a centre
+    // is a mistake, not "no centre".
+    const centreLat = finiteNumber(lat);
+    const centreLng = finiteNumber(lng);
+    if ((centreLat === null) !== (centreLng === null)) {
+      return res.status(400).json({ error: 'lat ve lng birlikte verilmelidir' });
+    }
+    if (centreLat !== null && centreLng !== null) {
       // With a radius (the map's viewport pull) the circle bounds the set;
       // without one (the animals list, owner decision 2026-09-07) the whole
       // table is walked nearest-first — `<->` on geography is a KNN index
       // scan on the GIST index, so page one costs the same in a city or a
       // village and the list never runs out before the animals do.
-      const bounded = radiusMeters !== undefined && radiusMeters !== '';
-      const params = bounded ? [lng, lat, radiusMeters, limit, offset] : [lng, lat, limit, offset];
+      const radius = finiteNumber(radiusMeters);
+      const bounded = radius !== null;
+      const params = bounded
+        ? [centreLng, centreLat, radius, limit, offset]
+        : [centreLng, centreLat, limit, offset];
       const point = 'ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography';
       // The page is cut INSIDE the subquery, ordered by `<->` alone: that is
       // the shape the planner turns into a KNN index scan (a tiebreaker or
