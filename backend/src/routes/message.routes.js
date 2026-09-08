@@ -10,7 +10,7 @@ router.post('/direct', requireAuth, limits.messageAdmin, c.openDirect);
 router.post('/groups', requireAuth, limits.messageAdmin, c.createGroup);
 
 router.get('/conversations/:id', requireAuth, c.getConversation);
-router.patch('/conversations/:id', requireAuth, limits.messageAdmin, c.renameGroup);
+router.put('/conversations/:id', requireAuth, limits.messageAdmin, c.renameGroup);
 router.post('/conversations/:id/members', requireAuth, limits.messageAdmin, c.addMember);
 router.delete(
   '/conversations/:id/members/:userId',

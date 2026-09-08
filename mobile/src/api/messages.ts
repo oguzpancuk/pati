@@ -102,7 +102,7 @@ export async function fetchConversation(id: number): Promise<ConversationDetail>
 }
 
 export async function renameGroup(id: number, name: string): Promise<void> {
-  await apiClient.patch(`/messages/conversations/${id}`, { name });
+  await apiClient.put(`/messages/conversations/${id}`, { name });
 }
 
 export async function addMember(id: number, userId: number): Promise<Member[]> {
