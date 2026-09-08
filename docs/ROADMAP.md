@@ -827,3 +827,30 @@ comment/sighting/health rights to carers only.
   with likes, follow/care buttons and the match step, the notification
   inbox; badge thresholds unit-tested. Every track ends with code-reviewer;
   the main session merges, runs the full battery and evaluator-qa.
+
+### P7 — Owner's review of the P6 batch (eleven findings, 2026-09-08)
+
+Same three tracks as P6, same claims; the owner asked to talk first.
+
+- **Track A′ — map (main session):** (8) animal avatars from farther out
+  (proposal: from zoom 15, fetched within 500 m); (9) the location becomes
+  a small dot with a halo (Google-style) drawn under everything, the paw
+  pin retired — and whenever records and/or animals overlap on screen
+  they fan out around the spot automatically (no tap), recomputed on zoom
+  end; (10) the sheet's three buttons become one "Ekle" with the paw mark,
+  which opens a chooser (mama / su / hayvan) before the existing flows;
+  (11) a locate-me button (crosshair) that flies to the user.
+- **Track B′ — messaging (worktree):** (6) sender avatars beside messages;
+  (7) quoting a message (reply-to: `messages.reply_to_id`, the quoted
+  excerpt rendered above the bubble, tap scrolls to it).
+- **Track C′ — animal profile (worktree):** (1) past notifications arriving
+  on follow — reproduce first (server rows are written at event time to
+  the followers and carers of that moment, so the suspects are carer rows
+  and the local care-alert log); (2) "bakım ver" also follows; (3) the
+  two highest badges on the header, tap opens the tier ladder like the
+  human catalog modal; (4) the "bakım veriyorsun" state keeps its outline;
+  (5) follower/carer counts at the top of the header, bolder.
+- **Done when:** per track as in P6 — screenshots on both clients, curl
+  harnesses extended (quote, auto-follow, notification timing), jest for
+  the fan layout, code-reviewer per track, main merges with full battery
+  and evaluator-qa.
