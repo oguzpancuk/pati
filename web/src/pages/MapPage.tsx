@@ -649,6 +649,22 @@ export default function MapPage() {
           }}
         >
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            {/* One file input for every step of the sheet. It used to live
+                in the idle branch only, so on the rejected step "Yeniden
+                çek" clicked a ref to an unmounted input and did nothing
+                (production report, 2026-09-08). */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handlePhotoPicked(file);
+                e.target.value = '';
+              }}
+            />
             {aiCheck !== 'idle' ? (
               /* The photo-check interstitial (ADR-0005). The photo is up,
                  nothing is recorded; the approved step waits for an
@@ -751,18 +767,6 @@ export default function MapPage() {
                   {typeLabel === 'mama' ? 'Mamayı' : 'Suyu'} bırak ve fotoğrafını çek, haritada
                   herkes görsün. Kayıt şu anki konumuna düşecek.
                 </p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  hidden
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handlePhotoPicked(file);
-                    e.target.value = '';
-                  }}
-                />
                 <button
                   className="btn full"
                   disabled={busy}
