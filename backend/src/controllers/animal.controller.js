@@ -417,12 +417,12 @@ async function matchAnimals(req, res, next) {
 
 // How long a registration match hit stands as "this user photographed this
 // animal" — the photoToken's lifetime, the add-animal flow's own window.
-// The rule, in full (parity with "bakım ver", one animal per submission):
-// a hit is minted by one photo submission, lasts fifteen minutes, and is
-// spent by ONE sighting — the confirm stamps used_at on ALL of the user's
-// fresh hits, the confirmed animal's included (consumeMatchHit), so a
-// photo that put twenty animals forward confirms one of them, never
-// twenty. Spent, never deleted: the rows stay as the badge's evidence.
+// The rule, in full (parity with "bakım ver"): a hit is minted by a photo
+// submission, lasts fifteen minutes, and is spent by ONE sighting — the
+// confirm stamps used_at on ALL of the user's fresh hits, whichever
+// submission minted them, the confirmed animal's included
+// (consumeMatchHit): one confirm per window, never one per candidate.
+// Spent, never deleted: the rows stay as the badge's evidence.
 const MATCH_HIT_WINDOW = '15 minutes';
 
 // The hits among the shown candidates (see above). `similarity` uses the

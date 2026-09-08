@@ -34,8 +34,9 @@ CREATE INDEX IF NOT EXISTS idx_animal_followers_user ON animal_followers (user_i
 -- from the add-animal flow stands on (see reportSighting: a register hit
 -- within fifteen minutes lets a non-carer confirm "that's the one"). A
 -- hit is spent, never deleted: the confirm stamps used_at on ALL of the
--- user's fresh register rows (one photo confirms one animal), and the
--- rows stay as the badge's evidence. Rows are bounded by the match rate
+-- user's fresh register rows, whichever submission minted them (one
+-- confirm per window, never one per candidate), and the rows stay as the
+-- badge's evidence. Rows are bounded by the match rate
 -- limit; nothing prunes them yet.
 CREATE TABLE IF NOT EXISTS animal_match_attempts (
     id SERIAL PRIMARY KEY,
@@ -46,8 +47,9 @@ CREATE TABLE IF NOT EXISTS animal_match_attempts (
     used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- Added after the table's first deploy; the body above carries it for a
--- database built from scratch, this line for one that already has the table.
+-- 007 has never reached production; this line is for development databases
+-- that ran an earlier revision of 007 without the column (the body above
+-- carries it for a database built from scratch).
 ALTER TABLE animal_match_attempts ADD COLUMN IF NOT EXISTS used_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_animal_match_attempts_animal
     ON animal_match_attempts (animal_id, kind);
