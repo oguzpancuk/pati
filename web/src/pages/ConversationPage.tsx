@@ -11,12 +11,17 @@ import {
   markConversationRead,
   Message,
   POLL_INTERVAL_MS,
+  Quote,
+  quoteOf,
   reportMessage,
   sendMessage,
+  withDeleted,
 } from '../api/messages';
 import { UserAvatar } from '../avatars';
 
 const PAGE = 50;
+const AVATAR = 28;
+const FLASH_MS = 1500;
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -25,8 +30,10 @@ function formatTime(iso: string) {
 /**
  * One conversation (mobile parity: ConversationScreen): the newest page,
  * older pages on demand, a 5-second poll while the tab is visible. Each
- * bubble has a "⋯" for delete (own, or any as a group admin) and report —
- * the web stand-in for mobile's long press.
+ * bubble has a "⋯" for reply, delete (own, or any as a group admin) and
+ * report — the web stand-in for mobile's long press. A reply's quote sits
+ * above the bubble and scrolls to its source on click; the sender's avatar
+ * marks the first bubble of a run (P7 items 6–7).
  */
 export default function ConversationPage() {
   const { id } = useParams();
@@ -43,6 +50,12 @@ export default function ConversationPage() {
   const [error, setError] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<number | null>(null);
   const [reporting, setReporting] = useState<Message | null>(null);
+  // The quote the next send will carry; cleared on send, cancel, or when
+  // the source is deleted under it (the server would refuse it anyway).
+  const [replyTo, setReplyTo] = useState<Quote | null>(null);
+  // The bubble a quote click just scrolled to, outlined for a moment.
+  const [flashId, setFlashId] = useState<number | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastId = useRef<number | null>(null);
   const since = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -94,6 +107,16 @@ export default function ConversationPage() {
   }, [conversationId, scrollToBottom]);
 
   useEffect(() => {
+    if (replyTo && messages?.some((m) => m.id === replyTo.id && m.deleted)) setReplyTo(null);
+  }, [messages, replyTo]);
+
+  useEffect(() => {
+    if (flashId === null) return;
+    const t = window.setTimeout(() => setFlashId(null), FLASH_MS);
+    return () => window.clearTimeout(t);
+  }, [flashId]);
+
+  useEffect(() => {
     let timer: number | null = null;
     const start = () => {
       if (timer === null) timer = window.setInterval(poll, POLL_INTERVAL_MS);
@@ -142,8 +165,9 @@ export default function ConversationPage() {
     if (!body || sending) return;
     setSending(true);
     try {
-      const sent = await sendMessage(conversationId, body);
+      const sent = await sendMessage(conversationId, body, replyTo?.id);
       setDraft('');
+      setReplyTo(null);
       setMessages((prev) =>
         (prev ?? []).some((m) => m.id === sent.id) ? prev : [...(prev ?? []), sent].sort((a, b) => a.id - b.id)
       );
@@ -165,18 +189,30 @@ export default function ConversationPage() {
     const mine = !!myId && m.sender?.id === myId;
     try {
       await deleteMessage(m.id);
-      setMessages((prev) =>
-        (prev ?? []).map((x) =>
-          x.id === m.id ? { ...x, body: null, deleted: true, deletedBySender: mine } : x
-        )
-      );
+      setMessages((prev) => withDeleted(prev ?? [], [{ id: m.id, deletedBySender: mine }]));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Silinemedi');
     }
   }
 
+  function reply(m: Message) {
+    setMenuFor(null);
+    setReplyTo(quoteOf(m));
+    inputRef.current?.focus();
+  }
+
+  // A quote click scrolls to its source when it is loaded; a source further
+  // up than the pages fetched so far is left alone (the owner's spec).
+  function jumpTo(id: number) {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setFlashId(id);
+  }
+
   const isGroup = detail?.kind === 'group';
   const isAdmin = isGroup && detail?.role === 'admin';
+  const canSend = !!detail?.canSend;
 
   return (
     <div className="page fill msg-page">
@@ -232,15 +268,47 @@ export default function ConversationPage() {
         )}
         {messages?.map((m, i) => {
           const mine = !!myId && m.sender?.id === myId;
-          const showName = isGroup && !mine && messages[i - 1]?.sender?.id !== m.sender?.id;
+          // The avatar (and, in a group, the name) marks the first bubble of
+          // a run; the rest of the run indents to stay aligned.
+          const firstOfRun = messages[i - 1]?.sender?.id !== m.sender?.id;
+          const showName = isGroup && !mine && firstOfRun;
+          const canReply = !m.deleted && canSend;
           const canDelete = !m.deleted && (mine || isAdmin);
           const canReport = !m.deleted && !mine;
+          const avatar = firstOfRun ? (
+            <span className="msg-avatar">
+              <UserAvatar avatarUrl={m.sender?.avatar_url} name={m.sender?.name} size={AVATAR} />
+            </span>
+          ) : (
+            <span className="msg-avatar gap" aria-hidden />
+          );
           return (
-            <div key={m.id} className={`msg-line${mine ? ' mine' : ''}`}>
+            <div key={m.id} id={`msg-${m.id}`} className={`msg-line${mine ? ' mine' : ''}`}>
+              {!mine && avatar}
+              <div className="msg-col">
               {showName && (
                 <div className="micro msg-sender">{m.sender?.name ?? 'silinmiş kullanıcı'}</div>
               )}
-              <div className={`msg-bubble${mine ? ' mine' : ''}${m.deleted ? ' deleted' : ''}`}>
+              <div
+                className={`msg-bubble${mine ? ' mine' : ''}${m.deleted ? ' deleted' : ''}${
+                  flashId === m.id ? ' flash' : ''
+                }`}
+              >
+                {m.replyTo && (
+                  <button
+                    type="button"
+                    className={`msg-quote${m.replyTo.deleted ? ' deleted' : ''}`}
+                    onClick={() => jumpTo(m.replyTo!.id)}
+                    aria-label="Alıntılanan mesaja git"
+                  >
+                    <span className="micro msg-quote-name">
+                      {m.replyTo.sender?.name ?? 'silinmiş kullanıcı'}
+                    </span>
+                    <span className="msg-quote-text">
+                      {m.replyTo.deleted ? 'Bu mesaj silindi' : m.replyTo.excerpt}
+                    </span>
+                  </button>
+                )}
                 {m.deleted ? (
                   <span className="subtle">
                     {m.deletedBySender === false ? 'Yönetici bu mesajı sildi' : 'Bu mesaj silindi'}
@@ -249,7 +317,7 @@ export default function ConversationPage() {
                   <span className="msg-body">{m.body}</span>
                 )}
                 <span className="msg-time">{formatTime(m.createdAt)}</span>
-                {(canDelete || canReport) && (
+                {(canReply || canDelete || canReport) && (
                   <button
                     type="button"
                     className="msg-more"
@@ -265,6 +333,11 @@ export default function ConversationPage() {
               </div>
               {menuFor === m.id && (
                 <div className="msg-menu" onClick={(e) => e.stopPropagation()}>
+                  {canReply && (
+                    <button type="button" className="link" onClick={() => reply(m)}>
+                      yanıtla
+                    </button>
+                  )}
                   {canDelete && (
                     <button type="button" className="link danger" onClick={() => remove(m)}>
                       sil
@@ -284,6 +357,8 @@ export default function ConversationPage() {
                   )}
                 </div>
               )}
+              </div>
+              {mine && avatar}
             </div>
           );
         })}
@@ -296,13 +371,33 @@ export default function ConversationPage() {
           </p>
         ) : (
           <form
-            className="row"
+            className="msg-form"
             onSubmit={(e) => {
               e.preventDefault();
               submit();
             }}
           >
+            {replyTo && (
+              <div className="msg-reply-bar">
+                <div className="msg-reply-bar-text">
+                  <span className="micro msg-quote-name">
+                    {replyTo.sender?.name ?? 'silinmiş kullanıcı'} · yanıtlanıyor
+                  </span>
+                  <span className="msg-quote-text">{replyTo.excerpt}</span>
+                </div>
+                <button
+                  type="button"
+                  className="msg-reply-cancel"
+                  onClick={() => setReplyTo(null)}
+                  aria-label="Alıntıyı kaldır"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            <div className="row">
             <textarea
+              ref={inputRef}
               className="msg-input"
               placeholder="Mesaj yaz…"
               value={draft}
@@ -325,6 +420,7 @@ export default function ConversationPage() {
             >
               ›
             </button>
+            </div>
           </form>
         )}
       </div>

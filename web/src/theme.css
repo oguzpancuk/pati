@@ -1335,17 +1335,34 @@ strong {
   overflow-y: auto;
   padding: 12px 16px;
 }
+/* A line is avatar + column; the avatar marks the first bubble of a run,
+   the rest of the run carries an empty gap of the same width. */
 .msg-line {
   display: flex;
-  flex-direction: column;
   align-items: flex-start;
-  max-width: 82%;
+  max-width: 86%;
   margin-bottom: 8px;
 }
 .msg-line.mine {
-  align-self: flex-end;
-  align-items: flex-end;
   margin-left: auto;
+}
+.msg-avatar {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin: 2px 8px 0 0;
+}
+.msg-line.mine .msg-avatar {
+  margin: 2px 0 0 8px;
+}
+.msg-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.msg-line.mine .msg-col {
+  align-items: flex-end;
 }
 .msg-sender {
   margin: 0 0 2px 8px;
@@ -1369,6 +1386,44 @@ strong {
 .msg-bubble.deleted {
   background: var(--surface);
   border-style: dashed;
+}
+/* The bubble a quote click just scrolled to. */
+.msg-bubble.flash {
+  border-color: var(--brand);
+}
+/* The quoted source above a reply's body; clicking scrolls to it. */
+.msg-quote {
+  display: block;
+  width: 100%;
+  margin: 0 0 4px;
+  padding: 4px 8px;
+  border: none;
+  border-left: 3px solid var(--brand);
+  border-radius: 8px;
+  background: var(--background);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.msg-quote-name {
+  display: block;
+  color: var(--brand);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg-quote-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.msg-quote.deleted .msg-quote-text {
+  color: var(--text-subtle);
+  font-style: italic;
 }
 .msg-body {
   white-space: pre-wrap;
@@ -1410,6 +1465,34 @@ strong {
 }
 .msg-composer .row {
   align-items: flex-end;
+}
+/* The pending quote above the input, with its cancel. */
+.msg-reply-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--brand);
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+.msg-reply-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+.msg-reply-bar .msg-quote-text {
+  -webkit-line-clamp: 1;
+}
+.msg-reply-cancel {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--text-subtle);
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
 }
 .msg-input {
   flex: 1;
