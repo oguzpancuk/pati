@@ -115,9 +115,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   // via a param; location update and care-list insertion happen there, in
   // one place.
   const matchReview: boolean = !!route.params?.matchReview;
-  // Without the model's 'same' the confirm cannot make the user a carer
-  // (the server's match-hit door): the bar then only opens the profile.
-  const photoSame: boolean = !!route.params?.photoSame;
+  // The server's decision for this candidate (matchHit): with it the
+  // confirm reports a sighting and makes the user a carer; without it the
+  // bar only opens the profile. photoChecked tells the hint apart.
+  const matchHit: boolean = !!route.params?.matchHit;
+  const photoChecked: boolean = route.params?.photoChecked !== false;
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [draft, setDraft] = useState('');
@@ -696,9 +698,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       {matchReview ? (
         <View style={styles.composer}>
           <Text variant="caption" center style={styles.reviewHint}>
-            {photoSame
+            {!matchHit
+              ? 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'
+              : photoChecked
               ? 'Eklemek istediğin hayvan bu mu?'
-              : 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'}
+              : 'Eklemek istediğin hayvan bu mu? Fotoğraf kontrol edilemedi; konumu güncellersin.'}
           </Text>
           <View style={styles.reviewRow}>
             <Button
@@ -708,8 +712,13 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               style={styles.reviewButton}
             />
             <Button
-              title={photoSame ? 'Bu o — eşleştir' : 'Bu o — profili aç'}
-              onPress={() => navigation.navigate('AddAnimal', { confirmedAnimalId: animalId })}
+              title={matchHit ? 'Bu o — eşleştir' : 'Bu o — profili aç'}
+              onPress={() =>
+                navigation.navigate('AddAnimal', {
+                  confirmedAnimalId: animalId,
+                  confirmedMatchHit: matchHit,
+                })
+              }
               icon={<Icon name="check" size={18} color={colors.textOnBrand} />}
               style={styles.reviewButton}
             />

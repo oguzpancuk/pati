@@ -40,6 +40,17 @@ export function badgesOf(animal: Animal): AnimalBadge[] {
   return (animal as Animal & { badges?: AnimalBadge[] }).badges ?? [];
 }
 
+/**
+ * The server logged a match hit for this add-animal candidate — the model
+ * said "same", or no model answered. Only then does "that's the one"
+ * report a sighting and make the user a carer; without it the confirm
+ * just opens the profile. Read through a helper: `AnimalMatch` lives in
+ * api.ts, which this track leaves untouched.
+ */
+export function matchHitOf(candidate: object): boolean {
+  return (candidate as { matchHit?: boolean }).matchHit === true;
+}
+
 export interface LikeState {
   liked: boolean;
   likeCount: number;

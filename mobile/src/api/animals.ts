@@ -139,6 +139,13 @@ export interface AnimalMatch extends Animal {
   distance_meters: number;
   similarity: SimilarityLevel;
   similarity_reasons: SimilarityReason[];
+  /**
+   * The server logged a match hit for this candidate — the model said
+   * "same", or no model answered (`photoChecked` false). Only then does
+   * "that's the one" report a sighting and make the user a carer; without
+   * it the confirm just opens the profile. One rule, decided server-side.
+   */
+  matchHit: boolean;
 }
 
 export interface MatchAnimalsInput {

@@ -35,12 +35,21 @@ export type AuthStackParamList = {
 export type MainStackParamList = {
   Tabs: undefined;
   // confirmedAnimalId: set when returning from the match review via "that's the one".
-  AddAnimal: { confirmedAnimalId?: number } | undefined;
+  // confirmedMatchHit: whether the confirm may report a sighting (the
+  // server's matchHit for that candidate); without it the profile opens.
+  AddAnimal: { confirmedAnimalId?: number; confirmedMatchHit?: boolean } | undefined;
   // matchReview: while viewing a candidate in the add-animal flow; the
   // profile opens in "review" mode with a "go back / that's the one" bar.
-  // photoSame: the model judged the candidate the same animal, so "that's
-  // the one" can make the user a carer; otherwise the bar opens the profile.
-  AnimalProfile: { animalId: number; matchReview?: boolean; photoSame?: boolean };
+  // matchHit: the server logged a hit for the candidate, so "that's the
+  // one" reports a sighting and makes the user a carer; otherwise the bar
+  // opens the profile. photoChecked: whether a model looked at the photo
+  // (the hint differs when it could not).
+  AnimalProfile: {
+    animalId: number;
+    matchReview?: boolean;
+    matchHit?: boolean;
+    photoChecked?: boolean;
+  };
   // The swipeable full-screen viewer over the profile's photos (P6 item 7).
   AnimalPhotos: { animalId: number; photos: AnimalPhoto[]; index?: number };
   // "Bakım ver": the two-photo step that makes the user a carer (P6 item 8).

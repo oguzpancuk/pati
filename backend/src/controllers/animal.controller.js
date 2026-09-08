@@ -356,7 +356,7 @@ async function matchAnimals(req, res, next) {
     const shown = photoChecked
       ? scored.filter(({ _score }) => tierFor(_score) !== 'low')
       : scored.slice(0, FALLBACK_LIST_LIMIT);
-    const candidates = shown.map(({ _score, _reasons, ...rest }) => ({
+    const shownCandidates = shown.map(({ _score, _reasons, ...rest }) => ({
       ...rest,
       similarity: tierFor(_score),
       similarity_reasons: _reasons,
@@ -389,15 +389,21 @@ async function matchAnimals(req, res, next) {
     // comparable cover: 'unchecked', the way submitCarePhotos accepts
     // unchecked). 'similar' and 'unsure' mint nothing and never count for
     // the badge; the field-only GET never logs. Awaited: the door reads
-    // this row right after the client's confirm.
-    const hits = files.length === 0 ? [] : matchHitsOf(candidates, photoChecked);
+    // this row right after the client's confirm. `matchHit` on each
+    // candidate tells the clients the server's decision — true only for
+    // a logged hit — so the label, the hint and whether the confirm
+    // reports a sighting all follow ONE rule, decided here.
+    let hits = files.length === 0 ? [] : matchHitsOf(shownCandidates, photoChecked);
     try {
       await logMatchHits(req.user.userId, hits);
     } catch (err) {
       // A failed log must not turn into a failed match; the door then
       // stays shut for this attempt and the care-photo step remains.
       console.warn(`[match] could not log hits: ${err?.message ?? err}`);
+      hits = [];
     }
+    const hitIds = new Set(hits.map((h) => h.id));
+    const candidates = shownCandidates.map((c) => ({ ...c, matchHit: hitIds.has(c.id) }));
     keepFiles = true;
     res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS, photoChecked, photoTokens });
     // The badge counts catch up after the answer (up to twenty animals).
@@ -411,6 +417,11 @@ async function matchAnimals(req, res, next) {
 
 // How long a registration match hit stands as "this user photographed this
 // animal" — the photoToken's lifetime, the add-animal flow's own window.
+// The rule, in full (parity with "bakım ver", one animal per submission):
+// a hit is minted by one photo submission, lasts fifteen minutes, and is
+// spent by ONE sighting — consuming it voids the same user's other fresh
+// hits (consumeMatchHit), so a photo that put twenty animals forward
+// confirms one of them, never twenty.
 const MATCH_HIT_WINDOW = '15 minutes';
 
 // The hits among the shown candidates (see above). `similarity` uses the
@@ -441,15 +452,30 @@ async function logMatchHits(userId, hits) {
   );
 }
 
-async function hasRecentMatchHit(userId, animalId) {
-  const result = await pool.query(
-    `SELECT 1 FROM animal_match_attempts
+/**
+ * Spends the user's fresh hit on this animal: within one transaction the
+ * hit row is locked, the user's OTHER fresh 'register' rows are deleted
+ * (they were the same photo's other candidates — one-shot, see
+ * MATCH_HIT_WINDOW), and the caller's writes run on the same client.
+ * Returns false, with nothing changed, when there is no fresh hit.
+ */
+async function consumeMatchHit(client, userId, animalId) {
+  const hit = await client.query(
+    `SELECT id FROM animal_match_attempts
      WHERE user_id = $1 AND animal_id = $2 AND kind = 'register'
        AND created_at > now() - $3::interval
-     LIMIT 1`,
+     ORDER BY id DESC LIMIT 1
+     FOR UPDATE`,
     [userId, animalId, MATCH_HIT_WINDOW]
   );
-  return result.rowCount > 0;
+  if (hit.rowCount === 0) return false;
+  await client.query(
+    `DELETE FROM animal_match_attempts
+     WHERE user_id = $1 AND animal_id <> $2 AND kind = 'register'
+       AND created_at > now() - $3::interval`,
+    [userId, animalId, MATCH_HIT_WINDOW]
+  );
+  return true;
 }
 
 async function getAnimal(req, res, next) {
@@ -560,28 +586,42 @@ async function reportSighting(req, res, next) {
     }
 
     const carer = await isCarer(req.user.userId, req.params.id);
-    if (!carer && !(await hasRecentMatchHit(req.user.userId, req.params.id))) {
-      return carersOnly(res, 'Görülme bildirebilmek');
-    }
-
-    const result = await pool.query(
-      `UPDATE animals
-       SET location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-           location_updated_at = now()
-       WHERE id = $3
-       RETURNING id, species, name, color, breed, markings, created_at, location_updated_at,
-                 ST_AsGeoJSON(location)::json AS location`,
-      [lng, lat, req.params.id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Hayvan bulunamadı' });
-    }
-
-    if (!carer) {
-      await pool.query(
-        'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-        [req.user.userId, req.params.id]
+    // One transaction: the hit is spent, the location moves and the carer
+    // row lands together — a second confirm racing this one finds the
+    // hit gone (FOR UPDATE) and is refused.
+    const client = await pool.connect();
+    let result;
+    try {
+      await client.query('BEGIN');
+      if (!carer && !(await consumeMatchHit(client, req.user.userId, req.params.id))) {
+        await client.query('ROLLBACK');
+        return carersOnly(res, 'Görülme bildirebilmek');
+      }
+      result = await client.query(
+        `UPDATE animals
+         SET location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+             location_updated_at = now()
+         WHERE id = $3
+         RETURNING id, species, name, color, breed, markings, created_at, location_updated_at,
+                   ST_AsGeoJSON(location)::json AS location`,
+        [lng, lat, req.params.id]
       );
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Hayvan bulunamadı' });
+      }
+      if (!carer) {
+        await client.query(
+          'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [req.user.userId, req.params.id]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
     await notifyAnimalEventSafe({
       animalId: Number(req.params.id),

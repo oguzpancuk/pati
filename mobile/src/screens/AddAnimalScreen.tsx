@@ -318,12 +318,13 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   // the profile's bottom bar — "that's the one" drops us back here with the
   // confirmedAnimalId param.
   function handleReviewCandidate(animal: AnimalMatch) {
-    // Only a 'same' verdict lets the confirm make the user a carer (the
-    // server's match-hit door); the review bar says so.
+    // The server decided whether this confirm may report a sighting
+    // (matchHit); the review bar says so and the confirm follows it.
     navigation.navigate('AnimalProfile', {
       animalId: animal.id,
       matchReview: true,
-      photoSame: animal.similarity_reasons.includes('photo_same'),
+      matchHit: animal.matchHit,
+      photoChecked,
     });
   }
 
@@ -347,16 +348,19 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   }, []);
 
   const confirmedAnimalId: number | undefined = route.params?.confirmedAnimalId;
+  const confirmedMatchHit: boolean = !!route.params?.confirmedMatchHit;
   useEffect(() => {
     if (confirmedAnimalId) {
-      navigation.setParams({ confirmedAnimalId: undefined });
-      handleExistingAnimal(confirmedAnimalId);
+      navigation.setParams({ confirmedAnimalId: undefined, confirmedMatchHit: undefined });
+      handleExistingAnimal(confirmedAnimalId, confirmedMatchHit);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmedAnimalId]);
 
-  async function handleExistingAnimal(animalId: number) {
-    if (!location) {
+  async function handleExistingAnimal(animalId: number, matchHit: boolean) {
+    // Without the server's hit the confirm is a decision, not a sighting:
+    // no server call, the profile opens ("bakım ver" is the way in).
+    if (!location || !matchHit) {
       navigation.replace('AnimalProfile', { animalId });
       return;
     }
