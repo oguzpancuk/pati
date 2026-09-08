@@ -2131,3 +2131,17 @@ the next docs touch.
   case `[0,1]`); playwright on web — two refused → strip 0, "Bu
   fotoğrafları listeden kaldırdık"; simulator — same, alert "Fotoğraflar
   uygun görünmüyor" and the empty strip with the caption. tsc ×2 clean.
+
+## 2026-09-08 — twelfth deploy note (v31): every refused photo leaves the form
+
+- Owner: "push ve deploy". Pushed `9165179..e9448bd` (3 commits, each
+  reviewed, APPROVE), `fly deploy --app pati-app --ha=false` → v31:
+  release command completed (no migration in the range), machine in a
+  good state, `/health` ok, web and admin 200, boot log `mail: Resend`,
+  `ai: gemini-3.5-flash (… on)`. Full battery green on the exact commit;
+  evaluator-qa PASS — harness 163/163, the web two-refusals flow driven
+  with playwright (`photoIndexes: [0,1]` on the wire, strip 0, plural
+  wording); mobile observed on the simulator by the builder only.
+- Production screenshot still not taken (no production credentials in
+  the session). Owner-side items unchanged: Resend DNS records, the four
+  hand-made test accounts.
