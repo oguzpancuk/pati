@@ -18,6 +18,7 @@ import type { Feature, Point } from 'geojson';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import {
   addCareAction,
+  Bounds,
   CareAction,
   CareStatus,
   checkCarePhoto,
@@ -57,23 +58,12 @@ import { Button, Text } from '../components/ui';
 import { Icon, Logo } from '../components/brand';
 import { makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 
-// Turkey's approximate geographic bounding box (not an exact administrative
-// border). The map focuses on this area and the user can't pan far outside
-// (the Camera's maxBounds enforces it natively).
-const TURKEY_BOUNDS = {
-  minLat: 35.8,
-  maxLat: 42.1,
-  minLng: 25.6,
-  maxLng: 44.8,
-};
-const TURKEY_CAMERA_BOUNDS = {
-  ne: [TURKEY_BOUNDS.maxLng, TURKEY_BOUNDS.maxLat],
-  sw: [TURKEY_BOUNDS.minLng, TURKEY_BOUNDS.minLat],
-};
-const TURKEY_CENTER: [number, number] = [
-  (TURKEY_BOUNDS.minLng + TURKEY_BOUNDS.maxLng) / 2,
-  (TURKEY_BOUNDS.minLat + TURKEY_BOUNDS.maxLat) / 2,
-];
+// The map is worldwide (owner, 2026-09-09 — it used to be locked to a
+// Turkey bounding box with the camera's maxBounds): no service area, no
+// clamp, and the records come from whatever the viewport shows. Without a
+// location the map opens on the whole world; the locate button and the
+// first fix take it to the user.
+const WORLD_CENTER: [number, number] = [20, 20];
 
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 // Animals are fetched only near the user (500 m, owner decision 2026-09-08 —
@@ -84,9 +74,9 @@ const ANIMAL_RADIUS_METERS = 500;
 // Zoom levels are shared numbers with web/src/pages/MapPage.tsx — the same
 // MapLibre zoom scale on every platform, so the three clients behave alike.
 // Change one, change the other.
-const COUNTRY_ZOOM = 5;
+const WORLD_ZOOM = 1.5;
 const USER_ZOOM = 16;
-const MIN_ZOOM = 5;
+const MIN_ZOOM = 1;
 const MAX_ZOOM = 19;
 
 // Animal avatars draw from neighbourhood scale (15, owner decision
@@ -136,7 +126,7 @@ export default function MapScreen({ navigation }: any) {
   const { celebrate } = useBadgeAwards();
   const mapRef = useRef<MapViewRef>(null);
   const cameraRef = useRef<CameraRef>(null);
-  const currentZoomRef = useRef(COUNTRY_ZOOM);
+  const currentZoomRef = useRef(WORLD_ZOOM);
   const mapReadyRef = useRef(false);
   const pendingCenterRef = useRef<Coordinates | null>(null);
   const hasCenteredOnUser = useRef(false);
@@ -164,7 +154,7 @@ export default function MapScreen({ navigation }: any) {
   const [animalsVisible, setAnimalsVisible] = useState(false);
   // The settled zoom drives the stack layout (screen-space rule); the ref
   // stays for the celebration path.
-  const [zoomLevel, setZoomLevel] = useState(COUNTRY_ZOOM);
+  const [zoomLevel, setZoomLevel] = useState(WORLD_ZOOM);
   // The latest render's seat function, for callbacks armed by older renders.
   const seatsAtRef = useRef<(zoom: number) => Map<string, Coordinates>>(() => new Map());
   // Heart bursts draw in a separate layer above the map at screen
@@ -179,6 +169,7 @@ export default function MapScreen({ navigation }: any) {
   }>({ bursts: [], round: 0 });
   const heartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadSeqRef = useRef(0);
+  const actionsSeqRef = useRef(0);
   // The celebration waits for the zoom to finish; screen points are
   // computed once the map settles (points taken mid-motion land wrong).
   const pendingHeartsRef = useRef<Animal[] | null>(null);
@@ -194,22 +185,8 @@ export default function MapScreen({ navigation }: any) {
     []
   );
 
-  // The Camera's maxBounds guards gestures but not programmatic moves; every
-  // setCamera to a device location must check this itself (the simulator's
-  // San Francisco default is how it bites in dev).
-  function insideServiceArea(loc: Coordinates) {
-    return (
-      loc.lat >= TURKEY_BOUNDS.minLat &&
-      loc.lat <= TURKEY_BOUNDS.maxLat &&
-      loc.lng >= TURKEY_BOUNDS.minLng &&
-      loc.lng <= TURKEY_BOUNDS.maxLng
-    );
-  }
-
   function centerOnUser(loc: Coordinates) {
     if (hasCenteredOnUser.current) return;
-    // Outside the service area the map stays on the Turkey overview.
-    if (!insideServiceArea(loc)) return;
     if (!mapReadyRef.current) {
       // A camera move can be silently ignored while the native map isn't
       // ready yet; the location is stored to retry once it is.
@@ -232,7 +209,43 @@ export default function MapScreen({ navigation }: any) {
       pendingCenterRef.current = null;
       centerOnUser(loc);
     }
+    loadActionsForViewport();
   }
+
+  /**
+   * The records of whatever the map shows. Worldwide there is no fixed box
+   * to ask for, so every settle (and every reload) asks for the viewport.
+   * A viewport wider than the world, or one that crosses the antimeridian,
+   * is sent as the whole world — the server's envelope wants ordered
+   * corners.
+   */
+  const boundsFrom = useCallback((ne: number[], sw: number[]): Bounds => {
+    const wrapped = ne[0] <= sw[0] || ne[0] - sw[0] >= 360;
+    return {
+      minLat: Math.max(-85, sw[1]),
+      maxLat: Math.min(85, ne[1]),
+      minLng: wrapped ? -180 : Math.max(-180, sw[0]),
+      maxLng: wrapped ? 180 : Math.min(180, ne[0]),
+    };
+  }, []);
+
+  const loadActionsIn = useCallback(async (bounds: Bounds) => {
+    const seq = ++actionsSeqRef.current;
+    try {
+      const data = await fetchCareActionsInBounds(bounds);
+      if (seq === actionsSeqRef.current) setActions(data);
+    } catch {
+      // A failed viewport refresh keeps the records already on the map;
+      // the initial load surfaces errors.
+    }
+  }, []);
+
+  const loadActionsForViewport = useCallback(async () => {
+    const visible = await mapRef.current?.getVisibleBounds();
+    if (!visible) return;
+    const [ne, sw] = visible;
+    await loadActionsIn(boundsFrom(ne, sw));
+  }, [boundsFrom, loadActionsIn]);
 
   const load = useCallback(async (known?: Coordinates) => {
     // Overlapping loads (a refocus during a slow first load, a drop right
@@ -241,12 +254,10 @@ export default function MapScreen({ navigation }: any) {
     const seq = ++loadSeqRef.current;
     setLoading(true);
     try {
-      const [actionData, loc] = await Promise.all([
-        fetchCareActionsInBounds(TURKEY_BOUNDS),
-        known ? Promise.resolve(known) : getCurrentLocation().catch(() => null),
-      ]);
+      const loc = known ?? (await getCurrentLocation().catch(() => null));
       if (seq !== loadSeqRef.current) return null;
-      setActions(actionData);
+      // The records follow the viewport, not a fixed box (worldwide).
+      loadActionsForViewport();
       if (loc) {
         setMyLocation(loc);
         const [food, water, animalData] = await Promise.all([
@@ -269,7 +280,7 @@ export default function MapScreen({ navigation }: any) {
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadActionsForViewport]);
 
   useFocusEffect(
     useCallback(() => {
@@ -278,9 +289,10 @@ export default function MapScreen({ navigation }: any) {
   );
 
   function handleRegionDidChange(feature: Feature<Point, RegionPayload>) {
-    // No Turkey clamp here anymore: the Camera's maxBounds keeps the center
-    // inside the box natively.
-    const { zoomLevel } = feature.properties;
+    const { zoomLevel, visibleBounds } = feature.properties;
+    // Worldwide the viewport decides which records to show.
+    const [ne, sw] = visibleBounds;
+    loadActionsIn(boundsFrom(ne, sw));
     currentZoomRef.current = zoomLevel;
     setAnimalsVisible(zoomLevel >= ANIMAL_VISIBLE_MIN_ZOOM);
     setZoomLevel(zoomLevel);
@@ -298,10 +310,6 @@ export default function MapScreen({ navigation }: any) {
    * draw; the animals must become visible before the animation can be seen.
    */
   function celebrateNearbyAnimals(origin: Coordinates, currentAnimals: Animal[]) {
-    // Same programmatic-move guard as centerOnUser: never fly the camera
-    // outside the Turkey bounds (dev-only in practice, but once outside,
-    // gestures fight maxBounds).
-    if (!insideServiceArea(origin)) return;
     const affected = currentAnimals.filter(
       (animal) =>
         distanceMeters(origin, {
@@ -501,14 +509,12 @@ export default function MapScreen({ navigation }: any) {
       await ensureLocationPermission();
       const loc = await getCurrentLocation();
       setMyLocation(loc);
-      if (insideServiceArea(loc)) {
-        cameraRef.current?.setCamera({
-          centerCoordinate: [loc.lng, loc.lat],
-          zoomLevel: USER_ZOOM,
-          animationMode: 'flyTo',
-          animationDuration: 500,
-        });
-      }
+      cameraRef.current?.setCamera({
+        centerCoordinate: [loc.lng, loc.lat],
+        zoomLevel: USER_ZOOM,
+        animationMode: 'flyTo',
+        animationDuration: 500,
+      });
       load(loc);
     } catch (err: any) {
       if (err instanceof LocationPermissionError) alertLocationPermission();
@@ -620,8 +626,7 @@ export default function MapScreen({ navigation }: any) {
       >
         <Camera
           ref={cameraRef}
-          defaultSettings={{ centerCoordinate: TURKEY_CENTER, zoomLevel: COUNTRY_ZOOM }}
-          maxBounds={TURKEY_CAMERA_BOUNDS}
+          defaultSettings={{ centerCoordinate: WORLD_CENTER, zoomLevel: WORLD_ZOOM }}
           minZoomLevel={MIN_ZOOM}
           maxZoomLevel={MAX_ZOOM}
         />

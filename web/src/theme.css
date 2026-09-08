@@ -1757,6 +1757,19 @@ strong {
   cursor: default;
 }
 
+/* The "+N" veil on the last hero tile (the gallery is capped at two rows). */
+.photo-more {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay);
+  color: var(--text-on-brand);
+  font-size: 19px;
+  font-weight: 500;
+}
+
 .photo-like {
   position: absolute;
   right: 6px;

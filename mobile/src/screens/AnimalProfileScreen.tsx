@@ -102,6 +102,11 @@ const RECORD_PREVIEW = 2;
 // The photo grid: three square tiles per row (P6 item 7), the gutter is
 // the small spacing step.
 const GRID_COLUMNS = 3;
+// The hero shows two rows at most (review finding): every accepted "bakım
+// ver" adds two photos, so an unbounded grid would push the name and the
+// action pair below the fold on a well-cared-for animal. The last tile
+// carries "+N" and opens the viewer on the rest.
+const HERO_PHOTOS = GRID_COLUMNS * 2;
 
 export default function AnimalProfileScreen({ route, navigation }: any) {
   const styles = useStyles();
@@ -401,7 +406,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             count; a tap opens the swipeable viewer. The last row fills with
             dashed "fotoğraf" placeholders — even an empty profile invites. */}
         <View style={styles.photoGrid}>
-          {animal.photos.map((photo, i) => (
+          {animal.photos.slice(0, HERO_PHOTOS).map((photo, i) => (
             <Pressable
               key={photo.id}
               style={[styles.photoTile, { width: tileSize, height: tileSize }]}
@@ -411,6 +416,13 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               accessibilityLabel={`Fotoğraf ${i + 1}, ${photo.like_count ?? 0} beğeni`}
             >
               <Image source={{ uri: photo.url }} style={styles.photoImage} />
+              {i === HERO_PHOTOS - 1 && animal.photos.length > HERO_PHOTOS ? (
+                <View style={styles.photoMore}>
+                  <Text variant="heading" style={styles.photoMoreText}>
+                    +{animal.photos.length - HERO_PHOTOS}
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.likeBadge}>
                 <Icon
                   name="heart"
@@ -424,9 +436,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             </Pressable>
           ))}
           {Array.from({
-            length:
-              (GRID_COLUMNS - (animal.photos.length % GRID_COLUMNS)) % GRID_COLUMNS ||
-              (animal.photos.length ? 0 : GRID_COLUMNS),
+            length: (() => {
+              const shown = Math.min(animal.photos.length, HERO_PHOTOS);
+              return (GRID_COLUMNS - (shown % GRID_COLUMNS)) % GRID_COLUMNS || (shown ? 0 : GRID_COLUMNS);
+            })(),
           }).map((_, i) => (
             <View
               key={`ph-${i}`}
@@ -1016,6 +1029,14 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     gap: spacing.sm,
     marginBottom: spacing.xs,
   },
+  // The "+N" veil on the last hero tile.
+  photoMore: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: c.overlay,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoMoreText: { color: c.textOnBrand },
   photoTile: {
     borderRadius: radius.md,
     overflow: 'hidden',

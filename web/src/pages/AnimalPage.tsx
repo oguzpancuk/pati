@@ -119,6 +119,9 @@ function ChoiceChips({
   );
 }
 
+
+// Two rows; the rest live in the viewer behind the "+N" tile.
+const HERO_PHOTOS = 6;
 export default function AnimalPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -443,7 +446,12 @@ export default function AnimalPage() {
 
   // The grid always fills to a multiple of 3: real tiles + dashed "photo"
   // placeholders — even an empty profile invites.
-  const photoSlots = Math.max(3, Math.ceil(animal.photos.length / 3) * 3);
+  // The hero shows two rows at most (review finding): every accepted
+  // "bakım ver" adds two photos, so an unbounded grid would push the name
+  // and the action pair below the fold. The last tile carries "+N" and
+  // opens the viewer on the rest.
+  const heroPhotos = animal.photos.slice(0, HERO_PHOTOS);
+  const photoSlots = Math.max(3, Math.ceil(heroPhotos.length / 3) * 3);
   const viewerPhoto = viewerIndex === null ? null : (animal.photos[viewerIndex] ?? null);
 
   return (
@@ -464,7 +472,7 @@ export default function AnimalPage() {
           click opens the swipeable viewer. */}
       <div className="animal-photo-grid">
         {Array.from({ length: photoSlots }).map((_, i) => {
-          const p = animal.photos[i];
+          const p = heroPhotos[i];
           return p ? (
             <button
               key={p.id}
@@ -474,6 +482,9 @@ export default function AnimalPage() {
               aria-label={`Fotoğraf ${i + 1}, ${p.like_count} beğeni`}
             >
               <img src={p.url} alt="" />
+              {i === HERO_PHOTOS - 1 && animal.photos.length > HERO_PHOTOS && (
+                <span className="photo-more">+{animal.photos.length - HERO_PHOTOS}</span>
+              )}
               <span className={`photo-like ${p.liked_by_me ? 'mine' : ''}`}>♥ {p.like_count}</span>
             </button>
           ) : (

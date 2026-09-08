@@ -2496,3 +2496,17 @@ the next docs touch.
   kayıtları, sohbet, şikayet et). `AnimalAvatar` still marks the animal on
   the last-seen mini map on both clients. Screenshots on web and the
   simulator.
+- Owner, 2026-09-09: the map is worldwide. The Turkey bounding box, the
+  camera's `maxBounds` and the `insideServiceArea` guard are gone on both
+  clients; without a location the map opens on the world (zoom 1.5, min
+  zoom 1) and the care records now come from the VIEWPORT — mobile
+  refetches on every region settle and on map-ready, web on `moveend` —
+  instead of one fixed Turkey box. A viewport wider than the world, or one
+  crossing the antimeridian, is sent as −180…180 so the server's envelope
+  keeps ordered corners. Evidence: web playwright with no location (world
+  view) and with a Berlin fix (the map flies there, "Buralarda mama ve su
+  yok"); the simulator still centres on its Kadıköy fix.
+- Review follow-up on the hero gallery: the grid is capped at two rows
+  (six tiles) with a "+N" veil on the last one opening the viewer — every
+  accepted "bakım ver" adds two photos, so an unbounded hero would push
+  the name and the action pair below the fold.
