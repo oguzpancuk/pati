@@ -447,12 +447,14 @@ export function uploadAvatar(file: File) {
   return api.postForm<Me>('/users/me/avatar', form);
 }
 
+/** Without `actionType` both kinds come back — the single map draws them together. */
 export const fetchCareActionsInBounds = (
   b: { minLat: number; maxLat: number; minLng: number; maxLng: number },
-  actionType: 'food' | 'water'
+  actionType?: 'food' | 'water'
 ) =>
   api.get<CareAction[]>(
-    `/care-actions?minLat=${b.minLat}&maxLat=${b.maxLat}&minLng=${b.minLng}&maxLng=${b.maxLng}&actionType=${actionType}`
+    `/care-actions?minLat=${b.minLat}&maxLat=${b.maxLat}&minLng=${b.minLng}&maxLng=${b.maxLng}` +
+      (actionType ? `&actionType=${actionType}` : '')
   );
 
 export const fetchCareStatus = (lat: number, lng: number, actionType: 'food' | 'water') =>

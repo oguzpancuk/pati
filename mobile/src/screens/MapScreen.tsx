@@ -5,14 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Camera,
   CameraRef,
-  CircleLayer,
-  FillLayer,
+  Images,
   LineLayer,
   MapView,
   MapViewRef,
   MarkerView,
   RegionPayload,
   ShapeSource,
+  SymbolLayer,
 } from '@maplibre/maplibre-react-native';
 import type { Feature, Point } from 'geojson';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
@@ -41,10 +41,18 @@ import {
   LocationPermissionError,
 } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
-import { circlePolygon, circleRing, featureCollection, pointFeature } from '../map/geo';
+import { circleRing, featureCollection, pointFeature } from '../map/geo';
+import {
+  CARE_MARKER_SCALE_SMALL,
+  CARE_MARKER_ZOOM_FULL,
+  CARE_MARKER_ZOOM_SMALL,
+  CareType,
+  ringStep,
+} from '../map/careMarkers';
+import { CARE_MARKER_IMAGES } from '../map/markers';
 import { mapStyles } from '../map/styles';
 import { Button, Text } from '../components/ui';
-import { Gradient, Icon } from '../components/brand';
+import { Icon } from '../components/brand';
 import { makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 
 // Turkey's approximate geographic bounding box (not an exact administrative
@@ -91,17 +99,15 @@ const CELEBRATE_ZOOM_MS = 400;
 const ANIMAL_MARKER_SIZE = 36;
 const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 
-// react-native-maps' Heatmap component only works with the Google Maps
-// provider (we use Apple Maps on iOS, and switching to Google would force an
-// API key on iOS too). Instead we draw green circles that fade with weight:
-// where actions are fresh/numerous, circles overlap into a solid green. A
-// red base layer used to cover the whole country underneath ("everywhere is
-// an alarm"); it was removed — it blurred the map and carried a tension at
-// odds with the app's tone. Uncared areas are now plain map; the "no food
-// around here" message moved to the top banner. The green is a bit bolder
-// in exchange. Opacity stays low regardless: street/business names beneath
-// must remain readable.
-const MAX_GREEN_ALPHA = 0.5;
+// One map for food and water (owner decision, 2026-09-08): every record is
+// a screen-constant marker — bowl or drop in a green ring that empties as
+// the record's window runs out (map/careMarkers.ts). The 100 m fill
+// circles are gone; the radius still drives the status line and the
+// notification, the map just stops painting it. Records are one GeoJSON
+// source and one SymbolLayer, so thousands stay a single native layer.
+// Placement is collision-managed: where markers would overlap the fresher
+// one wins (symbolSortKey), and icons shrink toward country zoom.
+const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
 
 // The "AI is checking the photo" interstitial is real since ADR-0005: the
 // photo goes up during it and the model says whether it shows the food or
@@ -109,10 +115,6 @@ const MAX_GREEN_ALPHA = 0.5;
 // photo comes back as a token; after "uygun görünüyor" the user explicitly
 // confirms, and only that confirm creates the record (owner decision). A
 // rejected photo shows the model's reason and offers a retake.
-
-function weightToGreenAlpha(weight: number) {
-  return Math.min(Math.max(weight, 0), 1) * MAX_GREEN_ALPHA;
-}
 
 export default function MapScreen({ navigation }: any) {
   const styles = useStyles();
@@ -126,9 +128,11 @@ export default function MapScreen({ navigation }: any) {
   const hasCenteredOnUser = useRef(false);
   const [actions, setActions] = useState<CareAction[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
-  const [status, setStatus] = useState<CareStatus | null>(null);
+  // Per-type status around the user; null until a location is known.
+  const [statuses, setStatuses] = useState<Record<CareType, CareStatus> | null>(null);
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
-  const [viewType, setViewType] = useState<'food' | 'water'>('food');
+  // Which record the open confirm sheet creates; set by the tile pressed.
+  const [dropType, setDropType] = useState<CareType>('food');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved' | 'rejected'>('idle');
   const [pendingPhoto, setPendingPhoto] = useState<PhotoAsset | null>(null);
@@ -159,7 +163,7 @@ export default function MapScreen({ navigation }: any) {
   // computed once the map settles (points taken mid-motion land wrong).
   const pendingHeartsRef = useRef<Animal[] | null>(null);
 
-  const typeLabel = viewType === 'food' ? 'mama' : 'su';
+  const typeLabel = CARE_TYPE_LABEL[dropType];
 
   // The heart timer outlives celebrations; without this an unmount while a
   // burst is pending would setHearts on a dead screen.
@@ -211,26 +215,27 @@ export default function MapScreen({ navigation }: any) {
   }
 
   const load = useCallback(async () => {
-    // Fast mama↔su toggles race: without the sequence check, whichever
-    // response lands LAST paints the map and the bottom sheet, even if it
-    // belongs to the deselected layer.
+    // Overlapping loads (a refocus during a slow first load, a drop right
+    // after) race: without the sequence check, whichever response lands
+    // LAST paints the map and the bottom sheet.
     const seq = ++loadSeqRef.current;
     setLoading(true);
     try {
       const [actionData, loc] = await Promise.all([
-        fetchCareActionsInBounds(TURKEY_BOUNDS, viewType),
+        fetchCareActionsInBounds(TURKEY_BOUNDS),
         getCurrentLocation().catch(() => null),
       ]);
       if (seq !== loadSeqRef.current) return null;
       setActions(actionData);
       if (loc) {
         setMyLocation(loc);
-        const [statusData, animalData] = await Promise.all([
-          fetchCareStatus(loc.lat, loc.lng, viewType),
+        const [food, water, animalData] = await Promise.all([
+          fetchCareStatus(loc.lat, loc.lng, 'food'),
+          fetchCareStatus(loc.lat, loc.lng, 'water'),
           fetchAnimals({ lat: loc.lat, lng: loc.lng, radiusMeters: ANIMAL_RADIUS_METERS }),
         ]);
         if (seq !== loadSeqRef.current) return null;
-        setStatus(statusData);
+        setStatuses({ food, water });
         setAnimals(animalData);
         centerOnUser(loc);
         return animalData;
@@ -244,7 +249,7 @@ export default function MapScreen({ navigation }: any) {
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewType]);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -365,7 +370,7 @@ export default function MapScreen({ navigation }: any) {
       setAiCheck('checking');
       const run = ++aiCheckRunRef.current;
       try {
-        const result = await checkCarePhoto(viewType, photo);
+        const result = await checkCarePhoto(dropType, photo);
         if (run !== aiCheckRunRef.current) return;
         setPhotoCheck(result);
         setAiCheck('approved');
@@ -439,6 +444,30 @@ export default function MapScreen({ navigation }: any) {
     }
   }
 
+  /** A tile pressed: gate on location, then open the confirm sheet for that type. */
+  async function openDrop(type: CareType) {
+    // Permission gate at the flow's entry (owner decision): a denied
+    // permission surfaces the Settings alert HERE, before any modal — and
+    // an undetermined one triggers the native prompt at exactly the moment
+    // the user shows intent. Other location errors don't block; the
+    // confirm step handles them.
+    try {
+      await ensureLocationPermission();
+    } catch (err) {
+      if (err instanceof LocationPermissionError) {
+        alertLocationPermission();
+        return;
+      }
+    }
+    // A leftover 'approved' from the previous run would skip the confirm
+    // content (state resets on open, not on close — see handleConfirmDrop).
+    aiCheckRunRef.current++;
+    setAiCheck('idle');
+    setPendingPhoto(null);
+    setDropType(type);
+    setConfirmOpen(true);
+  }
+
   async function zoomBy(step: number) {
     // Read the live zoom instead of currentZoomRef: the ref only updates on
     // the debounced onRegionDidChange, so right after a programmatic fly it
@@ -449,53 +478,32 @@ export default function MapScreen({ navigation }: any) {
     cameraRef.current?.zoomTo(next, 200);
   }
 
-  const sheetNeedsCare = !status || status.needsAttention;
+  // The status line reads both types at once. Unknown (no location yet)
+  // counts as missing, same as before: the sheet never claims coverage it
+  // hasn't seen.
+  const hasFood = !!statuses && !statuses.food.needsAttention;
+  const hasWater = !!statuses && !statuses.water.needsAttention;
+  const sheetTitle =
+    hasFood && hasWater
+      ? 'Bu bölgede mama ve su var'
+      : hasFood
+      ? 'Bu bölgede mama var, su yok'
+      : hasWater
+      ? 'Bu bölgede su var, mama yok'
+      : 'Buralarda mama ve su yok';
 
-  // Care circles as one GeoJSON source: the fill carries freshness per
-  // feature (data-driven opacity), so hundreds of records are still a single
-  // native layer instead of hundreds of views.
-  const careShapes = useMemo(
+  // One point per record; the layer picks the image from type + ring step
+  // (see map/careMarkers.ts) and the weight decides who wins a collision.
+  const careMarkers = useMemo(
     () =>
       featureCollection(
         actions.map((action) => {
-          const alpha = weightToGreenAlpha(Number(action.weight));
-          return circlePolygon(
+          const weight = Number(action.weight);
+          return pointFeature(
             { lat: action.location.coordinates[1], lng: action.location.coordinates[0] },
-            ACTION_CIRCLE_RADIUS_METERS,
-            // Studio language: a soft fill with a thin outline in the same
-            // tone. Freshness still lives in the fill — newer records are
-            // bolder.
-            { alpha }
+            { type: action.action_type, step: ringStep(weight), weight }
           );
         })
-      ),
-    [actions]
-  );
-  // Outlines as LineString rings — LineLayers reject polygon geometry on
-  // MapLibre native (see map/geo.ts).
-  const careStrokes = useMemo(
-    () =>
-      featureCollection(
-        actions.map((action) => {
-          const alpha = weightToGreenAlpha(Number(action.weight));
-          return circleRing(
-            { lat: action.location.coordinates[1], lng: action.location.coordinates[0] },
-            ACTION_CIRCLE_RADIUS_METERS,
-            { strokeAlpha: Math.min(alpha + 0.25, 0.75) }
-          );
-        })
-      ),
-    [actions]
-  );
-  const careCenters = useMemo(
-    () =>
-      featureCollection(
-        actions.map((action) =>
-          pointFeature({
-            lat: action.location.coordinates[1],
-            lng: action.location.coordinates[0],
-          })
-        )
       ),
     [actions]
   );
@@ -529,29 +537,37 @@ export default function MapScreen({ navigation }: any) {
           maxZoomLevel={MAX_ZOOM}
         />
 
-        <ShapeSource id="care-circles" shape={careShapes}>
-          <FillLayer
-            id="care-circles-fill"
-            style={{ fillColor: mapColors.cared, fillOpacity: ['get', 'alpha'] }}
-          />
-        </ShapeSource>
-        <ShapeSource id="care-strokes" shape={careStrokes}>
-          <LineLayer
-            id="care-circles-stroke"
+        {/* Both themes' images are registered up front (44 tiny PNGs) so a
+            theme switch only changes the key suffix in the expression —
+            nothing to reload. */}
+        <Images images={CARE_MARKER_IMAGES} />
+        <ShapeSource id="care-markers" shape={careMarkers}>
+          <SymbolLayer
+            id="care-markers-icon"
             style={{
-              lineColor: mapColors.cared,
-              lineOpacity: ['get', 'strokeAlpha'],
-              lineWidth: 1.5,
+              iconImage: [
+                'concat',
+                'care-',
+                ['get', 'type'],
+                '-',
+                ['get', 'step'],
+                `-${themeName}`,
+              ],
+              iconSize: [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                CARE_MARKER_ZOOM_SMALL,
+                CARE_MARKER_SCALE_SMALL,
+                CARE_MARKER_ZOOM_FULL,
+                1,
+              ],
+              iconAllowOverlap: false,
+              iconIgnorePlacement: false,
+              // Lower sorts first and wins placement: the freshest record
+              // of a crowded corner is the one that shows.
+              symbolSortKey: ['-', 1, ['get', 'weight']],
             }}
-          />
-        </ShapeSource>
-        {/* The center dot only at street scale: from afar hundreds of dots
-            would speckle the map for no gain. */}
-        <ShapeSource id="care-centers" shape={careCenters}>
-          <CircleLayer
-            id="care-centers-dot"
-            minZoomLevel={ANIMAL_VISIBLE_MIN_ZOOM}
-            style={{ circleColor: mapColors.cared, circleRadius: 5 }}
           />
         </ShapeSource>
 
@@ -625,42 +641,8 @@ export default function MapScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* Top layer: the map is fullscreen, controls float above it. */}
-      <SafeAreaView style={styles.topLayer} edges={['top']} pointerEvents="box-none">
-        {/* A white pill shell whose selected half carries the gradient — one
-            of the four places the gradient is allowed. */}
-        <View style={styles.segment}>
-          {(['food', 'water'] as const).map((option) => {
-            const selected = viewType === option;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => setViewType(option)}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                style={styles.segmentItem}
-              >
-                {selected ? <Gradient radius={radius.pill} /> : null}
-                <Icon
-                  name={option === 'food' ? 'food' : 'water'}
-                  size={17}
-                  color={selected ? colors.textOnBrand : colors.textMuted}
-                />
-                <Text
-                  variant="captionStrong"
-                  style={[
-                    styles.segmentLabel,
-                    { color: selected ? colors.textOnBrand : colors.textMuted },
-                  ]}
-                >
-                  {option === 'food' ? 'mama' : 'su'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </SafeAreaView>
-
+      {/* The map is fullscreen; the only floating controls are the zoom
+          pair (the mama/su segment left with the single map). */}
       <View style={styles.sideControls} pointerEvents="box-none">
         {!animalsVisible && animals.length > 0 && (
           <View style={styles.hint} pointerEvents="none">
@@ -684,15 +666,6 @@ export default function MapScreen({ navigation }: any) {
           >
             <Text style={styles.roundButtonText}>−</Text>
           </Pressable>
-          {/* The handoff's FAB: registering a new animal is always one tap
-              away from the map. */}
-          <Pressable
-            style={[styles.roundButton, styles.fab]}
-            onPress={() => openAddAnimal(navigation)}
-            accessibilityLabel="Yeni hayvan ekle"
-          >
-            <Icon name="plus" size={22} color={colors.brand} />
-          </Pressable>
         </View>
       </View>
 
@@ -703,59 +676,54 @@ export default function MapScreen({ navigation }: any) {
           home-indicator inset, so an extra one left a strip of map between the
           sheet and the bar and the sheet looked like it was floating. */}
       <SafeAreaView style={styles.bottomLayer} edges={[]} pointerEvents="box-none">
-        {/* Deliberately spare (owner decision, 2026-08-31): one heading, one
-            line, one button. The radius/count micro line and the location
-            hint were noise; "Konumuma" in the button label carries the
-            where. */}
+        {/* Still spare (owner decision, 2026-08-31): one heading, one line,
+            then the three actions of the single map (owner, 2026-09-08) as
+            equal tiles — the gradient stays reserved, so none of them is
+            the filled primary. The line carries the at-your-location rule
+            the old "Konumuma …" label used to. */}
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} />
           <Text variant="heading" style={styles.sheetTitle}>
-            {sheetNeedsCare ? `Buralarda ${typeLabel} yok` : `Bu bölgede ${typeLabel} var`}
+            {sheetTitle}
           </Text>
           <Text variant="body" style={styles.sheetDesc}>
-            {sheetNeedsCare
-              ? 'İlk kaydı sen bırak, bölge yeşile dönsün.'
-              : 'Taze kayıt bölgeyi canlı tutar; sen de ekleyebilirsin.'}
+            Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.
           </Text>
-          <Button
-            title={viewType === 'food' ? 'Konumuma mama bırak' : 'Konumuma su bırak'}
-            onPress={async () => {
-              // Permission gate at the flow's entry (owner decision): a
-              // denied permission surfaces the Settings alert HERE, before
-              // any modal — and an undetermined one triggers the native
-              // prompt at exactly the moment the user shows intent. Other
-              // location errors don't block; the confirm step handles them.
-              try {
-                await ensureLocationPermission();
-              } catch (err) {
-                if (err instanceof LocationPermissionError) {
-                  alertLocationPermission();
-                  return;
-                }
-              }
-              // A leftover 'approved' from the previous run would skip the
-              // confirm content (state resets on open, not on close — see
-              // handleConfirmDrop).
-              aiCheckRunRef.current++;
-              setAiCheck('idle');
-              setPendingPhoto(null);
-              setConfirmOpen(true);
-            }}
-            icon={
-              <Icon
-                name={viewType === 'food' ? 'food' : 'water'}
-                size={18}
-                color={colors.textOnBrand}
-              />
-            }
-            fullWidth
-          />
+          <View style={styles.tiles}>
+            {(['food', 'water'] as const).map((type) => (
+              <Pressable
+                key={type}
+                style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+                accessibilityRole="button"
+                onPress={() => openDrop(type)}
+              >
+                <View style={styles.tileIcon}>
+                  <Icon name={type} size={22} color={colors.brand} />
+                </View>
+                <Text variant="captionStrong" style={styles.tileLabel}>
+                  {type === 'food' ? 'Mama bırak' : 'Su bırak'}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable
+              style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Yeni hayvan ekle"
+              onPress={() => openAddAnimal(navigation)}
+            >
+              <View style={styles.tileIcon}>
+                <Icon name="paw" size={22} color={colors.brand} />
+              </View>
+              <Text variant="captionStrong" style={styles.tileLabel}>
+                Hayvan ekle
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
 
-      {/* Only the open map's own action is offered: adding water while on
-          the food map (or vice versa) is confusing and inconsistent with the
-          displayed layer. */}
+      {/* The confirm sheet creates the record of the tile that opened it
+          (dropType); its copy and the ad slot follow that type. */}
       <Modal
         visible={confirmOpen}
         transparent
@@ -834,7 +802,7 @@ export default function MapScreen({ navigation }: any) {
                     )}
                     <Button
                       title="Onayla ve ekle"
-                      onPress={() => handleConfirmDrop(viewType)}
+                      onPress={() => handleConfirmDrop(dropType)}
                       loading={submitting}
                       fullWidth
                     />
@@ -856,11 +824,7 @@ export default function MapScreen({ navigation }: any) {
             ) : (
               <>
                 <View style={styles.modalIcon}>
-                  <Icon
-                    name={viewType === 'food' ? 'food' : 'water'}
-                    size={26}
-                    color={colors.brand}
-                  />
+                  <Icon name={dropType} size={26} color={colors.brand} />
                 </View>
                 <Text variant="heading" center>
                   Bulunduğun yere {typeLabel} bırak
@@ -884,9 +848,9 @@ export default function MapScreen({ navigation }: any) {
                   style={styles.modalCancel}
                 />
 
-                {/* A food brand on the food map, a water brand on the water map. */}
+                {/* A food brand under the food sheet, a water brand under the water one. */}
                 <AdBanner
-                  slot={viewType === 'food' ? 'food_popup' : 'water_popup'}
+                  slot={dropType === 'food' ? 'food_popup' : 'water_popup'}
                   visible={confirmOpen}
                 />
               </>
@@ -908,28 +872,6 @@ export default function MapScreen({ navigation }: any) {
 
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
   container: { flex: 1, backgroundColor: c.background },
-  topLayer: { position: 'absolute', top: 0, left: 0, right: 0 },
-  segment: {
-    flexDirection: 'row',
-    alignSelf: 'center',
-    marginTop: spacing.md,
-    padding: 4,
-    borderRadius: radius.pill,
-    backgroundColor: c.surface,
-    borderWidth: 1,
-    borderColor: c.border,
-    ...shadow.float,
-  },
-  segmentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm + 1,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
-  },
-  segmentLabel: { marginLeft: spacing.sm - 2 },
   animalMarker: {
     padding: 3,
     borderRadius: radius.pill,
@@ -962,8 +904,28 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginBottom: spacing.sm,
   },
   roundButtonText: { fontSize: 20, lineHeight: 24, color: c.textMuted },
-  fab: { width: 46, height: 46, marginBottom: 0, ...shadow.float },
   bottomLayer: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  tiles: { flexDirection: 'row', gap: spacing.sm },
+  tile: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: c.borderStrong,
+    backgroundColor: c.surface,
+  },
+  tilePressed: { backgroundColor: c.brandTint },
+  tileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: c.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  tileLabel: { color: c.text },
   sheet: {
     backgroundColor: c.surface,
     borderTopLeftRadius: radius.xl,

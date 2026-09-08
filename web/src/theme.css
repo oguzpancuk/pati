@@ -614,31 +614,42 @@ strong {
   pointer-events: auto;
 }
 
-/* The food/water segment: a white pill shell, the selected half gradient. */
-.segment {
-  display: flex;
-  background: var(--surface);
-  border-radius: var(--radius-pill);
-  padding: 4px;
-  box-shadow: var(--shadow-float);
+/* The single map's three actions — equal outlined tiles (the gradient stays
+   reserved for the primary button); mobile's MapScreen tiles. */
+.map-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
-.segment button {
-  border: none;
-  background: none;
-  border-radius: var(--radius-pill);
-  padding: 8px 26px;
+.map-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
   font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: lowercase;
-  color: var(--text-muted);
   cursor: pointer;
 }
 
-.segment button.selected {
-  background: var(--grad);
-  color: var(--text-on-brand);
+.map-action:active {
+  background: var(--brand-tint);
+}
+
+.map-action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-tint);
+  color: var(--brand);
 }
 
 .map-bottom {
@@ -670,27 +681,6 @@ strong {
   margin: 0 0 2px;
   font-size: 21px;
   font-weight: 500;
-}
-
-/* The white + button at the bottom right */
-.fab {
-  position: absolute;
-  right: 16px;
-  z-index: 500;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-float);
-  color: var(--brand);
-  font-size: 26px;
-  font-weight: 500;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
 }
 
 /* The animal marker — the avatar in a 42px white circle (a MapLibre DOM marker) */
