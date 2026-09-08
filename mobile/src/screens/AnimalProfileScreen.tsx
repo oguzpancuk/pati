@@ -414,7 +414,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               </Text>
               {/* The audience (P7 item 5, placed by the P8 review): the
                   follower/carer pair right-aligned on the name's line. */}
-              <Text variant="body" color="textMuted" style={styles.counts}>
+              <Text variant="body" style={styles.counts}>
                 {animal.followerCount} takipçi · {animal.carerCount} bakıcı
               </Text>
             </View>
@@ -979,9 +979,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     columnGap: spacing.sm,
   },
   name: { flexShrink: 1 },
-  // Bold and a size up from the caption (owner, 2026-09-09): the audience
-  // reads as a peer of the name, not as a footnote under it.
-  counts: { flexShrink: 0, fontFamily: fonts.bold, fontSize: 15, lineHeight: 20 },
+  // Bold, black and two sizes up from the caption (owner, 2026-09-09): the
+  // audience reads as a peer of the name, not as a footnote under it.
+  counts: { flexShrink: 0, fontFamily: fonts.bold, fontSize: 17, lineHeight: 23, color: c.text },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   badgeChip: {
     flexDirection: 'row',

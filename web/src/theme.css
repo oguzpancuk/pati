@@ -1650,13 +1650,13 @@ strong {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Bold and a size up from the caption (owner, 2026-09-09): the audience
-   reads as a peer of the name, not as a footnote under it. */
+/* Bold, black and two sizes up from the caption (owner, 2026-09-09): the
+   audience reads as a peer of the name, not as a footnote under it. */
 .animal-counts {
   flex-shrink: 0;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: var(--text);
   white-space: nowrap;
 }
 
