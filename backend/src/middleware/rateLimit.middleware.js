@@ -61,6 +61,14 @@ const limits = {
   comments: userRateLimit({ windowMs: HOUR, limit: 60, action: 'yorum' }),
   // Sightings, follows and photo additions share a "profile touch" budget.
   animalTouch: userRateLimit({ windowMs: HOUR, limit: 30, action: 'işlem' }),
+  // Photo likes: someone browsing a gallery taps a heart every few
+  // seconds; a like is a one-row insert, so the bucket is wide.
+  photoLikes: userRateLimit({ windowMs: HOUR, limit: 240, action: 'beğeni' }),
+  // Follow/unfollow toggles: cheap rows, but a flapping button must not
+  // write hundreds of them.
+  follows: userRateLimit({ windowMs: HOUR, limit: 60, action: 'takip işlemi' }),
+  // Device (push) token registration: once per launch is the honest rate.
+  deviceTokens: userRateLimit({ windowMs: HOUR, limit: 30, action: 'cihaz kaydı' }),
   // Health + vaccination records: a vet day at a colony is ~15 records.
   healthRecords: userRateLimit({ windowMs: HOUR, limit: 30, action: 'sağlık/aşı kaydı' }),
   // Avatar changes: trying every face twice still fits.
