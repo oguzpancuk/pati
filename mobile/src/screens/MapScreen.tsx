@@ -41,7 +41,7 @@ import {
   LocationPermissionError,
 } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
-import { circleRing, featureCollection, pointFeature, segmentFeature } from '../map/geo';
+import { circleRing, featureCollection, pointFeature } from '../map/geo';
 import { layoutStacks } from '../map/stacks';
 import {
   CARE_MARKER_SCALE_SMALL,
@@ -54,7 +54,7 @@ import {
 import { CARE_MARKER_IMAGES } from '../map/markers';
 import { mapStyles } from '../map/styles';
 import { Button, Text } from '../components/ui';
-import { Icon } from '../components/brand';
+import { Icon, Logo } from '../components/brand';
 import { makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 
 // Turkey's approximate geographic bounding box (not an exact administrative
@@ -107,7 +107,7 @@ const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 
 // Stacked markers (owner, 2026-09-08, P7 item 9): from the zoom avatars
 // draw at, records and avatars that would overlap on screen fan out
-// around their spot automatically, with spokes, and the user's location
+// around their spot automatically (no spokes — owner, P8), and the user's location
 // dot stays put underneath (map/stacks.ts, shared with web). Below that
 // zoom the symbol layer's collision placement hides all but the freshest
 // of a pile, as before.
@@ -596,17 +596,6 @@ export default function MapScreen({ navigation }: any) {
     [actions, placement]
   );
 
-  // A spoke from every fan seat back to the stack's spot.
-  const stackSpokes = useMemo(
-    () =>
-      featureCollection(
-        [...placement.values()]
-          .filter((p) => p.spot)
-          .map((p) => segmentFeature(p.spot as Coordinates, p.drawAt))
-      ),
-    [placement]
-  );
-
   // The dashed ring marks the range where animals are drawn (500 m) — the
   // depiction in the handoff.
   const userRing = useMemo(
@@ -644,13 +633,6 @@ export default function MapScreen({ navigation }: any) {
             again). Keep <Images> — dropping it for onImageMissing alone
             would leave nothing for that path to fetch. */}
         <Images images={CARE_MARKER_IMAGES} />
-        {/* Spokes under the markers and the avatars. */}
-        <ShapeSource id="stack-spokes" shape={stackSpokes}>
-          <LineLayer
-            id="stack-spokes-line"
-            style={{ lineColor: mapColors.userRadiusStroke, lineWidth: 1.5 }}
-          />
-        </ShapeSource>
         <ShapeSource id="care-markers" shape={careMarkers}>
           <SymbolLayer
             id="care-markers-icon"
@@ -797,10 +779,12 @@ export default function MapScreen({ navigation }: any) {
           <Text variant="body" style={styles.sheetDesc}>
             Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.
           </Text>
+          {/* The pati logo on the button (owner, P8 item 1), white on the
+              gradient with the heart cut out. */}
           <Button
             title="Ekle"
             onPress={() => setChooserOpen(true)}
-            icon={<Icon name="paw" size={22} color={colors.textOnBrand} />}
+            icon={<Logo size={20} color={colors.textOnBrand} accent="transparent" />}
             fullWidth
           />
         </View>

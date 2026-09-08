@@ -226,16 +226,36 @@ export default function ConversationPage() {
           <strong>{detail?.name ?? '…'}</strong>
           {isGroup && <span className="subtle">{detail?.members.length} üye</span>}
         </div>
+        {/* One round header control on both clients (owner, P8 item 4): the
+            members glyph for a group, the other person's avatar for a DM. */}
         {isGroup ? (
           <Link
             to={`/mesajlar/${conversationId}/ayarlar`}
-            className="link"
+            className="msg-head-btn"
             aria-label="Grup ayarları"
           >
-            ayarlar
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="9.2" cy="8.4" r="3.2" />
+              <path d="M2.8 20a6.4 6.4 0 0 1 12.8 0" />
+              <path d="M16.4 5.8a3.2 3.2 0 0 1 0 5.2" />
+              <path d="M17.4 14.4A6.4 6.4 0 0 1 21.2 20" />
+            </svg>
           </Link>
         ) : detail?.otherUser ? (
-          <Link to={`/kullanici/${detail.otherUser.id}`} aria-label={detail.otherUser.name}>
+          <Link
+            to={`/kullanici/${detail.otherUser.id}`}
+            className="msg-head-btn"
+            aria-label={detail.otherUser.name}
+          >
             <UserAvatar
               avatarUrl={detail.otherUser.avatar_url}
               name={detail.otherUser.name}

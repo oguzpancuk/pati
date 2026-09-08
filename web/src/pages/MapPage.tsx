@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gateAddAnimal } from '../addAnimalGate';
 import { animalAvatarSvg } from '@shared/animalAvatarSvg';
-import { circleRing, featureCollection, pointFeature, segmentFeature } from '@mobile/map/geo';
+import { circleRing, featureCollection, pointFeature } from '@mobile/map/geo';
+import { logoSvg } from '@shared/logoSvg';
 import { layoutStacks } from '@mobile/map/stacks';
 import {
   CARE_GLYPH_PATHS,
@@ -79,7 +80,7 @@ const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
 
 // Stacked markers (owner, 2026-09-08, P7 item 9) — same rule as mobile's
 // MapScreen: from the avatar zoom on, records and avatars that would
-// overlap on screen fan out around their spot automatically, with spokes,
+// overlap on screen fan out around their spot automatically (no spokes),
 // and the user's dot stays put underneath (@mobile/map/stacks). Below it
 // the symbol layer's collision placement thins a pile to its freshest.
 
@@ -123,7 +124,6 @@ export default function MapPage() {
   // Latest GeoJSON per source: setStyle (theme change) wipes sources and
   // layers, so `ensureLayers` re-adds them from these refs on style.load.
   const careMarkersRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
-  const stackSpokesRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   const userRingRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   // The last fetched records, the spot the dot is drawn at and the dot
   // marker itself: the map is imperative, so the stack layout is
@@ -258,14 +258,8 @@ export default function MapPage() {
         });
       })
     );
-    stackSpokesRef.current = featureCollection(
-      [...draw.values()]
-        .filter((p) => p.spot)
-        .map((p) => segmentFeature(p.spot as Coordinates, p.drawAt))
-    );
     const source = (id: string) => map.getSource(id) as maplibregl.GeoJSONSource | undefined;
     source('care-markers')?.setData(careMarkersRef.current);
-    source('stack-spokes')?.setData(stackSpokesRef.current);
     // The avatars are DOM markers in the same order as animalsDataRef.
     animals.forEach((animal, i) => {
       const at = draw.get(`animal-${animal.id}`)?.drawAt ?? animalPositionOf(animal);
@@ -363,14 +357,6 @@ export default function MapPage() {
     const ensureLayers = () => {
       if (map.getSource('care-markers')) return;
       registerCareMarkerImages(map);
-      // Spokes from every fan seat back to its spot, under the markers.
-      map.addSource('stack-spokes', { type: 'geojson', data: stackSpokesRef.current });
-      map.addLayer({
-        id: 'stack-spokes-line',
-        type: 'line',
-        source: 'stack-spokes',
-        paint: { 'line-color': USER_RADIUS_STROKE, 'line-width': 1.5 },
-      });
       map.addSource('care-markers', { type: 'geojson', data: careMarkersRef.current });
       // One symbol layer, same expressions as mobile: the image key from
       // type + ring step + the current theme, icons shrinking toward
@@ -752,14 +738,13 @@ export default function MapPage() {
           <p className="muted" style={{ margin: '2px 0 12px' }}>
             Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.
           </p>
+          {/* The pati logo on the button (owner, P8 item 1): white on the
+              gradient, heart cut out. logoSvg is our own static markup. */}
           <button className="btn full" onClick={() => setChooserOpen(true)}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="6.4" cy="10.6" r="2.1" />
-              <circle cx="9.9" cy="7.2" r="2.2" />
-              <circle cx="14.1" cy="7.2" r="2.2" />
-              <circle cx="17.6" cy="10.6" r="2.1" />
-              <path d="M12 12.2c2.6 0 5 2.1 5 4.5 0 1.8-1.4 2.9-3 2.9-.9 0-1.4-.4-2-.4s-1.1.4-2 .4c-1.6 0-3-1.1-3-2.9 0-2.4 2.4-4.5 5-4.5Z" />
-            </svg>
+            <span
+              className="btn-logo"
+              dangerouslySetInnerHTML={{ __html: logoSvg(20, 'currentColor', 'transparent') }}
+            />
             Ekle
           </button>
         </div>

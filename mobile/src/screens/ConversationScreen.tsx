@@ -180,24 +180,29 @@ export default function ConversationScreen({ route, navigation }: any) {
     if (!detail) return;
     navigation.setOptions({
       headerRight: () =>
+        // One round header control (owner, P8 item 4): a surface disc with
+        // a hairline, the glyph centred; theme colours read at render so
+        // dark mode never keeps a light disc.
         detail.kind === 'group' ? (
           <Pressable
             hitSlop={hitSlop}
             onPress={() => navigation.navigate('GroupSettings', { conversationId })}
             accessibilityLabel="Grup ayarları"
+            style={styles.headButton}
           >
-            <Icon name="users" size={22} color={colors.brand} />
+            <Icon name="users" size={20} color={colors.brand} />
           </Pressable>
         ) : detail.otherUser ? (
           <Pressable
             hitSlop={hitSlop}
             onPress={() => navigation.navigate('PublicProfile', { userId: detail.otherUser!.id })}
+            style={styles.headButton}
           >
             <Avatar uri={detail.otherUser.avatar_url} name={detail.otherUser.name} size={30} />
           </Pressable>
         ) : null,
     });
-  }, [detail, navigation, conversationId, colors.brand]);
+  }, [detail, navigation, conversationId, colors.brand, styles.headButton]);
 
   async function loadOlder() {
     if (!hasMore || loadingOlder.current || !messages?.length) return;
@@ -546,6 +551,18 @@ function ReportMessageModal({ message, onClose }: { message: Message; onClose: (
 }
 
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
+  headButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    ...shadow.float,
+  },
   flex: { flex: 1, backgroundColor: c.background },
   list: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   line: {
