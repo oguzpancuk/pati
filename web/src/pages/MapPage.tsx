@@ -215,9 +215,8 @@ export default function MapPage() {
    * on, overlapping ones take fan seats around their spot; below it the
    * map is empty (everything sits on its own spot).
    */
-  const seatsAt = useCallback((zoom: number) => {
-    const draw = new Map<string, Coordinates>();
-    if (zoom < ANIMAL_VISIBLE_MIN_ZOOM) return draw;
+  const layoutAt = useCallback((zoom: number) => {
+    if (zoom < ANIMAL_VISIBLE_MIN_ZOOM) return [];
     const items = [
       ...actionsRef.current.map((action) => ({ id: `care-${action.id}`, at: positionOf(action) })),
       ...animalsDataRef.current.map((animal) => ({
@@ -226,28 +225,23 @@ export default function MapPage() {
       })),
     ];
     const me = myLocationRef.current;
-    for (const placed of layoutStacks(items, zoom, me ? [me] : [])) {
-      draw.set(placed.id, placed.drawAt);
-    }
-    return draw;
+    return layoutStacks(items, zoom, me ? [me] : []);
   }, []);
+
+  /** Where each avatar/record is drawn at a zoom (the hearts read this). */
+  const seatsAt = useCallback(
+    (zoom: number) => new Map(layoutAt(zoom).map((p) => [p.id, p.drawAt])),
+    [layoutAt]
+  );
 
   const paintMarkers = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
     const actions = actionsRef.current;
     const animals = animalsDataRef.current;
-    const zoom = map.getZoom();
     const draw = new Map<string, { drawAt: Coordinates; spot: Coordinates | null }>();
-    if (zoom >= ANIMAL_VISIBLE_MIN_ZOOM) {
-      const items = [
-        ...actions.map((action) => ({ id: `care-${action.id}`, at: positionOf(action) })),
-        ...animals.map((animal) => ({ id: `animal-${animal.id}`, at: animalPositionOf(animal) })),
-      ];
-      const me = myLocationRef.current;
-      for (const placed of layoutStacks(items, zoom, me ? [me] : [])) {
-        draw.set(placed.id, { drawAt: placed.drawAt, spot: placed.spot });
-      }
+    for (const placed of layoutAt(map.getZoom())) {
+      draw.set(placed.id, { drawAt: placed.drawAt, spot: placed.spot });
     }
     careMarkersRef.current = featureCollection(
       actions.map((action) => {
@@ -277,7 +271,7 @@ export default function MapPage() {
       const at = draw.get(`animal-${animal.id}`)?.drawAt ?? animalPositionOf(animal);
       animalMarkersRef.current[i]?.setLngLat([at.lng, at.lat]);
     });
-  }, []);
+  }, [layoutAt]);
 
   /**
    * The user's location as a small dot with a breathing halo (owner, P7
@@ -634,6 +628,8 @@ export default function MapPage() {
         return center ? { lat: center.lat, lng: center.lng } : FALLBACK_CENTER;
       });
       setMyLocation(loc);
+      // The dot, its ring and the layout anchor follow the drop's fix.
+      placeUserDot(loc);
       const created = await addCareAction(loc.lat, loc.lng, dropType, photoCheck.photoToken);
       if (usedFallback) setError(`${usedFallback} Kayıt haritanın ortasına düştü.`);
       // aiCheck/pendingPhoto reset when the modal next opens, not here:

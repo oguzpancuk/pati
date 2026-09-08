@@ -165,6 +165,8 @@ export default function MapScreen({ navigation }: any) {
   // The settled zoom drives the stack layout (screen-space rule); the ref
   // stays for the celebration path.
   const [zoomLevel, setZoomLevel] = useState(COUNTRY_ZOOM);
+  // The latest render's seat function, for callbacks armed by older renders.
+  const seatsAtRef = useRef<(zoom: number) => Map<string, Coordinates>>(() => new Map());
   // Heart bursts draw in a separate layer above the map at screen
   // coordinates (not embedded in the marker): iOS rasterizes the marker view
   // once, so an animation inside it stuttered or appeared in the wrong
@@ -232,7 +234,7 @@ export default function MapScreen({ navigation }: any) {
     }
   }
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (known?: Coordinates) => {
     // Overlapping loads (a refocus during a slow first load, a drop right
     // after) race: without the sequence check, whichever response lands
     // LAST paints the map and the bottom sheet.
@@ -241,7 +243,7 @@ export default function MapScreen({ navigation }: any) {
     try {
       const [actionData, loc] = await Promise.all([
         fetchCareActionsInBounds(TURKEY_BOUNDS),
-        getCurrentLocation().catch(() => null),
+        known ? Promise.resolve(known) : getCurrentLocation().catch(() => null),
       ]);
       if (seq !== loadSeqRef.current) return null;
       setActions(actionData);
@@ -331,12 +333,15 @@ export default function MapScreen({ navigation }: any) {
     pendingHeartsRef.current = null;
     if (heartTimerRef.current) clearTimeout(heartTimerRef.current);
 
+    // From the avatar's fan seat at the settled zoom, not its true spot
+    // (review finding): a fresh record at the same spot fans it out. Read
+    // through the ref: the fallback timer was armed by an older render
+    // whose data predates the reload.
+    const zoom = (await map.getZoom()) ?? currentZoomRef.current;
+    const seats = seatsAtRef.current(zoom);
     const bursts = await Promise.all(
       affected.map(async (animal) => {
-        // From the avatar's fan seat at the settled zoom, not its true spot
-        // (review finding): a fresh record at the same spot fans it out.
-        const zoom = (await map.getZoom()) ?? currentZoomRef.current;
-        const at = seatsAt(zoom).get(`animal-${animal.id}`) ?? animalPosition(animal);
+        const at = seats.get(`animal-${animal.id}`) ?? animalPosition(animal);
         const [x, y] = await map.getPointInView([at.lng, at.lat]);
         return { id: animal.id, x, y };
       })
@@ -504,10 +509,10 @@ export default function MapScreen({ navigation }: any) {
           animationDuration: 500,
         });
       }
-      load();
+      load(loc);
     } catch (err: any) {
       if (err instanceof LocationPermissionError) alertLocationPermission();
-      else Alert.alert('Konum alınamadı', err?.message ?? 'Bilinmeyen hata');
+      else Alert.alert('Konum alınamadı', 'Konumun şu an okunamadı. Biraz sonra tekrar dene.');
     }
   }
 
@@ -555,6 +560,9 @@ export default function MapScreen({ navigation }: any) {
 
   /** The fan seats at an arbitrary zoom (the celebration reads the live one). */
   function seatsAt(zoom: number) {
+    return seatsAtImpl(zoom);
+  }
+  function seatsAtImpl(zoom: number) {
     const draw = new Map<string, Coordinates>();
     if (zoom < ANIMAL_VISIBLE_MIN_ZOOM) return draw;
     const items = [
@@ -566,6 +574,7 @@ export default function MapScreen({ navigation }: any) {
     }
     return draw;
   }
+  seatsAtRef.current = seatsAt;
 
   // One point per record; the layer picks the image from type + tone + ring
   // step (see map/careMarkers.ts) and the weight decides who wins a
