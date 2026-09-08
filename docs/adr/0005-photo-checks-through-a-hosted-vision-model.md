@@ -250,3 +250,36 @@ the gallery.
   refusal naming the second of two photos, the inline screening of a
   direct upload, fail-open with the model down, the sweeper sparing fresh
   and real files, multer's limits answered as Turkish 400s.
+
+## Amendment (2026-09-08): who may care for an animal, and the two doors to it
+
+Owner decision (P6 item 8): the rights on an animal — comments, sightings,
+health and vaccination records, photo uploads — belong to its **carers**;
+a **follower** only likes photos and receives the animal's notifications;
+everyone else only likes photos. The registrant stays a carer. There are
+exactly two ways in, both through the model:
+
+- **"Bakım ver"** (`POST /animals/:id/care-photos`): two fresh photos, compared
+  with the animal's own gallery; only a literal `same` answer adds the
+  carer row. `similar` and `unsure` are refused (422 `carePhotoMismatch`).
+  With the model off or failing, the photos are accepted unchecked (this
+  ADR's fail-open) and become the animal's gallery — the evidence stays.
+- **The add-animal door** ("Bu o — eşleştir" on a match candidate): the
+  match step logs a `register` hit in `animal_match_attempts` only for a
+  candidate the model called `same`, or for every non-low candidate when
+  there was **no answer at all** (`unchecked`: key missing, model error, no
+  comparable cover). `similar`/`unsure` never log a hit. The answer carries
+  a per-candidate `matchHit` flag and the clients call `reportSighting`
+  only when it is true; otherwise the button opens the profile. A confirm
+  **spends** all of the user's fresh (15-minute) hits in one transaction
+  (`used_at`, rows locked in id order) — one photo submission confirms one
+  animal; a second confirm on the same animal, or on another animal from
+  the same hits, is refused (403 `carersOnly`).
+- **"Tanıdık Yüz"** (the animal badge for recognitions) counts distinct
+  users over all `register` rows, spent or not: the animal was recognised,
+  whichever animal the user confirmed afterwards.
+
+Evidence: `backend/scripts/animal-social/run.sh` (throwaway backend on
+3107 with the fake Gemini; field-only match mints nothing, `same` opens the
+door once, `similar` does not, the spend, carers-only refusals, the inbox
+fan-out, the badge ladder) and `backend/test/animalBadges.test.js`.
