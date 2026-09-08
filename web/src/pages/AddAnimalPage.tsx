@@ -497,7 +497,13 @@ export default function AddAnimalPage() {
   function reviewCandidate(animal: AnimalMatch) {
     const toSave: Draft = { species, breed, colors: colorChoices, name, markings, location };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(toSave));
-    navigate(`/hayvanlar/${animal.id}?inceleme=1`);
+    // ayni=1: the model judged the candidate the same animal, so "that's
+    // the one" can make the user a carer (the server's match-hit door).
+    navigate(
+      `/hayvanlar/${animal.id}?inceleme=1${
+        animal.similarity_reasons.includes('photo_same') ? '&ayni=1' : ''
+      }`
+    );
   }
 
   /** No direct sighting report from the candidate list without a "that's the

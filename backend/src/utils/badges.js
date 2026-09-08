@@ -359,9 +359,10 @@ function buildBadgesFor(userId, streaks, breeds, comments, health, vaccines) {
 // Tiers are count-based: 1/5/20/100 (comments 1/10/50/200), the user
 // ladders. A tier, once earned, is permanent — the sync only ever inserts.
 const ANIMAL_BADGES = {
-  // Registration match hits: someone's photo put this animal forward in
-  // the add-animal step (animal_match_attempts, kind = 'register'),
-  // counted per person — a retried form is one recognition, not five.
+  // Registration match hits: someone's photo was judged the same animal
+  // in the add-animal step, or went unjudged with no model (rows in
+  // animal_match_attempts, kind = 'register'; 'similar'/'unsure' are never
+  // logged), counted per person — a retried form is one recognition.
   matched: {
     label: 'Tanıdık Yüz',
     unit: 'eşleşme',

@@ -115,6 +115,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   // via a param; location update and care-list insertion happen there, in
   // one place.
   const matchReview: boolean = !!route.params?.matchReview;
+  // Without the model's 'same' the confirm cannot make the user a carer
+  // (the server's match-hit door): the bar then only opens the profile.
+  const photoSame: boolean = !!route.params?.photoSame;
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [draft, setDraft] = useState('');
@@ -693,7 +696,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       {matchReview ? (
         <View style={styles.composer}>
           <Text variant="caption" center style={styles.reviewHint}>
-            Eklemek istediğin hayvan bu mu?
+            {photoSame
+              ? 'Eklemek istediğin hayvan bu mu?'
+              : 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'}
           </Text>
           <View style={styles.reviewRow}>
             <Button
@@ -703,7 +708,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               style={styles.reviewButton}
             />
             <Button
-              title="Bu o — eşleştir"
+              title={photoSame ? 'Bu o — eşleştir' : 'Bu o — profili aç'}
               onPress={() => navigation.navigate('AddAnimal', { confirmedAnimalId: animalId })}
               icon={<Icon name="check" size={18} color={colors.textOnBrand} />}
               style={styles.reviewButton}

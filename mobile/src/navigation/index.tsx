@@ -38,7 +38,9 @@ export type MainStackParamList = {
   AddAnimal: { confirmedAnimalId?: number } | undefined;
   // matchReview: while viewing a candidate in the add-animal flow; the
   // profile opens in "review" mode with a "go back / that's the one" bar.
-  AnimalProfile: { animalId: number; matchReview?: boolean };
+  // photoSame: the model judged the candidate the same animal, so "that's
+  // the one" can make the user a carer; otherwise the bar opens the profile.
+  AnimalProfile: { animalId: number; matchReview?: boolean; photoSame?: boolean };
   // The swipeable full-screen viewer over the profile's photos (P6 item 7).
   AnimalPhotos: { animalId: number; photos: AnimalPhoto[]; index?: number };
   // "Bakım ver": the two-photo step that makes the user a carer (P6 item 8).

@@ -123,6 +123,9 @@ export default function AnimalPage() {
   // Did we arrive via "review candidate" from the add-animal flow? Carried
   // in the URL instead of state so it survives a page refresh.
   const matchReview = searchParams.get('inceleme') === '1';
+  // Without the model's 'same' the confirm cannot make the user a carer
+  // (the server's match-hit door): the bar then only opens the profile.
+  const photoSame = searchParams.get('ayni') === '1';
   const animalId = Number(id);
   const [animal, setAnimal] = useState<AnimalSocialDetail | null>(null);
   // The full-screen viewer (P6 item 7): the index of the open photo, or null.
@@ -715,7 +718,9 @@ export default function AnimalPage() {
            state. */
         <div className="card" style={{ position: 'sticky', bottom: 0 }}>
           <p className="muted" style={{ margin: '0 0 8px', textAlign: 'center' }}>
-            Eklemek istediğin hayvan bu mu?
+            {photoSame
+              ? 'Eklemek istediğin hayvan bu mu?'
+              : 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'}
           </p>
           <div className="row">
             <button className="btn secondary grow" onClick={() => navigate(-1)}>
@@ -727,7 +732,7 @@ export default function AnimalPage() {
                 navigate('/hayvanlar/yeni', { state: { confirmedAnimalId: animalId } })
               }
             >
-              ✓ Bu o — eşleştir
+              {photoSame ? '✓ Bu o — eşleştir' : 'Bu o — profili aç'}
             </button>
           </div>
         </div>

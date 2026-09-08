@@ -379,20 +379,18 @@ async function matchAnimals(req, res, next) {
         { expiresIn: PHOTO_TOKEN_TTL, jwtid: crypto.randomUUID() }
       )
     );
-    // A "match hit": the user's photos put this animal forward. A badge
+    // A "match hit": the user's photo put this animal forward. A badge
     // source (ANIMAL_BADGES.matched) and, for fifteen minutes, the evidence
     // that lets this user confirm "that's the one" as a non-carer (see
-    // reportSighting) — the add-animal flow's own care-photo step. Only a
-    // photo can mint one: the field-only GET never logs anything. With
-    // photos sent, every candidate shown is a hit — the row records the
-    // model's verdict ('same'/'similar'), or 'unchecked' when the model
-    // gave none for it (no answer at all, an unsure verdict, a candidate
-    // without a readable cover or beyond the comparison cap): the clients
-    // offer "that's the one" on every candidate shown, and only a
-    // 'different' verdict — already dropped to low and hidden — is a real
-    // no (ADR-0005, the AI fails open, the way submitCarePhotos accepts
-    // unchecked). Awaited: the door reads this row right after the confirm.
-    const hits = files.length === 0 ? [] : matchHitsOf(candidates);
+    // reportSighting). Product rule (owner item 8, coordinator decision
+    // 2026-09-08, recorded in NOTES/ADR-0005 at merge): this door is never
+    // weaker than "bakım ver" — a hit needs the model's 'same' for that
+    // candidate, or no model answer at all (key missing, an error, no
+    // comparable cover: 'unchecked', the way submitCarePhotos accepts
+    // unchecked). 'similar' and 'unsure' mint nothing and never count for
+    // the badge; the field-only GET never logs. Awaited: the door reads
+    // this row right after the client's confirm.
+    const hits = files.length === 0 ? [] : matchHitsOf(candidates, photoChecked);
     try {
       await logMatchHits(req.user.userId, hits);
     } catch (err) {
@@ -416,17 +414,17 @@ async function matchAnimals(req, res, next) {
 const MATCH_HIT_WINDOW = '15 minutes';
 
 // The hits among the shown candidates (see above). `similarity` uses the
-// model's own words, the vocabulary of the 'care' rows; the column is
-// VARCHAR(10), so the photo_* reason names never go in as they are.
-const HIT_VERDICT = { photo_same: 'same', photo_similar: 'similar' };
-
-function matchHitsOf(candidates) {
+// model's own word ('same') or 'unchecked', the vocabulary of the 'care'
+// rows; the column is VARCHAR(10), so a photo_* reason name never goes in.
+function matchHitsOf(candidates, photoChecked) {
+  if (!photoChecked) {
+    return candidates
+      .filter((c) => c.similarity !== 'low')
+      .map((c) => ({ id: c.id, similarity: 'unchecked' }));
+  }
   return candidates
-    .filter((c) => c.similarity !== 'low')
-    .map((c) => ({
-      id: c.id,
-      similarity: HIT_VERDICT[c.similarity_reasons.find((r) => HIT_VERDICT[r])] ?? 'unchecked',
-    }));
+    .filter((c) => c.similarity_reasons.includes('photo_same'))
+    .map((c) => ({ id: c.id, similarity: 'same' }));
 }
 
 async function logMatchHits(userId, hits) {
@@ -549,9 +547,11 @@ function carersOnly(res, what) {
 // location to the reporter's position. Carers only (owner decision,
 // 2026-09-08) — with one door: the add-animal flow calls this when "that's
 // the one" is confirmed, and that user just came through the match step
-// with photos of the animal, which the model compared with this one (see
-// matchHitsOf: a field-only match opens nothing). That logged hit, fresh,
-// stands as the care-photo step would and makes the reporter a carer.
+// with a photo the model judged the SAME animal as this one (or that no
+// model judged at all — see matchHitsOf; a field-only match, a 'similar'
+// or an 'unsure' opens nothing, and the clients then open the profile
+// without a sighting). That logged hit, fresh, stands as the care-photo
+// step would and makes the reporter a carer.
 async function reportSighting(req, res, next) {
   try {
     const { lat, lng } = req.body;
