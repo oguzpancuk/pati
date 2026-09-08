@@ -5,16 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gateAddAnimal } from '../addAnimalGate';
 import { animalAvatarSvg } from '@shared/animalAvatarSvg';
-import { logoSvg } from '@shared/logoSvg';
-import {
-  circleRing,
-  distanceBetween,
-  featureCollection,
-  metersPerPixel,
-  offsetMeters,
-  pointFeature,
-  segmentFeature,
-} from '@mobile/map/geo';
+import { circleRing, featureCollection, pointFeature, segmentFeature } from '@mobile/map/geo';
+import { layoutStacks } from '@mobile/map/stacks';
 import {
   CARE_GLYPH_PATHS,
   CARE_MARKER_SCALE_SMALL,
@@ -60,15 +52,13 @@ import { InstallBanner } from '../install';
 // change the other.
 const TURKEY_BOUNDS = { minLat: 35.8, maxLat: 42.1, minLng: 25.6, maxLng: 44.8 };
 const ACTION_CIRCLE_RADIUS_METERS = 100;
-// Animals are drawn only near the user (200 m) and once the map is zoomed
-// well in (street/building scale): from afar, dozens of avatars covered the
-// map, and the user's business is with the animals on their own street
-// anyway.
-const ANIMAL_RADIUS_METERS = 200;
-// Keep this an integer (same reason as MapScreen): the shoulder offset's
-// `step` evaluates at the tile's integer zoom, the avatar gate at the
-// fractional camera zoom.
-const ANIMAL_VISIBLE_MIN_ZOOM = 17;
+// Animals are drawn only near the user (500 m, owner decision 2026-09-08 —
+// was 200 m) and from neighbourhood scale on (15 — was 17; overlapping
+// avatars fan out now, see @mobile/map/stacks). Same numbers as mobile.
+// Keep the zoom an integer: the layer's `step` on zoom evaluates at the
+// tile's integer zoom, the avatar gate at the fractional camera zoom.
+const ANIMAL_RADIUS_METERS = 500;
+const ANIMAL_VISIBLE_MIN_ZOOM = 15;
 // The scale the map focuses to after leaving food/water: the 100 m circle
 // and the animals inside it should be visible.
 const CELEBRATE_ZOOM = 18;
@@ -87,19 +77,11 @@ const USER_RADIUS_STROKE = 'rgba(33, 32, 30, 0.35)';
 
 const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
 
-// Stacked markers — the same three rules and numbers as mobile's MapScreen:
-// a record under an animal avatar moves to its shoulder (`attached`), the
-// records hidden by collision placement open as a fan when the visible one
-// is tapped (members within FAN_PICK_PX, spread on FAN_RADIUS_PX with
-// spokes; any move or blank tap closes it), and the user pin goes half
-// transparent when something sits under it.
-const ATTACH_METERS = 12;
-const ATTACH_OFFSET_PX: [number, number] = [22, -22];
-const FAN_PICK_PX = 28;
-const FAN_RADIUS_PX = 46;
-const PIN_DIM_METERS = 14;
-
-type Fan = { center: Coordinates; ids: number[]; mpp: number };
+// Stacked markers (owner, 2026-09-08, P7 item 9) — same rule as mobile's
+// MapScreen: from the avatar zoom on, records and avatars that would
+// overlap on screen fan out around their spot automatically, with spokes,
+// and the user's dot stays put underneath (@mobile/map/stacks). Below it
+// the symbol layer's collision placement thins a pile to its freshest.
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
@@ -141,15 +123,12 @@ export default function MapPage() {
   // Latest GeoJSON per source: setStyle (theme change) wipes sources and
   // layers, so `ensureLayers` re-adds them from these refs on style.load.
   const careMarkersRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
-  const fanIconsRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
-  const fanSpokesRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
+  const stackSpokesRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   const userRingRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
-  // The last fetched records, the open fan and the pin element: the map is
-  // imperative, so the stacking rules are re-applied from these refs by
-  // paintMarkers() whenever any of them changes.
+  // The last fetched records and the spot the dot is drawn at: the map is
+  // imperative, so the stack layout is re-applied from these refs by
+  // paintMarkers() whenever records, animals, the dot or the zoom change.
   const actionsRef = useRef<CareAction[]>([]);
-  const fanRef = useRef<Fan | null>(null);
-  const userMarkerElRef = useRef<HTMLElement | null>(null);
   const myLocationRef = useRef<Coordinates | null>(null);
   const animalMarkersRef = useRef<maplibregl.Marker[]>([]);
   // Request generations for the racy loaders (see loadMarkers).
@@ -169,6 +148,7 @@ export default function MapPage() {
   // Per-type status around the user (or the fallback center).
   const [statuses, setStatuses] = useState<Record<CareType, CareStatus> | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
   // Placeholder "AI is checking the photo" interstitial — same pattern and
   // constants as mobile MapScreen (always approves; the upload runs behind
   // it; a real model later gains the reject path here).
@@ -240,14 +220,24 @@ export default function MapPage() {
     if (!map) return;
     const actions = actionsRef.current;
     const animals = animalsDataRef.current;
-    const fan = fanRef.current;
+    const zoom = map.getZoom();
+    // From the avatar zoom on, overlapping records and avatars take fan
+    // seats around their spot; below it everything sits on its own spot.
+    const draw = new Map<string, { drawAt: Coordinates; spot: Coordinates | null }>();
+    if (zoom >= ANIMAL_VISIBLE_MIN_ZOOM) {
+      const items = [
+        ...actions.map((action) => ({ id: `care-${action.id}`, at: positionOf(action) })),
+        ...animals.map((animal) => ({ id: `animal-${animal.id}`, at: animalPositionOf(animal) })),
+      ];
+      const me = myLocationRef.current;
+      for (const placed of layoutStacks(items, zoom, me ? [me] : [])) {
+        draw.set(placed.id, { drawAt: placed.drawAt, spot: placed.spot });
+      }
+    }
     careMarkersRef.current = featureCollection(
       actions.map((action) => {
-        const at = positionOf(action);
         const weight = Number(action.weight);
-        const attached = animals.some(
-          (animal) => distanceBetween(at, animalPositionOf(animal)) <= ATTACH_METERS
-        );
+        const at = draw.get(`care-${action.id}`)?.drawAt ?? positionOf(action);
         // `step` as a string: the icon key is built with `concat`, and a
         // string leaves no room for an engine to print a number as "5.0".
         return pointFeature(at, {
@@ -256,75 +246,36 @@ export default function MapPage() {
           tone: ringTone(weight),
           step: String(ringStep(weight)),
           weight,
-          attached: attached ? 1 : 0,
-          hidden: fan?.ids.includes(action.id) ? 1 : 0,
         });
       })
     );
-    if (fan) {
-      const members = actions.filter((action) => fan.ids.includes(action.id));
-      const radius = FAN_RADIUS_PX * fan.mpp;
-      const points = members.map((action, i) => {
-        const angle = -Math.PI / 2 + (i / members.length) * 2 * Math.PI;
-        const weight = Number(action.weight);
-        const at = offsetMeters(fan.center, radius * Math.cos(angle), -radius * Math.sin(angle));
-        return {
-          at,
-          feature: pointFeature(at, {
-            id: action.id,
-            type: action.action_type,
-            tone: ringTone(weight),
-            step: String(ringStep(weight)),
-            weight,
-          }),
-        };
-      });
-      fanIconsRef.current = featureCollection(points.map((p) => p.feature));
-      fanSpokesRef.current = featureCollection(points.map((p) => segmentFeature(fan.center, p.at)));
-    } else {
-      fanIconsRef.current = EMPTY_FC;
-      fanSpokesRef.current = EMPTY_FC;
-    }
+    stackSpokesRef.current = featureCollection(
+      [...draw.values()]
+        .filter((p) => p.spot)
+        .map((p) => segmentFeature(p.spot as Coordinates, p.drawAt))
+    );
     const source = (id: string) => map.getSource(id) as maplibregl.GeoJSONSource | undefined;
     source('care-markers')?.setData(careMarkersRef.current);
-    source('care-fan')?.setData(fanIconsRef.current);
-    source('care-fan-spokes')?.setData(fanSpokesRef.current);
-
-    // Rule 3, against the spot the pin is actually drawn at (the ref is
-    // set where the marker is placed, not from state): a record at any
-    // zoom, an animal only while avatars are drawn.
-    const me = myLocationRef.current;
-    if (me && userMarkerElRef.current) {
-      const near = (p: Coordinates) => distanceBetween(me, p) <= PIN_DIM_METERS;
-      const dimmed =
-        actions.some((action) => near(positionOf(action))) ||
-        (zoomedInRef.current && animals.some((animal) => near(animalPositionOf(animal))));
-      userMarkerElRef.current.classList.toggle('dimmed', dimmed);
-    }
+    source('stack-spokes')?.setData(stackSpokesRef.current);
+    // The avatars are DOM markers in the same order as animalsDataRef.
+    animals.forEach((animal, i) => {
+      const at = draw.get(`animal-${animal.id}`)?.drawAt ?? animalPositionOf(animal);
+      animalMarkersRef.current[i]?.setLngLat([at.lng, at.lat]);
+    });
   }, []);
 
-  /** A tap on a record: open the fan of everything stacked under it. */
-  const openFan = useCallback(
-    (tappedId: number) => {
-      const map = mapRef.current;
-      const tapped = actionsRef.current.find((action) => action.id === tappedId);
-      if (!map || !tapped) return;
-      const center = positionOf(tapped);
-      const mpp = metersPerPixel(map.getZoom(), center.lat);
-      const ids = actionsRef.current
-        .filter((action) => distanceBetween(center, positionOf(action)) <= FAN_PICK_PX * mpp)
-        .map((action) => action.id);
-      fanRef.current = ids.length >= 2 ? { center, ids, mpp } : null;
-      paintMarkers();
-    },
-    [paintMarkers]
-  );
-
-  const closeFan = useCallback(() => {
-    if (!fanRef.current) return;
-    fanRef.current = null;
-    paintMarkers();
-  }, [paintMarkers]);
+  /** The locate button (owner, P7 item 11): a fresh fix, then fly there. */
+  async function locateMe() {
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      const loc = await getCurrentLocation();
+      setMyLocation(loc);
+      map.flyTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM, duration: 500 });
+    } catch (err) {
+      setError(describeLocationError(err));
+    }
+  }
 
   // The map is built once; data layers refresh in separate effects.
   // Creation is deferred by one animation frame so React StrictMode's
@@ -368,6 +319,14 @@ export default function MapPage() {
     const ensureLayers = () => {
       if (map.getSource('care-markers')) return;
       registerCareMarkerImages(map);
+      // Spokes from every fan seat back to its spot, under the markers.
+      map.addSource('stack-spokes', { type: 'geojson', data: stackSpokesRef.current });
+      map.addLayer({
+        id: 'stack-spokes-line',
+        type: 'line',
+        source: 'stack-spokes',
+        paint: { 'line-color': USER_RADIUS_STROKE, 'line-width': 1.5 },
+      });
       map.addSource('care-markers', { type: 'geojson', data: careMarkersRef.current });
       // One symbol layer, same expressions as mobile: the image key from
       // type + ring step + the current theme, icons shrinking toward
@@ -397,57 +356,15 @@ export default function MapPage() {
             CARE_MARKER_ZOOM_FULL,
             1,
           ],
-          // Rule 1: a record under an animal avatar sits on its shoulder —
-          // only from the zoom avatars are drawn at; below it there is
-          // nothing to step aside from (review finding).
-          'icon-offset': [
-            'step',
-            ['zoom'],
-            ['literal', [0, 0]],
-            ANIMAL_VISIBLE_MIN_ZOOM,
-            [
-              'case',
-              ['==', ['get', 'attached'], 1],
-              ['literal', ATTACH_OFFSET_PX],
-              ['literal', [0, 0]],
-            ],
-          ],
-          'icon-allow-overlap': false,
-          'icon-ignore-placement': false,
+          // From the avatar zoom on the fan has already separated the stacks,
+          // so every marker shows; below it collision placement thins a pile
+          // to its freshest record (lower sort key wins).
+          'icon-allow-overlap': ['step', ['zoom'], false, ANIMAL_VISIBLE_MIN_ZOOM, true],
+          'icon-ignore-placement': ['step', ['zoom'], false, ANIMAL_VISIBLE_MIN_ZOOM, true],
           'symbol-sort-key': ['-', 1, ['get', 'weight']],
         },
-        filter: ['!=', ['get', 'hidden'], 1],
       });
-      // Rule 2: the open fan — spokes under, members over, no collision
-      // rules so every member shows.
-      map.addSource('care-fan-spokes', { type: 'geojson', data: fanSpokesRef.current });
-      map.addLayer({
-        id: 'care-fan-spokes-line',
-        type: 'line',
-        source: 'care-fan-spokes',
-        paint: { 'line-color': USER_RADIUS_STROKE, 'line-width': 1.5 },
-      });
-      map.addSource('care-fan', { type: 'geojson', data: fanIconsRef.current });
-      map.addLayer({
-        id: 'care-fan-icon',
-        type: 'symbol',
-        source: 'care-fan',
-        layout: {
-          'icon-image': [
-            'concat',
-            'care-',
-            ['get', 'type'],
-            '-',
-            ['get', 'tone'],
-            '-',
-            ['get', 'step'],
-            `-${resolvedThemeName()}`,
-          ],
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-        },
-      });
-      // The user's 200 m range (where animals draw) as a dashed ring — the
+      // The user's animal range (where animals draw) as a dashed ring — the
       // handoff's depiction.
       map.addSource('user-ring', { type: 'geojson', data: userRingRef.current });
       map.addLayer({
@@ -471,19 +388,8 @@ export default function MapPage() {
     };
     map.on('zoom', onZoom);
 
-    // The fan opens from a tap on a visible record and closes on any move
-    // or a tap on bare map (a tap on a fanned member keeps it open).
-    map.on('click', 'care-markers-icon', (e) => {
-      const id = Number(e.features?.[0]?.properties?.id);
-      if (Number.isFinite(id)) openFan(id);
-    });
-    map.on('click', (e) => {
-      const hits = map.queryRenderedFeatures(e.point, {
-        layers: ['care-markers-icon', 'care-fan-icon'].filter((id) => !!map.getLayer(id)),
-      });
-      if (hits.length === 0) closeFan();
-    });
-    map.on('movestart', closeFan);
+    // The stack layout is a screen-space rule: re-seat after every zoom.
+    map.on('zoomend', paintMarkers);
 
     // The OS can flip light/dark while the map is open; the app theme is CSS
     // (instant), the basemap needs a setStyle. ensureLayers restores our
@@ -502,20 +408,16 @@ export default function MapPage() {
         if (mapRef.current !== map) return;
         setMyLocation(loc);
         map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
-        // The user's location, marked with the app icon's glyph (owner
-        // decision — replaced the charcoal dot in a white ring; no backing
-        // disc). The transparent heart cutout lets the map show through,
-        // and the pin's tip anchors on the coordinate.
+        // The user's location as a small dot with a breathing halo (owner,
+        // P7 item 9 — the paw pin of 2026-08-31 retired), centred on the
+        // coordinate and created before the avatars so it stays underneath.
         const dot = document.createElement('div');
-        dot.className = 'user-logo-marker';
-        // The breathing halo under the pin tip says "you are here" (owner
-        // choice over a bouncing marker, 2026-08-31). Static markup only.
-        dot.innerHTML = '<span class="user-halo"></span>' + logoSvg(30, undefined, 'transparent');
-        new maplibregl.Marker({ element: dot, anchor: 'bottom' })
+        dot.className = 'user-dot';
+        dot.innerHTML = '<span class="user-dot-halo"></span><span class="user-dot-core"></span>';
+        new maplibregl.Marker({ element: dot, anchor: 'center' })
           .setLngLat([loc.lng, loc.lat])
           .addTo(map);
-        // Rule 3 needs the element and the location before the next paint.
-        userMarkerElRef.current = dot;
+        // The stack layout keeps the dot's spot clear.
         myLocationRef.current = loc;
         paintMarkers();
         userRingRef.current = featureCollection([circleRing(loc, ANIMAL_RADIUS_METERS)]);
@@ -545,8 +447,6 @@ export default function MapPage() {
     const actions = await fetchCareActionsInBounds(TURKEY_BOUNDS);
     if (seq !== markersSeqRef.current) return;
     actionsRef.current = actions;
-    // A fresh list may no longer contain the fan's members.
-    fanRef.current = null;
     paintMarkers();
   }, [paintMarkers]);
 
@@ -786,9 +686,30 @@ export default function MapPage() {
         <InstallBanner compact />
       </div>
 
-      {/* Bottom sheet: both types' status and the single map's three
-          actions as equal tiles (owner, 2026-09-08) — mobile parity. The
-          tiles stay even without a status; a record is always possible. */}
+      {/* The locate button (P7 item 11) above the sheet. */}
+      <button
+        className="map-locate"
+        aria-label="Konumuma git"
+        style={{ bottom: 'calc(178px + env(safe-area-inset-bottom))' }}
+        onClick={locateMe}
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        >
+          <circle cx="12" cy="12" r="7.4" />
+          <circle cx="12" cy="12" r="2.2" />
+          <path d="M12 2.4v2.6M12 19v2.6M2.4 12H5M19 12h2.6" />
+        </svg>
+      </button>
+
+      {/* Bottom sheet: both types' status and one "Ekle" that opens the
+          chooser (owner, P7 item 10) — mobile parity. */}
       <div className="map-bottom">
         <div className="map-sheet">
           <div className="sheet-handle" />
@@ -796,52 +717,79 @@ export default function MapPage() {
           <p className="muted" style={{ margin: '2px 0 12px' }}>
             Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.
           </p>
-          <div className="map-actions">
-            {(['food', 'water'] as const).map((type) => (
-              <button key={type} className="map-action" onClick={() => openDrop(type)}>
-                <span className="map-action-icon">
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    {CARE_GLYPH_PATHS[type].map((d) => (
-                      <path key={d} d={d} />
-                    ))}
-                  </svg>
+          <button className="btn full" onClick={() => setChooserOpen(true)}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="6.4" cy="10.6" r="2.1" />
+              <circle cx="9.9" cy="7.2" r="2.2" />
+              <circle cx="14.1" cy="7.2" r="2.2" />
+              <circle cx="17.6" cy="10.6" r="2.1" />
+              <path d="M12 12.2c2.6 0 5 2.1 5 4.5 0 1.8-1.4 2.9-3 2.9-.9 0-1.4-.4-2-.4s-1.1.4-2 .4c-1.6 0-3-1.1-3-2.9 0-2.4 2.4-4.5 5-4.5Z" />
+            </svg>
+            Ekle
+          </button>
+        </div>
+      </div>
+
+      {chooserOpen && (
+        <div className="backdrop" onClick={() => setChooserOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <h2>Ne ekliyorsun?</h2>
+            {(
+              [
+                { key: 'food', label: 'Mama bıraktım' },
+                { key: 'water', label: 'Su bıraktım' },
+                { key: 'animal', label: 'Yeni hayvan' },
+              ] as const
+            ).map((choice) => (
+              <button
+                key={choice.key}
+                className="chooser-row"
+                onClick={async () => {
+                  setChooserOpen(false);
+                  if (choice.key === 'animal') {
+                    const refused = await gateAddAnimal(navigate);
+                    if (refused) setError(refused);
+                  } else {
+                    openDrop(choice.key);
+                  }
+                }}
+              >
+                <span className="chooser-icon">
+                  {choice.key === 'animal' ? (
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="6.4" cy="10.6" r="2.1" />
+                      <circle cx="9.9" cy="7.2" r="2.2" />
+                      <circle cx="14.1" cy="7.2" r="2.2" />
+                      <circle cx="17.6" cy="10.6" r="2.1" />
+                      <path d="M12 12.2c2.6 0 5 2.1 5 4.5 0 1.8-1.4 2.9-3 2.9-.9 0-1.4-.4-2-.4s-1.1.4-2 .4c-1.6 0-3-1.1-3-2.9 0-2.4 2.4-4.5 5-4.5Z" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      {CARE_GLYPH_PATHS[choice.key].map((d) => (
+                        <path key={d} d={d} />
+                      ))}
+                    </svg>
+                  )}
                 </span>
-                {type === 'food' ? 'Mama bırak' : 'Su bırak'}
+                <span className="chooser-label">{choice.label}</span>
+                <span className="chooser-chevron">›</span>
               </button>
             ))}
-            <button
-              className="map-action"
-              aria-label="Yeni hayvan ekle"
-              onClick={async () => {
-                const refused = await gateAddAnimal(navigate);
-                if (refused) setError(refused);
-              }}
-            >
-              <span className="map-action-icon">
-                {/* The paw from mobile's brand/Icon (filled, no stroke) — the
-                    same tile shows the same glyph on both clients. */}
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                  <circle cx="6.4" cy="10.6" r="2.1" />
-                  <circle cx="9.9" cy="7.2" r="2.2" />
-                  <circle cx="14.1" cy="7.2" r="2.2" />
-                  <circle cx="17.6" cy="10.6" r="2.1" />
-                  <path d="M12 12.2c2.6 0 5 2.1 5 4.5 0 1.8-1.4 2.9-3 2.9-.9 0-1.4-.4-2-.4s-1.1.4-2 .4c-1.6 0-3-1.1-3-2.9 0-2.4 2.4-4.5 5-4.5Z" />
-                </svg>
-              </span>
-              Hayvan ekle
+            <button className="btn ghost full" onClick={() => setChooserOpen(false)}>
+              Vazgeç
             </button>
           </div>
         </div>
-      </div>
+      )}
 
       {confirmOpen && (
         <div

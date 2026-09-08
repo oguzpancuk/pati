@@ -1,26 +1,24 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
-import Logo from './brand/Logo';
 import { makeStyles } from '../theme';
 
 /**
- * The user's own position, marked with the app icon's glyph (owner
- * decision, 2026-08-31 — it replaced the charcoal dot in a white ring; no
- * backing disc, the paw-pin stands directly on the map). The heart cutout
- * is transparent so the map ground shows through it like the icon's own
- * negative space. A breathing halo at the pin tip says "you are here"
- * (owner choice over a bouncing marker, 2026-08-31).
+ * The user's own position as a small brand-orange dot in a white ring with
+ * a breathing halo — the Google Maps idiom (owner decision, 2026-09-08,
+ * P7 item 9; it retires the paw-pin of 2026-08-31, which was too big once
+ * records and avatars started fanning around the spot). Centred on the
+ * coordinate: MapScreen anchors it at (0.5, 0.5).
  */
 export default function UserLocationMarker() {
   const styles = useStyles();
-  const scale = useRef(new Animated.Value(0.5)).current;
+  const scale = useRef(new Animated.Value(0.6)).current;
   const opacity = useRef(new Animated.Value(0.35)).current;
 
   useEffect(() => {
     const loop = Animated.loop(
       Animated.parallel([
         Animated.timing(scale, {
-          toValue: 1.6,
+          toValue: 2.2,
           duration: 2000,
           easing: Easing.out(Easing.ease),
           useNativeDriver: true,
@@ -40,38 +38,43 @@ export default function UserLocationMarker() {
   return (
     <View style={styles.wrap}>
       <Animated.View style={[styles.halo, { opacity, transform: [{ scale }] }]} />
-      <Logo size={30} accent="transparent" />
+      <View style={styles.dot} />
     </View>
   );
 }
 
-// The halo swells to ~42×22 around the pin tip; the wrap is sized so the
-// fully-scaled halo stays INSIDE the view bounds — Android marker
-// containers may clip children that overflow, which would shave the halo
-// on one platform only. MapScreen's anchor compensates for the extra
-// height below the tip (see PIN_TIP_ANCHOR_Y).
-export const USER_MARKER_WIDTH = 44;
-export const USER_MARKER_HEIGHT = 45;
-const LOGO_HEIGHT = 33; // Logo size 30 at the 120×130 aspect ratio.
-/** Anchor fraction that puts the pin tip on the coordinate. */
-export const PIN_TIP_ANCHOR_Y = LOGO_HEIGHT / USER_MARKER_HEIGHT;
+// The halo swells to ~2.2× the dot; the wrap is sized so the fully-scaled
+// halo stays INSIDE the view bounds — Android marker containers may clip
+// children that overflow.
+export const USER_MARKER_SIZE = 40;
+const DOT_SIZE = 14;
+const HALO_SIZE = 18;
 
-const useStyles = makeStyles(({ colors: c, shadow }) => ({
-  // A soft shadow instead of a white ring: the mark must separate from the
-  // map ground without a backing disc.
+const useStyles = makeStyles(({ colors: c }) => ({
   wrap: {
-    ...shadow.float,
-    width: USER_MARKER_WIDTH,
-    height: USER_MARKER_HEIGHT,
+    width: USER_MARKER_SIZE,
+    height: USER_MARKER_SIZE,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  // Flattened ellipse (ground perspective) centered at the pin tip.
   halo: {
     position: 'absolute',
-    top: LOGO_HEIGHT - 7,
-    width: 26,
-    height: 14,
-    borderRadius: 13,
+    width: HALO_SIZE,
+    height: HALO_SIZE,
+    borderRadius: HALO_SIZE / 2,
     backgroundColor: c.brand,
+  },
+  dot: {
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: DOT_SIZE / 2,
+    backgroundColor: c.brand,
+    borderWidth: 2.5,
+    borderColor: c.surface,
+    shadowColor: c.shadow,
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 3,
   },
 }));

@@ -2347,3 +2347,29 @@ the next docs touch.
   the mesajlar tab (inbox, DM, group, settings, new), the kedi profili
   (grid, viewer, care sheet, follow toggle round-trip) and bildirimler;
   no console errors on any page.
+
+## 2026-09-08 — P7 Track A′: automatic fans, location dot, one "Ekle", locate button
+
+- Owner findings 8–11, 13, 14 (P7). Avatars draw from zoom 15 and are
+  fetched within 500 m (were 17 / 200 m). The user's position is a small
+  brand dot in a white ring with a breathing halo, centred on the
+  coordinate — the paw pin of 2026-08-31 is retired by this decision on
+  both clients (`UserLocationMarker`, `.user-dot`). Stacks are automatic:
+  from the avatar zoom on, records and avatars that would overlap on
+  screen (34 px) take seats on a circle around their spot (44 px, wider
+  for big stacks so seats stay 40 px apart) with a spoke each, and a stack
+  under the user dot is centred on the dot so nothing covers it —
+  `mobile/src/map/stacks.ts` (import-free, web reads it through `@mobile`;
+  jest covers the grouping, seats, anchor, zoom awareness and ring
+  widening). Below that zoom the symbol layer's collision placement thins
+  a pile to its freshest record (`icon-allow-overlap` is a `step` on
+  zoom). The tap-to-fan of P6 and the shoulder/pin-dim rules are gone with
+  it. The sheet has one gradient "Ekle" with the paw; it opens a chooser
+  (Mama bıraktım / Su bıraktım / Yeni hayvan) before the existing flows. A
+  locate button (crosshair) flies to a fresh fix; the zoom +/− pair is
+  gone from mobile (web never had one); the "Hayvanları görmek için
+  yakınlaştır" hint sits at the top on both clients.
+- Evidence: jest (stacks 7 cases + the earlier suites, 35 total); web
+  playwright at z16 (avatars, fans with spokes, dot, locate button, single
+  Ekle) and z18 (six-member fan of three records and three cats around the
+  dot); simulator at the locate zoom (dark theme) and the chooser.

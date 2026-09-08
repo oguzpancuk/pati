@@ -614,48 +614,66 @@ strong {
   pointer-events: auto;
 }
 
-/* The single map's three actions — gradient buttons, icon above label, no
-   icon discs (owner, 2026-09-08); mobile's MapScreen actions. All three
-   carry the gradient by the owner's call. */
-.map-actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.map-action {
+/* The chooser behind the map's single "Ekle" (owner, P7 item 10): three
+   rows, icon + label + chevron — mobile's MapScreen chooser. */
+.chooser-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 12px 4px;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
   border: none;
   border-radius: var(--radius);
-  background: var(--grad);
-  color: var(--text-on-brand);
-  font-size: 12.5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: var(--shadow-btn);
+  text-align: left;
 }
 
-.map-action:active {
-  filter: brightness(0.96);
-  transform: translateY(1px);
+.chooser-row:active {
+  background: var(--brand-tint);
 }
 
-.map-action-icon {
+.chooser-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  color: var(--text-on-brand);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-tint);
+  color: var(--brand);
+  flex: none;
 }
 
-.map-action-icon svg {
-  width: 28px;
-  height: 28px;
+.chooser-label {
+  flex: 1;
+}
+
+.chooser-chevron {
+  color: var(--text-subtle);
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* The locate button (P7 item 11): a round surface button above the sheet. */
+.map-locate {
+  position: absolute;
+  right: 16px;
+  z-index: 500;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-float);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .map-bottom {
@@ -687,6 +705,63 @@ strong {
   margin: 0 0 2px;
   font-size: 21px;
   font-weight: 500;
+}
+
+/* The animal marker — the avatar in a 42px white circle (a MapLibre DOM marker) */
+.animal-marker {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  box-shadow: var(--shadow-float);
+}
+
+/* The user's position as a small brand dot in a white ring with a
+   breathing halo (owner, P7 item 9 — the paw pin of 2026-08-31 retired).
+   No `position` on the container: MapLibre's own .maplibregl-marker is
+   absolute and anchors it. */
+.user-dot {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.user-dot-core {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--brand);
+  border: 2.5px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.user-dot-halo {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: user-dot-halo 2s ease-out infinite;
+}
+
+@keyframes user-dot-halo {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.6);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
 }
 
 /* The animal marker — the avatar in a 42px white circle (a MapLibre DOM marker) */

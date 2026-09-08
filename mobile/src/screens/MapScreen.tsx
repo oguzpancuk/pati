@@ -31,7 +31,7 @@ import { Animal, fetchAnimals } from '../api/animals';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import HeartBurst, { HEART_BURST_DURATION_MS, heartRiseFor } from '../components/HeartBurst';
-import UserLocationMarker, { PIN_TIP_ANCHOR_Y } from '../components/UserLocationMarker';
+import UserLocationMarker from '../components/UserLocationMarker';
 import {
   alertLocationPermission,
   Coordinates,
@@ -41,15 +41,8 @@ import {
   LocationPermissionError,
 } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
-import {
-  circleRing,
-  distanceBetween,
-  featureCollection,
-  metersPerPixel,
-  offsetMeters,
-  pointFeature,
-  segmentFeature,
-} from '../map/geo';
+import { circleRing, featureCollection, pointFeature, segmentFeature } from '../map/geo';
+import { layoutStacks } from '../map/stacks';
 import {
   CARE_MARKER_SCALE_SMALL,
   CARE_MARKER_ZOOM_FULL,
@@ -61,7 +54,7 @@ import {
 import { CARE_MARKER_IMAGES } from '../map/markers';
 import { mapStyles } from '../map/styles';
 import { Button, Text } from '../components/ui';
-import { Gradient, Icon } from '../components/brand';
+import { Icon } from '../components/brand';
 import { makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 
 // Turkey's approximate geographic bounding box (not an exact administrative
@@ -83,10 +76,10 @@ const TURKEY_CENTER: [number, number] = [
 ];
 
 const ACTION_CIRCLE_RADIUS_METERS = 100;
-// Animals are fetched only near the user (200 m): their business is with
-// the animals on their own street, distant ones crowded the map. (Same rule
-// as the web map.)
-const ANIMAL_RADIUS_METERS = 200;
+// Animals are fetched only near the user (500 m, owner decision 2026-09-08 —
+// was 200 m): their business is with the animals around them; the whole
+// table would crowd the map. Same rule as the web map.
+const ANIMAL_RADIUS_METERS = 500;
 
 // Zoom levels are shared numbers with web/src/pages/MapPage.tsx — the same
 // MapLibre zoom scale on every platform, so the three clients behave alike.
@@ -96,12 +89,13 @@ const USER_ZOOM = 16;
 const MIN_ZOOM = 5;
 const MAX_ZOOM = 19;
 
-// Animal avatars draw only when zoomed well into building/street scale;
-// from farther out dozens of avatars piled up and covered the map.
+// Animal avatars draw from neighbourhood scale (15, owner decision
+// 2026-09-08 — was 17); overlapping ones fan out (map/stacks.ts), so the
+// pile-up that forced 17 no longer happens.
 // Keep this an integer: the shoulder offset's `step` on zoom evaluates at
 // the tile's integer zoom while the avatar gate and the pin dimming compare
 // the fractional camera zoom — they agree only at whole numbers.
-const ANIMAL_VISIBLE_MIN_ZOOM = 17;
+const ANIMAL_VISIBLE_MIN_ZOOM = 15;
 
 // The scale the map focuses to after leaving food/water: slightly below
 // street scale so the green circle (100 m) and the animals in it fit
@@ -111,21 +105,12 @@ const CELEBRATE_ZOOM_MS = 400;
 const ANIMAL_MARKER_SIZE = 36;
 const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 
-// Stacked markers (owner, 2026-09-08). Three rules, shared with web:
-// 1. A record within ATTACH_METERS of an animal would sit under its avatar
-//    (avatars are views above every layer), so it moves to the avatar's
-//    shoulder — a fixed pixel offset — where it stays visible and tappable.
-// 2. Records that would overlap each other (collision placement hides all
-//    but the freshest) open as a fan when the visible one is tapped: the
-//    members within FAN_PICK_PX of it spread on a circle of FAN_RADIUS_PX
-//    with spokes to the spot; any map move or blank tap closes it.
-// 3. The user pin goes half transparent when a record or an animal sits
-//    inside PIN_DIM_METERS of it, so what's underneath still reads.
-const ATTACH_METERS = 12;
-const ATTACH_OFFSET_PX: [number, number] = [22, -22];
-const FAN_PICK_PX = 28;
-const FAN_RADIUS_PX = 46;
-const PIN_DIM_METERS = 14;
+// Stacked markers (owner, 2026-09-08, P7 item 9): from the zoom avatars
+// draw at, records and avatars that would overlap on screen fan out
+// around their spot automatically, with spokes, and the user's location
+// dot stays put underneath (map/stacks.ts, shared with web). Below that
+// zoom the symbol layer's collision placement hides all but the freshest
+// of a pile, as before.
 
 // One map for food and water (owner decision, 2026-09-08): every record is
 // a screen-constant marker — bowl or drop in a green ring that empties as
@@ -162,6 +147,7 @@ export default function MapScreen({ navigation }: any) {
   // Which record the open confirm sheet creates; set by the tile pressed.
   const [dropType, setDropType] = useState<CareType>('food');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
   const [aiCheck, setAiCheck] = useState<'idle' | 'checking' | 'approved' | 'rejected'>('idle');
   const [pendingPhoto, setPendingPhoto] = useState<PhotoAsset | null>(null);
   // The check's answer: the token the confirm redeems, or the reason a
@@ -178,8 +164,9 @@ export default function MapScreen({ navigation }: any) {
   // The open fan: the tapped record's spot, the member ids and the ground
   // size of a pixel at the zoom it opened at (positions are geographic, so
   // they only hold for that zoom — any move closes the fan).
-  const [fan, setFan] = useState<{ center: Coordinates; ids: number[]; mpp: number } | null>(null);
-  const fanSeqRef = useRef(0);
+  // The settled zoom drives the stack layout (screen-space rule); the ref
+  // stays for the celebration path.
+  const [zoomLevel, setZoomLevel] = useState(COUNTRY_ZOOM);
   // Heart bursts draw in a separate layer above the map at screen
   // coordinates (not embedded in the marker): iOS rasterizes the marker view
   // once, so an animation inside it stuttered or appeared in the wrong
@@ -296,8 +283,7 @@ export default function MapScreen({ navigation }: any) {
     const { zoomLevel } = feature.properties;
     currentZoomRef.current = zoomLevel;
     setAnimalsVisible(zoomLevel >= ANIMAL_VISIBLE_MIN_ZOOM);
-    fanSeqRef.current += 1;
-    setFan(null);
+    setZoomLevel(zoomLevel);
     if (pendingHeartsRef.current) flushPendingHearts();
   }
 
@@ -503,14 +489,22 @@ export default function MapScreen({ navigation }: any) {
     setConfirmOpen(true);
   }
 
-  async function zoomBy(step: number) {
-    // Read the live zoom instead of currentZoomRef: the ref only updates on
-    // the debounced onRegionDidChange, so right after a programmatic fly it
-    // is stale and "+" would jump to a wildly different level.
-    const current = (await mapRef.current?.getZoom()) ?? currentZoomRef.current;
-    const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, current + step));
-    currentZoomRef.current = next;
-    cameraRef.current?.zoomTo(next, 200);
+  /** The locate button (owner, P7 item 11): a fresh fix, then fly there. */
+  async function locateMe() {
+    try {
+      await ensureLocationPermission();
+      const loc = await getCurrentLocation();
+      setMyLocation(loc);
+      if (!insideServiceArea(loc)) return;
+      cameraRef.current?.setCamera({
+        centerCoordinate: [loc.lng, loc.lat],
+        zoomLevel: USER_ZOOM,
+        animationMode: 'flyTo',
+        animationDuration: 500,
+      });
+    } catch (err) {
+      if (err instanceof LocationPermissionError) alertLocationPermission();
+    }
   }
 
   // The status line reads both types at once. Unknown (no location yet)
@@ -531,24 +525,37 @@ export default function MapScreen({ navigation }: any) {
     lat: action.location.coordinates[1],
     lng: action.location.coordinates[0],
   });
+  const animalPosition = (animal: Animal): Coordinates => ({
+    lat: animal.location.coordinates[1],
+    lng: animal.location.coordinates[0],
+  });
+
+  // Where everything is drawn: from the avatar zoom on, overlapping records
+  // and avatars take fan seats around their spot (map/stacks.ts); below it
+  // every item sits on its own spot and the layer's collision placement
+  // does the thinning.
+  const placement = useMemo(() => {
+    const draw = new Map<string, { drawAt: Coordinates; spot: Coordinates | null }>();
+    if (zoomLevel < ANIMAL_VISIBLE_MIN_ZOOM) return draw;
+    const items = [
+      ...actions.map((action) => ({ id: `care-${action.id}`, at: actionPosition(action) })),
+      ...animals.map((animal) => ({ id: `animal-${animal.id}`, at: animalPosition(animal) })),
+    ];
+    for (const placed of layoutStacks(items, zoomLevel, myLocation ? [myLocation] : [])) {
+      draw.set(placed.id, { drawAt: placed.drawAt, spot: placed.spot });
+    }
+    return draw;
+  }, [actions, animals, myLocation, zoomLevel]);
 
   // One point per record; the layer picks the image from type + tone + ring
   // step (see map/careMarkers.ts) and the weight decides who wins a
-  // collision. `attached` moves the record to an animal's shoulder,
-  // `hidden` takes the members of the open fan off this layer.
+  // collision below the avatar zoom.
   const careMarkers = useMemo(
     () =>
       featureCollection(
         actions.map((action) => {
           const weight = Number(action.weight);
-          const at = actionPosition(action);
-          const attached = animals.some(
-            (animal) =>
-              distanceBetween(at, {
-                lat: animal.location.coordinates[1],
-                lng: animal.location.coordinates[0],
-              }) <= ATTACH_METERS
-          );
+          const at = placement.get(`care-${action.id}`)?.drawAt ?? actionPosition(action);
           // `step` as a string: the icon key is built with `concat`, and a
           // string leaves no room for an engine to print a number as "5.0".
           return pointFeature(at, {
@@ -557,71 +564,23 @@ export default function MapScreen({ navigation }: any) {
             tone: ringTone(weight),
             step: String(ringStep(weight)),
             weight,
-            attached: attached ? 1 : 0,
-            hidden: fan?.ids.includes(action.id) ? 1 : 0,
           });
         })
       ),
-    [actions, animals, fan]
+    [actions, placement]
   );
 
-  // The fan's members on a circle around the tapped spot, plus a spoke each.
-  const fanShapes = useMemo(() => {
-    if (!fan) return null;
-    const members = actions.filter((action) => fan.ids.includes(action.id));
-    const radius = FAN_RADIUS_PX * fan.mpp;
-    const points = members.map((action, i) => {
-      const angle = -Math.PI / 2 + (i / members.length) * 2 * Math.PI;
-      const weight = Number(action.weight);
-      const at = offsetMeters(fan.center, radius * Math.cos(angle), -radius * Math.sin(angle));
-      return {
-        at,
-        feature: pointFeature(at, {
-          id: action.id,
-          type: action.action_type,
-          tone: ringTone(weight),
-          step: String(ringStep(weight)),
-          weight,
-        }),
-      };
-    });
-    return {
-      icons: featureCollection(points.map((p) => p.feature)),
-      spokes: featureCollection(points.map((p) => segmentFeature(fan.center, p.at))),
-    };
-  }, [actions, fan]);
+  // A spoke from every fan seat back to the stack's spot.
+  const stackSpokes = useMemo(
+    () =>
+      featureCollection(
+        [...placement.values()]
+          .filter((p) => p.spot)
+          .map((p) => segmentFeature(p.spot as Coordinates, p.drawAt))
+      ),
+    [placement]
+  );
 
-  /** A tap on a record: open the fan of everything stacked under it. */
-  async function handleCarePress(event: { features: Feature[] }) {
-    const tappedId = Number(event.features[0]?.properties?.id);
-    const tapped = actions.find((action) => action.id === tappedId);
-    if (!tapped) return;
-    // A pan during the zoom read closes fans (onRegionDidChange); a fan
-    // computed for the pre-pan zoom must not reopen afterwards.
-    const seq = ++fanSeqRef.current;
-    const zoom = (await mapRef.current?.getZoom()) ?? currentZoomRef.current;
-    if (seq !== fanSeqRef.current) return;
-    const center = actionPosition(tapped);
-    const mpp = metersPerPixel(zoom, center.lat);
-    const ids = actions
-      .filter((action) => distanceBetween(center, actionPosition(action)) <= FAN_PICK_PX * mpp)
-      .map((action) => action.id);
-    setFan(ids.length >= 2 ? { center, ids, mpp } : null);
-  }
-
-  // Rule 3: half-transparent pin when something sits under it — a record
-  // at any zoom, an animal only while avatars are drawn.
-  const pinDimmed = useMemo(() => {
-    if (!myLocation) return false;
-    const near = (p: Coordinates) => distanceBetween(myLocation, p) <= PIN_DIM_METERS;
-    return (
-      actions.some((action) => near(actionPosition(action))) ||
-      (animalsVisible &&
-        animals.some((animal) =>
-          near({ lat: animal.location.coordinates[1], lng: animal.location.coordinates[0] })
-        ))
-    );
-  }, [myLocation, actions, animals, animalsVisible]);
   // The dashed 200 m ring marks the range where animals are drawn — the
   // depiction in the handoff.
   const userRing = useMemo(
@@ -643,7 +602,6 @@ export default function MapScreen({ navigation }: any) {
         attributionPosition={{ top: 64, left: 8 }}
         onDidFinishLoadingMap={handleMapReady}
         onRegionDidChange={handleRegionDidChange}
-        onPress={() => setFan(null)}
       >
         <Camera
           ref={cameraRef}
@@ -660,15 +618,16 @@ export default function MapScreen({ navigation }: any) {
             again). Keep <Images> — dropping it for onImageMissing alone
             would leave nothing for that path to fetch. */}
         <Images images={CARE_MARKER_IMAGES} />
-        <ShapeSource
-          id="care-markers"
-          shape={careMarkers}
-          onPress={handleCarePress}
-          hitbox={{ width: 36, height: 36 }}
-        >
+        {/* Spokes under the markers and the avatars. */}
+        <ShapeSource id="stack-spokes" shape={stackSpokes}>
+          <LineLayer
+            id="stack-spokes-line"
+            style={{ lineColor: mapColors.userRadiusStroke, lineWidth: 1.5 }}
+          />
+        </ShapeSource>
+        <ShapeSource id="care-markers" shape={careMarkers}>
           <SymbolLayer
             id="care-markers-icon"
-            filter={['!=', ['get', 'hidden'], 1]}
             style={{
               iconImage: [
                 'concat',
@@ -689,64 +648,15 @@ export default function MapScreen({ navigation }: any) {
                 CARE_MARKER_ZOOM_FULL,
                 1,
               ],
-              // Rule 1: a record under an animal avatar sits on its shoulder —
-              // only from the zoom avatars are drawn at; below it there is
-              // nothing to step aside from (review finding).
-              iconOffset: [
-                'step',
-                ['zoom'],
-                ['literal', [0, 0]],
-                ANIMAL_VISIBLE_MIN_ZOOM,
-                [
-                  'case',
-                  ['==', ['get', 'attached'], 1],
-                  ['literal', ATTACH_OFFSET_PX],
-                  ['literal', [0, 0]],
-                ],
-              ],
-              iconAllowOverlap: false,
-              iconIgnorePlacement: false,
-              // Lower sorts first and wins placement: the freshest record
-              // of a crowded corner is the one that shows.
+              // From the avatar zoom on the fan has already separated the
+              // stacks, so every marker shows; below it collision placement
+              // thins a pile to its freshest record (lower sort key wins).
+              iconAllowOverlap: ['step', ['zoom'], false, ANIMAL_VISIBLE_MIN_ZOOM, true],
+              iconIgnorePlacement: ['step', ['zoom'], false, ANIMAL_VISIBLE_MIN_ZOOM, true],
               symbolSortKey: ['-', 1, ['get', 'weight']],
             }}
           />
         </ShapeSource>
-
-        {/* Rule 2: the open fan — spokes under, members over, no collision
-            rules so every member shows. */}
-        {fanShapes && (
-          <>
-            <ShapeSource id="care-fan-spokes" shape={fanShapes.spokes}>
-              <LineLayer
-                id="care-fan-spokes-line"
-                style={{ lineColor: mapColors.userRadiusStroke, lineWidth: 1.5 }}
-              />
-            </ShapeSource>
-            {/* A press listener (even a no-op) makes the fan a touchable
-                source, so a tap on a member is consumed here instead of
-                reaching MapView's onPress and closing the fan — same as web. */}
-            <ShapeSource id="care-fan" shape={fanShapes.icons} onPress={() => {}}>
-              <SymbolLayer
-                id="care-fan-icon"
-                style={{
-                  iconImage: [
-                    'concat',
-                    'care-',
-                    ['get', 'type'],
-                    '-',
-                    ['get', 'tone'],
-                    '-',
-                    ['get', 'step'],
-                    `-${themeName}`,
-                  ],
-                  iconAllowOverlap: true,
-                  iconIgnorePlacement: true,
-                }}
-              />
-            </ShapeSource>
-          </>
-        )}
 
         {userRing && (
           <ShapeSource id="user-ring" shape={userRing}>
@@ -762,27 +672,23 @@ export default function MapScreen({ navigation }: any) {
           </ShapeSource>
         )}
 
-        {/* Anchored at the pin's tip, not the glyph center — the logo IS a
-            map pin now, and its point should touch the coordinate. The view
-            extends below the tip to contain the halo, so the anchor is the
-            tip's fraction of the view height, not 1. */}
+        {/* The user's own position as a small dot with a breathing halo
+            (owner, P7 item 9 — the paw pin of 2026-08-31 retired); centred
+            on the coordinate, drawn before the avatars so it stays under
+            anything that fans around it. */}
         {myLocation && (
-          <MarkerView
-            coordinate={[myLocation.lng, myLocation.lat]}
-            anchor={{ x: 0.5, y: PIN_TIP_ANCHOR_Y }}
-          >
-            {/* Rule 3: see pinDimmed. */}
-            <View style={{ opacity: pinDimmed ? 0.5 : 1 }}>
-              <UserLocationMarker />
-            </View>
+          <MarkerView coordinate={[myLocation.lng, myLocation.lat]} anchor={{ x: 0.5, y: 0.5 }}>
+            <UserLocationMarker />
           </MarkerView>
         )}
 
         {animalsVisible &&
-          animals.map((animal) => (
+          animals.map((animal) => {
+            const at = placement.get(`animal-${animal.id}`)?.drawAt ?? animalPosition(animal);
+            return (
             <MarkerView
               key={`animal-${animal.id}`}
-              coordinate={[animal.location.coordinates[0], animal.location.coordinates[1]]}
+              coordinate={[at.lng, at.lat]}
               anchor={{ x: 0.5, y: 0.5 }}
             >
               {/* The avatar sits in a 42pt white disc (handoff size) so it
@@ -796,7 +702,8 @@ export default function MapScreen({ navigation }: any) {
                 />
               </Pressable>
             </MarkerView>
-          ))}
+            );
+          })}
       </MapView>
 
       {/* The heart layer: with the map fullscreen, the point from
@@ -821,9 +728,9 @@ export default function MapScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* The map is fullscreen; the only floating controls are the zoom
-          pair (the mama/su segment left with the single map). */}
-      <View style={styles.sideControls} pointerEvents="box-none">
+      {/* Top: the zoom hint (owner, P7 item 13 — it used to sit by the
+          side controls). */}
+      <SafeAreaView style={styles.topLayer} edges={['top']} pointerEvents="box-none">
         {!animalsVisible && animals.length > 0 && (
           <View style={styles.hint} pointerEvents="none">
             <Text variant="caption" center>
@@ -831,22 +738,19 @@ export default function MapScreen({ navigation }: any) {
             </Text>
           </View>
         )}
-        <View style={styles.roundStack}>
-          <Pressable
-            style={styles.roundButton}
-            onPress={() => zoomBy(1)}
-            accessibilityLabel="Yakınlaştır"
-          >
-            <Text style={styles.roundButtonText}>+</Text>
-          </Pressable>
-          <Pressable
-            style={styles.roundButton}
-            onPress={() => zoomBy(-1)}
-            accessibilityLabel="Uzaklaştır"
-          >
-            <Text style={styles.roundButtonText}>−</Text>
-          </Pressable>
-        </View>
+      </SafeAreaView>
+
+      {/* Side: only the locate button (P7 item 11); the zoom pair is gone
+          (item 14 — pinch and double-tap remain). */}
+      <View style={styles.sideControls} pointerEvents="box-none">
+        <Pressable
+          style={styles.roundButton}
+          onPress={locateMe}
+          accessibilityRole="button"
+          accessibilityLabel="Konumuma git"
+        >
+          <Icon name="crosshair" size={22} color={colors.brand} />
+        </Pressable>
       </View>
 
       {/* The bottom sheet carries the area's status and the call to action
@@ -857,12 +761,8 @@ export default function MapScreen({ navigation }: any) {
           sheet and the bar and the sheet looked like it was floating. */}
       <SafeAreaView style={styles.bottomLayer} edges={[]} pointerEvents="box-none">
         {/* Still spare (owner decision, 2026-08-31): one heading, one line,
-            then the three actions of the single map as gradient buttons —
-            icon above label, no icon discs (owner, 2026-09-08: "the old
-            Mama bırak / Su bırak colour, bigger icons"). All three carry
-            the gradient by the owner's call; that widens the handoff's
-            "primary button" use, deliberately. The line carries the
-            at-your-location rule the old "Konumuma …" label used to. */}
+            one button. The single "Ekle" (owner, P7 item 10) opens the
+            chooser below; the line carries the at-your-location rule. */}
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} />
           <Text variant="heading" style={styles.sheetTitle}>
@@ -871,41 +771,63 @@ export default function MapScreen({ navigation }: any) {
           <Text variant="body" style={styles.sheetDesc}>
             Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.
           </Text>
-          <View style={styles.actions}>
-            {(
-              [
-                { key: 'food', label: 'Mama bırak', icon: 'food', onPress: () => openDrop('food') },
-                {
-                  key: 'water',
-                  label: 'Su bırak',
-                  icon: 'water',
-                  onPress: () => openDrop('water'),
-                },
-                {
-                  key: 'animal',
-                  label: 'Hayvan ekle',
-                  icon: 'paw',
-                  onPress: () => openAddAnimal(navigation),
-                },
-              ] as const
-            ).map((action) => (
-              <Pressable
-                key={action.key}
-                style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
-                accessibilityRole="button"
-                accessibilityLabel={action.label}
-                onPress={action.onPress}
-              >
-                <Gradient radius={radius.lg} />
-                <Icon name={action.icon} size={28} color={colors.textOnBrand} />
-                <Text variant="captionStrong" style={styles.actionLabel}>
-                  {action.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <Button
+            title="Ekle"
+            onPress={() => setChooserOpen(true)}
+            icon={<Icon name="paw" size={22} color={colors.textOnBrand} />}
+            fullWidth
+          />
         </View>
       </SafeAreaView>
+
+      {/* What to add: the chooser behind the single "Ekle" (P7 item 10). */}
+      <Modal
+        visible={chooserOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setChooserOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setChooserOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text variant="heading" center style={styles.chooserTitle}>
+              Ne ekliyorsun?
+            </Text>
+            {(
+              [
+                { key: 'food', label: 'Mama bıraktım', icon: 'food' },
+                { key: 'water', label: 'Su bıraktım', icon: 'water' },
+                { key: 'animal', label: 'Yeni hayvan', icon: 'paw' },
+              ] as const
+            ).map((choice) => (
+              <Pressable
+                key={choice.key}
+                style={({ pressed }) => [styles.choice, pressed && styles.choicePressed]}
+                accessibilityRole="button"
+                onPress={() => {
+                  setChooserOpen(false);
+                  if (choice.key === 'animal') openAddAnimal(navigation);
+                  else openDrop(choice.key);
+                }}
+              >
+                <View style={styles.choiceIcon}>
+                  <Icon name={choice.icon} size={22} color={colors.brand} />
+                </View>
+                <Text variant="button" style={styles.choiceLabel}>
+                  {choice.label}
+                </Text>
+                <Icon name="chevronRight" size={18} color={colors.textSubtle} />
+              </Pressable>
+            ))}
+            <Button
+              title="Vazgeç"
+              variant="ghost"
+              onPress={() => setChooserOpen(false)}
+              fullWidth
+              style={styles.modalCancel}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* The confirm sheet creates the record of the tile that opened it
           (dropType); its copy and the ad slot follow that type. */}
@@ -1065,9 +987,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   // The round controls sit above the bottom sheet; otherwise the sheet covers
   // them and they stop being tappable.
-  sideControls: { position: 'absolute', right: spacing.md, bottom: 250, alignItems: 'flex-end' },
+  topLayer: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' },
   hint: {
-    marginBottom: spacing.sm,
+    marginTop: spacing.md,
     backgroundColor: c.surface,
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -1076,33 +998,21 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     paddingHorizontal: spacing.lg,
     ...shadow.float,
   },
-  roundStack: { alignItems: 'center' },
+  // The locate button sits above the bottom sheet; otherwise the sheet
+  // covers it and it stops being tappable.
+  sideControls: { position: 'absolute', right: spacing.md, bottom: 210, alignItems: 'flex-end' },
   roundButton: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: radius.pill,
     backgroundColor: c.surface,
     borderWidth: 1,
     borderColor: c.border,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    ...shadow.float,
   },
-  roundButtonText: { fontSize: 20, lineHeight: 24, color: c.textMuted },
   bottomLayer: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  actions: { flexDirection: 'row', gap: spacing.sm },
-  // The Gradient fills the button behind the icon and label (overflow
-  // hidden clips it to the corners); pressed = a touch darker, like Button.
-  action: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    ...shadow.button,
-  },
-  actionPressed: { opacity: 0.88 },
-  actionLabel: { color: c.textOnBrand, marginTop: spacing.xs },
   sheet: {
     backgroundColor: c.surface,
     borderTopLeftRadius: radius.xl,
@@ -1124,6 +1034,26 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   sheetTitle: { marginBottom: 2 },
   sheetDesc: { marginBottom: spacing.md },
+  chooserTitle: { marginBottom: spacing.md },
+  choice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.lg,
+  },
+  choicePressed: { backgroundColor: c.brandTint },
+  choiceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: c.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  choiceLabel: { flex: 1, color: c.text },
   modalBackdrop: {
     flex: 1,
     backgroundColor: c.overlay,
