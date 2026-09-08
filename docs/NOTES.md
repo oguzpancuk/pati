@@ -2145,3 +2145,45 @@ the next docs touch.
 - Production screenshot still not taken (no production credentials in
   the session). Owner-side items unchanged: Resend DNS records, the four
   hand-made test accounts.
+
+## 2026-09-08 — one map: care markers with a depleting ring (P5)
+
+- Owner idea, decided the same day: one map for food and water (the
+  mama/su segment is gone), each record a screen-constant bowl/drop icon
+  in a green ring that empties clockwise as its window (food 4 h, water
+  6 h — unchanged) runs out; both types green, the glyph tells them
+  apart; heatmap deferred; the notification logic untouched (it never
+  depended on the drawing).
+- Implementation: `mobile/src/map/careMarkers.ts` (no imports, shared
+  with web through `@mobile`) holds the SVG generator, the 10-step ring
+  quantisation of the server's `weight` and the image keys
+  (`care-<type>-<step>-<theme>`). MapLibre cannot draw a partial arc, so
+  the ring is 40 pre-rendered images: mobile ships PNGs
+  (`scripts/generate-care-markers.mjs`, Playwright from web's
+  node_modules, Node ≥ 22.18 for the `.ts` import; output committed under
+  `src/map/markers/`) registered through `<Images>`, web rasterises the
+  same SVG into `map.addImage` on every style.load. One SymbolLayer per
+  client with the same expressions: icon key from `type + step + theme`,
+  icons at 50 % below zoom 11 growing to full at 15, collision placement
+  where the fresher record wins (`symbol-sort-key = 1 − weight`). The
+  100 m fill circles, the outline ring and the center dot are gone
+  (web's breathing timer with them); the 100 m radius still drives the
+  status line and the notification.
+- Bottom sheet: one status line reading both types ("Bu bölgede mama
+  var, su yok"), the at-your-location rule in the description, then three
+  equal outlined tiles — Mama bırak, Su bırak, Hayvan ekle (the FAB moved
+  in). The confirm sheet follows the pressed tile (`dropType`), including
+  the ad slot.
+- Evidence: jest `careMarkers.test.ts` (ring step bounds, arc/full-ring
+  SVG, variant keys); simulator screenshots light + dark (theme forced
+  via the stored `pati.themeMode`), web playwright light + Browser-pane
+  dark (the pane blocks tile requests, markers and sheet verified there);
+  the web flow driven end to end with the AI blanked: "Su bırak" tile →
+  photo → "Onayla ve ekle" → `POST /care-actions` body
+  `actionType: "water"`, 201, row 22692 `water`, sheet flips to "su var,
+  mama yok". tsc ×2 clean. `npm run lint` in mobile has no ESLint config
+  (pre-existing, not in the battery).
+- Known gap, deliberate: a fresh drop under an animal avatar or the user
+  pin is covered by that DOM/MarkerView marker (the layers draw beneath
+  views). The tap card with the record's remaining time and its 100 m
+  circle, plus the zoomed-out heatmap, are the next session's items.

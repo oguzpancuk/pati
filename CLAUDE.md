@@ -109,6 +109,11 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   those JSONs by hand — change `shared/mapstyle/build.mjs` and rerun it
   (ADR-0002). Mobile's `@maplibre/maplibre-react-native` is pinned to
   10.4.2 until the RN new-architecture upgrade.
+- **The care markers are generated files too.** `mobile/src/map/careMarkers.ts`
+  is the single source (SVG, ring steps, image keys; web imports it via
+  `@mobile`); `mobile/src/map/markers/*.png` + `index.ts` are its output
+  from `mobile/scripts/generate-care-markers.mjs` — rerun it after any
+  change there, never edit the PNGs or the index by hand.
 
 ### Mobile UI (details: docs/DESIGN.md)
 

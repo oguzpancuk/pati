@@ -750,3 +750,27 @@ Three problems the owner found on production after v29:
   the Fly log; the client shows "Yeni bir kod iste"). Owner-side: publish
   the records Resend lists for `pati-app.com` (docs/DEPLOYMENT.md, ADR-0004
   section), wait for "Verified", register once more.
+
+### P5 — One map: care markers with a depleting ring (owner idea, 2026-09-08)
+
+Owner decisions (2026-09-08): one map for food AND water, no mama/su
+toggle; each record is a screen-constant icon (bowl / drop) inside a green
+ring that empties clockwise as the record's window runs out — both types
+green, the glyph tells them apart; the window numbers stay (food 4 h,
+water 6 h); the heatmap idea is deferred; the notification logic (device
+asks the server "is there food/water within 100 m of me") is untouched.
+
+- Marker art: `mobile/src/map/careMarkers.ts` (no imports; web reads it via
+  `@mobile`) — the SVG generator, the 10-step ring quantisation of the
+  server's `weight`, the image keys. Mobile draws the markers from
+  pre-rendered PNGs (`mobile/scripts/generate-care-markers.mjs` →
+  `mobile/src/map/markers/`) in one SymbolLayer; web rasterises the same
+  SVG into `map.addImage` at runtime. Collision placement (fresher wins)
+  replaces the 100 m fill circles; icons shrink toward country zoom.
+- Bottom sheet: one status line for both types ("mama var, su yok") and
+  three tiles — Mama bırak, Su bırak, Hayvan ekle. The FAB and the top
+  segment go away.
+- **Done when:** jest covers the ring step; simulator and playwright
+  screenshots of the single map (light + dark on mobile) with rings at
+  different fill levels; the confirm flow still creates a record of the
+  chosen type (curl/log).
