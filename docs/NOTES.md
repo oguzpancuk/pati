@@ -2373,3 +2373,22 @@ the next docs touch.
   playwright at z16 (avatars, fans with spokes, dot, locate button, single
   Ekle) and z18 (six-member fan of three records and three cats around the
   dot); simulator at the locate zoom (dark theme) and the chooser.
+
+## 2026-09-09 — P7 Track B′ merged: sender avatars and quoted replies
+
+- Merged `track/messaging-2` into main with `--no-ff` (a56706e; five
+  commits, review NEEDS_WORK → APPROVE). Owner findings 6 and 7: the
+  sender's avatar beside each bubble (runs of one sender share one
+  avatar), and reply-to quotes — `messages.reply_to_id` (008, re-runnable,
+  `ON DELETE SET NULL`), the quoted excerpt (sender + first 120 chars, or
+  "Bu mesaj silindi") above the bubble, tap scrolls to the source, the
+  composer shows the pending quote with a cancel; "Yanıtla" from the
+  long-press (mobile) / "⋯" (web) menu. Rules found in review and now in
+  the harness: a quote never shows a late member a message from before
+  their `joined_at`; a cross-conversation, unknown or pre-join source is a
+  400; `replyToId` must be a number.
+- Evidence: messaging harness 99 checks (the track ran it twice), jest
+  `applyPoll` extended, tsc both clients; web: own bubbles right-aligned
+  and an unbroken quoted word clamped inside the bubble (measured in
+  headless Chromium by the reviewer); post-merge screenshots of a
+  conversation on both clients from main.
