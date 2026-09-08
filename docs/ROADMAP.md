@@ -860,3 +860,26 @@ Same three tracks as P6, same claims; the owner asked to talk first.
   harnesses extended (quote, auto-follow, notification timing), jest for
   the fan layout, code-reviewer per track, main merges with full battery
   and evaluator-qa.
+
+### P8 — Owner's review of the P7 batch (2026-09-09)
+
+- **Track A″ — map + messaging (main session):** (1) the "Ekle" button
+  carries the pati logo (brand `Logo` on mobile, `logoSvg` on web), not the
+  paw glyph; (2) fans lose their spokes on both clients; (4) the
+  conversation header's group button (and the DM avatar button) becomes a
+  proper round header control — surface disc, hairline, centred glyph,
+  theme-correct in dark mode — on both clients.
+- **Track C″ — animal profile (worktree):** (3) the profile is reworked
+  after the human profile's discipline (`UserProfileScreen` /
+  `ProfilePage`): header = avatar + name row with the follower/carer
+  counts right-aligned on the name's line, the descriptive line under the
+  name, the two badge chips under it, then the takip et / bakım ver pair;
+  sections in one order with `SectionHeader`s (fotoğraflar, en son
+  görüldüğü yer, aşı kayıtları, sağlık kayıtları, sohbet); the carers-only
+  door becomes an inline card at the top of "sohbet" (no sticky overlap);
+  "şikayet et" moves to the very bottom as a subtle footer link; the match
+  review bar stays as is. Both clients, screenshots light + dark.
+- Owner answer recorded: every change lands on web too (parity rule).
+- **Done when:** screenshots of the map button, a spokeless fan, the
+  conversation header (light + dark) and the reworked profile on both
+  clients; code-reviewer per track; merge with the battery and QA.
