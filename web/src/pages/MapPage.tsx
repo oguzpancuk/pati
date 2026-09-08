@@ -195,7 +195,6 @@ export default function MapPage() {
     [pendingPhotoUrl]
   );
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
-  myLocationRef.current = myLocation;
   // Flips once the (rAF-deferred) map exists, so the data effects below
   // re-run instead of bailing out against a still-null mapRef.
   const [mapReady, setMapReady] = useState(false);
@@ -288,12 +287,15 @@ export default function MapPage() {
     source('care-fan')?.setData(fanIconsRef.current);
     source('care-fan-spokes')?.setData(fanSpokesRef.current);
 
+    // Rule 3, against the spot the pin is actually drawn at (the ref is
+    // set where the marker is placed, not from state): a record at any
+    // zoom, an animal only while avatars are drawn.
     const me = myLocationRef.current;
     if (me && userMarkerElRef.current) {
       const near = (p: Coordinates) => distanceBetween(me, p) <= PIN_DIM_METERS;
       const dimmed =
         actions.some((action) => near(positionOf(action))) ||
-        animals.some((animal) => near(animalPositionOf(animal)));
+        (zoomedInRef.current && animals.some((animal) => near(animalPositionOf(animal))));
       userMarkerElRef.current.classList.toggle('dimmed', dimmed);
     }
   }, []);
@@ -392,12 +394,20 @@ export default function MapPage() {
             CARE_MARKER_ZOOM_FULL,
             1,
           ],
-          // Rule 1: a record under an animal avatar sits on its shoulder.
+          // Rule 1: a record under an animal avatar sits on its shoulder —
+          // only from the zoom avatars are drawn at; below it there is
+          // nothing to step aside from (review finding).
           'icon-offset': [
-            'case',
-            ['==', ['get', 'attached'], 1],
-            ['literal', ATTACH_OFFSET_PX],
+            'step',
+            ['zoom'],
             ['literal', [0, 0]],
+            ANIMAL_VISIBLE_MIN_ZOOM,
+            [
+              'case',
+              ['==', ['get', 'attached'], 1],
+              ['literal', ATTACH_OFFSET_PX],
+              ['literal', [0, 0]],
+            ],
           ],
           'icon-allow-overlap': false,
           'icon-ignore-placement': false,
@@ -452,6 +462,8 @@ export default function MapPage() {
       if (next !== zoomedInRef.current) {
         zoomedInRef.current = next;
         syncAnimalMarkers();
+        // Rule 3's animal half follows the avatar gate.
+        paintMarkers();
       }
     };
     map.on('zoom', onZoom);

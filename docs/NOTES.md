@@ -2231,3 +2231,19 @@ the next docs touch.
 - Sample data for the owner's look: records 22693–22710 near Kadıköy
   (varied ages, a red pair, a three-record stack at 29.029/40.9895, two on
   the user spot where the seeded cat Ozi sits). Local only.
+- Review of a9bb4ec (NEEDS_WORK) and the follow-up: the shoulder offset
+  now applies only from the zoom avatars draw at (`step` on zoom around
+  the `case`, both clients) — at the locate zoom the record sits on the
+  spot again and the pin dims for it honestly; the pin's animal half of
+  rule 3 follows the same gate (mobile `animalsVisible`, web
+  `zoomedInRef`, repainted on the crossing); web dims against the spot the
+  pin is drawn at, not the state that the drop flow's fallback moves;
+  mobile's fan source got a (no-op) press listener so a tap on a member
+  keeps the fan open like web; a pan during the zoom read no longer
+  reopens a stale fan (`fanSeqRef`); `mobile/__tests__/geo.test.ts` pins
+  metersPerPixel (78 271.5 m at z0/eq, 0.2254 m at z18/41°),
+  offsetMeters↔distanceBetween and segmentFeature. Web re-screenshotted at
+  z16 (record on the spot, pin dimmed) and z18 (shoulder, dimmed pin).
+  Still open, stated: the fan tap on the simulator (device shared with
+  another session at the time) and the fan centre of an attached record
+  (spreads around the avatar's spot rather than the shoulder icon).

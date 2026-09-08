@@ -176,6 +176,7 @@ export default function MapScreen({ navigation }: any) {
   // size of a pixel at the zoom it opened at (positions are geographic, so
   // they only hold for that zoom — any move closes the fan).
   const [fan, setFan] = useState<{ center: Coordinates; ids: number[]; mpp: number } | null>(null);
+  const fanSeqRef = useRef(0);
   // Heart bursts draw in a separate layer above the map at screen
   // coordinates (not embedded in the marker): iOS rasterizes the marker view
   // once, so an animation inside it stuttered or appeared in the wrong
@@ -292,6 +293,7 @@ export default function MapScreen({ navigation }: any) {
     const { zoomLevel } = feature.properties;
     currentZoomRef.current = zoomLevel;
     setAnimalsVisible(zoomLevel >= ANIMAL_VISIBLE_MIN_ZOOM);
+    fanSeqRef.current += 1;
     setFan(null);
     if (pendingHeartsRef.current) flushPendingHearts();
   }
@@ -591,7 +593,11 @@ export default function MapScreen({ navigation }: any) {
     const tappedId = Number(event.features[0]?.properties?.id);
     const tapped = actions.find((action) => action.id === tappedId);
     if (!tapped) return;
+    // A pan during the zoom read closes fans (onRegionDidChange); a fan
+    // computed for the pre-pan zoom must not reopen afterwards.
+    const seq = ++fanSeqRef.current;
     const zoom = (await mapRef.current?.getZoom()) ?? currentZoomRef.current;
+    if (seq !== fanSeqRef.current) return;
     const center = actionPosition(tapped);
     const mpp = metersPerPixel(zoom, center.lat);
     const ids = actions
@@ -600,17 +606,19 @@ export default function MapScreen({ navigation }: any) {
     setFan(ids.length >= 2 ? { center, ids, mpp } : null);
   }
 
-  // Rule 3: half-transparent pin when something sits under it.
+  // Rule 3: half-transparent pin when something sits under it — a record
+  // at any zoom, an animal only while avatars are drawn.
   const pinDimmed = useMemo(() => {
     if (!myLocation) return false;
     const near = (p: Coordinates) => distanceBetween(myLocation, p) <= PIN_DIM_METERS;
     return (
       actions.some((action) => near(actionPosition(action))) ||
-      animals.some((animal) =>
-        near({ lat: animal.location.coordinates[1], lng: animal.location.coordinates[0] })
-      )
+      (animalsVisible &&
+        animals.some((animal) =>
+          near({ lat: animal.location.coordinates[1], lng: animal.location.coordinates[0] })
+        ))
     );
-  }, [myLocation, actions, animals]);
+  }, [myLocation, actions, animals, animalsVisible]);
   // The dashed 200 m ring marks the range where animals are drawn — the
   // depiction in the handoff.
   const userRing = useMemo(
@@ -678,12 +686,20 @@ export default function MapScreen({ navigation }: any) {
                 CARE_MARKER_ZOOM_FULL,
                 1,
               ],
-              // Rule 1: a record under an animal avatar sits on its shoulder.
+              // Rule 1: a record under an animal avatar sits on its shoulder —
+              // only from the zoom avatars are drawn at; below it there is
+              // nothing to step aside from (review finding).
               iconOffset: [
-                'case',
-                ['==', ['get', 'attached'], 1],
-                ['literal', ATTACH_OFFSET_PX],
+                'step',
+                ['zoom'],
                 ['literal', [0, 0]],
+                ANIMAL_VISIBLE_MIN_ZOOM,
+                [
+                  'case',
+                  ['==', ['get', 'attached'], 1],
+                  ['literal', ATTACH_OFFSET_PX],
+                  ['literal', [0, 0]],
+                ],
               ],
               iconAllowOverlap: false,
               iconIgnorePlacement: false,
@@ -704,7 +720,10 @@ export default function MapScreen({ navigation }: any) {
                 style={{ lineColor: mapColors.userRadiusStroke, lineWidth: 1.5 }}
               />
             </ShapeSource>
-            <ShapeSource id="care-fan" shape={fanShapes.icons}>
+            {/* A press listener (even a no-op) makes the fan a touchable
+                source, so a tap on a member is consumed here instead of
+                reaching MapView's onPress and closing the fan — same as web. */}
+            <ShapeSource id="care-fan" shape={fanShapes.icons} onPress={() => {}}>
               <SymbolLayer
                 id="care-fan-icon"
                 style={{
