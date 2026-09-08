@@ -584,12 +584,16 @@ async function addPhoto(req, res, next) {
     // Nothing references the file yet, so it goes with the failed insert.
     // Past this point the row owns the file: a failure below must not
     // delete it from under the gallery (review finding). A token's file
-    // goes back under the pending prefix: the token is still valid and a
-    // retry redeems it again, and if none comes the sweeper reclaims it —
-    // left under its final name it would be a plain file no row owns,
-    // which nothing ever reclaims (review finding).
+    // goes back under the pending prefix when the animal is gone (the FK
+    // refused the row): no row can own it, and left under its final name
+    // it would be a plain file nothing ever reclaims (review finding).
+    // Only then — after any other failure a concurrent redeem of the same
+    // token may already own the file, and renaming it would hand the
+    // sweeper a file a gallery references; a rare leak is the lesser evil.
     if (req.file) discardUpload();
-    else fs.rename(filePath, path.join(UPLOADS_DIR, `${PENDING_PREFIX}${file}`), () => {});
+    else if (err.code === '23503') {
+      fs.rename(filePath, path.join(UPLOADS_DIR, `${PENDING_PREFIX}${file}`), () => {});
+    }
     return next(err);
   }
   try {
