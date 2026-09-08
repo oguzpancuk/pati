@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
+const { finiteNumber, isPresent } = require('../utils/numbers');
 const { syncAnimalBadgesSafe, getAnimalBadgesFor, animalBadgeLadder } = require('../utils/badges');
 const { notifyAnimalEventSafe } = require('./notification.controller');
 const ai = require('../utils/ai');
@@ -141,13 +142,16 @@ async function listAnimals(req, res, next) {
     if (species && !['cat', 'dog'].includes(species)) {
       return res.status(400).json({ error: 'species cat veya dog olmalıdır' });
     }
-    // Public route: a bad coordinate is a 400, not a Postgres 500 whose
-    // English message the error middleware would echo back.
-    if (
-      (lat !== undefined && !Number.isFinite(Number(lat))) ||
-      (lng !== undefined && !Number.isFinite(Number(lng)))
-    ) {
-      return res.status(400).json({ error: 'lat ve lng sayı olmalı' });
+    // Public route: a bad coordinate (or radius) is a 400, not a Postgres
+    // 500 whose English message the error middleware would echo back.
+    for (const [name, value] of [
+      ['lat', lat],
+      ['lng', lng],
+      ['radiusMeters', radiusMeters],
+    ]) {
+      if (isPresent(value) && finiteNumber(value) === null) {
+        return res.status(400).json({ error: `${name} sayı olmalıdır` });
+      }
     }
     const { limit, offset } = pageParams(req.query);
     const speciesFilter = species ? 'AND a.species = $SPECIES' : '';

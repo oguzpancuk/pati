@@ -701,7 +701,14 @@ export default function MapPage() {
       // aiCheck/pendingPhoto reset when the modal next opens, not here:
       // resetting before the close would flash the confirm content behind it.
       setConfirmOpen(false);
-      await Promise.all([loadMarkers(), loadAnimals(loc), loadStatuses(loc)]);
+      // The record is already created: a failed refresh states itself on
+      // the map (the pill) and must not turn the drop into an error or
+      // swallow the badge celebration (review finding).
+      await Promise.all([
+        loadMarkers().catch(() => {}),
+        loadAnimals(loc).catch(() => {}),
+        loadStatuses(loc),
+      ]);
       celebrateNearbyAnimals(loc);
       celebrate(created);
     } catch (err) {
@@ -825,7 +832,7 @@ export default function MapPage() {
             {statuses
               ? 'Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.'
               : statusFailed
-              ? 'Bağlantı kurulunca burayı gösteririz; kayıt yine şu anki konumuna düşer.'
+              ? 'Konum ya da bağlantı hazır olunca burayı gösteririz; kayıt yine şu anki konumuna düşer.'
               : 'Konumunu açınca buranın durumunu gösteririz; kayıt yine şu anki konumuna düşer.'}
           </p>
           {/* The pati logo on the button (owner, P8 item 1): white on the

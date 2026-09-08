@@ -26,8 +26,9 @@ function fakeRes() {
   };
 }
 
-// An empty string is Number('') === 0, a valid corner — not in this list.
-const bad = ['abc', 'NaN', 'Infinity', '12,5'];
+// An empty value is refused too: Number('') is 0, which would otherwise
+// travel to Postgres as the string '' and come back as an English 500.
+const bad = ['abc', 'NaN', 'Infinity', '12,5', '', '   '];
 
 test('listCareActions refuses a non-numeric viewport corner', async () => {
   for (const value of bad) {
@@ -38,7 +39,13 @@ test('listCareActions refuses a non-numeric viewport corner', async () => {
       (err) => assert.fail(`passed to next(): ${err}`)
     );
     assert.strictEqual(res.code, 400, `corner ${JSON.stringify(value)}`);
-    assert.match(res.body.error, /sayı olmalı|zorunludur/);
+    // An empty corner is "missing" and falls to the radius branch's
+    // message; anything else is the box guard's own.
+    assert.match(
+      res.body.error,
+      value.trim() === '' ? /zorunludur/ : /Harita sınırları sayı olmalıdır/,
+      `corner ${JSON.stringify(value)}`
+    );
   }
 });
 
@@ -49,15 +56,32 @@ test('listCareActions and getCareStatus refuse a non-numeric radius centre', asy
       assert.fail(`passed to next(): ${err}`)
     );
     assert.strictEqual(res.code, 400);
-    assert.match(res.body.error, /sayı olmalı/);
+    assert.match(res.body.error, /lat ve lng sayı olmalıdır/);
   }
 });
 
-test('listAnimals refuses a non-numeric centre', async () => {
-  const res = fakeRes();
-  await animals.listAnimals({ query: { lat: 'abc', lng: '29' } }, res, (err) =>
-    assert.fail(`passed to next(): ${err}`)
-  );
-  assert.strictEqual(res.code, 400);
-  assert.match(res.body.error, /sayı olmalı/);
+test('listAnimals refuses a non-numeric centre or radius', async () => {
+  for (const query of [
+    { lat: 'abc', lng: '29' },
+    { lat: '41', lng: 'abc' },
+    { lat: '41', lng: '29', radiusMeters: 'abc' },
+  ]) {
+    const res = fakeRes();
+    await animals.listAnimals({ query }, res, (err) =>
+      assert.fail(`passed to next(): ${err}`)
+    );
+    assert.strictEqual(res.code, 400, JSON.stringify(query));
+    assert.match(res.body.error, /sayı olmalıdır/);
+  }
+});
+
+test('an empty coordinate never reaches the database', async () => {
+  for (const handler of [care.listCareActions, care.getCareStatus]) {
+    const res = fakeRes();
+    await handler({ query: { lat: '', lng: '' } }, res, (err) =>
+      assert.fail(`passed to next(): ${err}`)
+    );
+    assert.strictEqual(res.code, 400);
+    assert.match(res.body.error, /zorunludur/);
+  }
 });

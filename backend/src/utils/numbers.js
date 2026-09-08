@@ -1,0 +1,21 @@
+/**
+ * Query parameters arrive as strings from public routes. `Number('')` is
+ * 0 and `Number(' ')` is 0 too, so a plain `Number.isFinite(Number(v))`
+ * check lets an empty coordinate through to Postgres, which answers with
+ * an English "invalid input syntax" the error middleware echoes back
+ * (review finding, 2026-09-09). This is the one place that decides what
+ * counts as a number on the wire.
+ */
+function finiteNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** True when the value is present (not undefined and not an empty string). */
+function isPresent(value) {
+  return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+module.exports = { finiteNumber, isPresent };

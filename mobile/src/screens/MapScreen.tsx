@@ -39,6 +39,7 @@ import {
   distanceMeters,
   ensureLocationPermission,
   getCurrentLocation,
+  hasLocationPermission,
   LocationPermissionError,
 } from '../location';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
@@ -280,11 +281,14 @@ export default function MapScreen({ navigation }: any) {
         centerOnUser(loc);
         return animalData;
       }
-      // No fix: the sheet must fall back to "we don't know where you are"
-      // rather than keep asserting the last place's verdict (review finding).
+      // No fix: drop the last place's verdict, and tell the two reasons
+      // apart — a denied permission is "we don't know where you are", a
+      // granted one that produced no fix is a failed lookup (review
+      // finding). `getCurrentLocation` throws for both.
+      const granted = await hasLocationPermission().catch(() => false);
       if (seq === loadSeqRef.current) {
         setStatuses(null);
-        setStatusFailed(false);
+        setStatusFailed(granted);
       }
     } catch (err: any) {
       if (seq === loadSeqRef.current) {
@@ -820,7 +824,7 @@ export default function MapScreen({ navigation }: any) {
             {statuses
               ? 'Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.'
               : statusFailed
-              ? 'Bağlantı kurulunca burayı gösteririz; kayıt yine şu anki konumuna düşer.'
+              ? 'Konum ya da bağlantı hazır olunca burayı gösteririz; kayıt yine şu anki konumuna düşer.'
               : 'Konumunu açınca buranın durumunu gösteririz; kayıt yine şu anki konumuna düşer.'}
           </Text>
           {/* The pati logo on the button (owner, P8 item 1), white on the

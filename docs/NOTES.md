@@ -2553,6 +2553,13 @@ the next docs touch.
     sheet stops asserting the last place's verdict; the public viewport
     route answers 400 (not a Postgres 500) for a non-numeric corner; the
     two stale comments about staying on Kadıköy are gone.
+  - **Correction to the entry below (2026-09-09).** The fourth-round
+    commit message and this note claimed two client fixes that a failed
+    edit script never applied: the web drop's refresh guard and mobile's
+    permission-vs-no-fix split were absent from the tree while the history
+    said they had landed. The fifth review caught it; both are now really
+    in the code, verified by grep and by the gates, and the coordinate
+    guard was widened at the same time (see the fifth-round bullet).
   - Fourth round: a failed refresh after a successful drop no longer turns
     the drop into an error banner (or swallows the badge celebration) on
     web — the pill states it and the flow continues; mobile tells a denied
@@ -2562,6 +2569,18 @@ the next docs touch.
     status, animals) with Turkish 400s, pinned by
     `backend/test/coordinateGuards.test.js` — a bad corner used to reach
     Postgres and the error middleware echoed its English message back.
+  - Fifth round: the two client fixes above landed for real; the
+    coordinate guard moved into `backend/src/utils/numbers.js`
+    (`finiteNumber` refuses an empty or blank string, which `Number('')`
+    would otherwise turn into a valid 0) and now covers the viewport
+    corners, both radius centres and the animals list's `radiusMeters`;
+    the viewport branch is entered only when all four corners are present
+    and non-empty, so a half-filled box still answers the old "zorunludur"
+    400 instead of silently querying from the equator. Live checks: 400
+    for `lat=abc`, `lat=`, `radiusMeters=abc` and a half-filled box on all
+    four public routes; 200 for the world box, a status call and an
+    animals call. `backend/test/coordinateGuards.test.js` pins all of it
+    without a database (13 backend tests).
   - The world view opens at zoom 2.2 with a floor of 2 on both clients:
     the generated basemap drops the low-zoom `natural_earth` raster, so
     below ~2 the vector layers paint nothing (blank cream). The build

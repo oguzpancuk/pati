@@ -6,6 +6,7 @@ const pool = require('../config/db');
 const { UPLOADS_DIR } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const ai = require('../utils/ai');
+const { finiteNumber, isPresent } = require('../utils/numbers');
 
 // A checked photo is handed back to the client as a signed claim over the
 // stored file; the confirm step sends it instead of uploading again. Short
@@ -251,17 +252,14 @@ async function listCareActions(req, res, next) {
     const { lat, lng, minLat, maxLat, minLng, maxLng, actionType } = req.query;
     const radiusMeters = Number(req.query.radiusMeters) || DEFAULT_RADIUS_METERS;
 
-    if (
-      minLat !== undefined &&
-      maxLat !== undefined &&
-      minLng !== undefined &&
-      maxLng !== undefined
-    ) {
+    // "Present" means given and non-empty: an empty corner falls through to
+    // the radius branch and its "zorunludur" 400, as it always did.
+    if ([minLat, maxLat, minLng, maxLng].every(isPresent)) {
       // The viewport comes from a public route: a non-numeric corner must
       // be a 400, not a Postgres "invalid input syntax" 500.
-      const box = [minLng, minLat, maxLng, maxLat].map(Number);
-      if (box.some((n) => !Number.isFinite(n))) {
-        return res.status(400).json({ error: 'Harita sınırları sayı olmalı' });
+      const box = [minLng, minLat, maxLng, maxLat].map(finiteNumber);
+      if (box.some((n) => n === null)) {
+        return res.status(400).json({ error: 'Harita sınırları sayı olmalıdır' });
       }
       const params = box;
       const filter = actionTypeFilter(actionType, params.length + 1);
@@ -285,16 +283,17 @@ async function listCareActions(req, res, next) {
       return res.json(result.rows);
     }
 
-    if (lat === undefined || lng === undefined) {
+    if (!isPresent(lat) || !isPresent(lng)) {
       return res
         .status(400)
         .json({ error: 'lat/lng ya da minLat/maxLat/minLng/maxLng zorunludur' });
     }
-    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
-      return res.status(400).json({ error: 'lat ve lng sayı olmalı' });
+    const centre = [finiteNumber(lng), finiteNumber(lat)];
+    if (centre.some((n) => n === null)) {
+      return res.status(400).json({ error: 'lat ve lng sayı olmalıdır' });
     }
 
-    const params = [lng, lat, radiusMeters];
+    const params = [...centre, radiusMeters];
     const filter = actionTypeFilter(actionType, params.length + 1);
     if (filter.param) params.push(filter.param);
     const result = await pool.query(
@@ -321,14 +320,15 @@ async function getCareStatus(req, res, next) {
     const { lat, lng, actionType } = req.query;
     const radiusMeters = Number(req.query.radiusMeters) || DEFAULT_STATUS_RADIUS_METERS;
 
-    if (lat === undefined || lng === undefined) {
+    if (!isPresent(lat) || !isPresent(lng)) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
-    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
-      return res.status(400).json({ error: 'lat ve lng sayı olmalı' });
+    const centre = [finiteNumber(lng), finiteNumber(lat)];
+    if (centre.some((n) => n === null)) {
+      return res.status(400).json({ error: 'lat ve lng sayı olmalıdır' });
     }
 
-    const params = [lng, lat, radiusMeters];
+    const params = [...centre, radiusMeters];
     const filter = actionTypeFilter(actionType, params.length + 1);
     if (filter.param) params.push(filter.param);
 
