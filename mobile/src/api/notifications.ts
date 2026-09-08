@@ -3,11 +3,11 @@ import { apiClient } from './client';
 /**
  * The in-app inbox (ROADMAP P6, track C): rows the server writes when a
  * comment, sighting, health record or vaccination lands on an animal the
- * user follows or cares for. Polled from the bell on the profile tab the
+ * user follows or cares for, or someone starts caring for it (`care`). Polled from the bell on the profile tab the
  * way the care alert is; no push yet — `registerDeviceToken` only stores
  * where a push would go, for the APNs/FCM batch to come.
  */
-export type NotificationKind = 'comment' | 'sighting' | 'health_record' | 'vaccination';
+export type NotificationKind = 'comment' | 'sighting' | 'health_record' | 'vaccination' | 'care';
 
 export interface NotificationPayload {
   animalName: string | null;
@@ -80,6 +80,8 @@ export function notificationTitle(n: AppNotification): string {
       return `${animal} için sağlık kaydı eklendi`;
     case 'vaccination':
       return `${animal} için aşı kaydı eklendi`;
+    case 'care':
+      return `${actor}, ${animal} için bakım vermeye başladı`;
     default:
       return animal;
   }

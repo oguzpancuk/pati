@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { BadgeSymbolName, BadgeTier } from '../badges';
+import type { AnimalBadgeStep } from '../animalBadges';
 import type { PhotoAsset } from './care';
 import type { WithNewBadges } from './users';
 
@@ -110,6 +111,8 @@ export interface AnimalDetail extends Animal {
   followerCount: number;
   isFollowing: boolean;
   badges: AnimalBadge[];
+  /** Every badge key, earned or not, with the live count (P7 item 3): the tier ladder. */
+  badgeLadder: AnimalBadgeStep[];
 }
 
 export interface FetchAnimalsOptions {
@@ -395,6 +398,9 @@ export interface CarePhotoResult {
   photoChecked: boolean;
   photos: AnimalPhoto[];
   carerCount?: number;
+  /** A new carer follows too (P7 item 2); the profile reloads on focus anyway. */
+  following?: boolean;
+  followerCount?: number;
   animalBadges?: AnimalBadge[];
 }
 

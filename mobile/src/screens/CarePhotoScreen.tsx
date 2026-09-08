@@ -69,9 +69,9 @@ export default function CarePhotoScreen({ route, navigation }: any) {
         result.alreadyCarer ? 'Zaten bakıcısın' : 'Artık bakıcısın',
         result.alreadyCarer
           ? `${displayName} için zaten bakım veriyorsun.`
-          : result.photoChecked
-          ? `Fotoğraflar eşleşti. ${displayName} için artık yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin.`
-          : `${displayName} için artık yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin.`,
+          : `${
+              result.photoChecked ? 'Fotoğraflar eşleşti. ' : ''
+            }${displayName} için artık yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin. Takip de ediyorsun: haberleri sana gelir.`,
         [{ text: 'Tamam', onPress: () => navigation.goBack() }]
       );
     } catch (err: any) {
