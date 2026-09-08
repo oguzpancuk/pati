@@ -1,7 +1,7 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
-const { upload } = require('../config/upload');
+const { upload, pendingUpload } = require('../config/upload');
 const {
   MAX_MATCH_PHOTOS,
   listAnimals,
@@ -32,8 +32,10 @@ router.post(
   requireAuth,
   limits.matchAnimals,
   // `photos` is the add-animal form's whole set (screened, tokenised);
-  // `photo` is the older single-file shape, still accepted.
-  upload.fields([
+  // `photo` is the older single-file shape, still accepted. Stored as
+  // pending files: no row owns them until a token is redeemed, and the
+  // sweeper removes the ones nobody redeems.
+  pendingUpload.fields([
     { name: 'photo', maxCount: 1 },
     { name: 'photos', maxCount: MAX_MATCH_PHOTOS },
   ]),

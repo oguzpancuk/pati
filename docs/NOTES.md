@@ -2058,3 +2058,23 @@ the next docs touch.
   "Verified", register once more. A Resend-side probe over `fly ssh
   console` was refused by the session's permission classifier; the DNS
   answer is the evidence.
+- Review round (code-reviewer, same day): the one important finding was a
+  regression it is right about — the match step used to delete its
+  scratch upload on every outcome, and the token scheme kept up to six
+  files per call on the volume with nothing reclaiming them, on the flow's
+  most common non-create outcome (the user picks an existing animal).
+  Now: match photos land as `pending-<name>` through their own multer
+  store, the token names the final `<name>`, the redeem renames (atomic,
+  and what makes the second redeem a 409), and a sweeper in
+  `config/upload.js` deletes pending files older than thirty minutes at
+  boot and every five minutes — no database, no prefix means no touch.
+  Minor findings closed too: multer's refusals (7th photo, unexpected
+  field, oversize) are Turkish 400s through `error.middleware.js` instead
+  of English 500s; the token no longer carries a `check` claim nothing
+  read; the fake can refuse one photo of two by size so the harness now
+  proves `photoIndex` names the second photo (`rejectImageBytesAbove`).
+  Left as noted: the single-use read is a sequential scan of
+  `animal_photos` per redeem — fine at pilot volume, an expression index
+  is a later migration if it shows up; the care check's abandoned file is
+  the same leak class, one file per cancelled drop, not on the pending
+  scheme yet.

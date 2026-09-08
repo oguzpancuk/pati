@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
-const { UPLOADS_DIR } = require('../config/upload');
+const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const ai = require('../utils/ai');
 const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
@@ -51,16 +51,12 @@ const COVER_PHOTO_JOIN = coverPhotoJoin('a');
 // uploading again — the same scheme as the care photos, same lifetime. A
 // direct upload is screened inline, so skipping the match step gains
 // nothing. The cap is the form's own maximum (both clients: MAX_PHOTOS).
+// The files wait under PENDING_PREFIX until redeemed; the sweeper in
+// config/upload.js removes the ones that never are (most match calls end
+// in "that one is already registered", not in a create).
 const PHOTO_TOKEN_TTL = '15m';
 const PHOTO_TOKEN_KIND = 'animalPhoto';
 const MAX_MATCH_PHOTOS = 6;
-
-/** What a photoToken carries about the screening — null when nothing was checked. */
-function aiCheckRecord(check) {
-  if (!check || check.verdict === 'unavailable') return null;
-  const { verdict, subject, reason, model, ms } = check;
-  return { verdict, subject, reason, model, ms };
-}
 
 function speciesRejectionMessage(species) {
   return species === 'dog'
@@ -80,10 +76,12 @@ function photoRejection(res, check, species, extra = {}) {
 
 /**
  * Redeems a photoToken from matchAnimals: ours, this user's, issued for
- * this species, the file still on disk. Returns the stored filename or a
- * refusal. Single use is enforced at the insert (see addPhoto).
+ * this species, the file still on disk. The token names the file's final
+ * name; the first redeem renames the pending file into it (atomic on one
+ * volume), a later one finds only the final file and addPhoto's
+ * single-use read answers 409. Returns the filename or a refusal.
  */
-function redeemPhotoToken(token, userId, species) {
+async function redeemPhotoToken(token, userId, species) {
   let claims;
   try {
     claims = jwt.verify(token, process.env.JWT_SECRET);
@@ -95,12 +93,21 @@ function redeemPhotoToken(token, userId, species) {
     claims.userId !== userId ||
     claims.species !== species ||
     typeof claims.file !== 'string' ||
-    path.basename(claims.file) !== claims.file
+    path.basename(claims.file) !== claims.file ||
+    claims.file.startsWith(PENDING_PREFIX)
   ) {
     return { error: 'Fotoğraf bu kayıtla eşleşmiyor. Fotoğrafı yeniden yükler misin?' };
   }
-  if (!fs.existsSync(path.join(UPLOADS_DIR, claims.file))) {
-    return { error: 'Fotoğraf bulunamadı. Fotoğrafı yeniden yükler misin?' };
+  const finalPath = path.join(UPLOADS_DIR, claims.file);
+  const pendingPath = path.join(UPLOADS_DIR, `${PENDING_PREFIX}${claims.file}`);
+  try {
+    await fs.promises.rename(pendingPath, finalPath);
+  } catch (err) {
+    // Already renamed by an earlier redeem (the 409 below decides), or
+    // swept: only the second is a refusal.
+    if (err?.code !== 'ENOENT' || !fs.existsSync(finalPath)) {
+      return { error: 'Fotoğraf bulunamadı. Fotoğrafı yeniden yükler misin?' };
+    }
   }
   return { file: claims.file };
 }
@@ -339,15 +346,16 @@ async function matchAnimals(req, res, next) {
 
     // One token per photo, in the order sent; the create step redeems them
     // (addPhoto). Issued with the model off too — the token is what lets
-    // the photo travel once, the screening is what it may also carry.
-    const photoTokens = files.map((file, i) =>
+    // the photo travel once. It names the final file; the pending file on
+    // disk carries the prefix until then. What the model said is not
+    // kept: animal_photos has no ai_check column (ADR-0005 amendment).
+    const photoTokens = files.map((file) =>
       jwt.sign(
         {
           kind: PHOTO_TOKEN_KIND,
           userId: req.user.userId,
-          file: file.filename,
+          file: pendingToFinal(file.filename),
           species,
-          check: aiCheckRecord(photoChecks[i]),
         },
         process.env.JWT_SECRET,
         { expiresIn: PHOTO_TOKEN_TTL, jwtid: crypto.randomUUID() }
@@ -535,7 +543,7 @@ async function addPhoto(req, res, next) {
       }
       file = req.file.filename;
     } else {
-      const redeemed = redeemPhotoToken(String(photoToken), req.user.userId, species);
+      const redeemed = await redeemPhotoToken(String(photoToken), req.user.userId, species);
       if (redeemed.error) {
         return res.status(400).json({ error: redeemed.error, code: 'photoTokenInvalid' });
       }

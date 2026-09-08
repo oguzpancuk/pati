@@ -277,20 +277,27 @@ check "model down: photo still saved -> 201" 201 "$code"
 check "…without a thumbnail" none "$(field .thumb_url)"
 
 echo "11. Animal photos are screened for the species; the match step hands back tokens"
-# multipart with the form's whole set: path token count field=value...
-upload_photos() { local p="$1" t="$2" n="$3"; shift 3; local args=(); for kv in "$@"; do args+=(-F "$kv"); done
-  local files=(); for _ in $(seq "$n"); do files+=(-F "photos=@$PHOTO;type=image/jpeg"); done
+# multipart with the form's whole set: path token "file1 file2…" field=value...
+upload_photos() { local p="$1" t="$2" list="$3"; shift 3; local args=(); for kv in "$@"; do args+=(-F "$kv"); done
+  local files=(); for f in $list; do files+=(-F "photos=@$f;type=image/jpeg"); done
   curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$p" -H "Authorization: Bearer $t" "${files[@]}" ${args[@]+"${args[@]}"}; }
+pending_count() { ls -1 "$UPLOADS" | grep -c '^pending-'; }
+# A second, noisy fixture: it stays much larger than PHOTO after the
+# server's re-encode, which is how the fake tells the two apart.
+PHOTO2=/tmp/pati-ai-photo-2.jpg
+node -e "require('sharp')({create:{width:300,height:200,channels:3,background:'#888',noise:{type:'gaussian',mean:128,sigma:40}}}).jpeg().toFile(process.argv[1]).then(()=>{})" "$PHOTO2"
 # An empty cell of its own (see section 7): no candidates, so the last
 # model request is the screening, not a comparison.
 GLAT=$(node -pe "41.21 + (($STAMP + 250) % 499) * 0.02"); GLNG=$(node -pe "29.41 + (($STAMP + 40) % 89) * 0.03")
 mode '{"mode":"approve"}'
 before=$(uploads_count)
-code=$(upload_photos animals/match "$JWT" 2 species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+pending_before=$(pending_count)
+code=$(upload_photos animals/match "$JWT" "$PHOTO $PHOTO" species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
 check "match with two photos -> 200" 200 "$code"
 check "no candidates in an empty cell" 0 "$(field .candidates.length)"
 check "two photoTokens" 2 "$(field .photoTokens.length)"
 check "files kept for the create step" "$((before + 2))" "$(uploads_count)"
+check "…as pending files" "$((pending_before + 2))" "$(pending_count)"
 check "animal prompt used" animal "$(last .kind)"
 check "one image per screening" 1 "$(last .images)"
 PT1=$(field .photoTokens[0]); PT2=$(field .photoTokens[1])
@@ -301,6 +308,8 @@ check "token redeemed -> 201" 201 "$code"
 contains "photo url is the screened file" "/uploads/" "$(field .url)"
 contains "…and the face step ran on it" "-face.jpg" "$(field .thumb_url)"
 check "only the face cut-out is new, no second upload" "$((before + 3))" "$(uploads_count)"
+check "the redeemed file left the pending set" "$((pending_before + 1))" "$(pending_count)"
+check "…under its final name" yes "$([ -f "$UPLOADS/$(basename "$(field .url)")" ] && echo yes || echo no)"
 code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"$PT1\"}")
 check "replay -> 409" 409 "$code"
 check "…photoAlreadyUsed" photoAlreadyUsed "$(field .code)"
@@ -321,14 +330,18 @@ code=$(post_auth "animals/999999/photos" "$JWT" "{\"photoToken\":\"$PT2\"}")
 check "unknown animal -> 404" 404 "$code"
 
 echo "12. A refused photo ends the match with its index; a direct upload is screened too"
-mode '{"mode":"reject"}'
+mode '{"mode":"reject","rejectImageBytesAbove":10000}'
 before=$(uploads_count)
-code=$(upload_photos animals/match "$JWT" 2 species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
-check "match while rejecting -> 422" 422 "$code"
+code=$(upload_photos animals/match "$JWT" "$PHOTO $PHOTO2" species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+check "match with the second photo refused -> 422" 422 "$code"
 check "code photoRejected" photoRejected "$(field .code)"
-check "photoIndex names the photo" 0 "$(field .photoIndex)"
+check "photoIndex names the second photo" 1 "$(field .photoIndex)"
 contains "reason shown" "görünmüyor" "$(field .error)"
 check "no tokens" none "$(field .photoTokens)"
+check "files deleted" "$before" "$(uploads_count)"
+mode '{"mode":"reject"}'
+code=$(upload_photos animals/match "$JWT" "$PHOTO $PHOTO2" species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+check "both refused -> the first index" 0 "$(field .photoIndex)"
 check "files deleted" "$before" "$(uploads_count)"
 code=$(upload "animals/$G/photos" "$JWT")
 check "direct upload while rejecting -> 422" 422 "$code"
@@ -342,7 +355,7 @@ check "…with one token" 1 "$(field .photoTokens.length)"
 
 echo "13. A dead model fails open for animal photos: tokens are issued, uploads stored"
 mode '{"mode":"error"}'
-code=$(upload_photos animals/match "$JWT" 1 species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+code=$(upload_photos animals/match "$JWT" "$PHOTO" species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
 check "match -> 200" 200 "$code"
 check "one token" 1 "$(field .photoTokens.length)"
 code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"$(field .photoTokens[0])\"}")
@@ -350,6 +363,23 @@ check "token redeemed -> 201" 201 "$code"
 code=$(upload "animals/$G/photos" "$JWT")
 check "direct upload -> 201" 201 "$code"
 mode '{"mode":"approve"}'
+
+echo "14. Pending files nobody redeems are swept; real and fresh files are not"
+STALE="$UPLOADS/pending-0-stale$STAMP.jpg"; FRESH="$UPLOADS/pending-0-fresh$STAMP.jpg"; REAL="$UPLOADS/0-real$STAMP.jpg"
+cp "$PHOTO" "$STALE"; cp "$PHOTO" "$FRESH"; cp "$PHOTO" "$REAL"
+touch -t "$(date -v-45M +%Y%m%d%H%M 2>/dev/null || date -d '45 minutes ago' +%Y%m%d%H%M)" "$STALE" "$REAL"
+# The sweep logs a line before it answers; the count is the last line.
+swept=$(node -e "require('./src/config/upload').sweepPendingUploads().then(n=>console.log(n))" | tail -1)
+check "at least the stale pending file swept" yes "$([ "$swept" -ge 1 ] && echo yes || echo no)"
+check "stale pending file gone" no "$([ -f "$STALE" ] && echo yes || echo no)"
+check "fresh pending file kept" yes "$([ -f "$FRESH" ] && echo yes || echo no)"
+check "old real file kept" yes "$([ -f "$REAL" ] && echo yes || echo no)"
+rm -f "$FRESH" "$REAL"
+
+echo "15. multer's refusals are 400s in Turkish"
+code=$(upload_photos animals/match "$JWT" "$PHOTO $PHOTO $PHOTO $PHOTO $PHOTO $PHOTO $PHOTO" species=cat lat=$GLAT lng=$GLNG)
+check "seven photos -> 400" 400 "$code"
+contains "…in Turkish" "fotoğraf" "$(field .error)"
 
 echo ""
 if [ "$FAILED" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; exit 1; fi

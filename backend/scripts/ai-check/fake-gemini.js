@@ -17,6 +17,7 @@
  *   node scripts/ai-check/fake-gemini.js [port]
  *
  *   POST /control {"mode":"approve"|"reject"|"error"|"blocked"}
+ *   POST /control {"mode":"reject","rejectImageBytesAbove":10000}   (reject only the larger photo)
  *   POST /control {"mode":"busy","times":1}   (503 that many times, then approve)
  *   POST /control {"mode":"busy","times":1,"status":429}   (the quota answer instead)
  *   POST /control {"mode":"match","verdicts":["same","different",...]}
@@ -227,8 +228,15 @@ http
     }
     if (last.kind === 'animal') {
       // The species screening shares the approve/reject switch with the
-      // care check; only the words differ.
-      return mode === 'reject'
+      // care check; only the words differ. `rejectImageBytesAbove` refuses
+      // only a photo whose (re-encoded, base64) size exceeds it, so a set
+      // of two fixtures can prove which index the refusal names.
+      const size = images[0].inline_data.data.length;
+      const rejected =
+        mode === 'reject' &&
+        (typeof control.rejectImageBytesAbove !== 'number' ||
+          size > control.rejectImageBytesAbove);
+      return rejected
         ? answer(res, {
             subject: 'no_animal',
             matches: false,

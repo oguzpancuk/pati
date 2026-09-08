@@ -224,9 +224,25 @@ the gallery.
   requests (six screenings and the comparison) instead of one; each is a
   single downscaled image with thinking off, the cheapest call the
   service makes. The match limiter (30/hour/user) still bounds it.
-- **Not stored.** `animal_photos` has no `ai_check` column; what the model
-  said about an animal photo rides in its token only. Add the column when
-  the answers need auditing, as `care_actions.ai_check` does today.
-- **Evidence.** `scripts/ai-check/checks.sh` sections 11–13: tokens issued
-  and redeemed once, bent tokens refused, the refusal with its index, the
-  inline screening of a direct upload, fail-open with the model down.
+- **Pending files, swept.** The match step used to delete its scratch
+  upload on every outcome; a photo behind a token has to stay. It stays as
+  `pending-<name>` (its own multer store), the token names the final
+  `<name>`, and the redeem renames the file into it — atomic on one
+  volume, and the reason the single-use read works: a second redeem finds
+  no pending file, only the final one already in a gallery. Most match
+  calls end in "that one is already registered" or a step back, never in
+  a create, so a sweeper (`config/upload.js`, at boot because the machine
+  autostops when idle, then every five minutes) deletes pending files
+  older than thirty minutes. It never touches a file without the prefix,
+  and no row ever references a prefixed file, so it needs no database.
+  The care check's abandoned file (one per cancelled drop) is the same
+  class of leak and is not on this scheme yet.
+- **Not stored.** `animal_photos` has no `ai_check` column and the token
+  carries nothing about the verdict either; the screening is enforced,
+  not audited. Add the column when the answers need auditing, as
+  `care_actions.ai_check` does today.
+- **Evidence.** `scripts/ai-check/checks.sh` sections 11–15: tokens issued
+  and redeemed once (pending → final rename), bent tokens refused, the
+  refusal naming the second of two photos, the inline screening of a
+  direct upload, fail-open with the model down, the sweeper sparing fresh
+  and real files, multer's limits answered as Turkish 400s.
