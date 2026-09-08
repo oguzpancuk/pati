@@ -2546,6 +2546,13 @@ the next docs touch.
     the permission guidance both name the zoom-in way out; `viewportBoxes`
     guards non-finite latitudes too; the geometry index is mirrored into
     001 (the 002 precedent); `FALLBACK_CENTER` is gone from web.
+  - Third round: web's failure flag moved inside `loadMarkers`, behind the
+    same sequence guard as the data (a stale request could otherwise clear
+    the pill over a stale map, or raise it over a good one); a mobile load
+    with no fix now clears both the statuses and the failure flag, so the
+    sheet stops asserting the last place's verdict; the public viewport
+    route answers 400 (not a Postgres 500) for a non-numeric corner; the
+    two stale comments about staying on Kadıköy are gone.
   - The world view opens at zoom 2.2 with a floor of 2 on both clients:
     the generated basemap drops the low-zoom `natural_earth` raster, so
     below ~2 the vector layers paint nothing (blank cream). The build

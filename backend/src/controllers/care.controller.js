@@ -252,7 +252,13 @@ async function listCareActions(req, res, next) {
     const radiusMeters = Number(req.query.radiusMeters) || DEFAULT_RADIUS_METERS;
 
     if (minLat && maxLat && minLng && maxLng) {
-      const params = [minLng, minLat, maxLng, maxLat];
+      // The viewport comes from a public route: a non-numeric corner must
+      // be a 400, not a Postgres "invalid input syntax" 500.
+      const box = [minLng, minLat, maxLng, maxLat].map(Number);
+      if (box.some((n) => !Number.isFinite(n))) {
+        return res.status(400).json({ error: 'Harita sınırları sayı olmalı' });
+      }
+      const params = box;
       const filter = actionTypeFilter(actionType, params.length + 1);
       if (filter.param) params.push(filter.param);
       const result = await pool.query(

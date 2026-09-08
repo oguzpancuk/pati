@@ -280,6 +280,12 @@ export default function MapScreen({ navigation }: any) {
         centerOnUser(loc);
         return animalData;
       }
+      // No fix: the sheet must fall back to "we don't know where you are"
+      // rather than keep asserting the last place's verdict (review finding).
+      if (seq === loadSeqRef.current) {
+        setStatuses(null);
+        setStatusFailed(false);
+      }
     } catch (err: any) {
       if (seq === loadSeqRef.current) {
         // The sheet must not read as "we don't know where you are" when the

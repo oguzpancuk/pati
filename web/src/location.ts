@@ -3,9 +3,6 @@ export interface Coordinates {
   lng: number;
 }
 
-// Kadıköy: when no location is available (no permission / desktop), the map
-// opens on the seeded area instead of an empty Turkey.
-
 export type LocationFailure = 'insecure' | 'denied' | 'unavailable' | 'unsupported';
 
 export class LocationError extends Error {

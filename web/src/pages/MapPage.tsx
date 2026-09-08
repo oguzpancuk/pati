@@ -443,9 +443,9 @@ export default function MapPage() {
     map.on('moveend', () => {
       window.clearTimeout(viewportTimer);
       viewportTimer = window.setTimeout(() => {
-        loadMarkers()
-          .then(() => setActionsFailed(false))
-          .catch(() => setActionsFailed(true));
+        loadMarkers().catch(() => {
+          // loadMarkers raised the pill itself; nothing else to say.
+        });
       }, VIEWPORT_REFRESH_MS);
     });
 
@@ -469,7 +469,8 @@ export default function MapPage() {
         placeUserDot(loc);
       })
       .catch(() => {
-        /* Without a location we stay on Kadıköy; asked again when adding a record. */
+        /* Without a location the map stays on the world view; the locate
+           button and the add-record flow ask again. */
       });
 
     return () => {
@@ -493,8 +494,17 @@ export default function MapPage() {
     const b = map.getBounds();
     // An antimeridian viewport is two boxes; the records are the union.
     const boxes = viewportBoxes([b.getEast(), b.getNorth()], [b.getWest(), b.getSouth()]);
-    const parts = await Promise.all(boxes.map((box) => fetchCareActionsInBounds(box)));
+    let parts: CareAction[][];
+    try {
+      parts = await Promise.all(boxes.map((box) => fetchCareActionsInBounds(box)));
+    } catch (err) {
+      // The flag belongs behind the same sequence guard as the data: a
+      // stale request must neither raise nor clear it (review finding).
+      if (seq === markersSeqRef.current) setActionsFailed(true);
+      throw err;
+    }
     if (seq !== markersSeqRef.current) return;
+    setActionsFailed(false);
     const byId = new Map<number, CareAction>();
     for (const part of parts) for (const action of part) byId.set(action.id, action);
     const actions = [...byId.values()];
@@ -574,9 +584,9 @@ export default function MapPage() {
 
   useEffect(() => {
     if (!mapReady) return;
-    loadMarkers()
-      .then(() => setActionsFailed(false))
-      .catch(() => setActionsFailed(true));
+    loadMarkers().catch(() => {
+      // loadMarkers raised the pill itself.
+    });
   }, [mapReady, loadMarkers]);
 
   useEffect(() => {
