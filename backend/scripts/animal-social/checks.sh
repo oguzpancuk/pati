@@ -22,9 +22,10 @@ psql_db() { docker exec stray-db psql -U stray -d stray -tAc "$1"; }
 
 PASS=0; FAILED=0
 # The photo matches leave their upload pending for the create step's token
-# (the sweeper reclaims it after thirty minutes); the run removes the ones
-# it made, and only those.
-PENDING_BEFORE=$(ls uploads 2>/dev/null | grep '^pending-' || true)
+# (the sweeper reclaims it after thirty minutes); the run removes exactly
+# the files it made — photo_match records each one's name in a file (it
+# runs inside command substitutions, so a variable would not reach here).
+PENDING_MADE=/tmp/pati-animal-social-pending.txt; : > "$PENDING_MADE"
 check() { # name expected actual
   if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  ok    $1"; else FAILED=1; echo "  FAIL  $1 — expected [$2] got [$3]"; echo "        body: $(head -c 300 $BODY)"; fi; }
 post() { curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$1" -H "Authorization: Bearer $2" -H 'Content-Type: application/json' -d "$3"; }
@@ -36,7 +37,13 @@ care_photos() { # animal token nphotos
   if [ "$3" = 1 ]; then curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$1/care-photos" -H "Authorization: Bearer $2" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg";
   else curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$1/care-photos" -H "Authorization: Bearer $2" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg"; fi; }
 photo_match() { # token → POST /animals/match with one photo and the animal's fields
-  curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/match" -H "Authorization: Bearer $1" -F "lat=$LAT" -F "lng=$LNG" -F "species=$SPECIES" -F "breed=$BREED" -F "color=$COLOR" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg"; }
+  local code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/match" -H "Authorization: Bearer $1" -F "lat=$LAT" -F "lng=$LNG" -F "species=$SPECIES" -F "breed=$BREED" -F "color=$COLOR" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg")
+  # The token names the final file; on disk it waits under the pending prefix.
+  # JWT payloads are base64url without padding: pad and translate first.
+  local b=$(jq -r '.photoTokens[0] // empty' "$BODY" | cut -d. -f2 | tr '_-' '/+'); while [ $(( ${#b} % 4 )) -ne 0 ]; do b="$b="; done
+  local f=$(echo "$b" | base64 -d 2>/dev/null | jq -r .file 2>/dev/null)
+  [ -n "$f" ] && echo "pending-$f" >> "$PENDING_MADE"
+  echo "$code"; }
 last_hit() { # user id → similarity of the newest register hit on the animal, or "none"
   local v=$(psql_db "SELECT similarity FROM animal_match_attempts WHERE user_id=$1 AND animal_id=$ANIMAL AND kind='register' ORDER BY id DESC LIMIT 1"); echo "${v:-none}"; }
 last_code() { # e-mail → the 6-digit code from the outbox
@@ -48,6 +55,14 @@ register() { # name email → prints "token id"
   echo "$t $id"; }
 
 echo "== accounts and the throwaway animal"
+# An earlier run that died before its cleanup leaves its animal in the
+# circle and its accounts behind; sweep them first (they are recognisable
+# by the address pattern and the name at this spot).
+LEFT=$(psql_db "SELECT count(*) FROM animals WHERE name='Harness Kedisi'")
+if [ "$LEFT" != 0 ]; then
+  psql_db "DELETE FROM animals WHERE name='Harness Kedisi'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|ikinci)-[0-9]+@stray\.test$';" >/dev/null
+  echo "        (swept $LEFT leftover animal(s) of an earlier aborted run)"
+fi
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/auth/login" -H 'Content-Type: application/json' -d '{"email":"test1@stray.test","password":"password123"}')
 check "login test1 -> 200" 200 "$code"; A=$(j .token); A_ID=$(j .user.id)
 STAMP=$(date +%s)
@@ -100,6 +115,9 @@ check "no hit logged" "0" "$(psql_db "SELECT count(*) FROM animal_match_attempts
 code=$(post "animals/$ANIMAL/sightings" "$B" "{\"lat\":$LAT,\"lng\":$LNG}"); check "B sighting still -> 403" "403 carersOnly" "$code $(j .code)"
 
 echo "== care-photo step"
+# Order matters here: A's care photos are the first files on disk for this
+# animal and get a face thumb, which is what makes the cover comparable
+# for the miss/match cases that follow (and for the door section).
 code=$(care_photos $ANIMAL "$B" 1); check "one photo -> 400" "400 carePhotosRequired" "$code $(j .code)"
 code=$(get "animals/$ANIMAL" "$A"); BEFORE=$(j '.photos | length')
 control '{"mode":"match","verdicts":["different","different","different","different","different","different","different","different"]}'
@@ -134,31 +152,36 @@ FIRST=$(j '.notifications[0].id')
 code=$(post "notifications/read" "$B" "{\"ids\":[$FIRST]}"); check "read one -> 2 left" "200 2" "$code $(j .unreadCount)"
 code=$(post "notifications/read" "$B" '{}'); check "read all -> 0" "0" "$(j .unreadCount)"
 
-echo "== the add-animal door: a photo match lets a sighting through"
+echo "== the add-animal door: only a 'same' verdict opens it"
 # Our animal is the only candidate in the circle, so the fake's first
-# verdict is its verdict. 'different' drops it to low: no hit, no door.
+# verdict is its verdict. Product rule: the door is never weaker than
+# "bakım ver" — 'same' opens it, 'similar'/'unsure' do not, and the field-
+# only form never logs (checked above).
 control '{"mode":"match","verdicts":["different"]}'
 code=$(photo_match "$E"); check "E photo match, model says different -> 200, checked, animal hidden" "200 true 0" "$code $(j .photoChecked) $(j '.candidates | length')"
 check "no hit for a 'different' verdict" "none" "$(last_hit $E_ID)"
-code=$(post "animals/$ANIMAL/sightings" "$E" "{\"lat\":$LAT,\"lng\":$LNG}"); check "E sighting still -> 403" "403 carersOnly" "$code $(j .code)"
-# 'unsure': shown by its fields, no photo verdict — the clients still
-# offer "that's the one", so the hit is logged 'unchecked'.
 control '{"mode":"match","verdicts":["unsure"]}'
-code=$(photo_match "$B"); check "B photo match, model unsure -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
-check "hit logged as unchecked" "unchecked" "$(last_hit $B_ID)"
-code=$(post "animals/$ANIMAL/sightings" "$B" "{\"lat\":$LAT,\"lng\":$LNG}"); check "B sighting after the hit -> 200" 200 "$code"
+code=$(photo_match "$E"); check "E photo match, model unsure -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
+check "no hit for an 'unsure' verdict" "none" "$(last_hit $E_ID)"
+control '{"mode":"match","verdicts":["similar"]}'
+code=$(photo_match "$E"); check "E photo match, model says similar -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
+check "no hit for a 'similar' verdict" "none" "$(last_hit $E_ID)"
+code=$(post "animals/$ANIMAL/sightings" "$E" "{\"lat\":$LAT,\"lng\":$LNG}"); check "E sighting still -> 403 (the clients then open the profile)" "403 carersOnly" "$code $(j .code)"
+control '{"mode":"match","verdicts":["same"]}'
+code=$(photo_match "$B"); check "B photo match, model says same -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
+check "hit logged as same" "same" "$(last_hit $B_ID)"
+code=$(post "animals/$ANIMAL/sightings" "$B" "{\"lat\":$LAT,\"lng\":$LNG}"); check "B sighting after the 'same' hit -> 200" 200 "$code"
 code=$(get "animals/$ANIMAL" "$B"); check "B became a carer" "true" "$(j .isCarer)"
 code=$(get "notifications/unread-count" "$A"); check "A hears about the sighting" "$((A0+1))" "$(j .unreadCount)"
 code=$(post "animals/$ANIMAL/comments" "$B" '{"body":"Ben de gördüm."}'); check "B (carer now) comment -> 201" 201 "$code"
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$ANIMAL/photos" -H "Authorization: Bearer $B" -F "photo=@$FIXTURES/b.jpg;type=image/jpeg"); check "B photo upload as carer -> 201" 201 "$code"
-# 'similar' (13 characters as photo_similar — the column holds 10): logged
-# with the model's word, and it opens the door.
-control '{"mode":"match","verdicts":["similar"]}'
-code=$(photo_match "$E"); check "E photo match, model says similar -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
-check "hit logged as similar" "similar" "$(last_hit $E_ID)"
-code=$(post "animals/$ANIMAL/sightings" "$E" "{\"lat\":$LAT,\"lng\":$LNG}"); check "E sighting after the similar hit -> 200" 200 "$code"
-# A hit on the photo's own upload is not kept: the file stays pending for
-# the create step's token and the sweeper reclaims it (documented).
+# Without any model answer the hit is 'unchecked' (fail open, as the care
+# step): the fake errors, the comparison yields nothing.
+control '{"mode":"error"}'
+code=$(photo_match "$E"); check "E photo match, model down -> 200, unchecked" "200 false" "$code $(j .photoChecked)"
+check "hit logged as unchecked" "unchecked" "$(last_hit $E_ID)"
+code=$(post "animals/$ANIMAL/sightings" "$E" "{\"lat\":$LAT,\"lng\":$LNG}"); check "E sighting after the unchecked hit -> 200" 200 "$code"
+check "'matched' counts distinct users with a same/unchecked hit" "2" "$(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")"
 code=$(post "animals/$ANIMAL/health-records/$RECORD/recover" "$A" '{}'); check "A marks recovered -> 200" 200 "$code"
 control '{"mode":"approve"}'
 
@@ -183,6 +206,8 @@ echo; echo "passed $PASS checks; failed=$FAILED"
 # Cleanup: the run's photo files, then the throwaway animal (cascade) and
 # the accounts. A's rows on the animal go with it.
 psql_db "SELECT url FROM animal_photos WHERE animal_id=$ANIMAL" | while read -r u; do rm -f "uploads/$(basename "$u")" "uploads/$(basename "$u" .jpg)-face.jpg"; done
-for f in $(ls uploads | grep '^pending-'); do echo "$PENDING_BEFORE" | grep -qx "$f" || rm -f "uploads/$f"; done
-psql_db "DELETE FROM animals WHERE id=$ANIMAL; DELETE FROM users WHERE id IN ($B_ID,$C_ID,$D_ID,$E_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null
+while read -r f; do [ -n "$f" ] && rm -f "uploads/$f"; done < "$PENDING_MADE"
+if ! psql_db "DELETE FROM animals WHERE id=$ANIMAL; DELETE FROM users WHERE id IN ($B_ID,$C_ID,$D_ID,$E_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null; then
+  echo "  FAIL  cleanup: the throwaway animal $ANIMAL / accounts $B_ID $C_ID $D_ID $E_ID are still in the database"; FAILED=1
+fi
 exit $FAILED
