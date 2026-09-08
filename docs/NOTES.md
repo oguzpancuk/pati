@@ -2300,8 +2300,15 @@ the next docs touch.
   commits, six review rounds ending APPROVE). Three add/add conflicts
   with Track B (the route mount in `backend/src/app.js`, the page imports
   in `web/src/App.tsx`, the appended sections of `web/src/theme.css`)
-  were resolved by keeping both sides in order — additions only, nothing
-  rewritten. Owner decisions (items 5–8): kedi/köpek profili title;
+  were resolved by keeping both sides in order. Correction after the
+  push-range review: the theme.css resolution had dropped the tail of
+  `.msg-unread` (eight lines, its closing brace included) and one line of
+  `.bell-count`, nesting the 68 rules that followed into one block — the
+  web build does not fail on that. The file was rebuilt from the two
+  parents (main after the messaging merge + Track C's animal-social
+  section), esbuild's CSS parser now runs in the quick battery as "web
+  css", and the three web surfaces (mesajlar, kedi profili, bildirimler)
+  were screenshotted from main afterwards. Owner decisions (items 5–8): kedi/köpek profili title;
   square photo grid, swipeable viewer, one like per user with a count;
   "takip et" (free) and "bakım ver" (two photos, model-matched); comments,
   sightings, health/vaccination and photo uploads carers-only; followers
