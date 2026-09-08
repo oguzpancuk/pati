@@ -1664,6 +1664,11 @@ strong {
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
+  /* Five-digit counts on a 320 px viewport would push the row wider than
+     the page; ellipsise instead of giving the page a horizontal scrollbar. */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The last-seen timestamp is the mini map's caption. */

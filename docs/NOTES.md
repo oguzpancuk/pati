@@ -2485,8 +2485,9 @@ the next docs touch.
   name instead of a footnote (was 12.5 semibold muted; bold was tried and
   the owner found it too heavy). Verified with a profile screenshot on web
   and on the simulator after each round; the pair still wraps under a long
-  name (the wrap threshold moved down ~26 px, measured in Chromium by the
-  reviewer).
+  name (the pair widened by 29-35 px depending on the counts, measured in
+  Chromium by the reviewer, so the wrap fires for shorter names than before
+  — the avatar's removal in the next commit gave that width back).
 - Owner, 2026-09-09: the animal profile drops its avatar — the photo grid
   moves to the very top as the hero (no section header there any more) and
   the identity block (name + follower/carer pair, descriptive line, badge
