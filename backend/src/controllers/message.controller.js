@@ -19,6 +19,8 @@ const MAX_GROUP_MEMBERS = 50;
 const PAGE_DEFAULT = 50;
 const PAGE_MAX = 100;
 const MAX_REPORT_DETAILS = 1000;
+// The quoted excerpt is cut server-side so both clients show the same text.
+const QUOTE_EXCERPT = 120;
 
 const USER_COLUMNS = 'u.id, u.name, u.avatar_url';
 
@@ -74,9 +76,35 @@ async function listMembers(db, conversationId) {
   return r.rows;
 }
 
-/** Turns a joined message row into the wire shape; a deleted body never leaves the server. */
-function shapeMessage(row) {
+/** The first ~120 characters of a body, whitespace folded, for a quote block. */
+function excerptOf(body) {
+  const flat = body.replace(/\s+/g, ' ').trim();
+  return flat.length > QUOTE_EXCERPT ? `${flat.slice(0, QUOTE_EXCERPT).trimEnd()}…` : flat;
+}
+
+/**
+ * Turns a joined message row into the wire shape for one reader; a deleted
+ * body never leaves the server. `joinedAt` is the reader's membership
+ * start: a quote of a message from before it is dropped, since the reader
+ * may not see that message directly either (review finding).
+ */
+function shapeMessage(row, joinedAt) {
   const deleted = !!row.deleted_at;
+  // The quote is resolved at read time, so a source deleted after the reply
+  // was sent shows as deleted everywhere on the next page or poll; the
+  // clients also blank it locally from the poll's `deleted` list.
+  const quoteDeleted = !!row.quote_deleted_at;
+  const quoteVisible = !!row.quote_id && row.quote_created_at >= joinedAt;
+  const replyTo = quoteVisible
+    ? {
+        id: row.quote_id,
+        sender: row.quote_sender_id
+          ? { id: row.quote_sender_id, name: row.quote_sender_name }
+          : null,
+        excerpt: quoteDeleted ? null : excerptOf(row.quote_body),
+        deleted: quoteDeleted,
+      }
+    : null;
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -87,15 +115,22 @@ function shapeMessage(row) {
     deleted,
     // Whether the sender took it back (true) or an admin removed it (false).
     deletedBySender: deleted ? row.deleted_by !== null && row.deleted_by === row.sender_id : null,
+    replyTo,
     createdAt: row.created_at,
   };
 }
 
+// The quoted source rides along on every list/poll/echo row (P7 item 7):
+// the clients render it without a second request.
 const MESSAGE_SELECT = `
   SELECT x.id, x.conversation_id, x.sender_id, x.body, x.created_at, x.deleted_at, x.deleted_by,
-         u.name AS sender_name, u.avatar_url AS sender_avatar_url
+         u.name AS sender_name, u.avatar_url AS sender_avatar_url,
+         q.id AS quote_id, q.body AS quote_body, q.deleted_at AS quote_deleted_at,
+         q.created_at AS quote_created_at, q.sender_id AS quote_sender_id, qu.name AS quote_sender_name
   FROM messages x
-  LEFT JOIN users u ON u.id = x.sender_id`;
+  LEFT JOIN users u ON u.id = x.sender_id
+  LEFT JOIN messages q ON q.id = x.reply_to_id
+  LEFT JOIN users qu ON qu.id = q.sender_id`;
 
 // ---------------------------------------------------------------- inbox
 
@@ -526,7 +561,7 @@ async function listMessages(req, res, next) {
       ).rows.reverse();
     }
     res.json({
-      messages: rows.map(shapeMessage),
+      messages: rows.map((row) => shapeMessage(row, joinedAt)),
       deleted: clock.rows[0].deleted,
       hasMore: !after && rows.length === limit,
       now: clock.rows[0].now,
@@ -548,6 +583,27 @@ async function sendMessage(req, res, next) {
     if (body.length > MAX_BODY) {
       return res.status(400).json({ error: `Mesaj en fazla ${MAX_BODY} karakter olabilir` });
     }
+    // A reply quotes a message the sender can see: same conversation, not
+    // before their joined_at, not deleted. Anything else is one 400 — the
+    // id is not confirmed to exist elsewhere.
+    let replyToId = null;
+    if (req.body.replyToId !== undefined && req.body.replyToId !== null) {
+      if (typeof req.body.replyToId !== 'number') {
+        return res.status(400).json({ error: 'Geçersiz yanıt' });
+      }
+      replyToId = parseId(req.body.replyToId);
+      const source =
+        replyToId &&
+        (
+          await client.query(
+            `SELECT deleted_at FROM messages
+             WHERE id = $1 AND conversation_id = $2 AND created_at >= $3`,
+            [replyToId, id, conv.joined_at]
+          )
+        ).rows[0];
+      if (!source) return res.status(400).json({ error: 'Yanıtlanan mesaj bu sohbette bulunamadı' });
+      if (source.deleted_at) return res.status(400).json({ error: 'Silinmiş bir mesaj yanıtlanamaz' });
+    }
     if (conv.kind === 'direct') {
       // The friendship is the permission, not the conversation: after an
       // unfriend the history stays readable but nothing new goes through.
@@ -563,8 +619,9 @@ async function sendMessage(req, res, next) {
     // The row and the inbox ordering land together or not at all.
     await client.query('BEGIN');
     const inserted = await client.query(
-      `INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1, $2, $3) RETURNING id, created_at`,
-      [id, userId, body]
+      `INSERT INTO messages (conversation_id, sender_id, body, reply_to_id) VALUES ($1, $2, $3, $4)
+       RETURNING id, created_at`,
+      [id, userId, body, replyToId]
     );
     const { id: messageId, created_at: createdAt } = inserted.rows[0];
     await client.query('UPDATE conversations SET last_message_at = $2 WHERE id = $1', [
@@ -579,7 +636,7 @@ async function sendMessage(req, res, next) {
     // (sender_id IS DISTINCT FROM), and stamping last_read_at with this
     // message's time would hide a reply that landed between the sender's
     // last poll and the send (review finding). The next poll marks it.
-    res.status(201).json(shapeMessage(row));
+    res.status(201).json(shapeMessage(row, conv.joined_at));
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     next(err);

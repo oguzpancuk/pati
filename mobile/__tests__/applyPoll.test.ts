@@ -1,4 +1,4 @@
-import { applyPoll, Message, MessagesPage } from '../src/api/messages';
+import { applyPoll, Message, MessagesPage, quoteOf, withDeleted } from '../src/api/messages';
 
 // The poll contract both clients rely on (web copies applyPoll verbatim):
 // the cursor never moves on send, so a poll may bring back the echo of an
@@ -6,6 +6,8 @@ import { applyPoll, Message, MessagesPage } from '../src/api/messages';
 // messages already on screen arrive as `deleted` refs.
 
 const sender = (id: number) => ({ id, name: `u${id}`, avatar_url: null });
+// A quote names its sender without the avatar.
+const quoted = (id: number) => ({ id, name: `u${id}` });
 
 function msg(id: number, senderId: number, body = `m${id}`): Message {
   return {
@@ -15,6 +17,7 @@ function msg(id: number, senderId: number, body = `m${id}`): Message {
     body,
     deleted: false,
     deletedBySender: null,
+    replyTo: null,
     createdAt: `2026-09-08T10:00:${String(id).padStart(2, '0')}.000Z`,
   };
 }
@@ -44,10 +47,7 @@ describe('applyPoll', () => {
 
   it('blanks a deleted message it holds and records who deleted it', () => {
     const current = [msg(1, 1), msg(2, 2)];
-    const next = applyPoll(
-      current,
-      page({ deleted: [{ id: 2, deletedBySender: false }] })
-    );
+    const next = applyPoll(current, page({ deleted: [{ id: 2, deletedBySender: false }] }));
     expect(next[1]).toMatchObject({ id: 2, body: null, deleted: true, deletedBySender: false });
     expect(next[0].deleted).toBe(false);
   });
@@ -61,5 +61,48 @@ describe('applyPoll', () => {
   it('ignores a deletion for a message it does not hold', () => {
     const next = applyPoll([msg(1, 1)], page({ deleted: [{ id: 99, deletedBySender: null }] }));
     expect(next.map((m) => m.id)).toEqual([1]);
+  });
+
+  it('blanks the quote of a message whose source the poll reports deleted', () => {
+    const reply: Message = { ...msg(3, 1), replyTo: quoteOf(msg(2, 2, 'kaynak')) };
+    const next = applyPoll(
+      [msg(2, 2, 'kaynak'), reply],
+      page({ deleted: [{ id: 2, deletedBySender: true }] })
+    );
+    expect(next[0].deleted).toBe(true);
+    expect(next[1].replyTo).toEqual({ id: 2, sender: quoted(2), excerpt: null, deleted: true });
+    // The reply itself is untouched.
+    expect(next[1]).toMatchObject({ id: 3, body: 'm3', deleted: false });
+  });
+
+  it('blanks a quote even when the source is no longer in the list', () => {
+    const reply: Message = { ...msg(3, 1), replyTo: quoteOf(msg(2, 2, 'kaynak')) };
+    const next = withDeleted([reply], [{ id: 2, deletedBySender: false }]);
+    expect(next[0].replyTo?.deleted).toBe(true);
+    expect(next[0].replyTo?.excerpt).toBeNull();
+  });
+
+  it('withDeleted returns the same array for an empty list of deletions', () => {
+    const current = [msg(1, 1)];
+    expect(withDeleted(current, [])).toBe(current);
+  });
+});
+
+describe('quoteOf', () => {
+  it('folds whitespace and cuts at 120 characters with an ellipsis, like the server', () => {
+    const q = quoteOf(msg(5, 2, `  a  b\n${'x'.repeat(200)}`));
+    expect(q.excerpt).toHaveLength(121);
+    expect(q.excerpt?.startsWith('a b x')).toBe(true);
+    expect(q.excerpt?.endsWith('…')).toBe(true);
+    expect(q).toMatchObject({ id: 5, sender: { id: 2, name: 'u2' }, deleted: false });
+  });
+
+  it('keeps a short body whole', () => {
+    expect(quoteOf(msg(5, 2, 'selam')).excerpt).toBe('selam');
+  });
+
+  it('carries no excerpt for a deleted source', () => {
+    const q = quoteOf({ ...msg(5, 2), body: null, deleted: true, deletedBySender: true });
+    expect(q).toEqual({ id: 5, sender: quoted(2), excerpt: null, deleted: true });
   });
 });
