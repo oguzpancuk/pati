@@ -2013,3 +2013,48 @@ the next docs touch.
   session's permission classifier twice, so they are still there —
   either the owner runs the one-liner, or a reviewed repo script does it
   in the next deploy.
+
+## 2026-09-08 — first production reports: dead retake on web, unscreened animal photos, no verification mail
+
+- **Web "Yeniden çek" did nothing after a refused care photo.** The hidden
+  file input was rendered only in the idle branch of the drop sheet, so
+  the rejected step clicked a ref to an unmounted input. One input for
+  every step now. Mobile's button is the same handler as the first shot;
+  on the simulator (gallery stands in for the camera in `__DEV__`) the
+  rejected step's "Yeniden çek" reopens the picker — a real-device camera
+  run is still owed if the report came from the iOS app rather than the
+  PWA.
+- **Animal photos are now screened for the species** (ADR-0005, second
+  amendment): `checkAnimalPhoto` next to the care check; `POST
+  /animals/match` takes the form's whole photo set, screens each (in
+  parallel, before the comparison), refuses with `photoIndex`, and hands
+  back one `photoToken` per photo that `POST /animals/:id/photos` redeems
+  — the care scheme without the jti column (single use is a read on the
+  file name; a race costs a duplicate row on one file, not a drop on the
+  map). Direct uploads are screened inline. Clients: the refused photo
+  leaves the strip with the model's reason (alert + caption on mobile,
+  the page error on web); the create step redeems tokens, falls back to
+  the file on `photoTokenInvalid`, and a photo failing after the record
+  exists lands on the profile with the reason. Cost: up to seven small
+  image requests per registration instead of one (`AI_MATCH_CANDIDATES`
+  unchanged; the match limiter bounds it).
+- Evidence: `scripts/ai-check/run.sh` 145 PASS (sections 11–13 new);
+  playwright on the dev server with the fake in reject mode — the second
+  of two photos refused, the strip down to one, the reason above the
+  form; approve mode — `POST /animals/match` then two `POST
+  /animals/:id/photos` with `photoToken` bodies, profile reached; the map
+  sheet refused → "Yeniden çek" fires the file chooser → second photo
+  approved. Simulator: same refusal alert and caption on add-animal, the
+  picker reopening from the rejected drop sheet. Screenshots in the
+  session scratchpad. tsc ×2 clean.
+- **The verification code never arrives on production — not code.**
+  `RESEND_API_KEY` is set and the boot log says `mail: Resend (from: Pati
+  <noreply@pati-app.com>)`, but `resend._domainkey.pati-app.com` and
+  `send.pati-app.com` answer NXDOMAIN: the domain was never verified in
+  Resend, so every send is a 403 (`verification mail to user N failed:
+  Resend answered 403` in the Fly log; the client shows the "Yeni bir kod
+  iste" text and the resend answers 502). Fix is owner-side: publish the
+  DKIM TXT and the SPF/MX pair Resend lists for `pati-app.com`, wait for
+  "Verified", register once more. A Resend-side probe over `fly ssh
+  console` was refused by the session's permission classifier; the DNS
+  answer is the evidence.
