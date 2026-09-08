@@ -46,7 +46,7 @@ for n in 2 3; do
 done
 T2=$(login trackb2@stray.test); T3=$(login trackb3@stray.test)
 req "$T1" GET /users/me; U1=$(echo "$BODY" | j '.id')
-req "$T2" GET /users/me; U2=$(echo "$BODY" | j '.id')
+req "$T2" GET /users/me; U2=$(echo "$BODY" | j '.id'); N2=$(echo "$BODY" | j '.name')
 req "$T3" GET /users/me; U3=$(echo "$BODY" | j '.id')
 echo "users: $U1 $U2 $U3"
 
@@ -73,7 +73,9 @@ expect "DM reopen not created" "$(echo "$BODY" | j '.created')" "false"
 
 # 2. send / list / poll / unread / read
 # rerunnable: the previous run leaves T2 with an unread message from section 3b
+# and T1 with the quoted sources from section 3c
 req "$T2" POST "/messages/conversations/$DM/read"
+req "$T1" POST "/messages/conversations/$DM/read"
 req "$T1" POST "/messages/conversations/$DM/messages" '{"body":"   "}'; expect "empty body 400" "$STATUS" "400"
 req "$T1" POST "/messages/conversations/$DM/messages" '{"body":"selam"}'; expect "send 201" "$STATUS" "201"; M1=$(echo "$BODY" | j '.id')
 expect "send echoes body" "$(echo "$BODY" | j '.body')" "selam"
@@ -111,6 +113,33 @@ req "$T1" GET /messages/conversations; expect "reply before own send still unrea
 req "$T1" POST "/messages/conversations/$DM/read"
 req "$T1" GET "/messages/conversations/$DM/messages?limit=2.7"; expect "fractional limit floored" "$(echo "$BODY" | j '.messages.length')" "2"
 
+# 3c. quotes (P7 item 7): the reply's echo, the page and the poll all carry
+# the source; a source deleted afterwards reads as deleted; a deleted,
+# unknown or malformed source is refused (cross-conversation and pre-join
+# sources are refused in section 5, where the group exists).
+req "$T1" GET "/messages/conversations/$DM/messages"; QCUR=$(echo "$BODY" | j '.messages.at(-1).id'); QNOW=$(echo "$BODY" | j '.now')
+req "$T2" POST "/messages/conversations/$DM/messages" '{"body":"  alintilanacak   mesaj\nikinci satir  "}'; QS=$(echo "$BODY" | j '.id')
+expect "plain message replyTo null" "$(echo "$BODY" | j '.replyTo')" "null"
+req "$T1" POST "/messages/conversations/$DM/messages" "{\"body\":\"yanit\",\"replyToId\":$QS}"; expect "reply 201" "$STATUS" "201"; QR=$(echo "$BODY" | j '.id')
+expect "echo carries quote id" "$(echo "$BODY" | j '.replyTo.id')" "$QS"
+expect "echo carries quote sender" "$(echo "$BODY" | j '.replyTo.sender.id')" "$U2"
+expect "quote excerpt folds whitespace" "$(echo "$BODY" | j '.replyTo.excerpt')" "alintilanacak mesaj ikinci satir"
+expect "quote not deleted" "$(echo "$BODY" | j '.replyTo.deleted')" "false"
+LONG=$(printf 'a%.0s' $(seq 1 200))
+req "$T2" POST "/messages/conversations/$DM/messages" "{\"body\":\"$LONG\"}"; QL=$(echo "$BODY" | j '.id')
+req "$T1" POST "/messages/conversations/$DM/messages" "{\"body\":\"uzun yanit\",\"replyToId\":$QL}"
+expect "excerpt cut at 120 plus ellipsis" "$(echo "$BODY" | j '.replyTo.excerpt.length')" "121"
+req "$T2" GET "/messages/conversations/$DM/messages?after=$QCUR&since=$QNOW"; expect "poll carries quote" "$(echo "$BODY" | j ".messages.find(m=>m.id===$QR).replyTo.id")" "$QS"
+req "$T2" GET "/messages/conversations/$DM/messages"; expect "page carries quote" "$(echo "$BODY" | j ".messages.find(m=>m.id===$QR).replyTo.sender.name")" "$N2"
+req "$T1" POST "/messages/conversations/$DM/messages" '{"body":"x","replyToId":999999999}'; expect "reply to unknown 400" "$STATUS" "400"
+req "$T1" POST "/messages/conversations/$DM/messages" '{"body":"x","replyToId":"abc"}'; expect "reply to non-id 400" "$STATUS" "400"
+req "$T1" POST "/messages/conversations/$DM/messages" '{"body":"duz","replyToId":null}'; expect "replyToId null is a plain message" "$(echo "$BODY" | j '.replyTo')" "null"
+req "$T2" DELETE "/messages/$QS"
+req "$T1" GET "/messages/conversations/$DM/messages"; expect "quote of a deleted source reads deleted" "$(echo "$BODY" | j ".messages.find(m=>m.id===$QR).replyTo.deleted")" "true"
+expect "deleted quote hides the excerpt" "$(echo "$BODY" | j ".messages.find(m=>m.id===$QR).replyTo.excerpt")" "null"
+expect "deleted quote keeps the sender" "$(echo "$BODY" | j ".messages.find(m=>m.id===$QR).replyTo.sender.id")" "$U2"
+req "$T1" POST "/messages/conversations/$DM/messages" "{\"body\":\"x\",\"replyToId\":$QS}"; expect "reply to a deleted source 400" "$STATUS" "400"
+
 # 4. group: create (only own friends), rename, promote, add, remove, leave
 req "$T1" POST /messages/groups '{"name":"","memberIds":[1]}'; expect "group no name 400" "$STATUS" "400"
 req "$T1" POST /messages/groups "{\"name\":\"Mahalle\",\"memberIds\":[]}"; expect "group no members 400" "$STATUS" "400"
@@ -133,6 +162,11 @@ req "$T3" GET /messages/conversations; expect "new member sees group" "$(echo "$
 
 # 5. group messages and admin delete; non-admin refusal
 req "$T3" POST "/messages/conversations/$G/messages" '{"body":"herkese selam"}'; GM=$(echo "$BODY" | j '.id'); expect "group send 201" "$STATUS" "201"
+req "$T2" POST "/messages/conversations/$G/messages" "{\"body\":\"sana da\",\"replyToId\":$GM}"; expect "group reply 201" "$STATUS" "201"
+expect "group reply quotes u3" "$(echo "$BODY" | j '.replyTo.sender.id')" "$U3"
+req "$T1" POST "/messages/conversations/$G/messages" "{\"body\":\"x\",\"replyToId\":$M1}"; expect "quote across conversations 400" "$STATUS" "400"
+req "$T3" POST "/messages/conversations/$G/messages" "{\"body\":\"x\",\"replyToId\":$PRE}"; expect "late member quoting a pre-join message 400" "$STATUS" "400"
+req "$T2" POST "/messages/conversations/$G/messages" "{\"body\":\"x\",\"replyToId\":$PRE}"; expect "founding member quotes it 201" "$STATUS" "201"
 req "$T2" DELETE "/messages/$GM"; expect "non-admin delete 403" "$STATUS" "403"
 req "$T1" DELETE "/messages/$GM"; expect "admin deletes any 200" "$STATUS" "200"
 req "$T3" GET "/messages/conversations/$G/messages"; expect "admin-deleted flag" "$(echo "$BODY" | j '.messages[0].deletedBySender')" "false"
