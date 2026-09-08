@@ -2609,3 +2609,26 @@ the next docs touch.
     the generated basemap drops the low-zoom `natural_earth` raster, so
     below ~2 the vector layers paint nothing (blank cream). The build
     script now records that consequence.
+
+## 2026-09-09 — thirteenth deploy note (v32): P7 + P8 live
+
+- Owner: "pushla ve deployla". Pushed `b647404..531b2ef` (45 commits, every
+  one reviewed; the P8 map work took eight review rounds) and deployed
+  with `fly deploy --app pati-app --ha=false` → **v32**: release command
+  completed (migrations 006–010 applied), machine in a good state.
+  Checklist: clean tree in sync, full battery 10/10 on the exact commit,
+  secret scan clean, and the migration rehearsal CLAUDE.md requires — the
+  new `migrate.js` run twice against a throwaway database built from
+  production's own files (`git show e9448bd:…`) — both passes clean, 19
+  tables before and 29 after, the `009_carers_follow` sentinel claimed
+  once. Release notes: none exist and the repo has no tags; noted, not
+  produced.
+- Production checks after the deploy: `/health` ok, pati-app.com 200,
+  admin.pati-app.com 200, the world viewport box 200 (it answered 0 rows
+  before 010 — the geography envelope bug), a malformed box 400, and on
+  the production database `idx_care_actions_location_geom` present with
+  the backfill sentinel holding exactly one row.
+- The first `fly deploy` failed with "dockerfile backend/Dockerfile not
+  found" because the shell was still in `backend/` from the rehearsal;
+  rerun from the repo root with `--config`. Worth remembering: fly reads
+  the Dockerfile relative to the working directory.
