@@ -396,17 +396,58 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       keyboardVerticalOffset={90}
     >
       <Screen scroll>
-        {/* Header, after the human profile's (handoff 3c/3d): the avatar
-            beside a name row, one descriptive line — pattern, color and
-            markings as a sentence, not labeled fields — and the badge chips.
-            No card; it sits on white. */}
+        {/* The photos open the profile (owner, 2026-09-09 — the avatar is
+            gone with them): square tiles, three a row, each with its like
+            count; a tap opens the swipeable viewer. The last row fills with
+            dashed "fotoğraf" placeholders — even an empty profile invites. */}
+        <View style={styles.photoGrid}>
+          {animal.photos.map((photo, i) => (
+            <Pressable
+              key={photo.id}
+              style={[styles.photoTile, { width: tileSize, height: tileSize }]}
+              onPress={() =>
+                navigation.navigate('AnimalPhotos', { animalId, photos: animal.photos, index: i })
+              }
+              accessibilityLabel={`Fotoğraf ${i + 1}, ${photo.like_count ?? 0} beğeni`}
+            >
+              <Image source={{ uri: photo.url }} style={styles.photoImage} />
+              <View style={styles.likeBadge}>
+                <Icon
+                  name="heart"
+                  size={12}
+                  color={photo.liked_by_me ? colors.brand : colors.textOnBrand}
+                />
+                <Text variant="micro" style={styles.likeBadgeText}>
+                  {photo.like_count ?? 0}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+          {Array.from({
+            length:
+              (GRID_COLUMNS - (animal.photos.length % GRID_COLUMNS)) % GRID_COLUMNS ||
+              (animal.photos.length ? 0 : GRID_COLUMNS),
+          }).map((_, i) => (
+            <View
+              key={`ph-${i}`}
+              style={[
+                styles.photoTile,
+                styles.photoPlaceholder,
+                { width: tileSize, height: tileSize },
+              ]}
+            >
+              <Text variant="micro" color="textSubtle">
+                fotoğraf
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Identity under the photos (owner, 2026-09-09): no avatar — the
+            gallery above is the animal's face — a name row with the
+            follower/carer pair, one descriptive line (pattern, colour and
+            markings as a sentence) and the badge chips. */}
         <View style={styles.header}>
-          <AnimalAvatar
-            species={animal.species}
-            breed={animal.breed}
-            photoUrl={animal.cover_thumb_url}
-            size={60}
-          />
           <View style={styles.headerText}>
             <View style={styles.nameRow}>
               <Text variant="title" numberOfLines={1} style={styles.name}>
@@ -492,54 +533,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             )}
           </View>
         )}
-
-        {/* The photo grid (P6 item 7): square tiles, three a row, each with
-            its like count; a tap opens the swipeable viewer. The last row
-            fills with dashed "fotoğraf" placeholders — even an empty
-            profile invites. */}
-        <SectionHeader title="Fotoğraflar" />
-        <View style={styles.photoGrid}>
-          {animal.photos.map((photo, i) => (
-            <Pressable
-              key={photo.id}
-              style={[styles.photoTile, { width: tileSize, height: tileSize }]}
-              onPress={() =>
-                navigation.navigate('AnimalPhotos', { animalId, photos: animal.photos, index: i })
-              }
-              accessibilityLabel={`Fotoğraf ${i + 1}, ${photo.like_count ?? 0} beğeni`}
-            >
-              <Image source={{ uri: photo.url }} style={styles.photoImage} />
-              <View style={styles.likeBadge}>
-                <Icon
-                  name="heart"
-                  size={12}
-                  color={photo.liked_by_me ? colors.brand : colors.textOnBrand}
-                />
-                <Text variant="micro" style={styles.likeBadgeText}>
-                  {photo.like_count ?? 0}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-          {Array.from({
-            length:
-              (GRID_COLUMNS - (animal.photos.length % GRID_COLUMNS)) % GRID_COLUMNS ||
-              (animal.photos.length ? 0 : GRID_COLUMNS),
-          }).map((_, i) => (
-            <View
-              key={`ph-${i}`}
-              style={[
-                styles.photoTile,
-                styles.photoPlaceholder,
-                { width: tileSize, height: tileSize },
-              ]}
-            >
-              <Text variant="micro" color="textSubtle">
-                fotoğraf
-              </Text>
-            </View>
-          ))}
-        </View>
 
         <SectionHeader title="En son görüldüğü yer" style={styles.sectionTop} />
         <View style={styles.miniMapWrapper}>
@@ -966,8 +959,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
   olderComments: { marginBottom: spacing.sm },
   flex: { flex: 1, backgroundColor: c.background },
-  header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.lg },
-  headerText: { flex: 1, marginLeft: spacing.lg },
+  header: { marginTop: spacing.md, marginBottom: spacing.lg },
+  headerText: { flex: 1 },
   // The pair sits right of the name while both fit; a long name pushes it
   // onto its own line underneath (wrap happens before shrink), so the name
   // is never squeezed to a few characters and the pair never breaks.
@@ -998,7 +991,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   actionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginBottom: spacing.xl,
+    // The first section adds its own top margin; xl here on top of that
+    // left a hole under the pair once the photos moved above the header.
+    marginBottom: spacing.xs,
   },
   actionButton: { flex: 1 },
   // Mirrors Button's `success` variant at size sm (pill, 1pt ring).

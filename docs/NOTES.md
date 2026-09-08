@@ -2487,3 +2487,11 @@ the next docs touch.
   and on the simulator after each round; the pair still wraps under a long
   name (the wrap threshold moved down ~26 px, measured in Chromium by the
   reviewer).
+- Owner, 2026-09-09: the animal profile drops its avatar — the photo grid
+  moves to the very top as the hero (no section header there any more) and
+  the identity block (name + follower/carer pair, descriptive line, badge
+  chips) sits right under it, then the takip et / bakım ver pair. The rest
+  of the order is unchanged (en son görüldüğü yer, aşı kayıtları, sağlık
+  kayıtları, sohbet, şikayet et). `AnimalAvatar` still marks the animal on
+  the last-seen mini map on both clients. Screenshots on web and the
+  simulator.

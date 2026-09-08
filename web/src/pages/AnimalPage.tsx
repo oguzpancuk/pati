@@ -459,16 +459,35 @@ export default function AnimalPage() {
 
       {error && <div className="error">{error}</div>}
 
-      {/* Header, after ProfilePage's (handoff 3c/3d): the avatar beside a
-          name row, one descriptive line — pattern, color and markings as a
-          sentence — and the badge chips. */}
-      <div className="row" style={{ alignItems: 'flex-start' }}>
-        <AnimalAvatar
-          species={animal.species}
-          breed={animal.breed}
-          photoUrl={animal.cover_thumb_url}
-          size={60}
-        />
+      {/* The photos open the page (owner, 2026-09-09 — the avatar is gone
+          with them): square tiles, three a row, each with its like count; a
+          click opens the swipeable viewer. */}
+      <div className="animal-photo-grid">
+        {Array.from({ length: photoSlots }).map((_, i) => {
+          const p = animal.photos[i];
+          return p ? (
+            <button
+              key={p.id}
+              type="button"
+              className="animal-photo-tile"
+              onClick={() => setViewerIndex(i)}
+              aria-label={`Fotoğraf ${i + 1}, ${p.like_count} beğeni`}
+            >
+              <img src={p.url} alt="" />
+              <span className={`photo-like ${p.liked_by_me ? 'mine' : ''}`}>♥ {p.like_count}</span>
+            </button>
+          ) : (
+            <div key={`ph-${i}`} className="animal-photo-tile photo-ph">
+              fotoğraf
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Identity under the photos (owner, 2026-09-09): no avatar — the
+          gallery above is the animal's face — a name row with the
+          follower/carer pair, one descriptive line and the badge chips. */}
+      <div className="animal-identity">
         <div className="grow">
           <div className="animal-name-row">
             <h1>{displayName}</h1>
@@ -535,31 +554,6 @@ export default function AnimalPage() {
           )}
         </div>
       )}
-
-      {/* The photo grid (P6 item 7): square tiles, three a row, each with
-          its like count; a tap opens the swipeable viewer. */}
-      <h2 className="section">fotoğraflar</h2>
-      <div className="animal-photo-grid">
-        {Array.from({ length: photoSlots }).map((_, i) => {
-          const p = animal.photos[i];
-          return p ? (
-            <button
-              key={p.id}
-              type="button"
-              className="animal-photo-tile"
-              onClick={() => setViewerIndex(i)}
-              aria-label={`Fotoğraf ${i + 1}, ${p.like_count} beğeni`}
-            >
-              <img src={p.url} alt="" />
-              <span className={`photo-like ${p.liked_by_me ? 'mine' : ''}`}>♥ {p.like_count}</span>
-            </button>
-          ) : (
-            <div key={`ph-${i}`} className="animal-photo-tile photo-ph">
-              fotoğraf
-            </div>
-          );
-        })}
-      </div>
 
       {/* Last-seen mini map (mobile parity + PROJECT.md requirement): where
           and when the animal was last recorded, as a static thumbnail. */}

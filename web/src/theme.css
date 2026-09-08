@@ -1635,6 +1635,12 @@ strong {
    right-aligned on the same line while both fit; a long name pushes the
    pair onto its own line underneath (wrap before shrink), so the name is
    never squeezed and the pair never breaks. */
+/* The identity block sits under the photo gallery (owner, 2026-09-09);
+   no avatar column any more. */
+.animal-identity {
+  margin-top: 12px;
+}
+
 .animal-name-row {
   display: flex;
   flex-wrap: wrap;
