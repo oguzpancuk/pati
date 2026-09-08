@@ -3,6 +3,7 @@ const { requireAuth } = require('../middleware/auth.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 const { upload } = require('../config/upload');
 const {
+  MAX_MATCH_PHOTOS,
   listAnimals,
   matchAnimals,
   getAnimal,
@@ -22,10 +23,22 @@ const router = express.Router();
 
 router.get('/', listAnimals);
 // The literal '/match' path must precede '/:id', or "match" parses as an id.
-// GET is the field-only form; POST carries the first photo for the model
-// comparison and is limited on its own — each call is one vision request.
+// GET is the field-only form; POST carries the new animal's photos — each
+// screened for the species, the first compared with the candidates — and
+// is limited on its own: each call is up to seven vision requests.
 router.get('/match', requireAuth, matchAnimals);
-router.post('/match', requireAuth, limits.matchAnimals, upload.single('photo'), matchAnimals);
+router.post(
+  '/match',
+  requireAuth,
+  limits.matchAnimals,
+  // `photos` is the add-animal form's whole set (screened, tokenised);
+  // `photo` is the older single-file shape, still accepted.
+  upload.fields([
+    { name: 'photo', maxCount: 1 },
+    { name: 'photos', maxCount: MAX_MATCH_PHOTOS },
+  ]),
+  matchAnimals
+);
 router.get('/:id', requireAuth, getAnimal);
 router.post('/', requireAuth, limits.createAnimal, createAnimal);
 router.post('/:id/sightings', requireAuth, limits.animalTouch, reportSighting);

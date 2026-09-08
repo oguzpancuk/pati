@@ -7,6 +7,10 @@
  *   - the "is this animal already registered?" step of the add-animal flow
  *     (compareAnimalPhotos): which of the nearby same-species records, if
  *     any, is the animal in the new photo?
+ *   - the screening of every animal photo (checkAnimalPhoto): does the
+ *     picture show a live animal of the species the user picked at all?
+ *     Production's first real registrations (2026-09-08) went through with
+ *     no such question asked.
  *
  * Both are one Gemini `generateContent` request each, over Node's own
  * `fetch` (no SDK — the call is thirty lines, and swapping providers means
@@ -286,6 +290,65 @@ async function checkCarePhoto(filePath, actionType) {
   });
 }
 
+// ------------------------------------------------------------ animal photos
+
+const ANIMAL_CHECK_SYSTEM = `You screen photos for a Turkish app where people register street cats and dogs. The user says which SPECIES the animal is; you decide whether the photo plausibly shows a live animal of that species.
+
+Be lenient — these are quick phone snaps on the street. A cat or dog that is small in the frame, partly hidden, asleep, seen from behind, blurred, in the dark, or only partly visible is fine. Kittens and puppies are fine. Several animals are fine. When the photo does show a cat or a dog but the species is genuinely hard to tell, accept it.
+
+Reject only when the photo clearly does not show a live animal of the claimed species: no animal at all (a person, a street, a bowl, a screen, a document, a blank or black frame), a different animal (the user says cat and the photo clearly shows a dog, a bird, a horse…), a toy, drawing, statue or sticker of an animal, or content unsuitable for a public map.
+
+Answer with: subject (what the photo actually shows), matches (does it plausibly show a live animal of the claimed species), reason (one short, friendly Turkish sentence for the user, at most 90 characters, no blame — e.g. "Fotoğrafta bir kedi görünüyor." or "Fotoğrafta kedi değil köpek var gibi.").`;
+
+const ANIMAL_CHECK_SCHEMA = {
+  type: 'object',
+  properties: {
+    subject: {
+      type: 'string',
+      enum: ['cat', 'dog', 'other_animal', 'no_animal', 'not_live', 'unclear'],
+    },
+    matches: { type: 'boolean' },
+    reason: { type: 'string' },
+  },
+  required: ['subject', 'matches', 'reason'],
+};
+
+/**
+ * Same contract as checkCarePhoto, for a photo the user says shows a cat or
+ * a dog: rejected only when the model is sure it shows something else.
+ *
+ * @param {'cat'|'dog'} species
+ * @returns {Promise<{verdict: 'approved'|'rejected'|'unavailable', subject?: string, reason?: string, model?: string, ms: number}>}
+ */
+async function checkAnimalPhoto(filePath, species) {
+  const startedAt = Date.now();
+  const done = (result) => ({ ...result, ms: Date.now() - startedAt });
+  if (!isConfigured()) return done({ verdict: 'unavailable' });
+
+  let image;
+  try {
+    image = await imagePart(filePath);
+  } catch (err) {
+    console.warn(`[ai:animal] cannot read photo: ${err?.message ?? err}`);
+    return done({ verdict: 'unavailable' });
+  }
+  const claim = species === 'dog' ? 'dog' : 'cat';
+  const answer = await ask({
+    system: ANIMAL_CHECK_SYSTEM,
+    parts: [image, { text: `The user says this photo shows a ${claim}.` }],
+    schema: ANIMAL_CHECK_SCHEMA,
+    tag: 'animal',
+    thinking: false,
+  });
+  if (!answer || typeof answer.matches !== 'boolean') return done({ verdict: 'unavailable' });
+  return done({
+    verdict: answer.matches ? 'approved' : 'rejected',
+    subject: answer.subject,
+    reason: cleanReason(answer.reason),
+    model: MODEL,
+  });
+}
+
 // ------------------------------------------------------------ animal matching
 
 const MATCH_SYSTEM = `You compare photos of street animals for a Turkish street-animal care app, to stop the same animal being registered twice. The first image is a newly photographed animal. The images after it are animals already registered within a kilometre, numbered in order. For each candidate decide whether it is the SAME INDIVIDUAL as the new animal.
@@ -456,5 +519,6 @@ module.exports = {
   describeAi,
   uploadPathFromUrl,
   checkCarePhoto,
+  checkAnimalPhoto,
   compareAnimalPhotos,
 };

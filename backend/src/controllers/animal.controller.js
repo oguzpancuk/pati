@@ -1,4 +1,7 @@
 const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
@@ -40,6 +43,67 @@ const VACCINATION_SELECT_SQL = `
 
 // The animal's picture: see utils/coverPhoto.js (best face cut-out first).
 const COVER_PHOTO_JOIN = coverPhotoJoin('a');
+
+// Every animal photo is screened for the claimed species before it is
+// stored (ADR-0005, amendment 2026-09-08). The add-animal flow sends its
+// photos to the match step, which screens them and hands back one signed
+// photoToken per file; the create step redeems the tokens instead of
+// uploading again — the same scheme as the care photos, same lifetime. A
+// direct upload is screened inline, so skipping the match step gains
+// nothing. The cap is the form's own maximum (both clients: MAX_PHOTOS).
+const PHOTO_TOKEN_TTL = '15m';
+const PHOTO_TOKEN_KIND = 'animalPhoto';
+const MAX_MATCH_PHOTOS = 6;
+
+/** What a photoToken carries about the screening — null when nothing was checked. */
+function aiCheckRecord(check) {
+  if (!check || check.verdict === 'unavailable') return null;
+  const { verdict, subject, reason, model, ms } = check;
+  return { verdict, subject, reason, model, ms };
+}
+
+function speciesRejectionMessage(species) {
+  return species === 'dog'
+    ? 'Fotoğrafta köpek görünmüyor. Köpeğin göründüğü bir fotoğraf ekler misin?'
+    : 'Fotoğrafta kedi görünmüyor. Kedinin göründüğü bir fotoğraf ekler misin?';
+}
+
+function photoRejection(res, check, species, extra = {}) {
+  return res.status(422).json({
+    error: check.reason || speciesRejectionMessage(species),
+    code: 'photoRejected',
+    verdict: 'rejected',
+    reason: check.reason,
+    ...extra,
+  });
+}
+
+/**
+ * Redeems a photoToken from matchAnimals: ours, this user's, issued for
+ * this species, the file still on disk. Returns the stored filename or a
+ * refusal. Single use is enforced at the insert (see addPhoto).
+ */
+function redeemPhotoToken(token, userId, species) {
+  let claims;
+  try {
+    claims = jwt.verify(token, process.env.JWT_SECRET);
+  } catch {
+    return { error: 'Fotoğraf kontrolünün süresi doldu. Fotoğrafı yeniden yükler misin?' };
+  }
+  if (
+    claims.kind !== PHOTO_TOKEN_KIND ||
+    claims.userId !== userId ||
+    claims.species !== species ||
+    typeof claims.file !== 'string' ||
+    path.basename(claims.file) !== claims.file
+  ) {
+    return { error: 'Fotoğraf bu kayıtla eşleşmiyor. Fotoğrafı yeniden yükler misin?' };
+  }
+  if (!fs.existsSync(path.join(UPLOADS_DIR, claims.file))) {
+    return { error: 'Fotoğraf bulunamadı. Fotoğrafı yeniden yükler misin?' };
+  }
+  return { file: claims.file };
+}
 
 // Pagination: without `limit` the old behavior holds (the map pulls its
 // whole surroundings in one request); list screens ask for small pages.
@@ -178,13 +242,18 @@ function byScoreThenDistance(a, b) {
 }
 
 /**
- * GET carries the fields only; POST (multipart) adds the first photo, and
- * the photo is compared with the cover photos of the best field-ranked
- * candidates. The upload is a scratch file: it is deleted here whatever
- * happens, the animal's photos are added after the user decides.
+ * GET carries the fields only; POST (multipart) adds the new animal's
+ * photos — `photos`, all of them in the form's order, or the older single
+ * `photo`. Every photo is screened for the claimed species first (one
+ * refusal ends the request, naming the photo), then the first is compared
+ * with the cover photos of the field-ranked candidates. Photos that pass
+ * stay on disk behind a photoToken each for the create step; on any other
+ * outcome the files are deleted here.
  */
 async function matchAnimals(req, res, next) {
-  const photoPath = req.file?.path;
+  const files = [...(req.files?.photo ?? []), ...(req.files?.photos ?? [])];
+  const photoPath = files[0]?.path;
+  let keepFiles = false;
   try {
     const source = req.method === 'POST' ? req.body : req.query;
     const { lat, lng, species, breed, color } = source;
@@ -193,6 +262,18 @@ async function matchAnimals(req, res, next) {
     }
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
+    }
+
+    // Screened before the comparison: a photo of a person compared with
+    // forty cats would only spend the model's time on a refusal. In
+    // parallel — the user is waiting behind the matching screen.
+    let photoChecks = [];
+    if (files.length > 0) {
+      photoChecks = await Promise.all(files.map((f) => ai.checkAnimalPhoto(f.path, species)));
+      const photoIndex = photoChecks.findIndex((c) => c.verdict === 'rejected');
+      if (photoIndex !== -1) {
+        return photoRejection(res, photoChecks[photoIndex], species, { photoIndex });
+      }
     }
 
     const result = await pool.query(
@@ -256,11 +337,28 @@ async function matchAnimals(req, res, next) {
       similarity_reasons: _reasons,
     }));
 
-    res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS, photoChecked });
+    // One token per photo, in the order sent; the create step redeems them
+    // (addPhoto). Issued with the model off too — the token is what lets
+    // the photo travel once, the screening is what it may also carry.
+    const photoTokens = files.map((file, i) =>
+      jwt.sign(
+        {
+          kind: PHOTO_TOKEN_KIND,
+          userId: req.user.userId,
+          file: file.filename,
+          species,
+          check: aiCheckRecord(photoChecks[i]),
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: PHOTO_TOKEN_TTL, jwtid: crypto.randomUUID() }
+      )
+    );
+    keepFiles = true;
+    res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS, photoChecked, photoTokens });
   } catch (err) {
     next(err);
   } finally {
-    if (photoPath) fs.unlink(photoPath, () => {});
+    if (!keepFiles) for (const file of files) fs.unlink(file.path, () => {});
   }
 }
 
@@ -410,12 +508,60 @@ async function createAnimal(req, res, next) {
   }
 }
 
+/**
+ * Two ways in: a photoToken from the match step (both apps' add-animal
+ * flow), or a direct upload, which is screened here so that no client can
+ * put an unscreened photo in a gallery.
+ */
 async function addPhoto(req, res, next) {
-  if (!req.file) {
+  const photoToken = req.body?.photoToken;
+  const discardUpload = () => req.file && fs.unlink(req.file.path, () => {});
+  if (!req.file && !photoToken) {
     return res.status(400).json({ error: 'Fotoğraf zorunludur' });
   }
+  let file;
+  try {
+    const species = (await pool.query('SELECT species FROM animals WHERE id = $1', [req.params.id]))
+      .rows[0]?.species;
+    if (!species) {
+      discardUpload();
+      return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    }
+    if (req.file) {
+      const check = await ai.checkAnimalPhoto(req.file.path, species);
+      if (check.verdict === 'rejected') {
+        discardUpload();
+        return photoRejection(res, check, species);
+      }
+      file = req.file.filename;
+    } else {
+      const redeemed = redeemPhotoToken(String(photoToken), req.user.userId, species);
+      if (redeemed.error) {
+        return res.status(400).json({ error: redeemed.error, code: 'photoTokenInvalid' });
+      }
+      // Single use: a file already in a gallery is not added again (a
+      // double tap, a retried request). Compared on the file name, so the
+      // Host the URL was built under does not matter. A read, not an
+      // index: a duplicate slipping through a race costs a second row on
+      // the same file, not a second drop on the map.
+      const used = await pool.query(
+        `SELECT 1 FROM animal_photos WHERE substring(url from '[^/]+$') = $1 LIMIT 1`,
+        [redeemed.file]
+      );
+      if (used.rowCount > 0) {
+        return res
+          .status(409)
+          .json({ error: 'Bu fotoğraf zaten eklendi.', code: 'photoAlreadyUsed' });
+      }
+      file = redeemed.file;
+    }
+  } catch (err) {
+    discardUpload();
+    return next(err);
+  }
+  const filePath = path.join(UPLOADS_DIR, file);
   const base = `${req.protocol}://${req.get('host')}/uploads/`;
-  const photoUrl = `${base}${req.file.filename}`;
+  const photoUrl = `${base}${file}`;
   let row;
   try {
     const result = await pool.query(
@@ -426,8 +572,9 @@ async function addPhoto(req, res, next) {
   } catch (err) {
     // Nothing references the file yet, so it goes with the failed insert.
     // Past this point the row owns the file: a failure below must not
-    // delete it from under the gallery (review finding).
-    fs.unlink(req.file.path, () => {});
+    // delete it from under the gallery (review finding). A token's file
+    // stays: the token is still valid and the client retries with it.
+    discardUpload();
     return next(err);
   }
   try {
@@ -436,10 +583,10 @@ async function addPhoto(req, res, next) {
     // row without a thumbnail and the SVG avatar stands in.
     const species = (await pool.query('SELECT species FROM animals WHERE id = $1', [req.params.id]))
       .rows[0]?.species;
-    const face = await ai.locateAnimalFace(req.file.path, species);
+    const face = await ai.locateAnimalFace(filePath, species);
     if (face?.found) {
       try {
-        const thumb = await makeFaceThumb(req.file.filename, face.box);
+        const thumb = await makeFaceThumb(file, face.box);
         const updated = await pool.query(
           'UPDATE animal_photos SET thumb_url = $1, face_score = $2, face_box = $3 WHERE id = $4 RETURNING thumb_url, face_score',
           [`${base}${thumb}`, face.score, JSON.stringify(face.box), row.id]
@@ -735,6 +882,7 @@ async function followAnimal(req, res, next) {
 }
 
 module.exports = {
+  MAX_MATCH_PHOTOS,
   listAnimals,
   matchAnimals,
   getAnimal,

@@ -158,13 +158,16 @@ backend log (`/tmp/pati-backend.log`) — there is no mail to open.
 
 ## Photo checks and photo matching (ADR-0005)
 
-The food/water photo check and the photo comparison in the add-animal flow
-call Gemini from the backend on **Google's paid tier** (owner decision,
+The food/water photo check, the species screening of every animal photo and
+the photo comparison in the add-animal flow call Gemini from the backend on
+**Google's paid tier** (owner decision,
 2026-09-07: the free tier is about 20 requests per project per day —
 enough to test, not to run — and its data-use terms are unwanted; see the
 ADR amendment). Both are **off until the key exists**: photos are accepted
 unchecked and matching is field-only, exactly as before, and the boot log
-prints `ai: NOT CONFIGURED …`. To turn them on:
+prints `ai: NOT CONFIGURED …`. A registration costs up to seven small
+image requests (six screenings at most, one comparison), a drop costs one.
+To turn them on:
 
 1. In Google AI Studio, enable billing on the project that owns the key
    (AI Studio → API keys → the project → billing). Without this step the

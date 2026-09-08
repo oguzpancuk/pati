@@ -5,8 +5,9 @@
 # The backend has no test suite (docs/ROADMAP.md), so these curl checks are
 # the evidence for ADR-0005: an approved photo becomes a token the confirm
 # redeems once, a rejected photo is refused and deleted, a direct upload is
-# checked too, a dead model fails open, and the match endpoint folds the
-# model's verdicts into the tiers — or ignores a model that did not answer.
+# checked too, a dead model fails open, the match endpoint folds the
+# model's verdicts into the tiers — or ignores a model that did not answer —
+# and animal photos are screened for the species on the same token scheme.
 set -uo pipefail
 API=${API:-http://localhost:3103/api}
 FAKE=${FAKE:-http://localhost:4600}
@@ -211,7 +212,8 @@ check "C (no photo) keeps its field tier" high "$(node -pe "const b=JSON.parse(r
 check "D (unsure, fields medium) is listed as medium" medium "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$D)?.similarity ?? 'none'")"
 check "E (low by fields) is not listed" none "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));b.candidates.find(c=>c.id===$E)?.id ?? 'none'")"
 check "exactly the three that clear medium are listed" 3 "$(field .candidates.length)"
-check "scratch upload deleted" "$before" "$(uploads_count)"
+check "the photo stays behind its token" "$((before + 1))" "$(uploads_count)"
+check "one photoToken for the one photo" 1 "$(field .photoTokens.length)"
 
 echo "8. Matching without the model's answer is the field-only ranking — nothing hidden"
 mode '{"mode":"error"}'
@@ -273,6 +275,81 @@ mode '{"mode":"error"}'
 code=$(upload "animals/$F/photos" "$JWT")
 check "model down: photo still saved -> 201" 201 "$code"
 check "…without a thumbnail" none "$(field .thumb_url)"
+
+echo "11. Animal photos are screened for the species; the match step hands back tokens"
+# multipart with the form's whole set: path token count field=value...
+upload_photos() { local p="$1" t="$2" n="$3"; shift 3; local args=(); for kv in "$@"; do args+=(-F "$kv"); done
+  local files=(); for _ in $(seq "$n"); do files+=(-F "photos=@$PHOTO;type=image/jpeg"); done
+  curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$p" -H "Authorization: Bearer $t" "${files[@]}" ${args[@]+"${args[@]}"}; }
+# An empty cell of its own (see section 7): no candidates, so the last
+# model request is the screening, not a comparison.
+GLAT=$(node -pe "41.21 + (($STAMP + 250) % 499) * 0.02"); GLNG=$(node -pe "29.41 + (($STAMP + 40) % 89) * 0.03")
+mode '{"mode":"approve"}'
+before=$(uploads_count)
+code=$(upload_photos animals/match "$JWT" 2 species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+check "match with two photos -> 200" 200 "$code"
+check "no candidates in an empty cell" 0 "$(field .candidates.length)"
+check "two photoTokens" 2 "$(field .photoTokens.length)"
+check "files kept for the create step" "$((before + 2))" "$(uploads_count)"
+check "animal prompt used" animal "$(last .kind)"
+check "one image per screening" 1 "$(last .images)"
+PT1=$(field .photoTokens[0]); PT2=$(field .photoTokens[1])
+code=$(post_auth animals "$JWT" "{\"species\":\"cat\",\"name\":\"Tokenli\",\"breed\":\"Tekir\",\"color\":\"gri\",\"lat\":$GLAT,\"lng\":$GLNG}")
+check "animal G -> 201" 201 "$code"; G=$(field .id)
+code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"$PT1\"}")
+check "token redeemed -> 201" 201 "$code"
+contains "photo url is the screened file" "/uploads/" "$(field .url)"
+contains "…and the face step ran on it" "-face.jpg" "$(field .thumb_url)"
+check "only the face cut-out is new, no second upload" "$((before + 3))" "$(uploads_count)"
+code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"$PT1\"}")
+check "replay -> 409" 409 "$code"
+check "…photoAlreadyUsed" photoAlreadyUsed "$(field .code)"
+code=$(post_auth animals "$JWT" "{\"species\":\"dog\",\"name\":\"Başka Tür\",\"breed\":\"Kangal melezi\",\"color\":\"sarı\",\"lat\":$GLAT,\"lng\":$GLNG}")
+check "animal H (dog) -> 201" 201 "$code"; H=$(field .id)
+code=$(post_auth "animals/$H/photos" "$JWT" "{\"photoToken\":\"$PT2\"}")
+check "a cat token on a dog -> 400" 400 "$code"
+check "…photoTokenInvalid" photoTokenInvalid "$(field .code)"
+code=$(post_auth "animals/$G/photos" "$JWT2" "{\"photoToken\":\"$PT2\"}")
+check "another user's token -> 400" 400 "$code"
+code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"not.a.token\"}")
+check "garbage token -> 400" 400 "$code"
+code=$(curl -s -o "$BODY" -w '%{http_code}' "$API/users/me" -H "Authorization: Bearer $PT2")
+check "a photoToken is not a session -> 401" 401 "$code"
+code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"$PT2\"}")
+check "the second token still works for its owner -> 201" 201 "$code"
+code=$(post_auth "animals/999999/photos" "$JWT" "{\"photoToken\":\"$PT2\"}")
+check "unknown animal -> 404" 404 "$code"
+
+echo "12. A refused photo ends the match with its index; a direct upload is screened too"
+mode '{"mode":"reject"}'
+before=$(uploads_count)
+code=$(upload_photos animals/match "$JWT" 2 species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+check "match while rejecting -> 422" 422 "$code"
+check "code photoRejected" photoRejected "$(field .code)"
+check "photoIndex names the photo" 0 "$(field .photoIndex)"
+contains "reason shown" "görünmüyor" "$(field .error)"
+check "no tokens" none "$(field .photoTokens)"
+check "files deleted" "$before" "$(uploads_count)"
+code=$(upload "animals/$G/photos" "$JWT")
+check "direct upload while rejecting -> 422" 422 "$code"
+check "file deleted" "$before" "$(uploads_count)"
+mode '{"mode":"approve"}'
+code=$(upload "animals/$G/photos" "$JWT")
+check "direct upload while approving -> 201" 201 "$code"
+code=$(upload animals/match "$JWT" species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+check "the older single photo field still answers" 200 "$code"
+check "…with one token" 1 "$(field .photoTokens.length)"
+
+echo "13. A dead model fails open for animal photos: tokens are issued, uploads stored"
+mode '{"mode":"error"}'
+code=$(upload_photos animals/match "$JWT" 1 species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+check "match -> 200" 200 "$code"
+check "one token" 1 "$(field .photoTokens.length)"
+code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"$(field .photoTokens[0])\"}")
+check "token redeemed -> 201" 201 "$code"
+code=$(upload "animals/$G/photos" "$JWT")
+check "direct upload -> 201" 201 "$code"
+mode '{"mode":"approve"}'
 
 echo ""
 if [ "$FAILED" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; exit 1; fi

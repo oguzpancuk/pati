@@ -1,6 +1,6 @@
 # ADR-0005: Photo checks and animal matching go through a hosted vision model, and fail open
 
-Status: accepted · Date: 2026-09-04 · Amended 2026-09-07 (provider: Gemini, see the end)
+Status: accepted · Date: 2026-09-04 · Amended 2026-09-07 (provider: Gemini) and 2026-09-08 (animal photos are screened too), see the end
 
 ## Context
 
@@ -183,3 +183,50 @@ set one release earlier (v26), on an image without the AI code, so no
 user photo reached Google from production before the text was published
 (the same day's accuracy runs used the owner's own photos, from the dev
 machine).
+
+## Amendment (2026-09-08): every animal photo is screened for the species
+
+The first real registrations on production showed the gap: the add-animal
+flow compared the new photo with the neighbours' cover photos, but nothing
+ever asked whether it showed a cat or a dog at all — and with an empty
+circle (production after the demo purge) no model call looked at it. A
+photo of a person, a bowl, or a dog on a "cat" record went straight into
+the gallery.
+
+- **A third check, same contract.** `checkAnimalPhoto(file, species)` in
+  `ai.js`: lenient prompt (small, blurred, asleep, from behind, several
+  animals, kittens — all fine; a cat-or-dog that is hard to tell apart is
+  accepted), verdict + one Turkish sentence, and it fails open exactly like
+  the care check. Rejected only when the model is sure the photo shows no
+  live animal of the claimed species: nothing, another animal, the other
+  species than the user picked, a toy or drawing, unsuitable content.
+- **Enforced the way the care photos are.** `POST /animals/match` takes the
+  form's whole set (`photos`; the older single `photo` still works), screens
+  each photo in parallel before the comparison, answers 422 `photoRejected`
+  with the `photoIndex` of the first refusal, and otherwise hands back one
+  signed `photoToken` per photo (kind `animalPhoto`; user, species, file,
+  what the model said; fifteen minutes). `POST /animals/:id/photos` redeems
+  a token — the species must be the animal's — or screens a direct upload
+  inline, so a client that skips the match step gains nothing. The photos
+  travel once; both clients fall back to the file when a token has expired
+  (a long look at the candidates).
+- **Single use is a read, not a column.** A token whose file is already in a
+  gallery answers 409 `photoAlreadyUsed`, found by file name so the Host the
+  URL was built under does not matter. Unlike the care photos there is no
+  unique index behind it: a duplicate that slips through a race is a second
+  row on the same file in one gallery, not a second drop on the map, and
+  not worth a migration.
+- **Clients: no "add anyway".** The refused photo leaves the strip with the
+  model's reason under it; the user picks another. A photo that fails
+  after the record exists lands the user on the profile with the reason —
+  never back on a form whose save would register the animal twice.
+- **Cost.** A registration is now up to `MAX_PHOTOS` + 1 small image
+  requests (six screenings and the comparison) instead of one; each is a
+  single downscaled image with thinking off, the cheapest call the
+  service makes. The match limiter (30/hour/user) still bounds it.
+- **Not stored.** `animal_photos` has no `ai_check` column; what the model
+  said about an animal photo rides in its token only. Add the column when
+  the answers need auditing, as `care_actions.ai_check` does today.
+- **Evidence.** `scripts/ai-check/checks.sh` sections 11–13: tokens issued
+  and redeemed once, bent tokens refused, the refusal with its index, the
+  inline screening of a direct upload, fail-open with the model down.

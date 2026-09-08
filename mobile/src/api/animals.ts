@@ -121,8 +121,11 @@ export interface MatchAnimalsInput {
   species: 'cat' | 'dog';
   breed?: string | null;
   color?: string | null;
-  /** The first photo of the new animal, compared with the candidates' cover photos. */
-  photo: PhotoAsset;
+  /**
+   * Every photo of the new animal, in the form's order: each is screened
+   * for the species, the first is compared with the candidates' cover photos.
+   */
+  photos: PhotoAsset[];
 }
 
 export interface MatchResult {
@@ -130,6 +133,11 @@ export interface MatchResult {
   radiusMeters: number;
   /** false when the model was off or did not answer: the ranking is field-only. */
   photoChecked: boolean;
+  /**
+   * One per photo sent, same order; addAnimalPhoto redeems them so the
+   * photos travel once. Fifteen minutes; an expired one falls back to the file.
+   */
+  photoTokens: string[];
 }
 
 /**
@@ -137,7 +145,8 @@ export interface MatchResult {
  * record. The server ranks same-species animals within 1 km by the entered
  * pattern/color and distance, then has the model compare the photo with
  * the best candidates' cover photos — high/medium/low similarity, no
- * numeric percentage, on purpose.
+ * numeric percentage, on purpose. A photo that does not show the claimed
+ * species is refused with `photoRejected` and the index of the photo.
  */
 export async function matchAnimals(input: MatchAnimalsInput): Promise<MatchResult> {
   const form = new FormData();
@@ -146,16 +155,18 @@ export async function matchAnimals(input: MatchAnimalsInput): Promise<MatchResul
   form.append('species', input.species);
   if (input.breed) form.append('breed', input.breed);
   if (input.color) form.append('color', input.color);
-  form.append('photo', {
-    uri: input.photo.uri,
-    type: input.photo.type ?? 'image/jpeg',
-    name: input.photo.fileName ?? 'photo.jpg',
-  } as unknown as Blob);
+  for (const photo of input.photos) {
+    form.append('photos', {
+      uri: photo.uri,
+      type: photo.type ?? 'image/jpeg',
+      name: photo.fileName ?? 'photo.jpg',
+    } as unknown as Blob);
+  }
 
   const { data } = await apiClient.post<MatchResult>('/animals/match', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    // The matching screen has no cancel: bound the wait. The model reads up
-    // to nine photos, so this is longer than a plain upload.
+    // The matching screen has no cancel: bound the wait. Several photos go
+    // up and the model reads dozens, so this is longer than a plain upload.
     timeout: 90000,
   });
   return data;
@@ -181,7 +192,22 @@ export async function createAnimal(input: CreateAnimalInput): Promise<Animal & W
   return data;
 }
 
-export async function addAnimalPhoto(animalId: number, photo: PhotoAsset): Promise<AnimalPhoto> {
+/**
+ * A photo screened by matchAnimals (its token — the file is already up) or
+ * a fresh file, which the server screens inline and may refuse with
+ * `photoRejected`.
+ */
+export async function addAnimalPhoto(
+  animalId: number,
+  source: PhotoAsset | { photoToken: string }
+): Promise<AnimalPhoto> {
+  if ('photoToken' in source) {
+    const { data } = await apiClient.post<AnimalPhoto>(`/animals/${animalId}/photos`, {
+      photoToken: source.photoToken,
+    });
+    return data;
+  }
+  const photo = source;
   const form = new FormData();
   form.append('photo', {
     uri: photo.uri,

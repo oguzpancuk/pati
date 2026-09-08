@@ -158,6 +158,8 @@ http
           ? 'match'
           : typeof system === 'string' && system.includes('FACE of a street animal')
           ? 'face'
+          : typeof system === 'string' && system.includes('which SPECIES the animal is')
+          ? 'animal'
           : 'care',
       maxTokens: body.generationConfig?.maxOutputTokens,
     };
@@ -222,6 +224,17 @@ http
           .slice(0, images.length - 1)
           .map((verdict, i) => ({ index: i + 1, verdict })),
       });
+    }
+    if (last.kind === 'animal') {
+      // The species screening shares the approve/reject switch with the
+      // care check; only the words differ.
+      return mode === 'reject'
+        ? answer(res, {
+            subject: 'no_animal',
+            matches: false,
+            reason: 'Fotoğrafta kedi ya da köpek görünmüyor gibi.',
+          })
+        : answer(res, { subject: 'cat', matches: true, reason: 'Fotoğrafta bir kedi görünüyor.' });
     }
     if (mode === 'reject') {
       return answer(res, {

@@ -727,3 +727,26 @@ approval per step.
   photo. A backfill script for existing photos.
 - **Done when:** screenshots of lists and profile headers on both clients
   with real cut-outs; the backfill run on production reported.
+
+### P4 — First production reports (September 8, 2026)
+
+Three problems the owner found on production after v29:
+
+- **Web: "Yeniden çek" after a refused care photo did nothing.** The file
+  input lived in the idle branch of the sheet, so the rejected step
+  clicked a ref to an unmounted input. Fixed: one input for every step.
+  Mobile's button was the same handler as the first shot and works.
+- **Add-animal never asked whether the photo shows a cat or a dog.** Every
+  animal photo is now screened for the claimed species (ADR-0005,
+  amendment 2026-09-08): the match step screens the whole set and hands
+  back one `photoToken` per photo, the create step redeems them, a direct
+  upload is screened inline; the refused photo leaves the strip with the
+  model's reason on both clients. **Done when:** harness sections 11–13
+  pass; the refusal screenshot on both clients.
+- **The verification code mail never arrives.** Not code: production has
+  `RESEND_API_KEY`, but `resend._domainkey.pati-app.com` and
+  `send.pati-app.com` do not exist in DNS, so the domain is unverified in
+  Resend and every send is a 403 (`verification mail to user N failed` in
+  the Fly log; the client shows "Yeni bir kod iste"). Owner-side: publish
+  the records Resend lists for `pati-app.com` (docs/DEPLOYMENT.md, ADR-0004
+  section), wait for "Verified", register once more.

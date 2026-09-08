@@ -81,6 +81,22 @@ function formatDistance(meters: number) {
   return `${(meters / 1000).toFixed(1)} km uzakta`;
 }
 
+/**
+ * The token from the match step first — the file is already up and
+ * screened; a missing or expired one falls back to the file itself, which
+ * the server screens inline.
+ */
+async function uploadAnimalPhoto(animalId: number, photo: PhotoAsset, token?: string) {
+  if (token) {
+    try {
+      return await addAnimalPhoto(animalId, { photoToken: token });
+    } catch (err: any) {
+      if (err?.response?.data?.code !== 'photoTokenInvalid') throw err;
+    }
+  }
+  return addAnimalPhoto(animalId, photo);
+}
+
 type Step = 'form' | 'matching' | 'results';
 
 export default function AddAnimalScreen({ navigation, route }: any) {
@@ -98,6 +114,13 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   const [breed, setBreed] = useState<string | null>(null);
   const [markings, setMarkings] = useState('');
   const [photos, setPhotos] = useState<PhotoAsset[]>([]);
+  // The match step screens every photo and hands back one token per photo
+  // (same order); the create step redeems them so the photos travel once.
+  // Any change to the list invalidates them — the order is the pairing.
+  const [photoTokens, setPhotoTokens] = useState<string[]>([]);
+  // The model's reason for refusing a photo, shown under the strip until
+  // the list changes (the refused photo itself is taken out).
+  const [photoIssue, setPhotoIssue] = useState<string | null>(null);
   // Whether the model compared the photo — the results banner says which
   // comparison the tiers came from.
   const [photoChecked, setPhotoChecked] = useState(false);
@@ -152,10 +175,14 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       .filter((a) => a.uri)
       .map((a) => ({ uri: a.uri!, type: a.type, fileName: a.fileName }));
     setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+    setPhotoTokens([]);
+    setPhotoIssue(null);
   }
 
   function removePhoto(index: number) {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotoTokens([]);
+    setPhotoIssue(null);
   }
 
   /** Form submitted: match first, decide after. */
@@ -180,7 +207,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         species,
         breed,
         color,
-        photo: photos[0],
+        photos,
       });
 
       // Show the waiting screen for at least MIN_MATCHING_MS; if the server
@@ -190,20 +217,38 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         await new Promise((resolve) => setTimeout(resolve, MIN_MATCHING_MS - elapsed));
       }
 
+      const tokens = result.photoTokens ?? [];
+      setPhotoTokens(tokens);
       setCandidates(result.candidates);
       setMatchRadius(result.radiusMeters);
       setPhotoChecked(result.photoChecked);
       if (result.candidates.length === 0) {
         // No same-species records nearby: nothing to ask, save directly.
-        await createNewAnimal(loc);
+        await createNewAnimal(loc, tokens);
       } else {
         setStep('results');
       }
     } catch (err: any) {
       // Location or server error: instead of blocking the user we return
       // them to the form to retry.
+      const data = err?.response?.data;
       if (err instanceof LocationPermissionError) {
         alertLocationPermission();
+      } else if (data?.code === 'photoRejected') {
+        // The model saw no cat/dog (or the other species) in one photo:
+        // that photo leaves the strip, the reason stays under it, and the
+        // user picks another — there is no "add anyway" (ADR-0005).
+        const index = Number.isInteger(data.photoIndex) ? data.photoIndex : 0;
+        const reason: string = data.error ?? 'Fotoğrafta seçtiğin tür görünmüyor.';
+        setPhotos((prev) => prev.filter((_, i) => i !== index));
+        setPhotoTokens([]);
+        setPhotoIssue(reason);
+        Alert.alert(
+          'Fotoğraf uygun görünmüyor',
+          `${reason} Bu fotoğrafı listeden kaldırdık; ${
+            species === 'dog' ? 'köpeğin' : 'kedinin'
+          } göründüğü bir fotoğraf ekle.`
+        );
       } else {
         Alert.alert(
           'Eşleştirme yapılamadı',
@@ -214,11 +259,17 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     }
   }
 
-  async function createNewAnimal(loc: Coordinates) {
+  /**
+   * `tokens` pairs with `photos` by index; handleSubmit passes the fresh
+   * ones because the state has not settled yet, the results step uses the
+   * state.
+   */
+  async function createNewAnimal(loc: Coordinates, tokens: string[] = photoTokens) {
     if (!species) return; // unreachable: handleSubmit gates on species
     setSubmitting(true);
+    let animal: Awaited<ReturnType<typeof createAnimal>>;
     try {
-      const animal = await createAnimal({
+      animal = await createAnimal({
         species,
         name: name || undefined,
         color: color || undefined,
@@ -227,17 +278,33 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         lat: loc.lat,
         lng: loc.lng,
       });
-
-      await Promise.all(photos.map((photo) => addAnimalPhoto(animal.id, photo)));
-
-      navigation.replace('AnimalProfile', { animalId: animal.id });
-      celebrate(animal);
     } catch (err: any) {
       Alert.alert('Eklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
       setStep(candidates.length > 0 ? 'results' : 'form');
-    } finally {
       setSubmitting(false);
+      return;
     }
+
+    // The record exists from here on: a photo that fails still lands the
+    // user on the profile (with the reason), never back on a form whose
+    // save would register the animal twice.
+    const failures: string[] = [];
+    await Promise.all(
+      photos.map((photo, i) =>
+        uploadAnimalPhoto(animal.id, photo, tokens[i]).catch((err: any) => {
+          failures.push(err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+        })
+      )
+    );
+    setSubmitting(false);
+    if (failures.length > 0) {
+      Alert.alert(
+        failures.length === photos.length ? 'Fotoğraflar eklenemedi' : 'Bazı fotoğraflar eklenemedi',
+        `${failures[0]} Fotoğrafı daha sonra profilden ekleyebilirsin.`
+      );
+    }
+    navigation.replace('AnimalProfile', { animalId: animal.id });
+    celebrate(animal);
   }
 
   // Tapping a candidate opens the profile in "review" mode: let the user
@@ -490,6 +557,11 @@ export default function AddAnimalScreen({ navigation, route }: any) {
           </Pressable>
         )}
       </View>
+      {photoIssue && (
+        <Text variant="caption" color="danger" style={styles.photoIssue}>
+          {photoIssue}
+        </Text>
+      )}
 
       <Text variant="caption" center style={styles.locationNote}>
         Konumun otomatik olarak kaydedilecek. Kaydetmeden önce yakındaki kayıtlarla
@@ -642,6 +714,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
     justifyContent: 'center',
   },
   addPhotoText: { marginTop: 2 },
+  photoIssue: { marginTop: -spacing.sm, marginBottom: spacing.lg },
   locationNote: { marginBottom: spacing.lg },
   matchingWrap: {
     flex: 1,

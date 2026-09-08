@@ -23,11 +23,20 @@ export class ApiError extends Error {
   retryAfter?: number;
   /** A machine-readable reason, when the server sends one (`linkRequiresPassword`). */
   code?: string;
-  constructor(status: number, message: string, retryAfter?: number, code?: string) {
+  /** The rest of the server's answer, for codes that carry detail (`photoIndex`). */
+  data: Record<string, unknown>;
+  constructor(
+    status: number,
+    message: string,
+    retryAfter?: number,
+    code?: string,
+    data: Record<string, unknown> = {}
+  ) {
     super(message);
     this.status = status;
     this.retryAfter = retryAfter;
     this.code = code;
+    this.data = data;
   }
 }
 
@@ -64,7 +73,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       res.status,
       error || `HTTP ${res.status}`,
       typeof retryAfter === 'number' ? retryAfter : undefined,
-      code
+      code,
+      body as Record<string, unknown>
     );
   }
   return body as T;
@@ -539,9 +549,17 @@ export const createAnimal = (input: {
   lng: number;
 }) => api.post<Animal & WithNewBadges>('/animals', input);
 
-export function addAnimalPhoto(animalId: number, file: File) {
+/**
+ * A photo screened by matchAnimals (its token — the file is already up) or
+ * a fresh file, which the server screens inline and may refuse with
+ * `photoRejected`.
+ */
+export function addAnimalPhoto(animalId: number, source: File | { photoToken: string }) {
+  if (!(source instanceof File)) {
+    return api.post<AnimalPhoto>(`/animals/${animalId}/photos`, { photoToken: source.photoToken });
+  }
   const form = new FormData();
-  form.append('photo', file);
+  form.append('photo', source);
   return api.postForm<AnimalPhoto>(`/animals/${animalId}/photos`, form);
 }
 
@@ -589,6 +607,11 @@ export interface MatchResult {
   radiusMeters: number;
   /** false when the model was off or did not answer: the ranking is field-only. */
   photoChecked: boolean;
+  /**
+   * One per photo sent, same order; addAnimalPhoto redeems them so the
+   * photos travel once. Fifteen minutes; an expired one falls back to the file.
+   */
+  photoTokens: string[];
 }
 
 export const matchAnimals = (input: {
@@ -597,8 +620,12 @@ export const matchAnimals = (input: {
   species: 'cat' | 'dog';
   breed?: string | null;
   color?: string | null;
-  /** The first photo of the new animal, compared with the candidates' cover photos. */
-  photo: File;
+  /**
+   * Every photo of the new animal, in the form's order: each is screened
+   * for the species (a refusal is `photoRejected` with the photo's index),
+   * the first is compared with the candidates' cover photos.
+   */
+  photos: File[];
 }) => {
   const form = new FormData();
   form.append('lat', String(input.lat));
@@ -606,7 +633,7 @@ export const matchAnimals = (input: {
   form.append('species', input.species);
   if (input.breed) form.append('breed', input.breed);
   if (input.color) form.append('color', input.color);
-  form.append('photo', input.photo);
+  for (const photo of input.photos) form.append('photos', photo);
   return api.postForm<MatchResult>('/animals/match', form);
 };
 

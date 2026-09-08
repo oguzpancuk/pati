@@ -10,6 +10,7 @@ import {
   type Species,
 } from '@mobile/taxonomy';
 import {
+  ApiError,
   addAnimalPhoto,
   AnimalMatch,
   createAnimal,
@@ -26,6 +27,22 @@ import { Coordinates, getCurrentLocation, describeLocationError } from '../locat
 
 const MIN_PHOTOS = 2;
 const MAX_PHOTOS = 6;
+
+/**
+ * The token from the match step first — the file is already up and
+ * screened; a missing or expired one falls back to the file itself, which
+ * the server screens inline.
+ */
+async function uploadAnimalPhoto(animalId: number, photo: File, token?: string) {
+  if (token) {
+    try {
+      return await addAnimalPhoto(animalId, { photoToken: token });
+    } catch (err) {
+      if (!(err instanceof ApiError && err.code === 'photoTokenInvalid')) throw err;
+    }
+  }
+  return addAnimalPhoto(animalId, photo);
+}
 
 // The server usually responds instantly; show the "AI matching" screen for
 // at least this long so the user perceives that a scan happened (same as
@@ -259,6 +276,10 @@ export default function AddAnimalPage() {
   const [name, setName] = useState(draft?.name ?? '');
   const [markings, setMarkings] = useState(draft?.markings ?? '');
   const [photos, setPhotos] = useState<File[]>([]);
+  // The match step screens every photo and hands back one token per photo
+  // (same order); the create step redeems them so the photos travel once.
+  // Any change to the list invalidates them — the order is the pairing.
+  const [photoTokens, setPhotoTokens] = useState<string[]>([]);
   // Whether the model compared the photo — the results banner says which
   // comparison the tiers came from.
   const [photoChecked, setPhotoChecked] = useState(false);
@@ -379,7 +400,7 @@ export default function AddAnimalPage() {
         species,
         breed,
         color,
-        photo: photos[0],
+        photos,
       });
 
       // Show the waiting screen for at least MIN_MATCHING_MS.
@@ -388,26 +409,47 @@ export default function AddAnimalPage() {
         await new Promise((resolve) => setTimeout(resolve, MIN_MATCHING_MS - elapsed));
       }
 
+      const tokens = result.photoTokens ?? [];
+      setPhotoTokens(tokens);
       setCandidates(result.candidates);
       setMatchRadius(result.radiusMeters);
       setPhotoChecked(result.photoChecked);
       if (result.candidates.length === 0) {
         // No same-species records nearby: nothing to ask, save directly.
-        await createNewAnimal(loc);
+        await createNewAnimal(loc, tokens);
       } else {
         setStep('results');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Eşleştirme yapılamadı');
+      if (err instanceof ApiError && err.code === 'photoRejected') {
+        // The model saw no cat/dog (or the other species) in one photo:
+        // that photo leaves the strip, the reason stays above the form,
+        // and the user picks another — no "add anyway" (ADR-0005).
+        const index = Number.isInteger(err.data.photoIndex) ? (err.data.photoIndex as number) : 0;
+        setPhotos((prev) => prev.filter((_, i) => i !== index));
+        setPhotoTokens([]);
+        setError(
+          `${err.message} Bu fotoğrafı listeden kaldırdık; ${
+            species === 'dog' ? 'köpeğin' : 'kedinin'
+          } göründüğü bir fotoğraf ekle.`
+        );
+      } else {
+        setError(err instanceof Error ? err.message : 'Eşleştirme yapılamadı');
+      }
       setStep('form');
     }
   }
 
-  async function createNewAnimal(loc: Coordinates) {
+  /**
+   * `tokens` pairs with `photos` by index; submit passes the fresh ones
+   * because the state has not settled yet, the results step uses the state.
+   */
+  async function createNewAnimal(loc: Coordinates, tokens: string[] = photoTokens) {
     if (!species) return; // unreachable: submit gates on species
     setBusy(true);
+    let animal: Awaited<ReturnType<typeof createAnimal>>;
     try {
-      const animal = await createAnimal({
+      animal = await createAnimal({
         species,
         name: name.trim() || undefined,
         color: color ?? undefined,
@@ -416,16 +458,34 @@ export default function AddAnimalPage() {
         lat: loc.lat,
         lng: loc.lng,
       });
-      await Promise.all(photos.map((p) => addAnimalPhoto(animal.id, p)));
-      sessionStorage.removeItem(DRAFT_KEY);
-      navigate(`/hayvanlar/${animal.id}`, { replace: true });
-      celebrate(animal);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Eklenemedi');
       setStep(candidates.length > 0 ? 'results' : 'form');
-    } finally {
       setBusy(false);
+      return;
     }
+    // The record exists from here on: a photo that fails still lands the
+    // user on the profile (with the reason), never back on a form whose
+    // save would register the animal twice.
+    const failures: string[] = [];
+    await Promise.all(
+      photos.map((photo, i) =>
+        uploadAnimalPhoto(animal.id, photo, tokens[i]).catch((err) => {
+          failures.push(err instanceof Error ? err.message : 'Bir hata oluştu');
+        })
+      )
+    );
+    setBusy(false);
+    sessionStorage.removeItem(DRAFT_KEY);
+    if (failures.length > 0) {
+      window.alert(
+        `${failures.length === photos.length ? 'Fotoğraflar' : 'Bazı fotoğraflar'} eklenemedi: ${
+          failures[0]
+        } Fotoğrafı daha sonra profilden ekleyebilirsin.`
+      );
+    }
+    navigate(`/hayvanlar/${animal.id}`, { replace: true });
+    celebrate(animal);
   }
 
   /** Tapping a candidate opens its profile in review mode; stash the draft and go. */
@@ -670,7 +730,10 @@ export default function AddAnimalPage() {
                 abandoning the form. */}
             <button
               aria-label="Fotoğrafı kaldır"
-              onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+              onClick={() => {
+                setPhotos((prev) => prev.filter((_, idx) => idx !== i));
+                setPhotoTokens([]);
+              }}
               style={{
                 position: 'absolute',
                 top: -6,
@@ -714,6 +777,7 @@ export default function AddAnimalPage() {
               setError(`En fazla ${MAX_PHOTOS} fotoğraf eklenebilir.`);
             }
             setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+            setPhotoTokens([]);
           }
           e.target.value = '';
         }}
