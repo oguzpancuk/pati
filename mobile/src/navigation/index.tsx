@@ -14,6 +14,10 @@ import MapScreen from '../screens/MapScreen';
 import AnimalsScreen from '../screens/AnimalsScreen';
 import AddAnimalScreen from '../screens/AddAnimalScreen';
 import AnimalProfileScreen from '../screens/AnimalProfileScreen';
+import AnimalPhotoViewerScreen from '../screens/AnimalPhotoViewerScreen';
+import CarePhotoScreen from '../screens/CarePhotoScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import type { AnimalPhoto } from '../api/animals';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
 import FindFriendsScreen from '../screens/FindFriendsScreen';
@@ -35,6 +39,12 @@ export type MainStackParamList = {
   // matchReview: while viewing a candidate in the add-animal flow; the
   // profile opens in "review" mode with a "go back / that's the one" bar.
   AnimalProfile: { animalId: number; matchReview?: boolean };
+  // The swipeable full-screen viewer over the profile's photos (P6 item 7).
+  AnimalPhotos: { animalId: number; photos: AnimalPhoto[]; index?: number };
+  // "Bakım ver": the two-photo step that makes the user a carer (P6 item 8).
+  CarePhotos: { animalId: number; species: 'cat' | 'dog'; name?: string | null };
+  // The inbox behind the bell on the profile tab.
+  Notifications: undefined;
   PublicProfile: { userId: number };
   FindFriends: undefined;
   Leaderboard: undefined;
@@ -86,6 +96,8 @@ const linking: LinkingOptions<MainStackParamList> = {
       },
       AddAnimal: 'add-animal',
       AnimalProfile: { path: 'animal/:animalId', parse: { animalId: Number } }, // ?matchReview=1 / ?report=1
+      CarePhotos: { path: 'animal/:animalId/care', parse: { animalId: Number } }, // ?species=cat
+      Notifications: 'notifications',
       PublicProfile: { path: 'user/:userId', parse: { userId: Number } },
       FindFriends: 'friends',
       Leaderboard: 'leaderboard',
@@ -145,7 +157,24 @@ function MainNavigator() {
       <MainStack.Screen
         name="AnimalProfile"
         component={AnimalProfileScreen}
-        options={{ title: 'hayvan detay' }}
+        // The screen renames itself "kedi profili" / "köpek profili" once
+        // the species is known.
+        options={{ title: 'hayvan profili' }}
+      />
+      <MainStack.Screen
+        name="AnimalPhotos"
+        component={AnimalPhotoViewerScreen}
+        options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }}
+      />
+      <MainStack.Screen
+        name="CarePhotos"
+        component={CarePhotoScreen}
+        options={{ title: 'bakım ver' }}
+      />
+      <MainStack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ title: 'bildirimler' }}
       />
       <MainStack.Screen
         name="PublicProfile"

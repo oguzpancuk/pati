@@ -7,6 +7,7 @@ import { openAddAnimal } from '../addAnimalGate';
 import { mergeById } from '../paging';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
 import AnimalAvatar from '../components/AnimalAvatar';
+import { BadgeSymbol } from '../components/badges';
 import { Icon } from '../components/brand';
 import { makeStyles, spacing, useTheme } from '../theme';
 
@@ -162,6 +163,20 @@ export default function AnimalsScreen({ navigation }: any) {
               <Text variant="caption" numberOfLines={1}>
                 {item.breed ?? 'Türü belirtilmemiş'} · {formatDistance(item.distance_meters)}
               </Text>
+              {/* The animal's badges (P6 item 5): medallions only, the
+                  names live on the profile. */}
+              {item.badges && item.badges.length > 0 && (
+                <View style={styles.badgeRow}>
+                  {item.badges.map((badge) => (
+                    <BadgeSymbol
+                      key={badge.key}
+                      symbol={badge.symbol}
+                      tier={badge.tier}
+                      size={16}
+                    />
+                  ))}
+                </View>
+              )}
             </View>
             <Icon name="chevronRight" size={20} color={colors.textSubtle} />
           </Card>
@@ -198,5 +213,6 @@ const useStyles = makeStyles(({ colors: c }) => ({
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   rowText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
+  badgeRow: { flexDirection: 'row', gap: 4, marginTop: 4 },
   footer: { paddingVertical: spacing.lg, alignItems: 'center' },
 }));
