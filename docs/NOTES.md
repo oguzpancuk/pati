@@ -2510,3 +2510,30 @@ the next docs touch.
   (six tiles) with a "+N" veil on the last one opening the viewer — every
   accepted "bakım ver" adds two photos, so an unbounded hero would push
   the name and the action pair below the fold.
+- Review of the worldwide map (NEEDS_WORK) and the fixes, all in the same
+  session:
+  - **Blocker.** A geography envelope's edges are great circles, so past
+    roughly 150° of longitude `location && ST_MakeEnvelope(...)::geography`
+    stopped covering its own interior: the world box returned 0 of 7771
+    seeded records (reproduced on the dev database). The viewport filter
+    now compares planar geometries (`location::geometry && ST_MakeEnvelope`)
+    and `010_care_bbox_geometry.sql` adds the functional GIST index that
+    keeps it off a seq scan. Distance work (`ST_DWithin`, "care within
+    100 m") stays on the geography column — meters must stay meters.
+    Verified: the world box answers 8 in-window records where it answered 0.
+  - Both clients share `mobile/src/map/viewport.ts` (import-free, jest-
+    covered): a viewport wider than 150°, one that crosses the antimeridian
+    or one MapLibre reports unwrapped (159…199) is sent as the whole world
+    instead of a half-clamped box that hid records on one side.
+  - The viewport refetch is debounced (350 ms) on both clients; mobile
+    takes its sequence number before the async bounds read and states
+    "Kayıtlar yüklenemedi" on the map instead of showing an empty area.
+  - Without a fix neither client claims a verdict any more: the sheet says
+    "Buranın durumu bilinmiyor" and web stops fetching statuses/animals
+    around the Kadıköy fallback. A web drop with no location falls back to
+    the map centre only from zoom 14 on; below that the drop is refused
+    (at world zoom one pixel is hundreds of kilometres).
+  - The world view opens at zoom 2.2 with a floor of 2 on both clients:
+    the generated basemap drops the low-zoom `natural_earth` raster, so
+    below ~2 the vector layers paint nothing (blank cream). The build
+    script now records that consequence.

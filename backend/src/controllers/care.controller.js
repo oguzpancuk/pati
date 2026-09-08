@@ -260,7 +260,11 @@ async function listCareActions(req, res, next) {
                 ST_AsGeoJSON(location)::json AS location,
                 ${WEIGHT_SQL} AS weight
          FROM care_actions
-         WHERE location && ST_MakeEnvelope($1, $2, $3, $4, 4326)::geography
+         -- Planar comparison on purpose: a geography envelope's edges are
+         -- great circles, so a world-wide viewport stopped matching its own
+         -- interior (010_care_bbox_geometry.sql). Distance work stays on
+         -- the geography column below.
+         WHERE location::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
            AND ${WITHIN_WINDOW_SQL}
            ${filter.sql}
          ORDER BY created_at DESC

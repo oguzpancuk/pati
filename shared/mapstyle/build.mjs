@@ -173,8 +173,10 @@ function tint(base, theme) {
   const style = structuredClone(base);
   style.name = `pati-${theme}`;
 
-  // The low-zoom shaded-relief raster fights the flat cream ground and the
-  // app never shows those zooms (Turkey bounds, street focus). Drop it.
+  // The low-zoom shaded-relief raster fights the flat cream ground. Drop
+  // it — and note the consequence: with it gone the vector layers alone
+  // paint nothing below about zoom 2, so both clients floor their world
+  // view there (MapScreen MIN_ZOOM / MapPage WORLD_MIN_ZOOM).
   // The 3D building extrusions go too: GL JS and MapLibre Native shade them
   // differently (heavy gray blocks on iOS), and flat buildings are truer to
   // the studio language anyway.

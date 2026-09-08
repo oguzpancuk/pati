@@ -53,6 +53,7 @@ import {
   ringTone,
 } from '../map/careMarkers';
 import { CARE_MARKER_IMAGES } from '../map/markers';
+import { viewportBounds } from '../map/viewport';
 import { mapStyles } from '../map/styles';
 import { Button, Text } from '../components/ui';
 import { Icon, Logo } from '../components/brand';
@@ -64,6 +65,9 @@ import { makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 // location the map opens on the whole world; the locate button and the
 // first fix take it to the user.
 const WORLD_CENTER: [number, number] = [20, 20];
+// A pan fires a settle per gesture; the viewport refetch waits this long
+// for the map to stand still.
+const VIEWPORT_REFRESH_MS = 350;
 
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 // Animals are fetched only near the user (500 m, owner decision 2026-09-08 —
@@ -74,9 +78,12 @@ const ANIMAL_RADIUS_METERS = 500;
 // Zoom levels are shared numbers with web/src/pages/MapPage.tsx — the same
 // MapLibre zoom scale on every platform, so the three clients behave alike.
 // Change one, change the other.
-const WORLD_ZOOM = 1.5;
+// The generated basemap has no low-zoom relief (shared/mapstyle/build.mjs
+// drops `natural_earth`), so below zoom 2 the ground paints empty cream —
+// the world view opens at 2.2 and the floor is 2.
+const WORLD_ZOOM = 2.2;
 const USER_ZOOM = 16;
-const MIN_ZOOM = 1;
+const MIN_ZOOM = 2;
 const MAX_ZOOM = 19;
 
 // Animal avatars draw from neighbourhood scale (15, owner decision
@@ -152,6 +159,7 @@ export default function MapScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
+  const [actionsFailed, setActionsFailed] = useState(false);
   // The settled zoom drives the stack layout (screen-space rule); the ref
   // stays for the celebration path.
   const [zoomLevel, setZoomLevel] = useState(WORLD_ZOOM);
@@ -170,6 +178,7 @@ export default function MapScreen({ navigation }: any) {
   const heartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadSeqRef = useRef(0);
   const actionsSeqRef = useRef(0);
+  const viewportTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // The celebration waits for the zoom to finish; screen points are
   // computed once the map settles (points taken mid-motion land wrong).
   const pendingHeartsRef = useRef<Animal[] | null>(null);
@@ -181,6 +190,7 @@ export default function MapScreen({ navigation }: any) {
   React.useEffect(
     () => () => {
       if (heartTimerRef.current) clearTimeout(heartTimerRef.current);
+      if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
     },
     []
   );
@@ -214,38 +224,32 @@ export default function MapScreen({ navigation }: any) {
 
   /**
    * The records of whatever the map shows. Worldwide there is no fixed box
-   * to ask for, so every settle (and every reload) asks for the viewport.
-   * A viewport wider than the world, or one that crosses the antimeridian,
-   * is sent as the whole world — the server's envelope wants ordered
-   * corners.
+   * to ask for, so every settle (and every reload) asks for the viewport
+   * (map/viewport.ts turns the engine's corners into the server's box).
+   * A failure is stated on the map instead of reading as "no records here".
    */
-  const boundsFrom = useCallback((ne: number[], sw: number[]): Bounds => {
-    const wrapped = ne[0] <= sw[0] || ne[0] - sw[0] >= 360;
-    return {
-      minLat: Math.max(-85, sw[1]),
-      maxLat: Math.min(85, ne[1]),
-      minLng: wrapped ? -180 : Math.max(-180, sw[0]),
-      maxLng: wrapped ? 180 : Math.min(180, ne[0]),
-    };
-  }, []);
-
   const loadActionsIn = useCallback(async (bounds: Bounds) => {
     const seq = ++actionsSeqRef.current;
     try {
       const data = await fetchCareActionsInBounds(bounds);
-      if (seq === actionsSeqRef.current) setActions(data);
+      if (seq !== actionsSeqRef.current) return;
+      setActions(data);
+      setActionsFailed(false);
     } catch {
-      // A failed viewport refresh keeps the records already on the map;
-      // the initial load surfaces errors.
+      if (seq === actionsSeqRef.current) setActionsFailed(true);
     }
   }, []);
 
   const loadActionsForViewport = useCallback(async () => {
-    const visible = await mapRef.current?.getVisibleBounds();
-    if (!visible) return;
-    const [ne, sw] = visible;
-    await loadActionsIn(boundsFrom(ne, sw));
-  }, [boundsFrom, loadActionsIn]);
+    try {
+      const visible = await mapRef.current?.getVisibleBounds();
+      if (!visible) return;
+      const [ne, sw] = visible;
+      await loadActionsIn(viewportBounds(ne, sw));
+    } catch {
+      setActionsFailed(true);
+    }
+  }, [loadActionsIn]);
 
   const load = useCallback(async (known?: Coordinates) => {
     // Overlapping loads (a refocus during a slow first load, a drop right
@@ -290,9 +294,14 @@ export default function MapScreen({ navigation }: any) {
 
   function handleRegionDidChange(feature: Feature<Point, RegionPayload>) {
     const { zoomLevel, visibleBounds } = feature.properties;
-    // Worldwide the viewport decides which records to show.
+    // Worldwide the viewport decides which records to show. A pan is a
+    // burst of settles; the refetch waits for the map to stand still.
     const [ne, sw] = visibleBounds;
-    loadActionsIn(boundsFrom(ne, sw));
+    if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
+    viewportTimerRef.current = setTimeout(
+      () => loadActionsIn(viewportBounds(ne, sw)),
+      VIEWPORT_REFRESH_MS
+    );
     currentZoomRef.current = zoomLevel;
     setAnimalsVisible(zoomLevel >= ANIMAL_VISIBLE_MIN_ZOOM);
     setZoomLevel(zoomLevel);
@@ -527,14 +536,17 @@ export default function MapScreen({ navigation }: any) {
   // hasn't seen.
   const hasFood = !!statuses && !statuses.food.needsAttention;
   const hasWater = !!statuses && !statuses.water.needsAttention;
-  const sheetTitle =
-    hasFood && hasWater
-      ? 'Bu bölgede mama ve su var'
-      : hasFood
-      ? 'Bu bölgede mama var, su yok'
-      : hasWater
-      ? 'Bu bölgede su var, mama yok'
-      : 'Buralarda mama ve su yok';
+  // Without a fix there is no "here" to judge (the map may be showing the
+  // whole world): say so instead of claiming the area is empty.
+  const sheetTitle = !statuses
+    ? 'Buranın durumu bilinmiyor'
+    : hasFood && hasWater
+    ? 'Bu bölgede mama ve su var'
+    : hasFood
+    ? 'Bu bölgede mama var, su yok'
+    : hasWater
+    ? 'Bu bölgede su var, mama yok'
+    : 'Buralarda mama ve su yok';
 
   const actionPosition = (action: CareAction): Coordinates => ({
     lat: action.location.coordinates[1],
@@ -744,13 +756,19 @@ export default function MapScreen({ navigation }: any) {
       {/* Top: the zoom hint (owner, P7 item 13 — it used to sit by the
           side controls). */}
       <SafeAreaView style={styles.topLayer} edges={['top']} pointerEvents="box-none">
-        {!animalsVisible && animals.length > 0 && (
+        {actionsFailed ? (
+          <View style={styles.hint} pointerEvents="none">
+            <Text variant="caption" center>
+              Kayıtlar yüklenemedi
+            </Text>
+          </View>
+        ) : !animalsVisible && animals.length > 0 ? (
           <View style={styles.hint} pointerEvents="none">
             <Text variant="caption" center>
               Hayvanları görmek için yakınlaştır
             </Text>
           </View>
-        )}
+        ) : null}
       </SafeAreaView>
 
       {/* Side: only the locate button (P7 item 11); the zoom pair is gone
@@ -782,7 +800,9 @@ export default function MapScreen({ navigation }: any) {
             {sheetTitle}
           </Text>
           <Text variant="body" style={styles.sheetDesc}>
-            Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.
+            {statuses
+              ? 'Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.'
+              : 'Konumunu açınca buranın durumunu gösteririz; kayıt yine şu anki konumuna düşer.'}
           </Text>
           {/* The pati logo on the button (owner, P8 item 1), white on the
               gradient with the heart cut out. */}

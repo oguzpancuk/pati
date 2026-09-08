@@ -8,6 +8,7 @@ import { animalAvatarSvg } from '@shared/animalAvatarSvg';
 import { circleRing, featureCollection, pointFeature } from '@mobile/map/geo';
 import { logoSvg } from '@shared/logoSvg';
 import { layoutStacks } from '@mobile/map/stacks';
+import { viewportBounds } from '@mobile/map/viewport';
 import {
   CARE_GLYPH_PATHS,
   CARE_MARKER_SCALE_SMALL,
@@ -33,7 +34,6 @@ import {
   type PhotoCheck,
 } from '../api';
 import {
-  FALLBACK_CENTER,
   getCurrentLocation,
   describeLocationError,
   Coordinates,
@@ -55,7 +55,15 @@ import { InstallBanner } from '../install';
 // Turkey bounding box through the map's maxBounds): without a location it
 // opens on the whole world and the records come from the viewport.
 const WORLD_CENTER: [number, number] = [20, 20];
-const WORLD_ZOOM = 1.5;
+// The generated basemap has no low-zoom relief (shared/mapstyle/build.mjs
+// drops `natural_earth`), so below zoom 2 the ground paints empty cream —
+// the world view opens at 2.2 and the floor is 2 (same as mobile).
+const WORLD_ZOOM = 2.2;
+const WORLD_MIN_ZOOM = 2;
+const VIEWPORT_REFRESH_MS = 350;
+// Below this zoom the map centre is not a place: a drop without a location
+// is refused instead of landing in the middle of a continent.
+const DROP_FALLBACK_MIN_ZOOM = 14;
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 // Animals are drawn only near the user (500 m, owner decision 2026-09-08 —
 // was 200 m) and from neighbourhood scale on (15 — was 17; overlapping
@@ -348,6 +356,7 @@ export default function MapPage() {
       zoom: WORLD_ZOOM,
       // Same ceiling as mobile's MAX_ZOOM; the default (22) overzooms into
       // stretched vector tiles.
+      minZoom: WORLD_MIN_ZOOM,
       maxZoom: 19,
       attributionControl: { compact: true },
     });
@@ -422,10 +431,14 @@ export default function MapPage() {
     map.on('zoomend', paintMarkers);
     // Worldwide the records follow the viewport (mobile refetches on the
     // region settle); `moveend` covers pans and zooms alike.
+    // A pan is a burst of moveend events; the refetch waits for the map to
+    // stand still (mobile debounces its region settles the same way).
+    let viewportTimer: number | undefined;
     map.on('moveend', () => {
-      loadMarkers().catch(() => {
-        // A failed viewport refresh keeps what is already drawn.
-      });
+      window.clearTimeout(viewportTimer);
+      viewportTimer = window.setTimeout(() => {
+        loadMarkers().catch((err) => setError(err.message));
+      }, VIEWPORT_REFRESH_MS);
     });
 
     // The OS can flip light/dark while the map is open; the app theme is CSS
@@ -466,19 +479,13 @@ export default function MapPage() {
     // Overlapping loads (a drop right after the first load) race: without
     // this, whichever response lands LAST paints the map.
     const seq = ++markersSeqRef.current;
-    // Worldwide the viewport decides which records to show; a viewport
-    // wider than the world (or one crossing the antimeridian) is sent as
-    // the whole world — the server's envelope wants ordered corners.
+    // Worldwide the viewport decides which records to show
+    // (@mobile/map/viewport turns the engine's corners into the server's
+    // box — mobile uses the same helper).
     const b = map.getBounds();
-    const west = b.getWest();
-    const east = b.getEast();
-    const wrapped = east <= west || east - west >= 360;
-    const actions = await fetchCareActionsInBounds({
-      minLat: Math.max(-85, b.getSouth()),
-      maxLat: Math.min(85, b.getNorth()),
-      minLng: wrapped ? -180 : Math.max(-180, west),
-      maxLng: wrapped ? 180 : Math.min(180, east),
-    });
+    const actions = await fetchCareActionsInBounds(
+      viewportBounds([b.getEast(), b.getNorth()], [b.getWest(), b.getSouth()])
+    );
     if (seq !== markersSeqRef.current) return;
     actionsRef.current = actions;
     paintMarkers();
@@ -502,7 +509,16 @@ export default function MapPage() {
     async (around?: Coordinates) => {
       const map = mapRef.current;
       if (!map) return;
-      const center = around ?? myLocation ?? FALLBACK_CENTER;
+      // Animals are the ones around the user; without a fix there are none
+      // to show (the map may be on the whole world).
+      const center = around ?? myLocation;
+      if (!center) {
+        animalsDataRef.current = [];
+        for (const marker of animalMarkersRef.current) marker.remove();
+        animalMarkersRef.current = [];
+        syncAnimalMarkers();
+        return;
+      }
       const seq = ++animalsSeqRef.current;
       const animals: Animal[] = await fetchAnimals(center.lat, center.lng, ANIMAL_RADIUS_METERS);
       if (seq !== animalsSeqRef.current) return;
@@ -550,7 +566,10 @@ export default function MapPage() {
   }, [mapReady, loadAnimals]);
 
   useEffect(() => {
-    loadStatuses(myLocation ?? FALLBACK_CENTER);
+    // Without a fix there is no "here" to judge — the sheet says so
+    // instead of describing the fallback centre (review finding).
+    if (myLocation) loadStatuses(myLocation);
+    else setStatuses(null);
   }, [myLocation, loadStatuses]);
 
   /**
@@ -628,9 +647,14 @@ export default function MapPage() {
       // location; web is more lenient (see docs/NOTES.md).
       let usedFallback: string | null = null;
       loc = await getCurrentLocation().catch((err) => {
+        // The map centre stands in for a fix only while the map is zoomed
+        // into a street (worldwide, one pixel can be hundreds of km — a
+        // record at the centre of a world view would be nonsense).
+        const map = mapRef.current;
+        const center = map && map.getZoom() >= DROP_FALLBACK_MIN_ZOOM ? map.getCenter() : null;
+        if (!center) throw err;
         usedFallback = describeLocationError(err);
-        const center = mapRef.current?.getCenter();
-        return center ? { lat: center.lat, lng: center.lng } : FALLBACK_CENTER;
+        return { lat: center.lat, lng: center.lng };
       });
       setMyLocation(loc);
       // The dot, its ring and the layout anchor follow the drop's fix.
@@ -705,14 +729,17 @@ export default function MapPage() {
   // (the sheet never claims coverage it hasn't seen) — mobile parity.
   const hasFood = !!statuses && !statuses.food.needsAttention;
   const hasWater = !!statuses && !statuses.water.needsAttention;
-  const sheetTitle =
-    hasFood && hasWater
-      ? 'Bu bölgede mama ve su var'
-      : hasFood
-      ? 'Bu bölgede mama var, su yok'
-      : hasWater
-      ? 'Bu bölgede su var, mama yok'
-      : 'Buralarda mama ve su yok';
+  // Without a fix there is no "here" to judge (the map may be showing the
+  // whole world): say so instead of claiming the area is empty.
+  const sheetTitle = !statuses
+    ? 'Buranın durumu bilinmiyor'
+    : hasFood && hasWater
+    ? 'Bu bölgede mama ve su var'
+    : hasFood
+    ? 'Bu bölgede mama var, su yok'
+    : hasWater
+    ? 'Bu bölgede su var, mama yok'
+    : 'Buralarda mama ve su yok';
 
   return (
     <div className="page fill">
@@ -755,7 +782,9 @@ export default function MapPage() {
           <div className="sheet-handle" />
           <h2>{sheetTitle}</h2>
           <p className="muted" style={{ margin: '2px 0 12px' }}>
-            Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.
+            {statuses
+              ? 'Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.'
+              : 'Konumunu açınca buranın durumunu gösteririz; kayıt yine şu anki konumuna düşer.'}
           </p>
           {/* The pati logo on the button (owner, P8 item 1): white on the
               gradient, heart cut out. logoSvg is our own static markup. */}
