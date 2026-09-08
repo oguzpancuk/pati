@@ -32,6 +32,7 @@ import { ReportLink } from '../components/ReportDialog';
 import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { ChipRow } from '../components/ChipRow';
+import { LoadMoreButton } from '../components/LoadMoreButton';
 
 const RECORD_TYPE_LABELS = { illness: 'Hastalık', injury: 'Yaralanma' } as const;
 const STATUS_META = {
@@ -458,26 +459,26 @@ export default function AnimalPage() {
 
       {error && <div className="error">{error}</div>}
 
+      {/* Header, after ProfilePage's (handoff 3c/3d): the avatar beside a
+          name row, one descriptive line — pattern, color and markings as a
+          sentence — and the badge chips. */}
       <div className="row" style={{ alignItems: 'flex-start' }}>
         <AnimalAvatar
           species={animal.species}
           breed={animal.breed}
           photoUrl={animal.cover_thumb_url}
-          size={64}
+          size={60}
         />
         <div className="grow">
-          {/* The counts come first (P7 item 5): who hears about this
-              animal, readable before its name. */}
-          <div className="animal-stats">
-            <span>
-              <strong>{animal.followerCount}</strong> takipçi
-            </span>
-            <span>
-              <strong>{animal.carerCount}</strong> bakıcı
+          <div className="animal-name-row">
+            <h1>{displayName}</h1>
+            {/* The audience (P7 item 5, placed by the P8 review): the
+                follower/carer pair right-aligned on the name's line. */}
+            <span className="animal-counts">
+              {animal.followerCount} takipçi · {animal.carerCount} bakıcı
             </span>
           </div>
-          <h1 style={{ margin: '0 0 2px', fontSize: 25 }}>{displayName}</h1>
-          <div className="muted" style={{ fontSize: 13.5 }}>
+          <div className="muted">
             {[
               animal.color ?? 'Rengi belirtilmemiş',
               animal.breed ?? 'Türü belirtilmemiş',
@@ -506,7 +507,6 @@ export default function AnimalPage() {
               ))}
             </div>
           )}
-          <ReportLink targetType="animal" targetId={animal.id} style={{ marginTop: 4 }} />
         </div>
       </div>
 
@@ -538,6 +538,7 @@ export default function AnimalPage() {
 
       {/* The photo grid (P6 item 7): square tiles, three a row, each with
           its like count; a tap opens the swipeable viewer. */}
+      <h2 className="section">fotoğraflar</h2>
       <div className="animal-photo-grid">
         {Array.from({ length: photoSlots }).map((_, i) => {
           const p = animal.photos[i];
@@ -562,10 +563,7 @@ export default function AnimalPage() {
 
       {/* Last-seen mini map (mobile parity + PROJECT.md requirement): where
           and when the animal was last recorded, as a static thumbnail. */}
-      <div className="label">en son görüldüğü yer</div>
-      <div className="muted" style={{ fontSize: 13, margin: '0 0 8px' }}>
-        {formatDate(animal.location_updated_at)}
-      </div>
+      <h2 className="section">en son görüldüğü yer</h2>
       <MiniMap
         /* The map builds once and never recenters; the key remounts it when
            the route shows a different animal. */
@@ -591,12 +589,11 @@ export default function AnimalPage() {
           />
         </span>
       </MiniMap>
+      <div className="muted animal-seen-at">{formatDate(animal.location_updated_at)}</div>
 
       {/* Vaccinations above health records: on the street the first question is "vaccinated?". */}
-      <div className="hairline row" style={{ justifyContent: 'space-between' }}>
-        <div className="label" style={{ margin: 0 }}>
-          aşı kayıtları
-        </div>
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h2 className="section">aşı kayıtları</h2>
         {animal.isCarer && !matchReview && (
           <button className="link" onClick={() => setVaccineOpen(true)}>
             + aşı ekle
@@ -624,30 +621,19 @@ export default function AnimalPage() {
           </div>
         ))
       )}
-      {animal.vaccinations.length > visibleVaccinations && (
-        <button
-          className="btn ghost small full"
-          onClick={() => setVisibleVaccinations(animal.vaccinations.length)}
-        >
-          Devamını göster ({animal.vaccinations.length - visibleVaccinations})
-        </button>
-      )}
+      <LoadMoreButton
+        remaining={animal.vaccinations.length - visibleVaccinations}
+        onClick={() => setVisibleVaccinations(animal.vaccinations.length)}
+      />
 
-      <div className="hairline row" style={{ justifyContent: 'space-between' }}>
-        <div className="label" style={{ margin: 0 }}>
-          sağlık kayıtları
-        </div>
+      <div className="row" style={{ justifyContent: 'space-between' }}>
+        <h2 className="section">sağlık kayıtları</h2>
         {animal.isCarer && (
           <button className="link" onClick={() => setRecordOpen(true)}>
             + kayıt ekle
           </button>
         )}
       </div>
-      {!animal.isCarer && (
-        <p className="subtle">
-          Sağlık kaydı ekleyebilmek için "bakım ver" ile bu hayvanın bakıcısı ol.
-        </p>
-      )}
       {animal.healthRecords.length === 0 ? (
         <div className="card flat muted">Henüz kayıt yok.</div>
       ) : (
@@ -703,31 +689,29 @@ export default function AnimalPage() {
           );
         })
       )}
-      {animal.healthRecords.length > visibleRecords && (
-        <button
-          className="btn ghost small full"
-          onClick={() => setVisibleRecords(animal.healthRecords.length)}
-        >
-          Devamını göster ({animal.healthRecords.length - visibleRecords})
-        </button>
-      )}
+      <LoadMoreButton
+        remaining={animal.healthRecords.length - visibleRecords}
+        onClick={() => setVisibleRecords(animal.healthRecords.length)}
+      />
 
-      <div className="hairline">
-        <div className="label" style={{ margin: 0 }}>
-          sohbet
+      <h2 className="section">sohbet</h2>
+      {/* The chat is the carers' room (owner decision, 2026-09-08):
+          followers read it; the door in sits at the top of the section
+          instead of a sticky bar (P8 review). */}
+      {!matchReview && !animal.isCarer && (
+        <div className="card flat carer-door">
+          <p className="muted">Yorum yazmak bakıcılara açık. İki yeni fotoğrafla sen de katıl.</p>
+          <button className="btn small full" onClick={openCare}>
+            📷 bakım ver
+          </button>
         </div>
-      </div>
-      {commentTotal > comments.length && (
-        <button
-          className="btn ghost small full"
-          disabled={loadingOlder}
-          onClick={loadOlderComments}
-        >
-          {loadingOlder
-            ? 'Yükleniyor…'
-            : `Önceki yorumları yükle (${commentTotal - comments.length})`}
-        </button>
       )}
+      <LoadMoreButton
+        remaining={commentTotal - comments.length}
+        loading={loadingOlder}
+        onClick={loadOlderComments}
+        label="Önceki yorumları yükle"
+      />
       {comments.length === 0 && (
         <div className="card flat muted">Henüz yorum yok. İlk yorumu sen yap.</div>
       )}
@@ -779,18 +763,7 @@ export default function AnimalPage() {
             </button>
           </div>
         </div>
-      ) : !animal.isCarer ? (
-        /* The chat is the carers' room (owner decision, 2026-09-08):
-           followers read it; the composer gives way to the door in. */
-        <div className="card" style={{ position: 'sticky', bottom: 0 }}>
-          <p className="muted" style={{ margin: '0 0 8px', textAlign: 'center' }}>
-            Yorum yazmak bakıcılara açık. İki yeni fotoğrafla sen de katıl.
-          </p>
-          <button className="btn small full" onClick={openCare}>
-            📷 bakım ver
-          </button>
-        </div>
-      ) : (
+      ) : animal.isCarer ? (
         /* Fixed comment row (handoff): cream input + gradient send button. */
         <form
           onSubmit={sendComment}
@@ -842,7 +815,13 @@ export default function AnimalPage() {
             </button>
           </div>
         </form>
-      )}
+      ) : null}
+
+      {/* Reporting exists but sells nothing: the last thing on the page,
+          under a hairline. */}
+      <div className="animal-footer">
+        <ReportLink targetType="animal" targetId={animal.id} />
+      </div>
 
       {viewerPhoto && viewerIndex !== null && (
         <div

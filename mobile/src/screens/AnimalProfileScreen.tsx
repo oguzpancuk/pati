@@ -396,40 +396,28 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       keyboardVerticalOffset={90}
     >
       <Screen scroll>
-        {/* Header (handoff 3c): the animal's avatar, its name, and one
-            descriptive line — pattern, color and markings read as a sentence
-            instead of a stack of labeled fields. */}
+        {/* Header, after the human profile's (handoff 3c/3d): the avatar
+            beside a name row, one descriptive line — pattern, color and
+            markings as a sentence, not labeled fields — and the badge chips.
+            No card; it sits on white. */}
         <View style={styles.header}>
           <AnimalAvatar
             species={animal.species}
             breed={animal.breed}
             photoUrl={animal.cover_thumb_url}
-            size={64}
+            size={60}
           />
           <View style={styles.headerText}>
-            {/* The counts come first (P7 item 5): who hears about this
-                animal, readable before its name. */}
-            <View style={styles.statsRow}>
-              <View style={styles.stat}>
-                <Text variant="subheading" style={styles.statNumber}>
-                  {animal.followerCount}
-                </Text>
-                <Text variant="captionStrong" color="textMuted">
-                  takipçi
-                </Text>
-              </View>
-              <View style={styles.stat}>
-                <Text variant="subheading" style={styles.statNumber}>
-                  {animal.carerCount}
-                </Text>
-                <Text variant="captionStrong" color="textMuted">
-                  bakıcı
-                </Text>
-              </View>
+            <View style={styles.nameRow}>
+              <Text variant="title" numberOfLines={1} style={styles.name}>
+                {displayName}
+              </Text>
+              {/* The audience (P7 item 5, placed by the P8 review): the
+                  follower/carer pair right-aligned on the name's line. */}
+              <Text variant="captionStrong" color="textMuted" style={styles.counts}>
+                {animal.followerCount} takipçi · {animal.carerCount} bakıcı
+              </Text>
             </View>
-            <Text variant="title" numberOfLines={1}>
-              {displayName}
-            </Text>
             <Text variant="caption">
               {[
                 animal.color ?? 'Rengi belirtilmemiş',
@@ -460,12 +448,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 ))}
               </View>
             )}
-            <ReportLink
-              targetType="animal"
-              targetId={animal.id}
-              style={styles.reportLink}
-              initialOpen={!!route.params?.report}
-            />
           </View>
         </View>
 
@@ -515,6 +497,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             its like count; a tap opens the swipeable viewer. The last row
             fills with dashed "fotoğraf" placeholders — even an empty
             profile invites. */}
+        <SectionHeader title="Fotoğraflar" />
         <View style={styles.photoGrid}>
           {animal.photos.map((photo, i) => (
             <Pressable
@@ -559,9 +542,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </View>
 
         <SectionHeader title="En son görüldüğü yer" style={styles.sectionTop} />
-        <Text variant="caption" style={styles.seenAt}>
-          {formatDate(animal.location_updated_at)}
-        </Text>
         <View style={styles.miniMapWrapper}>
           <MapView
             style={styles.miniMap}
@@ -585,6 +565,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             </MarkerView>
           </MapView>
         </View>
+        <Text variant="caption" style={styles.seenAt}>
+          {formatDate(animal.location_updated_at)}
+        </Text>
 
         {/* Vaccinations above health records: on the street, "is this animal
             vaccinated" comes before its illness history (rabies risk, can it
@@ -635,11 +618,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           onAction={animal.isCarer ? () => setRecordModalVisible(true) : undefined}
           style={styles.sectionTop}
         />
-        {!animal.isCarer && (
-          <Text variant="caption" style={styles.hint}>
-            Sağlık kaydı ekleyebilmek için "bakım ver" ile bu hayvanın bakıcısı ol.
-          </Text>
-        )}
         {animal.healthRecords.length === 0 ? (
           <Card variant="flat" style={styles.block}>
             <Text variant="caption">Henüz kayıt yok.</Text>
@@ -708,6 +686,23 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         />
 
         <SectionHeader title="Sohbet" style={styles.sectionTop} />
+        {/* The chat is the carers' room (owner decision, 2026-09-08):
+            followers read it; the door in sits at the top of the section
+            instead of a sticky bar (P8 review). */}
+        {!matchReview && !animal.isCarer && (
+          <Card variant="flat" padding="md" style={styles.doorCard}>
+            <Text variant="caption" center style={styles.doorText}>
+              Yorum yazmak bakıcılara açık. İki yeni fotoğrafla sen de katıl.
+            </Text>
+            <Button
+              title="bakım ver"
+              size="sm"
+              onPress={openCarePhotos}
+              icon={<Icon name="camera" size={16} color={colors.textOnBrand} />}
+              fullWidth
+            />
+          </Card>
+        )}
         <LoadMoreButton
           remaining={commentTotal - comments.length}
           loading={loadingOlder}
@@ -742,6 +737,16 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             </View>
           ))
         )}
+
+        {/* Reporting exists but sells nothing: the last thing on the page,
+            under a hairline. The ?report=1 deep link still opens it. */}
+        <View style={styles.footer}>
+          <ReportLink
+            targetType="animal"
+            targetId={animal.id}
+            initialOpen={!!route.params?.report}
+          />
+        </View>
       </Screen>
 
       {matchReview ? (
@@ -773,22 +778,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             />
           </View>
         </View>
-      ) : !animal.isCarer ? (
-        /* The chat is the carers' room (owner decision, 2026-09-08):
-           followers read it; the composer gives way to the door in. */
-        <View style={styles.composer}>
-          <Text variant="caption" center style={styles.reviewHint}>
-            Yorum yazmak bakıcılara açık. İki yeni fotoğrafla sen de katıl.
-          </Text>
-          <Button
-            title="bakım ver"
-            size="sm"
-            onPress={openCarePhotos}
-            icon={<Icon name="camera" size={16} color={colors.textOnBrand} />}
-            fullWidth
-          />
-        </View>
-      ) : (
+      ) : animal.isCarer ? (
         <View style={styles.composer}>
           {openRecords.length > 0 && (
             <ScrollView
@@ -826,7 +816,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             />
           </View>
         </View>
-      )}
+      ) : null}
 
       <Modal visible={recordModalVisible} transparent animationType="fade">
         <KeyboardAvoidingView
@@ -976,10 +966,21 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
   olderComments: { marginBottom: spacing.sm },
   flex: { flex: 1, backgroundColor: c.background },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
-  reportLink: { marginTop: spacing.xs },
+  header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.lg },
   headerText: { flex: 1, marginLeft: spacing.lg },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
+  // The pair sits right of the name while both fit; a long name pushes it
+  // onto its own line underneath (wrap happens before shrink), so the name
+  // is never squeezed to a few characters and the pair never breaks.
+  nameRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    columnGap: spacing.sm,
+  },
+  name: { flexShrink: 1 },
+  counts: { flexShrink: 0 },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   badgeChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -992,14 +993,10 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderWidth: 1,
     borderColor: c.border,
   },
-  statsRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.xs },
-  stat: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
-  statNumber: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 26 },
   actionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: -spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xl,
   },
   actionButton: { flex: 1 },
   // Mirrors Button's `success` variant at size sm (pill, 1pt ring).
@@ -1049,8 +1046,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderColor: c.borderDashed,
   },
   sectionTop: { marginTop: spacing.xl },
-  seenAt: { marginTop: -spacing.sm, marginBottom: spacing.sm },
-  hint: { marginBottom: spacing.md },
+  seenAt: { marginTop: spacing.sm },
   miniMapWrapper: {
     height: 168,
     borderRadius: radius.lg,
@@ -1069,6 +1065,16 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   recordType: { flexShrink: 1 },
   recordDesc: { marginTop: spacing.xs },
   recoverButton: { marginTop: spacing.md },
+  doorCard: { marginBottom: spacing.md },
+  doorText: { marginBottom: spacing.md },
+  footer: {
+    marginTop: spacing.xxl,
+    marginBottom: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    alignItems: 'center',
+  },
   commentRow: { flexDirection: 'row', marginBottom: spacing.lg },
   commentBody: { flex: 1, marginLeft: spacing.md },
   commentHead: {

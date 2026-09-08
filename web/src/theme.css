@@ -1599,7 +1599,7 @@ strong {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .animal-badge {
@@ -1621,7 +1621,7 @@ strong {
 }
 
 .animal-actions {
-  margin-top: 12px;
+  margin: 14px 0 6px;
   gap: 8px;
 }
 
@@ -1631,20 +1631,53 @@ strong {
   align-items: center;
 }
 
-/* The counts at the top of the header (P7 item 5), the bold number first. */
-.animal-stats {
+/* The name row (P8 review): the name left, the follower/carer pair
+   right-aligned on the same line while both fit; a long name pushes the
+   pair onto its own line underneath (wrap before shrink), so the name is
+   never squeezed and the pair never breaks. */
+.animal-name-row {
   display: flex;
-  gap: 16px;
-  margin: 2px 0 4px;
-  font-size: 13px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  column-gap: 8px;
+}
+.animal-name-row h1 {
+  margin: 0;
+  font-size: 24px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.animal-counts {
+  flex-shrink: 0;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text-muted);
+  white-space: nowrap;
 }
-.animal-stats strong {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--text);
-  margin-right: 3px;
+
+/* The last-seen timestamp is the mini map's caption. */
+.animal-seen-at {
+  margin-top: 6px;
+}
+
+/* The carers-only door at the top of the chat: text over a full-width
+   button, no sticky bar over the headings. */
+.carer-door {
+  text-align: center;
+}
+.carer-door p {
+  margin: 0 0 10px;
+}
+
+/* The report link closes the page under a hairline, centred and faint. */
+.animal-footer {
+  margin: 32px 0 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  text-align: center;
 }
 
 /* A chip that opens the ladder (P7 item 3): a button in the chip's clothes. */
