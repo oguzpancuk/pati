@@ -2553,6 +2553,15 @@ the next docs touch.
     sheet stops asserting the last place's verdict; the public viewport
     route answers 400 (not a Postgres 500) for a non-numeric corner; the
     two stale comments about staying on Kadıköy are gone.
+  - Fourth round: a failed refresh after a successful drop no longer turns
+    the drop into an error banner (or swallows the badge celebration) on
+    web — the pill states it and the flow continues; mobile tells a denied
+    permission from a granted one that produced no fix (`hasLocationPermission`),
+    so a user with location on is never told to turn it on; the coordinate
+    guard now covers all four public entry points (viewport, radius list,
+    status, animals) with Turkish 400s, pinned by
+    `backend/test/coordinateGuards.test.js` — a bad corner used to reach
+    Postgres and the error middleware echoed its English message back.
   - The world view opens at zoom 2.2 with a floor of 2 on both clients:
     the generated basemap drops the low-zoom `natural_earth` raster, so
     below ~2 the vector layers paint nothing (blank cream). The build

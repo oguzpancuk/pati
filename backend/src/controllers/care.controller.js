@@ -251,7 +251,12 @@ async function listCareActions(req, res, next) {
     const { lat, lng, minLat, maxLat, minLng, maxLng, actionType } = req.query;
     const radiusMeters = Number(req.query.radiusMeters) || DEFAULT_RADIUS_METERS;
 
-    if (minLat && maxLat && minLng && maxLng) {
+    if (
+      minLat !== undefined &&
+      maxLat !== undefined &&
+      minLng !== undefined &&
+      maxLng !== undefined
+    ) {
       // The viewport comes from a public route: a non-numeric corner must
       // be a 400, not a Postgres "invalid input syntax" 500.
       const box = [minLng, minLat, maxLng, maxLat].map(Number);
@@ -285,6 +290,9 @@ async function listCareActions(req, res, next) {
         .status(400)
         .json({ error: 'lat/lng ya da minLat/maxLat/minLng/maxLng zorunludur' });
     }
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+      return res.status(400).json({ error: 'lat ve lng sayı olmalı' });
+    }
 
     const params = [lng, lat, radiusMeters];
     const filter = actionTypeFilter(actionType, params.length + 1);
@@ -315,6 +323,9 @@ async function getCareStatus(req, res, next) {
 
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
+    }
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+      return res.status(400).json({ error: 'lat ve lng sayı olmalı' });
     }
 
     const params = [lng, lat, radiusMeters];

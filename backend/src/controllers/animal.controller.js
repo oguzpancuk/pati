@@ -141,6 +141,14 @@ async function listAnimals(req, res, next) {
     if (species && !['cat', 'dog'].includes(species)) {
       return res.status(400).json({ error: 'species cat veya dog olmalıdır' });
     }
+    // Public route: a bad coordinate is a 400, not a Postgres 500 whose
+    // English message the error middleware would echo back.
+    if (
+      (lat !== undefined && !Number.isFinite(Number(lat))) ||
+      (lng !== undefined && !Number.isFinite(Number(lng)))
+    ) {
+      return res.status(400).json({ error: 'lat ve lng sayı olmalı' });
+    }
     const { limit, offset } = pageParams(req.query);
     const speciesFilter = species ? 'AND a.species = $SPECIES' : '';
 
