@@ -1,6 +1,7 @@
 import {
   bumpLadderValue,
   headerBadges,
+  setLadderValue,
   stepLadderText,
   stepNextText,
   stepProgressText,
@@ -58,6 +59,7 @@ describe('animal badge ladder wording', () => {
     const ladder = [step({}), step({ key: 'cared', unit: 'bakıcı', value: 0 })];
     expect(bumpLadderValue(ladder, 'followed', 1).map((s) => s.value)).toEqual([4, 0]);
     expect(bumpLadderValue(ladder, 'cared', -1).map((s) => s.value)).toEqual([3, 0]);
+    expect(setLadderValue(ladder, 'followed', 9).map((s) => s.value)).toEqual([9, 0]);
   });
 
   test('the ladder line lists every threshold with the unit', () => {

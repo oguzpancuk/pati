@@ -24,7 +24,7 @@ import {
   unlikePhoto,
 } from '../api/animalSocial';
 import { AnimalAvatar, UserAvatar } from '../avatars';
-import { bumpLadderValue, headerBadges } from '@mobile/animalBadges';
+import { bumpLadderValue, headerBadges, setLadderValue } from '@mobile/animalBadges';
 import { BadgeSymbol } from '../badges';
 import { AnimalBadgeLadder } from '../components/AnimalBadgeLadder';
 import { MiniMap } from '../components/MiniMap';
@@ -306,7 +306,14 @@ export default function AnimalPage() {
     try {
       const state = was ? await unfollowAnimal(animalId) : await followAnimal(animalId);
       setAnimal((prev) =>
-        prev ? { ...prev, isFollowing: state.following, followerCount: state.followerCount } : prev
+        prev
+          ? {
+              ...prev,
+              isFollowing: state.following,
+              followerCount: state.followerCount,
+              badgeLadder: setLadderValue(prev.badgeLadder, 'followed', state.followerCount),
+            }
+          : prev
       );
     } catch (err) {
       setAnimal((prev) =>

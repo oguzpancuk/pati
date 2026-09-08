@@ -47,6 +47,15 @@ export function bumpLadderValue(
   );
 }
 
+/** The server's count replaces the optimistic one once the toggle answers. */
+export function setLadderValue(
+  ladder: AnimalBadgeStep[],
+  key: string,
+  value: number
+): AnimalBadgeStep[] {
+  return ladder.map((step) => (step.key === key ? { ...step, value } : step));
+}
+
 /** "Gümüş" for an earned step; below bronze, that it is not earned yet. */
 export function stepTierText(step: AnimalBadgeStep): string {
   return step.tier ? TIER_LABELS[step.tier] : 'henüz kazanılmadı';

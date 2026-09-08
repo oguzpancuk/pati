@@ -4,8 +4,8 @@
 # Runs from backend/ (run.sh cd's there): the photo files it seeds and
 # removes live under ./uploads, the dev server's own directory.
 #
-# State: the script registers seven throwaway accounts (an owner, a
-# follower, two carers, two confirmers, a late follower) and the owner
+# State: the script registers eight throwaway accounts (an owner, a
+# follower, two carers, two confirmers, a late follower, a double-sender) and the owner
 # creates two throwaway animals in the middle of the Pacific, so no seeded
 # row is touched; on the way out it DELETES those animals (their photos,
 # likes, followers, badges, notifications and match rows go with them,
@@ -70,7 +70,7 @@ echo "== accounts and the throwaway animal"
 # by the address pattern and the name at this spot).
 LEFT=$(psql_db "SELECT count(*) FROM animals WHERE name LIKE 'Harness Kedisi%'")
 if [ "$LEFT" != 0 ]; then
-  psql_db "DELETE FROM animals WHERE name LIKE 'Harness Kedisi%'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|bakicia|ikinci|tekatis|sonradan)-[0-9]+@stray\.test$';" >/dev/null
+  psql_db "DELETE FROM animals WHERE name LIKE 'Harness Kedisi%'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|bakicia|ikinci|tekatis|sonradan|esanli)-[0-9]+@stray\.test$';" >/dev/null
   echo "        (swept $LEFT leftover animal(s) of an earlier aborted run)"
 fi
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/auth/login" -H 'Content-Type: application/json' -d '{"email":"test1@stray.test","password":"password123"}')
@@ -147,7 +147,7 @@ code=$(get "notifications?limit=5" "$B"); check "B: one unread, kind care, from 
 code=$(get "notifications/unread-count" "$D"); check "D (registrant) hears it too" "1" "$(j .unreadCount)"
 code=$(get "notifications/unread-count" "$A"); check "A is not told about itself" "0" "$(j .unreadCount)"
 code=$(care_photos $ANIMAL "$A" 2); check "A again -> alreadyCarer" "200 true" "$code $(j .alreadyCarer)"
-check "a second submission announces nothing: one care row for B from A" "1" "$(psql_db "SELECT count(*) FROM notifications WHERE user_id=$B_ID AND kind='care' AND actor_id=$A_ID")"
+check "serial second submission (isCarer exit) announces nothing: one care row for B from A" "1" "$(psql_db "SELECT count(*) FROM notifications WHERE user_id=$B_ID AND kind='care' AND actor_id=$A_ID")"
 code=$(care_photos $ANIMAL "$B" 2); check "B: model says different -> 422 miss" "422 carePhotoMismatch" "$code $(j .code)"
 check "miss is Turkish" "true" "$(j '.error | test("benzemiyor")')"
 control '{"mode":"reject"}'
@@ -167,6 +167,18 @@ code=$(get "notifications/unread-count" "$A"); check "A (carer) hears about C" "
 # Read them away so the inbox section below counts from zero.
 for t in "$A" "$B" "$D"; do post notifications/read "$t" '{}' >/dev/null; done
 check "care attempts logged: A unchecked, C same" "|same" "$(psql_db "SELECT string_agg(coalesce(similarity,''), '|' ORDER BY id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='care'")"
+# The concurrent path: two submissions from one fresh account at once
+# both pass the isCarer read; addCarer's ON CONFLICT lets exactly one
+# insert the row, and only that one announces `care` (becameCarer).
+read -r H H_ID < <(register "Eşzamanlı Test" "esanli-$STAMP@stray.test")
+control '{"mode":"match","verdicts":["same","same","same","same","same","same","same","same"]}'
+curl -s -o /tmp/pati-animal-social-h1.json -w '%{http_code}\n' -X POST "$API/animals/$ANIMAL/care-photos" -H "Authorization: Bearer $H" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg" > /tmp/pati-animal-social-h1.code &
+curl -s -o /tmp/pati-animal-social-h2.json -w '%{http_code}\n' -X POST "$API/animals/$ANIMAL/care-photos" -H "Authorization: Bearer $H" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg" > /tmp/pati-animal-social-h2.code &
+wait
+check "H, two care submissions at once: both answer 2xx" "true" "$(for f in /tmp/pati-animal-social-h1.code /tmp/pati-animal-social-h2.code; do cat $f; done | awk '$1 ~ /^20[01]$/ {n++} END {print (n==2) ? "true" : "false"}')"
+check "…one carer row" "1" "$(psql_db "SELECT count(*) FROM user_animal_care WHERE user_id=$H_ID AND animal_id=$ANIMAL")"
+check "…and one care notification for B from H" "1" "$(psql_db "SELECT count(*) FROM notifications WHERE user_id=$B_ID AND kind='care' AND actor_id=$H_ID")"
+post notifications/read "$B" '{}' >/dev/null
 control '{"mode":"approve"}'
 echo "        (pending files on disk: $(ls uploads | grep -c '^pending-'))"
 
@@ -294,7 +306,7 @@ echo; echo "passed $PASS checks; failed=$FAILED"
 # the accounts. A's rows on the animal go with it.
 psql_db "SELECT url FROM animal_photos WHERE animal_id IN ($ANIMAL,$ANIMAL2)" | while read -r u; do rm -f "uploads/$(basename "$u")" "uploads/$(basename "$u" .jpg)-face.jpg"; done
 while read -r f; do [ -n "$f" ] && rm -f "uploads/$f"; done < "$PENDING_MADE"
-if ! psql_db "DELETE FROM animals WHERE id IN ($ANIMAL,$ANIMAL2); DELETE FROM users WHERE id IN ($A_ID,$B_ID,$C_ID,$D_ID,$E_ID,$F_ID,$G_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null; then
-  echo "  FAIL  cleanup: the throwaway animals $ANIMAL $ANIMAL2 / accounts $A_ID $B_ID $C_ID $D_ID $E_ID $F_ID $G_ID are still in the database"; FAILED=1
+if ! psql_db "DELETE FROM animals WHERE id IN ($ANIMAL,$ANIMAL2); DELETE FROM users WHERE id IN ($A_ID,$B_ID,$C_ID,$D_ID,$E_ID,$F_ID,$G_ID,$H_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null; then
+  echo "  FAIL  cleanup: the throwaway animals $ANIMAL $ANIMAL2 / accounts $A_ID $B_ID $C_ID $D_ID $E_ID $F_ID $G_ID $H_ID are still in the database"; FAILED=1
 fi
 exit $FAILED

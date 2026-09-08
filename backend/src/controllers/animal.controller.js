@@ -624,6 +624,7 @@ async function reportSighting(req, res, next) {
     const client = await pool.connect();
     let result;
     let carer;
+    let becameCarer = false;
     try {
       await client.query('BEGIN');
       carer =
@@ -650,7 +651,7 @@ async function reportSighting(req, res, next) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Hayvan bulunamadı' });
       }
-      if (!carer) await addCarer(client, req.user.userId, req.params.id);
+      if (!carer) becameCarer = await addCarer(client, req.user.userId, req.params.id);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -660,7 +661,7 @@ async function reportSighting(req, res, next) {
     }
     // The door opened: the carers and followers hear about the new carer
     // first, then about the sighting the confirm reported.
-    if (!carer) {
+    if (becameCarer) {
       await notifyAnimalEventSafe({
         animalId: Number(req.params.id),
         kind: 'care',

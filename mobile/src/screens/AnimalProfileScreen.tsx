@@ -32,7 +32,7 @@ import {
   unfollowAnimal,
   Vaccination,
 } from '../api/animals';
-import { bumpLadderValue, headerBadges } from '../animalBadges';
+import { bumpLadderValue, headerBadges, setLadderValue } from '../animalBadges';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import AnimalBadgeLadderModal from '../components/AnimalBadgeLadderModal';
@@ -213,7 +213,14 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
     try {
       const state = wasFollowing ? await unfollowAnimal(animalId) : await followAnimal(animalId);
       setAnimal((prev) =>
-        prev ? { ...prev, isFollowing: state.following, followerCount: state.followerCount } : prev
+        prev
+          ? {
+              ...prev,
+              isFollowing: state.following,
+              followerCount: state.followerCount,
+              badgeLadder: setLadderValue(prev.badgeLadder, 'followed', state.followerCount),
+            }
+          : prev
       );
     } catch (err: any) {
       setAnimal((prev) =>
