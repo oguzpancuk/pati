@@ -2479,9 +2479,11 @@ the next docs touch.
   merge (2290dd4); tsc ×2, jest 47/47. Simulator dark theme of the profile
   taken at the merge pass (theme forced through the stored
   `pati.themeMode`); the long-name wrap was probed on web only.
-- Owner follow-up (2026-09-09): the follower/carer pair on the animal
-  profile is bold, black and 17/23 on both clients (was 12.5 semibold
-  muted) — it reads as a peer of the name. Verified with a profile
-  screenshot on web and on the simulator; the pair still wraps under a
-  long name (the wrap threshold moved down ~26 px, measured in Chromium by
-  the reviewer).
+- Owner follow-up (2026-09-09, three rounds): the follower/carer pair on
+  the animal profile is black, 17/23 and carries the NAME's weight
+  (Quicksand-Medium / 500) on both clients — it reads as a peer of the
+  name instead of a footnote (was 12.5 semibold muted; bold was tried and
+  the owner found it too heavy). Verified with a profile screenshot on web
+  and on the simulator after each round; the pair still wraps under a long
+  name (the wrap threshold moved down ~26 px, measured in Chromium by the
+  reviewer).

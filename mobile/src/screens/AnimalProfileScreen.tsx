@@ -979,9 +979,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     columnGap: spacing.sm,
   },
   name: { flexShrink: 1 },
-  // Bold, black and two sizes up from the caption (owner, 2026-09-09): the
+  // Black, 17/23 and the NAME's weight (medium — owner, 2026-09-09): the
   // audience reads as a peer of the name, not as a footnote under it.
-  counts: { flexShrink: 0, fontFamily: fonts.bold, fontSize: 17, lineHeight: 23, color: c.text },
+  counts: { flexShrink: 0, fontFamily: fonts.medium, fontSize: 17, lineHeight: 23, color: c.text },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   badgeChip: {
     flexDirection: 'row',
