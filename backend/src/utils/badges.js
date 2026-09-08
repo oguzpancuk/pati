@@ -363,6 +363,8 @@ const ANIMAL_BADGES = {
   // in the add-animal step, or went unjudged with no model (rows in
   // animal_match_attempts, kind = 'register'; 'similar'/'unsure' are never
   // logged), counted per person — a retried form is one recognition.
+  // Spent rows (used_at) count too: the animal WAS recognised; which
+  // animal the person confirmed afterwards is another fact.
   matched: {
     label: 'Tanıdık Yüz',
     unit: 'eşleşme',

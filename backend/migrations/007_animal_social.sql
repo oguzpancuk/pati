@@ -32,16 +32,23 @@ CREATE INDEX IF NOT EXISTS idx_animal_followers_user ON animal_followers (user_i
 -- field-only form logs nothing), `care` rows from the "bakım ver" step.
 -- A badge source (counted per distinct user), and the evidence a sighting
 -- from the add-animal flow stands on (see reportSighting: a register hit
--- within fifteen minutes lets a non-carer confirm "that's the one"). Rows
--- are bounded by the match rate limit; nothing prunes them yet.
+-- within fifteen minutes lets a non-carer confirm "that's the one"). A
+-- hit is spent, never deleted: the confirm stamps used_at on ALL of the
+-- user's fresh register rows (one photo confirms one animal), and the
+-- rows stay as the badge's evidence. Rows are bounded by the match rate
+-- limit; nothing prunes them yet.
 CREATE TABLE IF NOT EXISTS animal_match_attempts (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     kind VARCHAR(10) NOT NULL CHECK (kind IN ('register', 'care')),
     similarity VARCHAR(10),
+    used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Added after the table's first deploy; the body above carries it for a
+-- database built from scratch, this line for one that already has the table.
+ALTER TABLE animal_match_attempts ADD COLUMN IF NOT EXISTS used_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_animal_match_attempts_animal
     ON animal_match_attempts (animal_id, kind);
 CREATE INDEX IF NOT EXISTS idx_animal_match_attempts_recent

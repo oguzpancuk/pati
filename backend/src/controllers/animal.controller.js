@@ -419,9 +419,10 @@ async function matchAnimals(req, res, next) {
 // animal" — the photoToken's lifetime, the add-animal flow's own window.
 // The rule, in full (parity with "bakım ver", one animal per submission):
 // a hit is minted by one photo submission, lasts fifteen minutes, and is
-// spent by ONE sighting — consuming it voids the same user's other fresh
-// hits (consumeMatchHit), so a photo that put twenty animals forward
-// confirms one of them, never twenty.
+// spent by ONE sighting — the confirm stamps used_at on ALL of the user's
+// fresh hits, the confirmed animal's included (consumeMatchHit), so a
+// photo that put twenty animals forward confirms one of them, never
+// twenty. Spent, never deleted: the rows stay as the badge's evidence.
 const MATCH_HIT_WINDOW = '15 minutes';
 
 // The hits among the shown candidates (see above). `similarity` uses the
@@ -453,27 +454,30 @@ async function logMatchHits(userId, hits) {
 }
 
 /**
- * Spends the user's fresh hit on this animal: within one transaction the
- * hit row is locked, the user's OTHER fresh 'register' rows are deleted
- * (they were the same photo's other candidates — one-shot, see
- * MATCH_HIT_WINDOW), and the caller's writes run on the same client.
- * Returns false, with nothing changed, when there is no fresh hit.
+ * Spends the user's fresh hits (see MATCH_HIT_WINDOW). Within the
+ * caller's transaction: every fresh 'register' row of the user is locked
+ * in id order (one lock order for every confirm, so two racing confirms
+ * queue instead of deadlocking); if none of them is an unspent hit on
+ * THIS animal the answer is false and nothing changes; otherwise all of
+ * them get used_at. The second of two confirms racing on the same animal
+ * waits on the lock, then finds the hit spent → false → 403.
  */
 async function consumeMatchHit(client, userId, animalId) {
-  const hit = await client.query(
-    `SELECT id FROM animal_match_attempts
-     WHERE user_id = $1 AND animal_id = $2 AND kind = 'register'
-       AND created_at > now() - $3::interval
-     ORDER BY id DESC LIMIT 1
+  const fresh = await client.query(
+    `SELECT id, animal_id, used_at FROM animal_match_attempts
+     WHERE user_id = $1 AND kind = 'register'
+       AND created_at > now() - $2::interval
+     ORDER BY id
      FOR UPDATE`,
-    [userId, animalId, MATCH_HIT_WINDOW]
+    [userId, MATCH_HIT_WINDOW]
   );
-  if (hit.rowCount === 0) return false;
+  const unspent = fresh.rows.some((r) => r.animal_id === Number(animalId) && r.used_at === null);
+  if (!unspent) return false;
   await client.query(
-    `DELETE FROM animal_match_attempts
-     WHERE user_id = $1 AND animal_id <> $2 AND kind = 'register'
-       AND created_at > now() - $3::interval`,
-    [userId, animalId, MATCH_HIT_WINDOW]
+    `UPDATE animal_match_attempts SET used_at = now()
+     WHERE user_id = $1 AND kind = 'register' AND used_at IS NULL
+       AND created_at > now() - $2::interval`,
+    [userId, MATCH_HIT_WINDOW]
   );
   return true;
 }
@@ -585,14 +589,22 @@ async function reportSighting(req, res, next) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
 
-    const carer = await isCarer(req.user.userId, req.params.id);
-    // One transaction: the hit is spent, the location moves and the carer
-    // row lands together — a second confirm racing this one finds the
-    // hit gone (FOR UPDATE) and is refused.
+    // One transaction: the carer read, the spend of the hit, the moved
+    // location and the carer row happen together — a second confirm
+    // racing this one queues on the row locks and then finds the hit
+    // spent (see consumeMatchHit) and is refused.
     const client = await pool.connect();
     let result;
+    let carer;
     try {
       await client.query('BEGIN');
+      carer =
+        (
+          await client.query(
+            'SELECT 1 FROM user_animal_care WHERE user_id = $1 AND animal_id = $2',
+            [req.user.userId, req.params.id]
+          )
+        ).rowCount > 0;
       if (!carer && !(await consumeMatchHit(client, req.user.userId, req.params.id))) {
         await client.query('ROLLBACK');
         return carersOnly(res, 'Görülme bildirebilmek');
