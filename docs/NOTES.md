@@ -2083,8 +2083,16 @@ the next docs touch.
 - Second review round: a redeem whose insert then fails had left a
   plain-named file no row owns — the one thing the prefix-only sweeper can
   never reclaim. The failed-insert branch now renames the file back under
-  the prefix (the token still redeems; otherwise the sweeper owns it);
-  not reachable from the harness, read in review. Also: a non-image
+  the prefix when the foreign key refused the row (the animal is gone, so
+  no row can own the file; the sweeper reclaims it); not reachable from
+  the harness, read in review. Also: a non-image
   upload is a 400 (was a 500 with a stack trace), the multer message
   covers the unknown-field case it is also raised for, and section 15
   asserts multer stored nothing.
+- Third round, APPROVE with two notes, both taken: the rename-back is
+  limited to the foreign-key failure (`23503`) — after any other failure
+  a concurrent redeem of the same token may already own the file, and
+  renaming it would hand the sweeper a file a gallery references; and the
+  fileFilter comment no longer implies the log line went away with the
+  500. Fourth round on that commit: APPROVE. Reviewed range for the push:
+  `710e247..HEAD`.

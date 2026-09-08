@@ -33,7 +33,7 @@ function makeStorage(prefix = '') {
 function fileFilter(req, file, cb) {
   if (!file.mimetype.startsWith('image/')) {
     // The client's fault, so a 400 (the error handler reads `status`);
-    // without it this was a 500 with a stack trace in the log.
+    // without it this was a 500. The generic handler still logs it.
     return cb(Object.assign(new Error('Yalnızca resim dosyaları kabul edilir'), { status: 400 }));
   }
   cb(null, true);
