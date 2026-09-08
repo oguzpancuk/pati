@@ -145,7 +145,11 @@ body,
 }
 
 body {
-  font-family: 'Quicksand', -apple-system, 'Segoe UI', sans-serif;
+  font-family:
+    'Quicksand',
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
   background: var(--background);
   color: var(--text);
   font-weight: 500;
@@ -1190,4 +1194,283 @@ strong {
 .social-link .link {
   display: block;
   margin: 8px auto 0;
+}
+
+/* ---- animal social ---- */
+/* The animal profile's social layer (P6 track C): badges, follow/care
+   buttons, the square photo grid, the full-screen viewer, the care-photo
+   sheet, the bell and the inbox. Mobile parity: AnimalProfileScreen,
+   AnimalPhotoViewerScreen, CarePhotoScreen, NotificationsScreen. */
+
+.animal-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.animal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 2px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-body);
+}
+
+.animal-badges.compact {
+  margin-top: 4px;
+  gap: 2px;
+}
+
+.animal-actions {
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.animal-actions .tag {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Square tiles, three a row; the like count sits on the photo. */
+.animal-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.animal-photo-tile {
+  position: relative;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 14px;
+  overflow: hidden;
+  padding: 0;
+  background: var(--cream);
+  cursor: pointer;
+}
+
+.animal-photo-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.animal-photo-tile.photo-ph {
+  height: auto;
+  min-height: 0;
+  cursor: default;
+}
+
+.photo-like {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--overlay);
+  color: var(--text-on-brand);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.photo-like.mine {
+  color: #ff8a65;
+}
+
+/* The viewer is the one surface with a fixed dark ground in both themes:
+   photos read best on black, the bars sit on the photo itself. */
+.photo-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #000;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+}
+
+.photo-viewer > img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.photo-viewer-top,
+.photo-viewer-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.photo-viewer-top {
+  top: 0;
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+
+.photo-viewer-bottom {
+  bottom: 0;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.photo-viewer-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.photo-viewer-prev,
+.photo-viewer-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 30px;
+}
+
+.photo-viewer-prev {
+  left: 10px;
+}
+
+.photo-viewer-next {
+  right: 10px;
+}
+
+.photo-viewer-like {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.photo-viewer-like.mine {
+  color: #ff8a65;
+}
+
+/* The two camera slots of the care-photo sheet. */
+.care-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.care-slot {
+  position: relative;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: var(--radius);
+  overflow: hidden;
+  padding: 0;
+  background: var(--cream);
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.care-slot.empty {
+  border: 1px dashed var(--border-dashed);
+}
+
+.care-slot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The bell row on the profile and its unread count. */
+.bell-row {
+  margin-bottom: 10px;
+}
+
+.bell-count {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--brand);
+  color: var(--text-on-brand);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+}
+
+/* Inbox rows: unread ones on the brand tint. */
+.inbox-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+}
+
+.inbox-row.unread {
+  background: var(--brand-tint);
+  border-color: var(--brand-soft);
+}
+
+.inbox-row .inbox-bell {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-soft);
+  flex-shrink: 0;
+}
+
+.inbox-row .inbox-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.inbox-row .inbox-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }

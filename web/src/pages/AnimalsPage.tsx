@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { gateAddAnimal } from '../addAnimalGate';
 import { mergeById } from '@mobile/paging';
 import { Animal, fetchAnimals } from '../api';
+import { badgesOf } from '../api/animalSocial';
 import { AnimalAvatar } from '../avatars';
+import { BadgeSymbol } from '../badges';
 import { Coordinates, getCurrentLocationIfPermitted } from '../location';
 
 // No radius (owner decision, 2026-09-07, same as mobile): every animal,
@@ -161,6 +163,17 @@ export default function AnimalsPage() {
               {animal.breed ?? 'Türü belirtilmemiş'}
               {formatDistance(animal.distance_meters)}
             </div>
+            {/* The animal's badges (P6 item 5): medallions only, the names
+                live on the profile. */}
+            {badgesOf(animal).length > 0 && (
+              <div className="animal-badges compact">
+                {badgesOf(animal).map((b) => (
+                  <span key={b.key} title={b.label}>
+                    <BadgeSymbol symbol={b.symbol} tier={b.tier} size={16} />
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <span className="subtle">›</span>
         </Link>

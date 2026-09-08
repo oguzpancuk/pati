@@ -13,6 +13,7 @@ import UserCommentsPage from './pages/UserCommentsPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
+import NotificationsPage from './pages/NotificationsPage';
 import { BadgeAwardProvider } from './badgeAwards';
 import { useCareAlerts } from './careAlerts';
 
@@ -98,6 +99,7 @@ export default function App() {
           <Route path="hayvanlar/yeni" element={<AddAnimalPage />} />
           <Route path="hayvanlar/:id" element={<AnimalPage />} />
           <Route path="profil" element={<ProfilePage />} />
+          <Route path="bildirimler" element={<NotificationsPage />} />
           <Route path="kullanici/:id" element={<UserProfilePage />} />
           <Route path="kullanici/:id/yorumlar" element={<UserCommentsPage />} />
           <Route path="yorumlarim" element={<UserCommentsPage />} />

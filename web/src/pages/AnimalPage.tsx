@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { mergeById } from '@mobile/paging';
 import { conditionsFor, OTHER, VACCINE_TYPES } from '@mobile/taxonomy';
@@ -7,14 +7,24 @@ import {
   addHealthRecord,
   addVaccination,
   AnimalComment,
-  AnimalDetail,
-  fetchAnimal,
+  ApiError,
   fetchComments,
   HealthRecord,
   markHealthRecordRecovered,
   reopenHealthRecord,
 } from '../api';
+import {
+  AnimalSocialDetail,
+  fetchAnimalSocial,
+  followAnimal,
+  likePhoto,
+  SocialPhoto,
+  submitCarePhotos,
+  unfollowAnimal,
+  unlikePhoto,
+} from '../api/animalSocial';
 import { AnimalAvatar, UserAvatar } from '../avatars';
+import { BadgeSymbol } from '../badges';
 import { MiniMap } from '../components/MiniMap';
 import { ReportLink } from '../components/ReportDialog';
 import { useBadgeAwards } from '../badgeAwards';
@@ -114,7 +124,18 @@ export default function AnimalPage() {
   // in the URL instead of state so it survives a page refresh.
   const matchReview = searchParams.get('inceleme') === '1';
   const animalId = Number(id);
-  const [animal, setAnimal] = useState<AnimalDetail | null>(null);
+  const [animal, setAnimal] = useState<AnimalSocialDetail | null>(null);
+  // The full-screen viewer (P6 item 7): the index of the open photo, or null.
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const likeBusy = useRef<Set<number>>(new Set());
+  const [followBusy, setFollowBusy] = useState(false);
+  // "Bakım ver" (P6 item 8): the two-photo sheet.
+  const [careOpen, setCareOpen] = useState(false);
+  const [carePhotos, setCarePhotos] = useState<(File | null)[]>([null, null]);
+  const [careError, setCareError] = useState<string | null>(null);
+  const [careDone, setCareDone] = useState<string | null>(null);
+  const [careSending, setCareSending] = useState(false);
+  const careInputs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [commentTotal, setCommentTotal] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -142,7 +163,7 @@ export default function AnimalPage() {
   const load = useCallback(async () => {
     try {
       const [detail, commentPage] = await Promise.all([
-        fetchAnimal(animalId),
+        fetchAnimalSocial(animalId),
         // Only the last few comments at open: first paint must not grow with the chat.
         fetchComments(animalId, { limit: COMMENT_PREVIEW }),
       ]);
@@ -231,6 +252,112 @@ export default function AnimalPage() {
     }
   }
 
+  // One like per user per photo, open to everyone signed in. Optimistic:
+  // the heart flips at once, the server's count replaces the guess.
+  async function toggleLike(photo: SocialPhoto) {
+    if (likeBusy.current.has(photo.id)) return;
+    likeBusy.current.add(photo.id);
+    const liked = photo.liked_by_me;
+    const apply = (state: { liked: boolean; likeCount: number }) =>
+      setAnimal((prev) =>
+        prev
+          ? {
+              ...prev,
+              photos: prev.photos.map((p) =>
+                p.id === photo.id
+                  ? { ...p, liked_by_me: state.liked, like_count: state.likeCount }
+                  : p
+              ),
+            }
+          : prev
+      );
+    apply({ liked: !liked, likeCount: photo.like_count + (liked ? -1 : 1) });
+    try {
+      apply(liked ? await unlikePhoto(animalId, photo.id) : await likePhoto(animalId, photo.id));
+    } catch (err) {
+      apply({ liked, likeCount: photo.like_count });
+      setError(err instanceof Error ? err.message : 'Beğeni kaydedilemedi');
+    } finally {
+      likeBusy.current.delete(photo.id);
+    }
+  }
+
+  // "Takip et" toggles without a condition (same optimistic shape).
+  async function toggleFollow() {
+    if (!animal || followBusy) return;
+    const was = animal.isFollowing;
+    setFollowBusy(true);
+    setAnimal({
+      ...animal,
+      isFollowing: !was,
+      followerCount: animal.followerCount + (was ? -1 : 1),
+    });
+    try {
+      const state = was ? await unfollowAnimal(animalId) : await followAnimal(animalId);
+      setAnimal((prev) =>
+        prev ? { ...prev, isFollowing: state.following, followerCount: state.followerCount } : prev
+      );
+    } catch (err) {
+      setAnimal((prev) =>
+        prev ? { ...prev, isFollowing: was, followerCount: animal.followerCount } : prev
+      );
+      setError(err instanceof Error ? err.message : 'Olmadı');
+    } finally {
+      setFollowBusy(false);
+    }
+  }
+
+  function openCare() {
+    setCarePhotos([null, null]);
+    setCareError(null);
+    setCareDone(null);
+    setCareOpen(true);
+  }
+
+  async function sendCarePhotos() {
+    const ready = carePhotos.filter((p): p is File => !!p);
+    if (ready.length < 2 || !animal) return;
+    setCareSending(true);
+    setCareError(null);
+    try {
+      const result = await submitCarePhotos(animalId, ready);
+      setCareDone(
+        result.alreadyCarer
+          ? 'Zaten bakım veriyorsun.'
+          : result.photoChecked
+            ? 'Fotoğraflar eşleşti — artık bakıcısın. Yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin.'
+            : 'Artık bakıcısın. Yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin.'
+      );
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'photoRejected') {
+        // The refused slots empty so the retake is obvious; the reason is
+        // the model's own Turkish sentence.
+        const refused = new Set((err.data.photoIndexes as number[] | undefined) ?? [0, 1]);
+        setCarePhotos((prev) => prev.map((p, i) => (refused.has(i) ? null : p)));
+      }
+      setCareError(err instanceof Error ? err.message : 'Gönderilemedi');
+    } finally {
+      setCareSending(false);
+    }
+  }
+
+  // Keyboard and swipe for the viewer: arrows step, Escape closes; a
+  // horizontal touch of 40 px or more steps too.
+  const touchStart = useRef<number | null>(null);
+  const photoCount = animal?.photos.length ?? 0;
+  useEffect(() => {
+    if (viewerIndex === null) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setViewerIndex(null);
+      if (e.key === 'ArrowRight')
+        setViewerIndex((i) => (i === null ? i : Math.min(i + 1, photoCount - 1)));
+      if (e.key === 'ArrowLeft') setViewerIndex((i) => (i === null ? i : Math.max(i - 1, 0)));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewerIndex, photoCount]);
+
   async function openLog(record: HealthRecord) {
     try {
       // Record chat is short (single topic); one full page is enough.
@@ -288,9 +415,10 @@ export default function AnimalPage() {
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
 
-  // The photo row always fills to a multiple of 3: real frames + dashed
-  // "photo" placeholders (handoff 3c) — even an empty profile invites.
+  // The grid always fills to a multiple of 3: real tiles + dashed "photo"
+  // placeholders — even an empty profile invites.
   const photoSlots = Math.max(3, Math.ceil(animal.photos.length / 3) * 3);
+  const viewerPhoto = viewerIndex === null ? null : (animal.photos[viewerIndex] ?? null);
 
   return (
     <div className="page">
@@ -298,14 +426,20 @@ export default function AnimalPage() {
         <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
           ←
         </button>
-        <div className="micro">hayvan detay</div>
+        {/* "kedi profili" / "köpek profili" (P6 item 6, mobile parity). */}
+        <div className="micro">{animal.species === 'cat' ? 'kedi profili' : 'köpek profili'}</div>
         <span />
       </div>
 
       {error && <div className="error">{error}</div>}
 
       <div className="row" style={{ alignItems: 'flex-start' }}>
-        <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={64} />
+        <AnimalAvatar
+          species={animal.species}
+          breed={animal.breed}
+          photoUrl={animal.cover_thumb_url}
+          size={64}
+        />
         <div className="grow">
           <h1 style={{ margin: '4px 0 2px', fontSize: 25 }}>{displayName}</h1>
           <div className="muted" style={{ fontSize: 13.5 }}>
@@ -317,28 +451,67 @@ export default function AnimalPage() {
               .filter(Boolean)
               .join(' · ')}
           </div>
+          {/* The animal's own badges (P6 item 5): the owner's name, the tier
+              as the medallion colour. */}
+          {animal.badges.length > 0 && (
+            <div className="animal-badges">
+              {animal.badges.map((b) => (
+                <span key={b.key} className="animal-badge" title={`${b.label} · ${b.tier}`}>
+                  <BadgeSymbol symbol={b.symbol} tier={b.tier} size={18} />
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          )}
           <ReportLink targetType="animal" targetId={animal.id} style={{ marginTop: 4 }} />
         </div>
       </div>
 
-      <div className="row" style={{ marginTop: 14, gap: 8, flexWrap: 'wrap' }}>
+      {/* Follow vs. care (P6 item 8): "takip et" has no condition and
+          toggles; "bakım ver" is the two-photo step. Hidden in match review. */}
+      {!matchReview && (
+        <div className="row animal-actions">
+          <button
+            className={`btn small grow ${animal.isFollowing ? 'outline-success' : 'secondary'}`}
+            disabled={followBusy}
+            onClick={toggleFollow}
+            aria-pressed={animal.isFollowing}
+          >
+            {animal.isFollowing ? '✓ takip ediliyor' : 'takip et'}
+          </button>
+          {animal.isCarer ? (
+            <span className="tag success grow" style={{ justifyContent: 'center' }}>
+              bakım veriyorsun
+            </span>
+          ) : (
+            <button className="btn small grow" onClick={openCare}>
+              📷 bakım ver
+            </button>
+          )}
+        </div>
+      )}
+      <div className="subtle" style={{ margin: '6px 0 10px' }}>
+        {animal.followerCount} takipçi · {animal.carerCount} bakıcı
+      </div>
+
+      {/* The photo grid (P6 item 7): square tiles, three a row, each with
+          its like count; a tap opens the swipeable viewer. */}
+      <div className="animal-photo-grid">
         {Array.from({ length: photoSlots }).map((_, i) => {
           const p = animal.photos[i];
           return p ? (
-            <img
+            <button
               key={p.id}
-              src={p.url}
-              alt=""
-              style={{
-                flex: 1,
-                minWidth: 0,
-                height: 58,
-                borderRadius: 14,
-                objectFit: 'cover',
-              }}
-            />
+              type="button"
+              className="animal-photo-tile"
+              onClick={() => setViewerIndex(i)}
+              aria-label={`Fotoğraf ${i + 1}, ${p.like_count} beğeni`}
+            >
+              <img src={p.url} alt="" />
+              <span className={`photo-like ${p.liked_by_me ? 'mine' : ''}`}>♥ {p.like_count}</span>
+            </button>
           ) : (
-            <div key={`ph-${i}`} className="photo-ph">
+            <div key={`ph-${i}`} className="animal-photo-tile photo-ph">
               fotoğraf
             </div>
           );
@@ -429,7 +602,9 @@ export default function AnimalPage() {
         )}
       </div>
       {!animal.isCarer && (
-        <p className="subtle">Sağlık kaydı ekleyebilmek için önce bu hayvana yorum yap.</p>
+        <p className="subtle">
+          Sağlık kaydı ekleyebilmek için "bakım ver" ile bu hayvanın bakıcısı ol.
+        </p>
       )}
       {animal.healthRecords.length === 0 ? (
         <div className="card flat muted">Henüz kayıt yok.</div>
@@ -556,6 +731,17 @@ export default function AnimalPage() {
             </button>
           </div>
         </div>
+      ) : !animal.isCarer ? (
+        /* The chat is the carers' room (owner decision, 2026-09-08):
+           followers read it; the composer gives way to the door in. */
+        <div className="card" style={{ position: 'sticky', bottom: 0 }}>
+          <p className="muted" style={{ margin: '0 0 8px', textAlign: 'center' }}>
+            Yorum yazmak bakıcılara açık. İki yeni fotoğrafla sen de katıl.
+          </p>
+          <button className="btn small full" onClick={openCare}>
+            📷 bakım ver
+          </button>
+        </div>
       ) : (
         /* Fixed comment row (handoff): cream input + gradient send button. */
         <form
@@ -608,6 +794,157 @@ export default function AnimalPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {viewerPhoto && viewerIndex !== null && (
+        <div
+          className="photo-viewer"
+          role="dialog"
+          aria-label={`Fotoğraf ${viewerIndex + 1} / ${animal.photos.length}`}
+          onTouchStart={(e) => {
+            touchStart.current = e.touches[0]?.clientX ?? null;
+          }}
+          onTouchEnd={(e) => {
+            const start = touchStart.current;
+            touchStart.current = null;
+            const end = e.changedTouches[0]?.clientX;
+            if (start === null || end === undefined || Math.abs(end - start) < 40) return;
+            setViewerIndex((i) =>
+              i === null
+                ? i
+                : end < start
+                  ? Math.min(i + 1, animal.photos.length - 1)
+                  : Math.max(i - 1, 0)
+            );
+          }}
+        >
+          <div className="photo-viewer-top">
+            <button
+              className="photo-viewer-btn"
+              aria-label="Kapat"
+              onClick={() => setViewerIndex(null)}
+            >
+              ✕
+            </button>
+            <span>
+              {viewerIndex + 1} / {animal.photos.length}
+            </span>
+            <span style={{ width: 40 }} />
+          </div>
+          <img src={viewerPhoto.url} alt="" onClick={() => setViewerIndex(null)} />
+          {viewerIndex > 0 && (
+            <button
+              className="photo-viewer-btn photo-viewer-prev"
+              aria-label="Önceki"
+              onClick={() => setViewerIndex(viewerIndex - 1)}
+            >
+              ‹
+            </button>
+          )}
+          {viewerIndex < animal.photos.length - 1 && (
+            <button
+              className="photo-viewer-btn photo-viewer-next"
+              aria-label="Sonraki"
+              onClick={() => setViewerIndex(viewerIndex + 1)}
+            >
+              ›
+            </button>
+          )}
+          <div className="photo-viewer-bottom">
+            <div className="grow">
+              {viewerPhoto.uploaded_by_name && <div>{viewerPhoto.uploaded_by_name}</div>}
+              {viewerPhoto.created_at && (
+                <div style={{ opacity: 0.7, fontSize: 12 }}>
+                  {formatDate(viewerPhoto.created_at)}
+                </div>
+              )}
+            </div>
+            <button
+              className={`photo-viewer-like ${viewerPhoto.liked_by_me ? 'mine' : ''}`}
+              aria-pressed={viewerPhoto.liked_by_me}
+              aria-label={viewerPhoto.liked_by_me ? 'Beğeniyi geri al' : 'Beğen'}
+              onClick={() => toggleLike(viewerPhoto)}
+            >
+              ♥ {viewerPhoto.like_count}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {careOpen && (
+        <div className="backdrop" onClick={() => !careSending && setCareOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <h2>{displayName} için bakım ver</h2>
+            {careDone ? (
+              <>
+                <p className="muted">{careDone}</p>
+                <button className="btn full" onClick={() => setCareOpen(false)}>
+                  Tamam
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  Şu an yanındaysan {animal.species === 'dog' ? 'köpeğin' : 'kedinin'} net göründüğü
+                  iki yeni fotoğraf çek. Fotoğraflar bu hayvanın kayıtlı fotoğraflarıyla
+                  karşılaştırılır; eşleşince bakıcısı olursun.
+                </p>
+                <div className="care-slots">
+                  {carePhotos.map((file, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`care-slot ${file ? '' : 'empty'}`}
+                      onClick={() => careInputs[i].current?.click()}
+                      aria-label={
+                        file ? `${i + 1}. fotoğrafı yeniden çek` : `${i + 1}. fotoğrafı çek`
+                      }
+                    >
+                      {file ? (
+                        <img src={URL.createObjectURL(file)} alt="" />
+                      ) : (
+                        <span>📷 {i + 1}. fotoğraf</span>
+                      )}
+                      {/* `capture`: the camera on a phone, the picker on a desktop. */}
+                      <input
+                        ref={careInputs[i]}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        hidden
+                        onChange={(e) => {
+                          const picked = e.target.files?.[0] ?? null;
+                          if (picked)
+                            setCarePhotos((prev) => prev.map((p, j) => (j === i ? picked : p)));
+                          e.target.value = '';
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+                {careError && <div className="error">{careError}</div>}
+                <p className="subtle">
+                  Bakıcılar yorum yazabilir, görülme bildirebilir, sağlık ve aşı kaydı ekleyebilir.
+                  Sadece haber almak istiyorsan "takip et" yeter.
+                </p>
+                <button
+                  className="btn full"
+                  disabled={careSending || carePhotos.some((p) => !p)}
+                  onClick={sendCarePhotos}
+                >
+                  {careSending ? 'Gönderiliyor…' : 'Fotoğrafları gönder'}
+                </button>
+                <button
+                  className="btn ghost full"
+                  disabled={careSending}
+                  onClick={() => setCareOpen(false)}
+                >
+                  Vazgeç
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {recordOpen && (
