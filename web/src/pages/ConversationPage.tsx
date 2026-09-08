@@ -80,7 +80,7 @@ export default function ConversationPage() {
         limit: PAGE,
       });
       since.current = page.now;
-      if (page.messages.length || page.deletedIds.length) {
+      if (page.messages.length || page.deleted.length) {
         setMessages((prev) => applyPoll(prev ?? [], page));
       }
       if (page.messages.length) {
@@ -147,7 +147,10 @@ export default function ConversationPage() {
       setMessages((prev) =>
         (prev ?? []).some((m) => m.id === sent.id) ? prev : [...(prev ?? []), sent]
       );
-      lastId.current = Math.max(lastId.current ?? 0, sent.id);
+      // The cursor stays where the last poll left it: advancing it to the
+      // sent id would skip a reply that landed in between. The poll dedups
+      // the echo and pulls anything missed (review finding).
+      poll();
       stickToBottom.current = true;
       requestAnimationFrame(scrollToBottom);
     } catch (err) {

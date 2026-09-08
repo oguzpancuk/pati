@@ -62,9 +62,15 @@ export interface Message {
   createdAt: string;
 }
 
+/** A soft delete the poll reports for a message the client already holds. */
+export interface DeletedRef {
+  id: number;
+  deletedBySender: boolean | null;
+}
+
 export interface MessagesPage {
   messages: Message[];
-  deletedIds: number[];
+  deleted: DeletedRef[];
   hasMore: boolean;
   /** Server time; hand it back as `since` on the next poll. */
   now: string;
@@ -128,14 +134,20 @@ export const deleteMessage = (messageId: number) => api.del<void>(`/messages/${m
 export const reportMessage = (messageId: number, reason: ReportReason, details?: string) =>
   api.post<void>(`/messages/${messageId}/report`, { reason, details });
 
-/** Folds a poll answer into the list the page holds: append the new, blank the deleted. */
+/**
+ * Folds a poll answer into the list the page holds: blank the deleted,
+ * append the new, keep id order (same contract as mobile's applyPoll, which
+ * carries the jest test).
+ */
 export function applyPoll(current: Message[], page: MessagesPage): Message[] {
-  const deleted = new Set(page.deletedIds);
+  const deleted = new Map(page.deleted.map((d) => [d.id, d.deletedBySender]));
   const known = new Set(current.map((m) => m.id));
   const kept = current.map((m) =>
-    deleted.has(m.id) && !m.deleted ? { ...m, body: null, deleted: true, deletedBySender: null } : m
+    deleted.has(m.id) && !m.deleted
+      ? { ...m, body: null, deleted: true, deletedBySender: deleted.get(m.id) ?? null }
+      : m
   );
-  return kept.concat(page.messages.filter((m) => !known.has(m.id)));
+  return kept.concat(page.messages.filter((m) => !known.has(m.id))).sort((a, b) => a.id - b.id);
 }
 
 /** "14:05" today, "3 Eyl" otherwise. */

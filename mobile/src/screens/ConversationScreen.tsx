@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
   AppState,
@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import {
   applyPoll,
@@ -58,6 +59,7 @@ export default function ConversationScreen({ route, navigation }: any) {
   const lastId = useRef<number | null>(null);
   const since = useRef<string | null>(null);
   const loadingOlder = useRef(false);
+  const loaded = useRef(false);
 
   const loadDetail = useCallback(async () => {
     try {
@@ -89,7 +91,7 @@ export default function ConversationScreen({ route, navigation }: any) {
         limit: PAGE,
       });
       since.current = page.now;
-      if (page.messages.length || page.deletedIds.length) {
+      if (page.messages.length || page.deleted.length) {
         setMessages((prev) => applyPoll(prev ?? [], page));
       }
       if (page.messages.length) {
@@ -101,31 +103,50 @@ export default function ConversationScreen({ route, navigation }: any) {
     }
   }, [conversationId]);
 
-  useEffect(() => {
-    loadDetail();
-    loadLatest().catch((err: any) =>
-      Alert.alert('Yüklenemedi', err?.response?.data?.error ?? 'Mesajlar alınamadı')
-    );
-  }, [loadDetail, loadLatest]);
-
-  // Poll while the app is in front; a backgrounded app stops the timer and
-  // catches up with one poll on return (the `after` cursor makes it cheap).
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = setInterval(poll, POLL_INTERVAL_MS);
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
+  // Everything below is focus-gated: a screen pushed on top (group
+  // settings, a profile) must neither poll nor mark messages read on the
+  // user's behalf, and coming back re-reads the header so a rename or a
+  // changed member list shows at once (review findings). The first focus
+  // loads the newest page; later ones catch up with one poll.
+  useFocusEffect(
+    useCallback(() => {
+      let timer: ReturnType<typeof setInterval> | null = null;
+      const start = () => {
         if (!timer) timer = setInterval(poll, POLL_INTERVAL_MS);
-        poll();
-      } else if (timer) {
-        clearInterval(timer);
+      };
+      const stop = () => {
+        if (timer) clearInterval(timer);
         timer = null;
+      };
+      loadDetail();
+      if (loaded.current) {
+        poll();
+      } else {
+        loadLatest()
+          .then(() => {
+            loaded.current = true;
+          })
+          .catch((err: any) =>
+            Alert.alert('Yüklenemedi', err?.response?.data?.error ?? 'Mesajlar alınamadı')
+          );
       }
-    });
-    return () => {
-      if (timer) clearInterval(timer);
-      sub.remove();
-    };
-  }, [poll]);
+      start();
+      // A backgrounded app stops the timer and catches up with one poll on
+      // return (the `after` cursor makes it cheap).
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          start();
+          poll();
+        } else {
+          stop();
+        }
+      });
+      return () => {
+        stop();
+        sub.remove();
+      };
+    }, [loadDetail, loadLatest, poll])
+  );
 
   useLayoutEffect(() => {
     if (!detail) return;
@@ -174,7 +195,10 @@ export default function ConversationScreen({ route, navigation }: any) {
       setMessages((prev) =>
         (prev ?? []).some((m) => m.id === sent.id) ? prev! : [...(prev ?? []), sent]
       );
-      lastId.current = Math.max(lastId.current ?? 0, sent.id);
+      // The cursor stays where the last poll left it: advancing it to the
+      // sent id would skip a reply that landed in between. The poll dedups
+      // the echo and pulls anything missed (review finding).
+      poll();
     } catch (err: any) {
       Alert.alert('Gönderilemedi', err?.response?.data?.error ?? 'Tekrar dene');
     } finally {

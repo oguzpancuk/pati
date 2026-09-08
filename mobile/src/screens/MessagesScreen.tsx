@@ -23,7 +23,7 @@ function preview(c: ConversationSummary) {
   return `${who}${c.lastMessage.body ?? ''}`;
 }
 
-/** The fourth tab: every conversation, unread first by recency, polled while in front. */
+/** The fourth tab: every conversation by recency with its unread count, polled while in front. */
 export default function MessagesScreen({ navigation }: any) {
   const styles = useStyles();
   const { colors } = useTheme();

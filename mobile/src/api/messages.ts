@@ -6,7 +6,7 @@ import type { ReportReason } from '../reportReasons';
  * Messaging (ROADMAP P6 item 4). Delivery is polling: a conversation screen
  * asks for `after=<last id>` every few seconds while it is in front, and
  * echoes the server's `now` back as `since` so admin deletions of messages
- * it already shows come back as `deletedIds`.
+ * it already shows come back in `deleted`.
  */
 
 export const POLL_INTERVAL_MS = 5000;
@@ -67,9 +67,15 @@ export interface Message {
   createdAt: string;
 }
 
+/** A soft delete the poll reports for a message the client already holds. */
+export interface DeletedRef {
+  id: number;
+  deletedBySender: boolean | null;
+}
+
 export interface MessagesPage {
   messages: Message[];
-  deletedIds: number[];
+  deleted: DeletedRef[];
   hasMore: boolean;
   /** Server time; hand it back as `since` on the next poll. */
   now: string;
@@ -164,12 +170,19 @@ export async function reportMessage(
   await apiClient.post(`/messages/${messageId}/report`, { reason, details });
 }
 
-/** Folds a poll answer into the list the screen holds: append the new, blank the deleted. */
+/**
+ * Folds a poll answer into the list the screen holds: blank the deleted,
+ * append the new, and keep id order. The order matters because the client
+ * never advances its cursor on send: the echo of an own message may come
+ * back next to a reply that was sent just before it (review finding).
+ */
 export function applyPoll(current: Message[], page: MessagesPage): Message[] {
-  const deleted = new Set(page.deletedIds);
+  const deleted = new Map(page.deleted.map((d) => [d.id, d.deletedBySender]));
   const known = new Set(current.map((m) => m.id));
   const kept = current.map((m) =>
-    deleted.has(m.id) && !m.deleted ? { ...m, body: null, deleted: true, deletedBySender: null } : m
+    deleted.has(m.id) && !m.deleted
+      ? { ...m, body: null, deleted: true, deletedBySender: deleted.get(m.id) ?? null }
+      : m
   );
-  return kept.concat(page.messages.filter((m) => !known.has(m.id)));
+  return kept.concat(page.messages.filter((m) => !known.has(m.id))).sort((a, b) => a.id - b.id);
 }
