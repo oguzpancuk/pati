@@ -13,6 +13,7 @@ const adRoutes = require('./routes/ad.routes');
 const adminRoutes = require('./routes/admin.routes');
 const reportRoutes = require('./routes/report.routes');
 const messageRoutes = require('./routes/message.routes');
+const notificationRoutes = require('./routes/notification.routes');
 const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
 const { UPLOADS_DIR } = require('./config/upload');
 const rateLimit = require('express-rate-limit');
@@ -89,6 +90,7 @@ app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/ads', adRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
 // In production the built clients are served from this same Node process:

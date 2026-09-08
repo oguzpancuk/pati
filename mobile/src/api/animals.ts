@@ -1,6 +1,22 @@
 import { apiClient } from './client';
+import type { BadgeSymbolName, BadgeTier } from '../badges';
 import type { PhotoAsset } from './care';
 import type { WithNewBadges } from './users';
+
+/**
+ * A badge the ANIMAL earned (P6 item 5): the owner's name stays fixed, the
+ * tier shows as the medallion colour. Keys and thresholds live in
+ * backend/src/utils/badges.js (ANIMAL_BADGES); the client draws what it
+ * is sent.
+ */
+export interface AnimalBadge {
+  key: string;
+  label: string;
+  unit: string;
+  symbol: BadgeSymbolName;
+  tier: BadgeTier;
+  nextThreshold: number | null;
+}
 
 export interface Animal {
   id: number;
@@ -15,6 +31,8 @@ export interface Animal {
   cover_photo_url?: string | null;
   /** The face cut-out of the best photo (P3); null → the SVG avatar stands in. */
   cover_thumb_url?: string | null;
+  /** Earned animal badges, highest tier per key; list rows and the profile both carry them. */
+  badges?: AnimalBadge[];
 }
 
 // Health records come in just two types. Treatment/medication is not a
@@ -57,6 +75,10 @@ export interface AnimalPhoto {
   thumb_url?: string | null;
   face_score?: number | null;
   created_at: string;
+  uploaded_by_name?: string | null;
+  /** One like per user; the count is everyone's. Absent on a fresh upload's answer. */
+  like_count?: number;
+  liked_by_me?: boolean;
 }
 
 export interface AnimalComment {
@@ -83,7 +105,11 @@ export interface AnimalDetail extends Animal {
   healthRecords: HealthRecord[];
   vaccinations: Vaccination[];
   carers: Carer[];
+  carerCount: number;
   isCarer: boolean;
+  followerCount: number;
+  isFollowing: boolean;
+  badges: AnimalBadge[];
 }
 
 export interface FetchAnimalsOptions {
@@ -113,6 +139,13 @@ export interface AnimalMatch extends Animal {
   distance_meters: number;
   similarity: SimilarityLevel;
   similarity_reasons: SimilarityReason[];
+  /**
+   * The server logged a match hit for this candidate — the model said
+   * "same", or no model answered (`photoChecked` false). Only then does
+   * "that's the one" report a sighting and make the user a carer; without
+   * it the confirm just opens the profile. One rule, decided server-side.
+   */
+  matchHit: boolean;
 }
 
 export interface MatchAnimalsInput {
@@ -315,5 +348,79 @@ export async function addAnimalComment(
     `/animals/${animalId}/comments`,
     { body, healthRecordId }
   );
+  return data;
+}
+
+// ---------------------------------------------------------------- social (P6)
+
+export interface LikeState {
+  liked: boolean;
+  likeCount: number;
+}
+
+/** One like per user per photo; open to everyone signed in. Idempotent. */
+export async function likeAnimalPhoto(animalId: number, photoId: number): Promise<LikeState> {
+  const { data } = await apiClient.post<LikeState>(`/animals/${animalId}/photos/${photoId}/like`);
+  return data;
+}
+
+export async function unlikeAnimalPhoto(animalId: number, photoId: number): Promise<LikeState> {
+  const { data } = await apiClient.delete<LikeState>(`/animals/${animalId}/photos/${photoId}/like`);
+  return data;
+}
+
+export interface FollowState {
+  following: boolean;
+  followerCount: number;
+}
+
+/**
+ * "Takip et": no condition, toggles. A follower likes photos and hears
+ * about the animal's events; carer rights come from submitCarePhotos.
+ */
+export async function followAnimal(animalId: number): Promise<FollowState> {
+  const { data } = await apiClient.post<FollowState>(`/animals/${animalId}/follow`);
+  return data;
+}
+
+export async function unfollowAnimal(animalId: number): Promise<FollowState> {
+  const { data } = await apiClient.delete<FollowState>(`/animals/${animalId}/follow`);
+  return data;
+}
+
+export interface CarePhotoResult {
+  matched: true;
+  alreadyCarer: boolean;
+  /** false when the model was off, did not answer, or the gallery had nothing to compare. */
+  photoChecked: boolean;
+  photos: AnimalPhoto[];
+  carerCount?: number;
+  animalBadges?: AnimalBadge[];
+}
+
+/**
+ * "Bakım ver": two fresh photos of the animal, screened for the species and
+ * compared by the model with this animal's own gallery. A match makes the
+ * user a carer and puts the photos in the gallery; a miss is a 422
+ * `carePhotoMismatch` with a Turkish message, a wrong species a
+ * `photoRejected` with `photoIndexes`. The AI fails open (ADR-0005).
+ */
+export async function submitCarePhotos(
+  animalId: number,
+  photos: PhotoAsset[]
+): Promise<CarePhotoResult> {
+  const form = new FormData();
+  for (const photo of photos) {
+    form.append('photos', {
+      uri: photo.uri,
+      type: photo.type ?? 'image/jpeg',
+      name: photo.fileName ?? 'photo.jpg',
+    } as unknown as Blob);
+  }
+  const { data } = await apiClient.post<CarePhotoResult>(`/animals/${animalId}/care-photos`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    // Two uploads and up to two comparisons with the whole gallery.
+    timeout: 90000,
+  });
   return data;
 }

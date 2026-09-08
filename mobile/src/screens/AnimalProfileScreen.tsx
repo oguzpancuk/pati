@@ -1,13 +1,15 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,15 +23,18 @@ import {
   AnimalDetail,
   fetchAnimal,
   fetchAnimalComments,
+  followAnimal,
   HealthRecord,
   HealthRecordStatus,
   HealthRecordType,
   markHealthRecordRecovered,
   reopenHealthRecord,
+  unfollowAnimal,
   Vaccination,
 } from '../api/animals';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
+import { BadgeSymbol } from '../components/badges';
 import ReportLink from '../components/ReportSheet';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
@@ -92,10 +97,17 @@ const COMMENT_PAGE = 20;
 // lists); their cards are tall (status tag, "recovered" button) so more than
 // 2 folds away — even 3 cards pushed the chat below the screen.
 const RECORD_PREVIEW = 2;
+// The photo grid: three square tiles per row (P6 item 7), the gutter is
+// the small spacing step.
+const GRID_COLUMNS = 3;
 
 export default function AnimalProfileScreen({ route, navigation }: any) {
   const styles = useStyles();
   const { name: themeName, colors } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const tileSize = Math.floor(
+    (windowWidth - spacing.lg * 2 - spacing.sm * (GRID_COLUMNS - 1)) / GRID_COLUMNS
+  );
   const { celebrate } = useBadgeAwards();
   const { animalId } = route.params;
   // When viewed from the add-animal flow as "is this the animal?", a
@@ -103,6 +115,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   // via a param; location update and care-list insertion happen there, in
   // one place.
   const matchReview: boolean = !!route.params?.matchReview;
+  // The server's decision for this candidate (matchHit): with it the
+  // confirm reports a sighting and makes the user a carer; without it the
+  // bar only opens the profile. photoChecked tells the hint apart.
+  const matchHit: boolean = !!route.params?.matchHit;
+  const photoChecked: boolean = route.params?.photoChecked !== false;
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [draft, setDraft] = useState('');
@@ -128,6 +145,15 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [visibleVaccinations, setVisibleVaccinations] = useState(RECORD_PREVIEW);
   const [visibleRecords, setVisibleRecords] = useState(RECORD_PREVIEW);
+  const [followBusy, setFollowBusy] = useState(false);
+
+  // "kedi profili" / "köpek profili" (P6 item 6): the species is known only
+  // after the load, so the stack's default title stands until then.
+  const species = animal?.species;
+  useEffect(() => {
+    if (species)
+      navigation.setOptions({ title: species === 'cat' ? 'kedi profili' : 'köpek profili' });
+  }, [navigation, species]);
 
   const load = useCallback(async () => {
     try {
@@ -166,6 +192,41 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       load();
     }, [load])
   );
+
+  // "Takip et" toggles without a condition; optimistic, the server's count
+  // replaces the guess (or the flip is undone on failure).
+  async function handleToggleFollow() {
+    if (!animal || followBusy) return;
+    const wasFollowing = animal.isFollowing;
+    setFollowBusy(true);
+    setAnimal({
+      ...animal,
+      isFollowing: !wasFollowing,
+      followerCount: animal.followerCount + (wasFollowing ? -1 : 1),
+    });
+    try {
+      const state = wasFollowing ? await unfollowAnimal(animalId) : await followAnimal(animalId);
+      setAnimal((prev) =>
+        prev ? { ...prev, isFollowing: state.following, followerCount: state.followerCount } : prev
+      );
+    } catch (err: any) {
+      setAnimal((prev) =>
+        prev ? { ...prev, isFollowing: wasFollowing, followerCount: animal.followerCount } : prev
+      );
+      Alert.alert('Olmadı', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setFollowBusy(false);
+    }
+  }
+
+  function openCarePhotos() {
+    if (!animal) return;
+    navigation.navigate('CarePhotos', {
+      animalId,
+      species: animal.species,
+      name: animal.name,
+    });
+  }
 
   async function handleSend() {
     const body = draft.trim();
@@ -319,7 +380,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             descriptive line — pattern, color and markings read as a sentence
             instead of a stack of labeled fields. */}
         <View style={styles.header}>
-          <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={64} />
+          <AnimalAvatar
+            species={animal.species}
+            breed={animal.breed}
+            photoUrl={animal.cover_thumb_url}
+            size={64}
+          />
           <View style={styles.headerText}>
             <Text variant="title" numberOfLines={1}>
               {displayName}
@@ -333,6 +399,20 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 .filter(Boolean)
                 .join(' · ')}
             </Text>
+            {/* The animal's own badges (P6 item 5): the owner's name, the
+                tier as the medallion colour. */}
+            {animal.badges.length > 0 && (
+              <View style={styles.badgeRow}>
+                {animal.badges.map((badge) => (
+                  <View key={badge.key} style={styles.badgeChip}>
+                    <BadgeSymbol symbol={badge.symbol} tier={badge.tier} size={18} />
+                    <Text variant="micro" numberOfLines={1}>
+                      {badge.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
             <ReportLink
               targetType="animal"
               targetId={animal.id}
@@ -342,22 +422,92 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           </View>
         </View>
 
-        {/* The photo row always fills to a multiple of 3: real frames plus
-            dashed "fotoğraf" placeholders — even an empty profile invites. */}
-        <ScrollView horizontal style={styles.photoList} showsHorizontalScrollIndicator={false}>
-          {animal.photos.map((photo) => (
-            <Image key={photo.id} source={{ uri: photo.url }} style={styles.photo} />
+        {/* Follow vs. care (P6 item 8): "takip et" has no condition and
+            toggles; "bakım ver" is the two-photo step, after which the
+            carer view (records, chat) opens. Hidden in match review — the
+            decision bar below is the only action there. */}
+        {!matchReview && (
+          <View style={styles.actionRow}>
+            <Button
+              title={animal.isFollowing ? 'takip ediliyor' : 'takip et'}
+              variant={animal.isFollowing ? 'success' : 'secondary'}
+              size="sm"
+              onPress={handleToggleFollow}
+              loading={followBusy}
+              icon={
+                <Icon
+                  name="bell"
+                  size={16}
+                  color={animal.isFollowing ? colors.onSuccess : colors.brand}
+                />
+              }
+              style={styles.actionButton}
+            />
+            {animal.isCarer ? (
+              <View style={[styles.actionButton, styles.carerTag]}>
+                <Tag label="bakım veriyorsun" tone="success" />
+              </View>
+            ) : (
+              <Button
+                title="bakım ver"
+                size="sm"
+                onPress={openCarePhotos}
+                icon={<Icon name="camera" size={16} color={colors.textOnBrand} />}
+                style={styles.actionButton}
+              />
+            )}
+          </View>
+        )}
+        <Text variant="micro" color="textMuted" style={styles.counts}>
+          {animal.followerCount} takipçi · {animal.carerCount} bakıcı
+        </Text>
+
+        {/* The photo grid (P6 item 7): square tiles, three a row, each with
+            its like count; a tap opens the swipeable viewer. The last row
+            fills with dashed "fotoğraf" placeholders — even an empty
+            profile invites. */}
+        <View style={styles.photoGrid}>
+          {animal.photos.map((photo, i) => (
+            <Pressable
+              key={photo.id}
+              style={[styles.photoTile, { width: tileSize, height: tileSize }]}
+              onPress={() =>
+                navigation.navigate('AnimalPhotos', { animalId, photos: animal.photos, index: i })
+              }
+              accessibilityLabel={`Fotoğraf ${i + 1}, ${photo.like_count ?? 0} beğeni`}
+            >
+              <Image source={{ uri: photo.url }} style={styles.photoImage} />
+              <View style={styles.likeBadge}>
+                <Icon
+                  name="heart"
+                  size={12}
+                  color={photo.liked_by_me ? colors.brand : colors.textOnBrand}
+                />
+                <Text variant="micro" style={styles.likeBadgeText}>
+                  {photo.like_count ?? 0}
+                </Text>
+              </View>
+            </Pressable>
           ))}
           {Array.from({
-            length: (3 - (animal.photos.length % 3)) % 3 || (animal.photos.length ? 0 : 3),
+            length:
+              (GRID_COLUMNS - (animal.photos.length % GRID_COLUMNS)) % GRID_COLUMNS ||
+              (animal.photos.length ? 0 : GRID_COLUMNS),
           }).map((_, i) => (
-            <View key={`ph-${i}`} style={[styles.photo, styles.photoPlaceholder]}>
+            <View
+              key={`ph-${i}`}
+              style={[
+                styles.photoTile,
+                styles.photoPlaceholder,
+                { width: tileSize, height: tileSize },
+              ]}
+            >
               <Text variant="micro" color="textSubtle">
                 fotoğraf
               </Text>
             </View>
           ))}
-        </ScrollView>
+        </View>
 
         <SectionHeader title="En son görüldüğü yer" style={styles.sectionTop} />
         <Text variant="caption" style={styles.seenAt}>
@@ -438,7 +588,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         />
         {!animal.isCarer && (
           <Text variant="caption" style={styles.hint}>
-            Sağlık kaydı ekleyebilmek için önce bu hayvana yorum yapıp bakım listene ekle.
+            Sağlık kaydı ekleyebilmek için "bakım ver" ile bu hayvanın bakıcısı ol.
           </Text>
         )}
         {animal.healthRecords.length === 0 ? (
@@ -548,7 +698,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       {matchReview ? (
         <View style={styles.composer}>
           <Text variant="caption" center style={styles.reviewHint}>
-            Eklemek istediğin hayvan bu mu?
+            {!matchHit
+              ? 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'
+              : photoChecked
+              ? 'Eklemek istediğin hayvan bu mu?'
+              : 'Eklemek istediğin hayvan bu mu? Fotoğraf kontrol edilemedi; konumu güncellersin.'}
           </Text>
           <View style={styles.reviewRow}>
             <Button
@@ -558,12 +712,32 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               style={styles.reviewButton}
             />
             <Button
-              title="Bu o — eşleştir"
-              onPress={() => navigation.navigate('AddAnimal', { confirmedAnimalId: animalId })}
+              title={matchHit ? 'Bu o — eşleştir' : 'Bu o — profili aç'}
+              onPress={() =>
+                navigation.navigate('AddAnimal', {
+                  confirmedAnimalId: animalId,
+                  confirmedMatchHit: matchHit,
+                })
+              }
               icon={<Icon name="check" size={18} color={colors.textOnBrand} />}
               style={styles.reviewButton}
             />
           </View>
+        </View>
+      ) : !animal.isCarer ? (
+        /* The chat is the carers' room (owner decision, 2026-09-08):
+           followers read it; the composer gives way to the door in. */
+        <View style={styles.composer}>
+          <Text variant="caption" center style={styles.reviewHint}>
+            Yorum yazmak bakıcılara açık. İki yeni fotoğrafla sen de katıl.
+          </Text>
+          <Button
+            title="bakım ver"
+            size="sm"
+            onPress={openCarePhotos}
+            icon={<Icon name="camera" size={16} color={colors.textOnBrand} />}
+            fullWidth
+          />
         </View>
       ) : (
         <View style={styles.composer}>
@@ -749,14 +923,48 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
   reportLink: { marginTop: spacing.xs },
   headerText: { flex: 1, marginLeft: spacing.lg },
-  photoList: { marginBottom: spacing.xs },
-  photo: {
-    width: 84,
-    height: 84,
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.xs },
+  badgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingRight: spacing.sm,
+    paddingLeft: 2,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: c.surfaceAlt,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: -spacing.sm },
+  actionButton: { flex: 1 },
+  carerTag: { alignItems: 'center', justifyContent: 'center' },
+  counts: { marginTop: spacing.sm, marginBottom: spacing.md },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  photoTile: {
     borderRadius: radius.md,
-    marginRight: spacing.sm,
+    overflow: 'hidden',
     backgroundColor: c.cream,
   },
+  photoImage: { width: '100%', height: '100%' },
+  likeBadge: {
+    position: 'absolute',
+    right: spacing.xs,
+    bottom: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: c.overlay,
+  },
+  likeBadgeText: { color: c.textOnBrand },
   photoPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',

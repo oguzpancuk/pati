@@ -17,6 +17,11 @@ const {
   listComments,
   addComment,
   followAnimal,
+  unfollowAnimal,
+  likePhoto,
+  unlikePhoto,
+  submitCarePhotos,
+  CARE_PHOTO_COUNT,
 } = require('../controllers/animal.controller');
 
 const router = express.Router();
@@ -25,8 +30,10 @@ router.get('/', listAnimals);
 // The literal '/match' path must precede '/:id', or "match" parses as an id.
 // GET is the field-only form; POST carries the new animal's photos — each
 // screened for the species, the first compared with the candidates — and
-// is limited on its own: each call is up to seven vision requests.
-router.get('/match', requireAuth, matchAnimals);
+// is limited on its own: each call is up to seven vision requests. GET
+// shares the bucket: it is one form's worth of calls either way, and a
+// loop over it must not be free (review finding).
+router.get('/match', requireAuth, limits.matchAnimals, matchAnimals);
 router.post(
   '/match',
   requireAuth,
@@ -61,6 +68,20 @@ router.post(
 router.post('/:id/vaccinations', requireAuth, limits.healthRecords, addVaccination);
 router.get('/:id/comments', requireAuth, listComments);
 router.post('/:id/comments', requireAuth, limits.comments, addComment);
-router.post('/:id/follow', requireAuth, limits.animalTouch, followAnimal);
+// "Takip et" toggles a follower row; "bakım ver" is the care-photo step:
+// two fresh photos, screened and compared with this animal's gallery, then
+// carer rights. Pending files like the match step's — the miss path
+// deletes them, the match path renames them into the gallery.
+router.post('/:id/follow', requireAuth, limits.follows, followAnimal);
+router.delete('/:id/follow', requireAuth, limits.follows, unfollowAnimal);
+router.post('/:id/photos/:photoId/like', requireAuth, limits.photoLikes, likePhoto);
+router.delete('/:id/photos/:photoId/like', requireAuth, limits.photoLikes, unlikePhoto);
+router.post(
+  '/:id/care-photos',
+  requireAuth,
+  limits.matchAnimals,
+  pendingUpload.fields([{ name: 'photos', maxCount: CARE_PHOTO_COUNT }]),
+  submitCarePhotos
+);
 
 module.exports = router;

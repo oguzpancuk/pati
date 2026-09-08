@@ -18,6 +18,8 @@ import {
   setFeaturedBadges,
   uploadAvatar,
 } from '../api';
+import { fetchUnreadCount } from '../api/animalSocial';
+import { unreadCareAlertCount } from '../careAlertLog';
 import { useAuth } from '../auth';
 import { DeleteAccountLink } from '../components/DeleteAccountDialog';
 import { AnimalAvatar, UserAvatar } from '../avatars';
@@ -34,6 +36,9 @@ import { InstallBanner } from '../install';
 // The profile is a summary screen: 3 rows per section, the rest behind "show more".
 const PREVIEW = 3;
 const PAGE = 20;
+// The bell polls the unread count the way the care alert is polled: on
+// open, every minute while the tab is visible, and when it becomes visible.
+const UNREAD_POLL_MS = 60 * 1000;
 
 /** The brand food-bowl / water-drop stroke icon, shared by the history row
  * and the detail popup's map marker. */
@@ -99,6 +104,28 @@ export default function ProfilePage() {
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [visibleFriends, setVisibleFriends] = useState(PREVIEW);
   const [theme, setTheme] = useState<ThemeMode>(readThemeMode());
+  // Server inbox rows plus the browser's own food/water alerts (careAlertLog).
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    async function poll() {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const server = await fetchUnreadCount();
+        if (alive) setUnread(server + unreadCareAlertCount());
+      } catch {
+        // A background count; the bell just keeps its last number.
+      }
+    }
+    poll();
+    const timer = window.setInterval(poll, UNREAD_POLL_MS);
+    document.addEventListener('visibilitychange', poll);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', poll);
+    };
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -191,6 +218,30 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {/* The bell (P6 track C): the inbox of animal events and the browser's
+          care alerts, with the unread count. */}
+      <Link
+        to="/bildirimler"
+        className="card flat row bell-row"
+        style={{ textDecoration: 'none', color: 'inherit' }}
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--brand)"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15l1.5-2Z M10 20.5a2 2 0 0 0 4 0" />
+        </svg>
+        <strong className="grow">Bildirimler</strong>
+        {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
+        <span className="subtle">›</span>
+      </Link>
       {/* Stat strip: points / rank / level — links to the leaderboard. */}
       <Link
         to="/siralama"
@@ -262,7 +313,12 @@ export default function ProfilePage() {
             className="card flat row"
             style={{ textDecoration: 'none', color: 'inherit' }}
           >
-            <AnimalAvatar species={a.species} breed={a.breed} photoUrl={a.cover_thumb_url} size={44} />
+            <AnimalAvatar
+              species={a.species}
+              breed={a.breed}
+              photoUrl={a.cover_thumb_url}
+              size={44}
+            />
             <div className="grow">
               <strong>{a.name ?? (a.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
               <div className="muted">{a.breed ?? 'Türü belirtilmemiş'}</div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { fetchCareStatus, getToken } from './api';
+import { appendCareAlert } from './careAlertLog';
 import { getCurrentLocationIfPermitted } from './location';
 
 /**
@@ -46,11 +47,11 @@ export async function checkCareAndNotify(): Promise<boolean> {
   const now = Date.now();
   if (cooldowns[key] && now - cooldowns[key] < COOLDOWN_MS) return false;
 
-  new Notification('Bu bölgede bakım gerekiyor', {
-    body: `Bulunduğun konumun ${food.radiusMeters} m çevresinde ${missing.join(' ve ')} bırakılmamış.`,
-    icon: '/icons/icon-192.png',
-    tag: 'care-alert',
-  });
+  const title = 'Bu bölgede bakım gerekiyor';
+  const body = `Bulunduğun konumun ${food.radiusMeters} m çevresinde ${missing.join(' ve ')} bırakılmamış.`;
+  new Notification(title, { body, icon: '/icons/icon-192.png', tag: 'care-alert' });
+  // The inbox lists this alert too; it is decided here, so it is logged here.
+  appendCareAlert({ title, body });
   localStorage.setItem(LAST_KEY, JSON.stringify({ ...cooldowns, [key]: now }));
   return true;
 }

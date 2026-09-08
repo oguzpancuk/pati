@@ -17,6 +17,7 @@ import MessagesPage from './pages/MessagesPage';
 import NewConversationPage from './pages/NewConversationPage';
 import ConversationPage from './pages/ConversationPage';
 import GroupSettingsPage from './pages/GroupSettingsPage';
+import NotificationsPage from './pages/NotificationsPage';
 import { BadgeAwardProvider } from './badgeAwards';
 import { useCareAlerts } from './careAlerts';
 
@@ -107,6 +108,7 @@ export default function App() {
           <Route path="hayvanlar/yeni" element={<AddAnimalPage />} />
           <Route path="hayvanlar/:id" element={<AnimalPage />} />
           <Route path="profil" element={<ProfilePage />} />
+          <Route path="bildirimler" element={<NotificationsPage />} />
           <Route path="kullanici/:id" element={<UserProfilePage />} />
           <Route path="kullanici/:id/yorumlar" element={<UserCommentsPage />} />
           <Route path="yorumlarim" element={<UserCommentsPage />} />

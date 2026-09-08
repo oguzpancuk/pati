@@ -1,0 +1,249 @@
+#!/usr/bin/env bash
+# The checks behind run.sh (see there). Needs API, FAKE, OUTBOX, FIXTURES
+# from the environment and the shared local database (docker: stray-db).
+# Runs from backend/ (run.sh cd's there): the photo files it seeds and
+# removes live under ./uploads, the dev server's own directory.
+#
+# State: the script registers five throwaway accounts (an owner, a
+# follower, a carer, two confirmers) and the owner creates two throwaway
+# animals in the middle of the Pacific, so no seeded row is touched; on the
+# way out it DELETES that animal (its photos, likes, followers, badges,
+# notifications and match rows go with it, cascade), the accounts, and the
+# photo files the run wrote. test1@stray.test (seeded) is the one standing
+# account used, as the carer "A"; the comments and records it adds die
+# with the animal.
+set -uo pipefail
+API=${API:-http://localhost:3107/api}
+FAKE=${FAKE:-http://localhost:4607}
+OUTBOX=${OUTBOX:-/tmp/pati-animal-social-outbox.jsonl}
+FIXTURES=${FIXTURES:-/tmp/pati-animal-social-fixtures}
+BODY=/tmp/pati-animal-social-body.json
+# Seeded photo rows point at this backend's uploads; the API's origin.
+UPLOADS_URL="${API%/api}/uploads"
+# Nobody registers animals here; the 1 km match circle holds ours alone.
+LAT=-30.5; LNG=-150.5
+psql_db() { docker exec stray-db psql -U stray -d stray -tAc "$1"; }
+
+PASS=0; FAILED=0
+# The photo matches leave their upload pending for the create step's token
+# (the sweeper reclaims it after thirty minutes); the run removes exactly
+# the files it made — photo_match records each one's name in a file (it
+# runs inside command substitutions, so a variable would not reach here).
+# One run at a time: the file, the accounts' address pattern and the
+# animal's name are shared, so two runs side by side would clean each
+# other up.
+PENDING_MADE=/tmp/pati-animal-social-pending.txt; : > "$PENDING_MADE"
+check() { # name expected actual
+  if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  ok    $1"; else FAILED=1; echo "  FAIL  $1 — expected [$2] got [$3]"; echo "        body: $(head -c 300 $BODY)"; fi; }
+post() { curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$1" -H "Authorization: Bearer $2" -H 'Content-Type: application/json' -d "$3"; }
+del() { local b="${3:-}"; [ -z "$b" ] && b='{}'; curl -s -o "$BODY" -w '%{http_code}' -X DELETE "$API/$1" -H "Authorization: Bearer $2" -H 'Content-Type: application/json' -d "$b"; }
+get() { curl -s -o "$BODY" -w '%{http_code}' "$API/$1" -H "Authorization: Bearer $2"; }
+control() { curl -s -o /dev/null -X POST "$FAKE/control" -H 'Content-Type: application/json' -d "$1"; }
+j() { jq -r "$1" "$BODY"; }
+care_photos() { # animal token nphotos
+  if [ "$3" = 1 ]; then curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$1/care-photos" -H "Authorization: Bearer $2" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg";
+  else curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$1/care-photos" -H "Authorization: Bearer $2" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg"; fi; }
+photo_match() { # token → POST /animals/match with one photo and the animal's fields
+  local code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/match" -H "Authorization: Bearer $1" -F "lat=$LAT" -F "lng=$LNG" -F "species=$SPECIES" -F "breed=$BREED" -F "color=$COLOR" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg")
+  # The token names the final file; on disk it waits under the pending prefix.
+  # JWT payloads are base64url without padding: pad and translate first.
+  local b=$(jq -r '.photoTokens[0] // empty' "$BODY" | cut -d. -f2 | tr '_-' '/+'); while [ $(( ${#b} % 4 )) -ne 0 ]; do b="$b="; done
+  local f=$(echo "$b" | base64 -d 2>/dev/null | jq -r .file 2>/dev/null)
+  [ -n "$f" ] && echo "pending-$f" >> "$PENDING_MADE"
+  echo "$code"; }
+last_hit() { # user id → similarity of the newest register hit on the animal, or "none"
+  local v=$(psql_db "SELECT similarity FROM animal_match_attempts WHERE user_id=$1 AND animal_id=$ANIMAL AND kind='register' ORDER BY id DESC LIMIT 1"); echo "${v:-none}"; }
+last_code() { # e-mail → the 6-digit code from the outbox
+  node -e 'const fs=require("fs");const l=fs.readFileSync(process.argv[1],"utf8").trim().split("\n").map(JSON.parse).filter(m=>m.to===process.argv[2]).pop();const m=(l.subject+" "+l.text).match(/\b(\d{6})\b/);console.log(m?m[1]:"")' "$OUTBOX" "$1"; }
+register() { # name email → prints "token id"
+  curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/auth/register" -H 'Content-Type: application/json' -d "{\"name\":\"$1\",\"email\":\"$2\",\"password\":\"parola1234\"}" >/dev/null
+  local t=$(j .token) id=$(j .user.id)
+  post auth/verify-email "$t" "{\"code\":\"$(last_code "$2")\"}" >/dev/null
+  echo "$t $id"; }
+
+echo "== accounts and the throwaway animal"
+# An earlier run that died before its cleanup leaves its animal in the
+# circle and its accounts behind; sweep them first (they are recognisable
+# by the address pattern and the name at this spot).
+LEFT=$(psql_db "SELECT count(*) FROM animals WHERE name LIKE 'Harness Kedisi%'")
+if [ "$LEFT" != 0 ]; then
+  psql_db "DELETE FROM animals WHERE name LIKE 'Harness Kedisi%'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|ikinci|tekatis)-[0-9]+@stray\.test$';" >/dev/null
+  echo "        (swept $LEFT leftover animal(s) of an earlier aborted run)"
+fi
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/auth/login" -H 'Content-Type: application/json' -d '{"email":"test1@stray.test","password":"password123"}')
+check "login test1 -> 200" 200 "$code"; A=$(j .token); A_ID=$(j .user.id)
+STAMP=$(date +%s)
+read -r D D_ID < <(register "Sahip Test" "sahip-$STAMP@stray.test")
+read -r B B_ID < <(register "Takipçi Test" "takipci-$STAMP@stray.test")
+read -r C C_ID < <(register "Bakıcı Test" "bakici-$STAMP@stray.test")
+read -r E E_ID < <(register "İkinci Test" "ikinci-$STAMP@stray.test")
+code=$(get users/me "$B"); check "B registered and verified" "200 false" "$code $(j .email_verification_pending)"
+code=$(post animals "$D" "{\"species\":\"cat\",\"name\":\"Harness Kedisi\",\"breed\":\"Tekir\",\"color\":\"gri\",\"lat\":$LAT,\"lng\":$LNG}")
+check "D registers the animal -> 201" 201 "$code"; ANIMAL=$(j .id)
+read -r SPECIES BREED COLOR < <(psql_db "SELECT species, coalesce(breed,''), coalesce(color,'') FROM animals WHERE id=$ANIMAL" | tr '|' ' ')
+check "species read back from the database" "cat" "$SPECIES"
+# The likes need a photo to like, and the first care step must find no
+# gallery file on disk: one owner row whose file does not exist.
+psql_db "INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($ANIMAL, '$UPLOADS_URL/seed-missing-$STAMP.jpg', $D_ID)" >/dev/null
+code=$(get "animals/$ANIMAL" "$D"); check "the registrant is a carer, 'cared' bronze on record" "true 1" "$(j .isCarer) $(psql_db "SELECT count(*) FROM animal_badges WHERE animal_id=$ANIMAL AND badge_key='cared' AND tier='bronze'")"
+
+echo "== profile read, follow"
+code=$(get "animals/$ANIMAL" "$B"); check "B GET animal -> 200" 200 "$code"
+check "B is neither carer nor follower" "false false" "$(j '.isCarer') $(j '.isFollowing')"
+check "photos carry like fields" "0 false" "$(j '.photos[0].like_count') $(j '.photos[0].liked_by_me')"
+check "profile carries badges array" "true" "$(j '.badges | type == "array"')"
+PHOTO=$(j '.photos[0].id')
+code=$(post "animals/$ANIMAL/follow" "$B" '{}'); check "B follow -> 201" 201 "$code"
+check "following true, count 1" "true 1" "$(j .following) $(j .followerCount)"
+code=$(get "animals/$ANIMAL" "$B"); check "GET shows isFollowing" "true 1" "$(j .isFollowing) $(j .followerCount)"
+code=$(del "animals/$ANIMAL/follow" "$B"); check "B unfollow -> 200" 200 "$code"; check "following false, count 0" "false 0" "$(j .following) $(j .followerCount)"
+code=$(post "animals/$ANIMAL/follow" "$B" '{}'); check "B follows again" 201 "$code"
+
+echo "== likes"
+code=$(post "animals/$ANIMAL/photos/$PHOTO/like" "$B" '{}'); check "B like -> 201" 201 "$code"; check "liked, count 1" "true 1" "$(j .liked) $(j .likeCount)"
+code=$(post "animals/$ANIMAL/photos/$PHOTO/like" "$B" '{}'); check "second like is idempotent" "true 1" "$(j .liked) $(j .likeCount)"
+code=$(get "animals/$ANIMAL" "$B"); check "GET shows liked_by_me" "true 1" "$(j '.photos[0].liked_by_me') $(j '.photos[0].like_count')"
+code=$(del "animals/$ANIMAL/photos/$PHOTO/like" "$B"); check "unlike -> 200, count 0" "200 false 0" "$code $(j .liked) $(j .likeCount)"
+code=$(post "animals/$ANIMAL/photos/999999999/like" "$B" '{}'); check "like on a foreign photo id -> 404" 404 "$code"
+code=$(post "animals/$ANIMAL/photos/$PHOTO/like" "$B" '{}'); check "B likes again (badge source)" 201 "$code"
+
+echo "== carers-only refusals for a follower"
+code=$(post "animals/$ANIMAL/comments" "$B" '{"body":"selam"}'); check "B comment -> 403 carersOnly" "403 carersOnly" "$code $(j .code)"
+code=$(post "animals/$ANIMAL/sightings" "$B" "{\"lat\":$LAT,\"lng\":$LNG}"); check "B sighting -> 403 carersOnly" "403 carersOnly" "$code $(j .code)"
+code=$(post "animals/$ANIMAL/health-records" "$B" '{"recordType":"illness","description":"Göz akıntısı"}'); check "B health record -> 403" "403 carersOnly" "$code $(j .code)"
+code=$(post "animals/$ANIMAL/vaccinations" "$B" '{"vaccineType":"Kuduz"}'); check "B vaccination -> 403" "403 carersOnly" "$code $(j .code)"
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$ANIMAL/photos" -H "Authorization: Bearer $B" -F "photo=@$FIXTURES/a.jpg;type=image/jpeg"); check "B photo upload -> 403" "403 carersOnly" "$code $(j .code)"
+
+echo "== the field-only match never opens the door"
+Q="lat=$LAT&lng=$LNG&species=$SPECIES&breed=$(jq -rn --arg b "$BREED" '$b|@uri')&color=$(jq -rn --arg c "$COLOR" '$c|@uri')"
+code=$(get "animals/match?$Q" "$B"); check "B field match -> 200" 200 "$code"
+check "animal is a high candidate by fields" "high" "$(jq -r --argjson id $ANIMAL '.candidates[] | select(.id==$id) | .similarity' $BODY)"
+check "no hit logged" "0" "$(psql_db "SELECT count(*) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND user_id=$B_ID")"
+code=$(post "animals/$ANIMAL/sightings" "$B" "{\"lat\":$LAT,\"lng\":$LNG}"); check "B sighting still -> 403" "403 carersOnly" "$code $(j .code)"
+
+echo "== care-photo step"
+# Order matters here: A's care photos are the first files on disk for this
+# animal and get a face thumb, which is what makes the cover comparable
+# for the miss/match cases that follow (and for the door section).
+code=$(care_photos $ANIMAL "$B" 1); check "one photo -> 400" "400 carePhotosRequired" "$code $(j .code)"
+code=$(get "animals/$ANIMAL" "$A"); BEFORE=$(j '.photos | length')
+control '{"mode":"match","verdicts":["different","different","different","different","different","different","different","different"]}'
+code=$(care_photos $ANIMAL "$A" 2); check "A: no gallery file on disk -> accepted unchecked (fail open)" "201 true false 2" "$code $(j .matched) $(j .photoChecked) $(j '.photos | length')"
+check "answer carries the animalBadges list" "true" "$(j '.animalBadges | type == "array"')"
+code=$(get "animals/$ANIMAL" "$A"); check "A is now a carer, gallery grew by 2" "true $((BEFORE+2))" "$(j .isCarer) $(j '.photos | length')"
+code=$(care_photos $ANIMAL "$A" 2); check "A again -> alreadyCarer" "200 true" "$code $(j .alreadyCarer)"
+code=$(care_photos $ANIMAL "$B" 2); check "B: model says different -> 422 miss" "422 carePhotoMismatch" "$code $(j .code)"
+check "miss is Turkish" "true" "$(j '.error | test("benzemiyor")')"
+control '{"mode":"reject"}'
+code=$(care_photos $ANIMAL "$B" 2); check "species screening refuses -> 422 photoRejected [0,1]" "422 photoRejected [0,1]" "$code $(j .code) $(jq -c .photoIndexes $BODY)"
+control '{"mode":"match","verdicts":["different","same","different","different","different","different","different","different"]}'
+code=$(care_photos $ANIMAL "$C" 2); check "C: model says same -> 201 matched, checked" "201 true true 2" "$code $(j .matched) $(j .photoChecked) $(j '.photos | length')"
+code=$(get "animals/$ANIMAL" "$C"); check "C is a carer" "true" "$(j .isCarer)"
+check "care attempts logged: A unchecked, C same" "|same" "$(psql_db "SELECT string_agg(coalesce(similarity,''), '|' ORDER BY id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='care'")"
+control '{"mode":"approve"}'
+echo "        (pending files on disk: $(ls uploads | grep -c '^pending-'))"
+
+echo "== inbox"
+# test1 is a standing account: its inbox may hold rows from other animals,
+# so its counts are read as deltas.
+code=$(get "notifications/unread-count" "$A"); A0=$(j .unreadCount)
+code=$(post "animals/$ANIMAL/comments" "$A" '{"body":"Bugün mama bıraktım, iştahı yerinde."}'); check "A (carer) comment -> 201" 201 "$code"
+code=$(get "notifications/unread-count" "$B"); check "B unread-count 1" "200 1" "$code $(j .unreadCount)"
+code=$(get "notifications?limit=10" "$B"); check "B inbox lists the comment" "comment $A_ID true" "$(j '.notifications[0].kind') $(j '.notifications[0].actor_id') $(j '.notifications[0].payload.text | test("mama")')"
+check "payload names the actor" "true" "$(j '.notifications[0].payload.actorName | length > 0')"
+code=$(get "notifications/unread-count" "$A"); check "the actor is not notified" "$A0" "$(j .unreadCount)"
+code=$(post "animals/$ANIMAL/health-records" "$A" '{"recordType":"illness","description":"Göz akıntısı"}'); check "A health record -> 201" 201 "$code"; RECORD=$(j .id)
+code=$(post "animals/$ANIMAL/vaccinations" "$A" '{"vaccineType":"Kuduz"}'); check "A vaccination -> 201" 201 "$code"
+code=$(get "notifications?limit=10" "$B"); check "B has 3 unread: vaccination, health_record, comment" "3 vaccination health_record comment" "$(j .unreadCount) $(j '.notifications[0].kind') $(j '.notifications[1].kind') $(j '.notifications[2].kind')"
+FIRST=$(j '.notifications[0].id')
+code=$(post "notifications/read" "$B" "{\"ids\":[$FIRST]}"); check "read one -> 2 left" "200 2" "$code $(j .unreadCount)"
+code=$(post "notifications/read" "$B" '{}'); check "read all -> 0" "0" "$(j .unreadCount)"
+
+echo "== the add-animal door: only a 'same' verdict opens it"
+# Our animal is the only candidate in the circle, so the fake's first
+# verdict is its verdict. Product rule: the door is never weaker than
+# "bakım ver" — 'same' opens it, 'similar'/'unsure' do not, and the field-
+# only form never logs (checked above).
+control '{"mode":"match","verdicts":["different"]}'
+code=$(photo_match "$E"); check "E photo match, model says different -> 200, checked, animal hidden" "200 true 0" "$code $(j .photoChecked) $(j '.candidates | length')"
+check "no hit for a 'different' verdict" "none" "$(last_hit $E_ID)"
+control '{"mode":"match","verdicts":["unsure"]}'
+code=$(photo_match "$E"); check "E photo match, model unsure -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
+check "no hit for an 'unsure' verdict" "none" "$(last_hit $E_ID)"
+control '{"mode":"match","verdicts":["similar"]}'
+code=$(photo_match "$E"); check "E photo match, model says similar -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
+check "no hit for a 'similar' verdict" "none" "$(last_hit $E_ID)"
+check "the answer carries matchHit false" "false" "$(jq -r --argjson id $ANIMAL '.candidates[] | select(.id==$id) | .matchHit' $BODY)"
+code=$(post "animals/$ANIMAL/sightings" "$E" "{\"lat\":$LAT,\"lng\":$LNG}"); check "E sighting still -> 403 (the clients then open the profile)" "403 carersOnly" "$code $(j .code)"
+control '{"mode":"match","verdicts":["same"]}'
+code=$(photo_match "$B"); check "B photo match, model says same -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
+check "hit logged as same" "same" "$(last_hit $B_ID)"
+check "the answer carries matchHit for it" "true" "$(jq -r --argjson id $ANIMAL '.candidates[] | select(.id==$id) | .matchHit' $BODY)"
+code=$(photo_match "$B"); check "B matches again under same -> a second row, still one user" "2 1" "$(psql_db "SELECT count(*) FROM animal_match_attempts WHERE user_id=$B_ID AND animal_id=$ANIMAL AND kind='register'") $(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")"
+code=$(post "animals/$ANIMAL/sightings" "$B" "{\"lat\":$LAT,\"lng\":$LNG}"); check "B sighting after the 'same' hit -> 200" 200 "$code"
+code=$(get "animals/$ANIMAL" "$B"); check "B became a carer" "true" "$(j .isCarer)"
+code=$(get "notifications/unread-count" "$A"); check "A hears about the sighting" "$((A0+1))" "$(j .unreadCount)"
+code=$(post "animals/$ANIMAL/comments" "$B" '{"body":"Ben de gördüm."}'); check "B (carer now) comment -> 201" 201 "$code"
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$ANIMAL/photos" -H "Authorization: Bearer $B" -F "photo=@$FIXTURES/b.jpg;type=image/jpeg"); check "B photo upload as carer -> 201" 201 "$code"
+# Without any model answer the hit is 'unchecked' (fail open, as the care
+# step): the fake errors, the comparison yields nothing.
+control '{"mode":"error"}'
+code=$(photo_match "$E"); check "E photo match, model down -> 200, unchecked" "200 false" "$code $(j .photoChecked)"
+check "hit logged as unchecked" "unchecked" "$(last_hit $E_ID)"
+code=$(post "animals/$ANIMAL/sightings" "$E" "{\"lat\":$LAT,\"lng\":$LNG}"); check "E sighting after the unchecked hit -> 200" 200 "$code"
+check "'matched' counts distinct users with a same/unchecked hit" "2" "$(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")"
+
+echo "== one-shot: one photo confirms one animal"
+# A second throwaway animal at the same spot; one 'same' answer for both
+# gives F two fresh hits. Confirming one spends the other.
+read -r F F_ID < <(register "Tek Atış Test" "tekatis-$STAMP@stray.test")
+code=$(post animals "$D" "{\"species\":\"cat\",\"name\":\"Harness Kedisi 2\",\"breed\":\"$BREED\",\"color\":\"$COLOR\",\"lat\":$LAT,\"lng\":$LNG}")
+check "D registers a second animal -> 201" 201 "$code"; ANIMAL2=$(j .id)
+# A cover the model can look at (a candidate without one is never judged,
+# so never a hit): one owner photo with a real file behind it.
+cp "$FIXTURES/b.jpg" "uploads/seed-harness-$STAMP.jpg"
+psql_db "INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($ANIMAL2, '$UPLOADS_URL/seed-harness-$STAMP.jpg', $D_ID)" >/dev/null
+control '{"mode":"match","verdicts":["same","same"]}'
+code=$(photo_match "$F"); check "F photo match -> two hits" "200 2" "$code $(jq -r '[.candidates[] | select(.matchHit)] | length' $BODY)"
+check "two fresh register rows" "2" "$(psql_db "SELECT count(*) FROM animal_match_attempts WHERE user_id=$F_ID AND kind='register'")"
+X_MATCHED=$(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")
+code=$(post "animals/$ANIMAL2/sightings" "$F" "{\"lat\":$LAT,\"lng\":$LNG}"); check "F confirms the second animal -> 200" 200 "$code"
+check "both hits are spent, none deleted" "2 2" "$(psql_db "SELECT count(*), count(used_at) FROM animal_match_attempts WHERE user_id=$F_ID AND kind='register'" | tr '|' ' ')"
+code=$(post "animals/$ANIMAL/sightings" "$F" "{\"lat\":$LAT,\"lng\":$LNG}"); check "F confirming the first animal too -> 403" "403 carersOnly" "$code $(j .code)"
+code=$(get "animals/$ANIMAL2" "$F"); check "F is a carer of the second animal only" "true" "$(j .isCarer)"
+code=$(get "animals/$ANIMAL" "$F"); check "…and not of the first" "false" "$(j .isCarer)"
+check "the first animal's recognised-user count is unchanged" "$X_MATCHED" "$(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")"
+# A spent hit opens nothing again: the carer row is what let F in, and
+# with it removed the second confirm on the same animal is refused.
+psql_db "DELETE FROM user_animal_care WHERE user_id=$F_ID AND animal_id=$ANIMAL2" >/dev/null
+code=$(post "animals/$ANIMAL2/sightings" "$F" "{\"lat\":$LAT,\"lng\":$LNG}"); check "a second confirm on the same animal, hit spent -> 403" "403 carersOnly" "$code $(j .code)"
+control '{"mode":"approve"}'
+code=$(post "animals/$ANIMAL/health-records/$RECORD/recover" "$A" '{}'); check "A marks recovered -> 200" 200 "$code"
+control '{"mode":"approve"}'
+
+echo "== badges"
+code=$(get "animals/$ANIMAL" "$A")
+COUNTS=$(psql_db "SELECT (SELECT count(*) FROM animal_photo_likes l JOIN animal_photos p ON p.id=l.photo_id WHERE p.animal_id=$ANIMAL), (SELECT count(*) FROM animal_followers WHERE animal_id=$ANIMAL), (SELECT count(*) FROM user_animal_care WHERE animal_id=$ANIMAL), (SELECT count(*) FROM animal_comments WHERE animal_id=$ANIMAL), (SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'), (SELECT count(*) FROM health_records WHERE animal_id=$ANIMAL AND recovered_at IS NOT NULL)")
+EXPECTED=$(echo "$COUNTS" | tr '|' ' ' | awk '{for(i=1;i<=6;i++){n=$i; t=(i==4)?((n>=200)?"diamond":(n>=50)?"gold":(n>=10)?"silver":(n>=1)?"bronze":"null"):((n>=100)?"diamond":(n>=20)?"gold":(n>=5)?"silver":(n>=1)?"bronze":"null"); printf "%s%s", t, (i<6?" ":"")}}')
+echo "        (counts liked|followed|cared|commented|matched|recovered = $COUNTS)"
+check "badge tiers follow the counts (liked followed cared commented matched recovered)" "$EXPECTED" "$(for k in liked followed cared commented matched recovered; do jq -r --arg k $k '[.badges[] | select(.key==$k) | .tier] | first // "null"' $BODY; done | tr '\n' ' ' | sed 's/ $//')"
+check "every earned key is at bronze or above" "true" "$(jq -r '[.badges[] | .tier != null] | all' $BODY)"
+check "owner names in place" "Gönül Çelen" "$(jq -r '.badges[] | select(.key=="liked") | .label' $BODY)"
+code=$(get "animals?lat=$LAT&lng=$LNG&radiusMeters=50&limit=3" "$A"); check "list rows carry badges" "true" "$(jq -r --argjson id $ANIMAL '[.[] | select(.id==$id) | .badges | length > 0] | first' $BODY)"
+
+echo "== device tokens"
+code=$(post "notifications/device-tokens" "$B" '{"platform":"ios","token":"apns-abc"}'); check "register token -> 201" 201 "$code"
+code=$(post "notifications/device-tokens" "$A" '{"platform":"ios","token":"apns-abc"}'); check "same token, other user -> 201 (moved)" 201 "$code"
+check "token now belongs to A" "$A_ID" "$(psql_db "SELECT user_id FROM device_tokens WHERE token='apns-abc'")"
+code=$(post "notifications/device-tokens" "$B" '{"platform":"tv","token":"x"}'); check "bad platform -> 400" 400 "$code"
+code=$(del "notifications/device-tokens" "$A" '{"token":"apns-abc"}'); check "delete token -> 204" 204 "$code"
+
+echo; echo "passed $PASS checks; failed=$FAILED"
+# Cleanup: the run's photo files, then the throwaway animal (cascade) and
+# the accounts. A's rows on the animal go with it.
+psql_db "SELECT url FROM animal_photos WHERE animal_id IN ($ANIMAL,$ANIMAL2)" | while read -r u; do rm -f "uploads/$(basename "$u")" "uploads/$(basename "$u" .jpg)-face.jpg"; done
+while read -r f; do [ -n "$f" ] && rm -f "uploads/$f"; done < "$PENDING_MADE"
+if ! psql_db "DELETE FROM animals WHERE id IN ($ANIMAL,$ANIMAL2); DELETE FROM users WHERE id IN ($B_ID,$C_ID,$D_ID,$E_ID,$F_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null; then
+  echo "  FAIL  cleanup: the throwaway animals $ANIMAL $ANIMAL2 / accounts $B_ID $C_ID $D_ID $E_ID $F_ID are still in the database"; FAILED=1
+fi
+exit $FAILED

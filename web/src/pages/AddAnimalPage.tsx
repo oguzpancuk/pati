@@ -19,6 +19,7 @@ import {
   SimilarityLevel,
   SimilarityReason,
 } from '../api';
+import { matchHitOf } from '../api/animalSocial';
 import { AnimalAvatar } from '../avatars';
 import { isPermissionFailure } from '../addAnimalGate';
 import { useBadgeAwards } from '../badgeAwards';
@@ -327,6 +328,9 @@ export default function AddAnimalPage() {
   // state: report the sighting, return to the profile. The location was kept
   // in the draft.
   const confirmedAnimalId: number | undefined = routerLocation.state?.confirmedAnimalId;
+  // Without the server's hit the confirm is a decision, not a sighting:
+  // no server call, the profile opens ("bakım ver" is the way in).
+  const confirmedMatchHit: boolean = routerLocation.state?.confirmedMatchHit === true;
   useEffect(() => {
     if (!confirmedAnimalId) return;
     // State'i temizle ki yenilemede ikinci kez tetiklenmesin.
@@ -335,7 +339,7 @@ export default function AddAnimalPage() {
     sessionStorage.removeItem(DRAFT_KEY);
     (async () => {
       try {
-        if (loc) await reportSighting(confirmedAnimalId, loc.lat, loc.lng);
+        if (loc && confirmedMatchHit) await reportSighting(confirmedAnimalId, loc.lat, loc.lng);
       } catch {
         // Even if the sighting fails to record, taking the user to the
         // profile is right; the match decision is made, not worth breaking
@@ -497,7 +501,14 @@ export default function AddAnimalPage() {
   function reviewCandidate(animal: AnimalMatch) {
     const toSave: Draft = { species, breed, colors: colorChoices, name, markings, location };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(toSave));
-    navigate(`/hayvanlar/${animal.id}?inceleme=1`);
+    // eslesme=1: the server logged a hit for this candidate, so "that's
+    // the one" reports a sighting and makes the user a carer; kontrol=0:
+    // no model looked at the photo (the hint differs).
+    navigate(
+      `/hayvanlar/${animal.id}?inceleme=1${matchHitOf(animal) ? '&eslesme=1' : ''}${
+        photoChecked ? '' : '&kontrol=0'
+      }`
+    );
   }
 
   /** No direct sighting report from the candidate list without a "that's the

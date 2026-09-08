@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import notifee, { AndroidImportance, AuthorizationStatus } from '@notifee/react-native';
 import { fetchCareStatus } from './api/care';
+import { appendCareAlert } from './careAlertLog';
 import { getCurrentLocationIfPermitted } from './location';
 
 const CHANNEL_ID = 'care-alerts';
@@ -78,13 +79,17 @@ export async function checkCareAndNotify(): Promise<boolean> {
   }
 
   await ensureChannel();
+  const title = 'Bu bölgede bakım gerekiyor';
+  const body = `Bulunduğunuz konumun ${foodStatus.radiusMeters}m çevresinde ${missing.join(
+    ' ve '
+  )} bırakılmamış.`;
   await notifee.displayNotification({
-    title: 'Bu bölgede bakım gerekiyor',
-    body: `Bulunduğunuz konumun ${foodStatus.radiusMeters}m çevresinde ${missing.join(
-      ' ve '
-    )} bırakılmamış.`,
+    title,
+    body,
     android: { channelId: CHANNEL_ID, pressAction: { id: 'default' } },
   });
+  // The inbox lists this alert too; it is decided here, so it is logged here.
+  await appendCareAlert({ title, body });
 
   await writeCooldown({ ...cooldowns, [cooldownKey]: now });
   return true;

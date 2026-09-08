@@ -20,6 +20,8 @@ import {
   uploadAvatar,
 } from '../api/users';
 import { deleteCareAction, fetchMyCareActions, MyCareAction } from '../api/care';
+import { fetchUnreadCount } from '../api/notifications';
+import { unreadCareAlertCount } from '../careAlertLog';
 import { mapStyles } from '../map/styles';
 import { badgeProgressText, badgeTitle } from '../badges';
 import { mergeById } from '../paging';
@@ -76,9 +78,34 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'dark', label: 'koyu' },
 ];
 
+// The bell polls the unread count the way the care alert is polled: on
+// focus and every minute while the tab is open (no push yet).
+const UNREAD_POLL_MS = 60 * 1000;
+
 export default function UserProfileScreen({ navigation, route }: any) {
   const styles = useStyles();
   const { name: themeName, colors } = useTheme();
+  // Server inbox rows plus the device's own food/water alerts (careAlertLog).
+  const [unread, setUnread] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      async function poll() {
+        try {
+          const [server, device] = await Promise.all([fetchUnreadCount(), unreadCareAlertCount()]);
+          if (alive) setUnread(server + device);
+        } catch {
+          // A background count; the bell just keeps its last number.
+        }
+      }
+      poll();
+      const timer = setInterval(poll, UNREAD_POLL_MS);
+      return () => {
+        alive = false;
+        clearInterval(timer);
+      };
+    }, [])
+  );
   const { mode, setMode } = useThemeMode();
   const { logout } = useAuth();
   const { checkPending } = useBadgeAwards();
@@ -341,6 +368,28 @@ export default function UserProfileScreen({ navigation, route }: any) {
         </View>
       </View>
 
+      {/* The bell (P6 track C): the inbox of animal events and the
+          device's care alerts, with the unread count. */}
+      <Card
+        variant="flat"
+        padding="md"
+        style={styles.bellRow}
+        onPress={() => navigation.navigate('Notifications')}
+      >
+        <Icon name="bell" size={20} color={colors.brand} />
+        <Text variant="bodyStrong" style={styles.bellLabel}>
+          Bildirimler
+        </Text>
+        {unread > 0 && (
+          <View style={styles.bellCount}>
+            <Text variant="micro" style={styles.bellCountText}>
+              {unread > 99 ? '99+' : unread}
+            </Text>
+          </View>
+        )}
+        <Icon name="chevronRight" size={18} color={colors.textSubtle} />
+      </Card>
+
       {/* Stat strip: points / rank / level — the rank cell opens the board. */}
       <StatStrip
         style={styles.statStrip}
@@ -427,7 +476,12 @@ export default function UserProfileScreen({ navigation, route }: any) {
             style={styles.animalRow}
             onPress={() => navigation.navigate('AnimalProfile', { animalId: animal.id })}
           >
-            <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={44} />
+            <AnimalAvatar
+              species={animal.species}
+              breed={animal.breed}
+              photoUrl={animal.cover_thumb_url}
+              size={44}
+            />
             <View style={styles.animalText}>
               <Text variant="subheading" numberOfLines={1}>
                 {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
@@ -744,6 +798,19 @@ export default function UserProfileScreen({ navigation, route }: any) {
 }
 
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
+  bellRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  bellLabel: { flex: 1, marginLeft: spacing.md },
+  bellCount: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    marginRight: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: c.brand,
+  },
+  bellCountText: { color: c.textOnBrand },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
   headerText: { flex: 1, marginLeft: spacing.lg },
   avatarHint: { marginTop: spacing.sm - 2 },

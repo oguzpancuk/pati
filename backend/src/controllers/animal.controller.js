@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
+const { syncAnimalBadgesSafe, getAnimalBadgesFor } = require('../utils/badges');
+const { notifyAnimalEventSafe } = require('./notification.controller');
 const ai = require('../utils/ai');
 const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
 const { makeFaceThumb } = require('../utils/faceThumb');
@@ -115,6 +117,13 @@ async function redeemPhotoToken(token, userId, species) {
   return { file: claims.file };
 }
 
+// The earned animal badges ride on every list row and the profile: one
+// query per page over animal_badges, never the six counts (utils/badges).
+async function withAnimalBadges(rows) {
+  const badges = await getAnimalBadgesFor(rows.map((r) => r.id));
+  return rows.map((row) => ({ ...row, badges: badges.get(row.id) ?? [] }));
+}
+
 // Pagination: without `limit` the old behavior holds (the map pulls its
 // whole surroundings in one request); list screens ask for small pages.
 const DEFAULT_LIST_LIMIT = 200;
@@ -168,7 +177,7 @@ async function listAnimals(req, res, next) {
         sql = sql.replace('$SPECIES', `$${params.length}`);
       }
       const result = await pool.query(sql, params);
-      return res.json(result.rows);
+      return res.json(await withAnimalBadges(result.rows));
     }
 
     const params = [limit, offset];
@@ -185,7 +194,7 @@ async function listAnimals(req, res, next) {
       sql = sql.replace('$SPECIES', `$${params.length}`);
     }
     const result = await pool.query(sql, params);
-    res.json(result.rows);
+    res.json(await withAnimalBadges(result.rows));
   } catch (err) {
     next(err);
   }
@@ -347,7 +356,7 @@ async function matchAnimals(req, res, next) {
     const shown = photoChecked
       ? scored.filter(({ _score }) => tierFor(_score) !== 'low')
       : scored.slice(0, FALLBACK_LIST_LIMIT);
-    const candidates = shown.map(({ _score, _reasons, ...rest }) => ({
+    const shownCandidates = shown.map(({ _score, _reasons, ...rest }) => ({
       ...rest,
       similarity: tierFor(_score),
       similarity_reasons: _reasons,
@@ -370,13 +379,107 @@ async function matchAnimals(req, res, next) {
         { expiresIn: PHOTO_TOKEN_TTL, jwtid: crypto.randomUUID() }
       )
     );
+    // A "match hit": the user's photo put this animal forward. A badge
+    // source (ANIMAL_BADGES.matched) and, for fifteen minutes, the evidence
+    // that lets this user confirm "that's the one" as a non-carer (see
+    // reportSighting). Product rule (owner item 8, coordinator decision
+    // 2026-09-08, recorded in NOTES/ADR-0005 at merge): this door is never
+    // weaker than "bakım ver" — a hit needs the model's 'same' for that
+    // candidate, or no model answer at all (key missing, an error, no
+    // comparable cover: 'unchecked', the way submitCarePhotos accepts
+    // unchecked). 'similar' and 'unsure' mint nothing and never count for
+    // the badge; the field-only GET never logs. Awaited: the door reads
+    // this row right after the client's confirm. `matchHit` on each
+    // candidate tells the clients the server's decision — true only for
+    // a logged hit — so the label, the hint and whether the confirm
+    // reports a sighting all follow ONE rule, decided here.
+    let hits = files.length === 0 ? [] : matchHitsOf(shownCandidates, photoChecked);
+    try {
+      await logMatchHits(req.user.userId, hits);
+    } catch (err) {
+      // A failed log must not turn into a failed match; the door then
+      // stays shut for this attempt and the care-photo step remains.
+      console.warn(`[match] could not log hits: ${err?.message ?? err}`);
+      hits = [];
+    }
+    const hitIds = new Set(hits.map((h) => h.id));
+    const candidates = shownCandidates.map((c) => ({ ...c, matchHit: hitIds.has(c.id) }));
     keepFiles = true;
     res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS, photoChecked, photoTokens });
+    // The badge counts catch up after the answer (up to twenty animals).
+    for (const hit of hits) syncAnimalBadgesSafe(hit.id);
   } catch (err) {
     next(err);
   } finally {
     if (!keepFiles) for (const file of files) fs.unlink(file.path, () => {});
   }
+}
+
+// How long a registration match hit stands as "this user photographed this
+// animal" — the photoToken's lifetime, the add-animal flow's own window.
+// The rule, in full (parity with "bakım ver"): a hit is minted by a photo
+// submission, lasts fifteen minutes, and is spent by ONE sighting — the
+// confirm stamps used_at on ALL of the user's fresh hits, whichever
+// submission minted them, the confirmed animal's included
+// (consumeMatchHit): one confirm per window, never one per candidate.
+// Spent, never deleted: the rows stay as the badge's evidence.
+const MATCH_HIT_WINDOW = '15 minutes';
+
+// The hits among the shown candidates (see above). `similarity` uses the
+// model's own word ('same') or 'unchecked', the vocabulary of the 'care'
+// rows; the column is VARCHAR(10), so a photo_* reason name never goes in.
+function matchHitsOf(candidates, photoChecked) {
+  if (!photoChecked) {
+    return candidates
+      .filter((c) => c.similarity !== 'low')
+      .map((c) => ({ id: c.id, similarity: 'unchecked' }));
+  }
+  return candidates
+    .filter((c) => c.similarity_reasons.includes('photo_same'))
+    .map((c) => ({ id: c.id, similarity: 'same' }));
+}
+
+async function logMatchHits(userId, hits) {
+  if (hits.length === 0) return;
+  const values = [];
+  const params = [userId];
+  for (const hit of hits) {
+    params.push(hit.id, hit.similarity);
+    values.push(`($${params.length - 1}, $1, 'register', $${params.length})`);
+  }
+  await pool.query(
+    `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity) VALUES ${values.join(', ')}`,
+    params
+  );
+}
+
+/**
+ * Spends the user's fresh hits (see MATCH_HIT_WINDOW). Within the
+ * caller's transaction: every fresh 'register' row of the user is locked
+ * in id order (one lock order for every confirm, so two racing confirms
+ * queue instead of deadlocking); if none of them is an unspent hit on
+ * THIS animal the answer is false and nothing changes; otherwise all of
+ * them get used_at. The second of two confirms racing on the same animal
+ * waits on the lock, then finds the hit spent → false → 403.
+ */
+async function consumeMatchHit(client, userId, animalId) {
+  const fresh = await client.query(
+    `SELECT id, animal_id, used_at FROM animal_match_attempts
+     WHERE user_id = $1 AND kind = 'register'
+       AND created_at > now() - $2::interval
+     ORDER BY id
+     FOR UPDATE`,
+    [userId, MATCH_HIT_WINDOW]
+  );
+  const unspent = fresh.rows.some((r) => r.animal_id === Number(animalId) && r.used_at === null);
+  if (!unspent) return false;
+  await client.query(
+    `UPDATE animal_match_attempts SET used_at = now()
+     WHERE user_id = $1 AND kind = 'register' AND used_at IS NULL
+       AND created_at > now() - $2::interval`,
+    [userId, MATCH_HIT_WINDOW]
+  );
+  return true;
 }
 
 async function getAnimal(req, res, next) {
@@ -391,10 +494,17 @@ async function getAnimal(req, res, next) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
     }
 
-    const [photos, healthRecords, vaccinations, carers] = await Promise.all([
+    const [photos, healthRecords, vaccinations, carers, followers, badges] = await Promise.all([
       pool.query(
-        'SELECT id, url, thumb_url, face_score, uploaded_by, created_at FROM animal_photos WHERE animal_id = $1 ORDER BY created_at DESC',
-        [req.params.id]
+        `SELECT p.id, p.url, p.thumb_url, p.face_score, p.uploaded_by, p.created_at,
+                u.name AS uploaded_by_name,
+                (SELECT count(*) FROM animal_photo_likes l WHERE l.photo_id = p.id)::int AS like_count,
+                EXISTS (SELECT 1 FROM animal_photo_likes l WHERE l.photo_id = p.id AND l.user_id = $2) AS liked_by_me
+         FROM animal_photos p
+         LEFT JOIN users u ON u.id = p.uploaded_by
+         WHERE p.animal_id = $1
+         ORDER BY p.created_at DESC`,
+        [req.params.id, req.user.userId]
       ),
       pool.query(
         `${HEALTH_RECORD_SELECT_SQL}
@@ -415,6 +525,13 @@ async function getAnimal(req, res, next) {
          ORDER BY c.created_at`,
         [req.params.id]
       ),
+      pool.query(
+        `SELECT count(*)::int AS count,
+                bool_or(user_id = $2) AS mine
+         FROM animal_followers WHERE animal_id = $1`,
+        [req.params.id, req.user.userId]
+      ),
+      getAnimalBadgesFor([Number(req.params.id)]),
     ]);
 
     const isCarer = carers.rows.some((c) => c.id === req.user.userId);
@@ -436,16 +553,35 @@ async function getAnimal(req, res, next) {
       healthRecords: healthRecords.rows,
       vaccinations: vaccinations.rows,
       carers: carers.rows,
+      carerCount: carers.rows.length,
       isCarer,
+      followerCount: followers.rows[0]?.count ?? 0,
+      isFollowing: followers.rows[0]?.mine === true,
+      badges: badges.get(Number(req.params.id)) ?? [],
     });
   } catch (err) {
     next(err);
   }
 }
 
+const CARERS_ONLY = 'carersOnly';
+
+function carersOnly(res, what) {
+  return res.status(403).json({
+    error: `${what} için bu hayvanın bakıcısı olmalısın. "Bakım ver" ile iki yeni fotoğraf çekerek katılabilirsin.`,
+    code: CARERS_ONLY,
+  });
+}
+
 // Reporting a sighting of a registered animal: moves the animal's current
-// location to the reporter's position and adds the reporter as a carer. Also
-// called when "it's already registered" is chosen while adding a new animal.
+// location to the reporter's position. Carers only (owner decision,
+// 2026-09-08) — with one door: the add-animal flow calls this when "that's
+// the one" is confirmed, and that user just came through the match step
+// with a photo the model judged the SAME animal as this one (or that no
+// model judged at all — see matchHitsOf; a field-only match, a 'similar'
+// or an 'unsure' opens nothing, and the clients then open the profile
+// without a sighting). That logged hit, fresh, stands as the care-photo
+// step would and makes the reporter a carer.
 async function reportSighting(req, res, next) {
   try {
     const { lat, lng } = req.body;
@@ -453,23 +589,58 @@ async function reportSighting(req, res, next) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
 
-    const result = await pool.query(
-      `UPDATE animals
-       SET location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-           location_updated_at = now()
-       WHERE id = $3
-       RETURNING id, species, name, color, breed, markings, created_at, location_updated_at,
-                 ST_AsGeoJSON(location)::json AS location`,
-      [lng, lat, req.params.id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    // One transaction: the carer read, the spend of the hit, the moved
+    // location and the carer row happen together — a second confirm
+    // racing this one queues on the row locks and then finds the hit
+    // spent (see consumeMatchHit) and is refused.
+    const client = await pool.connect();
+    let result;
+    let carer;
+    try {
+      await client.query('BEGIN');
+      carer =
+        (
+          await client.query(
+            'SELECT 1 FROM user_animal_care WHERE user_id = $1 AND animal_id = $2',
+            [req.user.userId, req.params.id]
+          )
+        ).rowCount > 0;
+      if (!carer && !(await consumeMatchHit(client, req.user.userId, req.params.id))) {
+        await client.query('ROLLBACK');
+        return carersOnly(res, 'Görülme bildirebilmek');
+      }
+      result = await client.query(
+        `UPDATE animals
+         SET location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+             location_updated_at = now()
+         WHERE id = $3
+         RETURNING id, species, name, color, breed, markings, created_at, location_updated_at,
+                   ST_AsGeoJSON(location)::json AS location`,
+        [lng, lat, req.params.id]
+      );
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Hayvan bulunamadı' });
+      }
+      if (!carer) {
+        await client.query(
+          'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [req.user.userId, req.params.id]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
-
-    await pool.query(
-      'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [req.user.userId, req.params.id]
-    );
+    await notifyAnimalEventSafe({
+      animalId: Number(req.params.id),
+      kind: 'sighting',
+      actorId: req.user.userId,
+    });
+    await syncAnimalBadgesSafe(Number(req.params.id));
 
     res.json(result.rows[0]);
   } catch (err) {
@@ -519,6 +690,9 @@ async function createAnimal(req, res, next) {
     );
 
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
+    // The registrant stays a carer automatically; that first carer is
+    // already a count the animal badges read.
+    await syncAnimalBadgesSafe(animal.id);
     res.status(201).json({ ...animal, newBadges });
   } catch (err) {
     next(err);
@@ -528,7 +702,11 @@ async function createAnimal(req, res, next) {
 /**
  * Two ways in: a photoToken from the match step (both apps' add-animal
  * flow), or a direct upload, which is screened here so that no client can
- * put an unscreened photo in a gallery.
+ * put an unscreened photo in a gallery. Carers only (owner decision,
+ * 2026-09-08): the add-animal flow adds no photo to an EXISTING animal
+ * after "that's the one" — it reports a sighting, which makes the user a
+ * carer through the match-hit door, and opens the profile — so there is
+ * no door here; the care-photo step is the way in.
  */
 async function addPhoto(req, res, next) {
   const photoToken = req.body?.photoToken;
@@ -543,6 +721,10 @@ async function addPhoto(req, res, next) {
     if (!species) {
       discardUpload();
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    }
+    if (!(await isCarer(req.user.userId, req.params.id))) {
+      discardUpload();
+      return carersOnly(res, 'Fotoğraf ekleyebilmek');
     }
     if (req.file) {
       const check = await ai.checkAnimalPhoto(req.file.path, species);
@@ -603,27 +785,156 @@ async function addPhoto(req, res, next) {
     return next(err);
   }
   try {
-    // The profile picture is cut around the face the model finds (P3).
-    // Fail open: no face, no answer, or a photo sharp cannot cut leaves the
-    // row without a thumbnail and the SVG avatar stands in.
     const species = (await pool.query('SELECT species FROM animals WHERE id = $1', [req.params.id]))
       .rows[0]?.species;
-    const face = await ai.locateAnimalFace(filePath, species);
-    if (face?.found) {
-      try {
-        const thumb = await makeFaceThumb(file, face.box);
-        const updated = await pool.query(
-          'UPDATE animal_photos SET thumb_url = $1, face_score = $2, face_box = $3 WHERE id = $4 RETURNING thumb_url, face_score',
-          [`${base}${thumb}`, face.score, JSON.stringify(face.box), row.id]
-        );
-        Object.assign(row, updated.rows[0]);
-      } catch (err) {
-        console.warn(`[face] could not cut photo ${row.id}: ${err?.message ?? err}`);
-      }
-    }
+    await attachFaceThumb(row, file, species, base);
     res.status(201).json(row);
   } catch (err) {
     next(err);
+  }
+}
+
+/**
+ * The profile picture is cut around the face the model finds (P3). Fail
+ * open: no face, no answer, or a photo sharp cannot cut leaves the row
+ * without a thumbnail and the SVG avatar stands in. Mutates `row`.
+ */
+async function attachFaceThumb(row, file, species, base) {
+  const face = await ai.locateAnimalFace(path.join(UPLOADS_DIR, file), species);
+  if (!face?.found) return;
+  try {
+    const thumb = await makeFaceThumb(file, face.box);
+    const updated = await pool.query(
+      'UPDATE animal_photos SET thumb_url = $1, face_score = $2, face_box = $3 WHERE id = $4 RETURNING thumb_url, face_score',
+      [`${base}${thumb}`, face.score, JSON.stringify(face.box), row.id]
+    );
+    Object.assign(row, updated.rows[0]);
+  } catch (err) {
+    console.warn(`[face] could not cut photo ${row.id}: ${err?.message ?? err}`);
+  }
+}
+
+/**
+ * "Bakım ver": two fresh photos of the animal, screened for the species
+ * and compared by the model with THIS animal's own gallery (the same
+ * comparison the add-animal match runs, restricted to one animal). A
+ * "same" verdict on either photo makes the user a carer and puts both
+ * photos in the gallery; the model saying otherwise is a miss, in
+ * Turkish. Without a key, or without an answer, the match is accepted
+ * (ADR-0005: the AI fails open) — as is an animal with no photo to
+ * compare against, whose first carer photos then become that gallery.
+ */
+const CARE_PHOTO_COUNT = 2;
+
+async function submitCarePhotos(req, res, next) {
+  const files = req.files?.photos ?? [];
+  let keepFiles = false;
+  try {
+    const animalId = Number(req.params.id);
+    const animal = (await pool.query('SELECT id, species FROM animals WHERE id = $1', [animalId]))
+      .rows[0];
+    if (!animal) return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    if (files.length !== CARE_PHOTO_COUNT) {
+      return res
+        .status(400)
+        .json({ error: 'Hayvanın iki yeni fotoğrafı gerekli.', code: 'carePhotosRequired' });
+    }
+    if (await isCarer(req.user.userId, animalId)) {
+      return res.json({ matched: true, alreadyCarer: true, photoChecked: false, photos: [] });
+    }
+
+    const checks = await Promise.all(files.map((f) => ai.checkAnimalPhoto(f.path, animal.species)));
+    const photoIndexes = checks.flatMap((c, i) => (c.verdict === 'rejected' ? [i] : []));
+    if (photoIndexes.length > 0) {
+      return photoRejection(res, checks[photoIndexes[0]], animal.species, {
+        photoIndex: photoIndexes[0],
+        photoIndexes,
+      });
+    }
+
+    // Every gallery photo is a candidate (best face first, so the cap in
+    // ai.js keeps the clearest ones); a candidate's id is the photo's.
+    const gallery = await pool.query(
+      `SELECT id, url FROM animal_photos WHERE animal_id = $1
+       ORDER BY face_score DESC NULLS LAST, created_at DESC`,
+      [animalId]
+    );
+    const candidates = gallery.rows
+      .map((p) => ({ id: p.id, filePath: ai.uploadPathFromUrl(p.url, UPLOADS_DIR) }))
+      .filter((c) => c.filePath);
+
+    let photoChecked = false;
+    let same = false;
+    if (gallery.rows.length > 0 && candidates.length === 0) {
+      // Rows without a file: a volume swap, a sweep, a seeded database. The
+      // match then passes unchecked, which is worth a line in the log.
+      console.warn(
+        `[care] animal ${animalId}: none of ${gallery.rows.length} gallery photo(s) is on disk; accepting unchecked`
+      );
+    }
+    if (ai.isConfigured() && candidates.length > 0) {
+      for (const file of files) {
+        const verdicts = await ai.compareAnimalPhotos(file.path, candidates, animal.species);
+        if (!verdicts) continue;
+        photoChecked = true;
+        if ([...verdicts.values()].includes('same')) {
+          same = true;
+          break;
+        }
+      }
+    }
+    if (photoChecked && !same) {
+      return res.status(422).json({
+        error:
+          'Bu fotoğraflar bu hayvana benzemiyor. Hayvanın net göründüğü iki yeni fotoğraf çekip tekrar dener misin?',
+        code: 'carePhotoMismatch',
+        photoChecked: true,
+      });
+    }
+
+    await pool.query(
+      'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.user.userId, animalId]
+    );
+    await pool.query(
+      `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity)
+       VALUES ($1, $2, 'care', $3)`,
+      [animalId, req.user.userId, photoChecked ? 'same' : null]
+    );
+
+    // The photos join the gallery: they are the evidence of the match and,
+    // for an animal without one, its first pictures. Pending files become
+    // plain ones the moment a row is about to own them (see redeemPhotoToken).
+    const base = `${req.protocol}://${req.get('host')}/uploads/`;
+    const photos = [];
+    for (const file of files) {
+      const finalName = pendingToFinal(file.filename);
+      await fs.promises.rename(file.path, path.join(UPLOADS_DIR, finalName));
+      const inserted = await pool.query(
+        'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
+        [animalId, `${base}${finalName}`, req.user.userId]
+      );
+      const row = inserted.rows[0];
+      await attachFaceThumb(row, finalName, animal.species, base);
+      photos.push({ ...row, like_count: 0, liked_by_me: false });
+    }
+    keepFiles = true;
+
+    const animalBadges = await syncAnimalBadgesSafe(animalId);
+    const carerCount = (
+      await pool.query('SELECT count(*)::int AS count FROM user_animal_care WHERE animal_id = $1', [
+        animalId,
+      ])
+    ).rows[0].count;
+    res
+      .status(201)
+      .json({ matched: true, alreadyCarer: false, photoChecked, photos, carerCount, animalBadges });
+  } catch (err) {
+    next(err);
+  } finally {
+    // Renamed files are gone from their pending path; unlink on a missing
+    // path is a no-op, so the loop is safe after a partial success too.
+    if (!keepFiles) for (const file of files) fs.unlink(file.path, () => {});
   }
 }
 
@@ -652,9 +963,7 @@ async function addHealthRecord(req, res, next) {
 
     // Only the animal's carers may add health records.
     if (!(await isCarer(req.user.userId, req.params.id))) {
-      return res.status(403).json({
-        error: 'Sağlık kaydı ekleyebilmek için önce bu hayvana bakım veriyor olmalısınız',
-      });
+      return carersOnly(res, 'Sağlık kaydı ekleyebilmek');
     }
 
     const isVet = req.user.role === 'vet' || req.user.role === 'admin';
@@ -666,6 +975,12 @@ async function addHealthRecord(req, res, next) {
     const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
       inserted.rows[0].id,
     ]);
+    await notifyAnimalEventSafe({
+      animalId: Number(req.params.id),
+      kind: 'health_record',
+      actorId: req.user.userId,
+      text: description,
+    });
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
     res.status(201).json({ ...result.rows[0], newBadges });
   } catch (err) {
@@ -678,9 +993,7 @@ async function addHealthRecord(req, res, next) {
 async function markRecovered(req, res, next) {
   try {
     if (!(await isCarer(req.user.userId, req.params.id))) {
-      return res.status(403).json({
-        error: 'Durumu değiştirebilmek için bu hayvana bakım veriyor olmalısınız',
-      });
+      return carersOnly(res, 'Durumu değiştirebilmek');
     }
 
     // Conditional UPDATE instead of check-then-update: two concurrent
@@ -705,6 +1018,8 @@ async function markRecovered(req, res, next) {
       req.params.recordId,
     ]);
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
+    // A recovery is one of the animal's own badge counts (ANIMAL_BADGES.recovered).
+    await syncAnimalBadgesSafe(Number(req.params.id));
     res.json({ ...result.rows[0], newBadges });
   } catch (err) {
     next(err);
@@ -719,9 +1034,7 @@ async function markRecovered(req, res, next) {
 async function reopenRecord(req, res, next) {
   try {
     if (!(await isCarer(req.user.userId, req.params.id))) {
-      return res.status(403).json({
-        error: 'Durumu değiştirebilmek için bu hayvana bakım veriyor olmalısınız',
-      });
+      return carersOnly(res, 'Durumu değiştirebilmek');
     }
 
     // Same conditional-UPDATE shape as markRecovered, for the same race.
@@ -759,9 +1072,7 @@ async function addVaccination(req, res, next) {
     }
 
     if (!(await isCarer(req.user.userId, req.params.id))) {
-      return res.status(403).json({
-        error: 'Aşı kaydı ekleyebilmek için önce bu hayvana bakım veriyor olmalısınız',
-      });
+      return carersOnly(res, 'Aşı kaydı ekleyebilmek');
     }
 
     // Only the vet/admin role can grant vet verification; a user's claim
@@ -787,6 +1098,12 @@ async function addVaccination(req, res, next) {
     const result = await pool.query(`${VACCINATION_SELECT_SQL} WHERE v.id = $1`, [
       inserted.rows[0].id,
     ]);
+    await notifyAnimalEventSafe({
+      animalId: Number(req.params.id),
+      kind: 'vaccination',
+      actorId: req.user.userId,
+      text: String(vaccineType).trim(),
+    });
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
     res.status(201).json({ ...result.rows[0], newBadges });
   } catch (err) {
@@ -866,12 +1183,12 @@ async function addComment(req, res, next) {
       }
     }
 
-    // Commenting also adds the person to the animal's carer list: anyone
-    // joining the chat is de facto involved with the animal.
-    await pool.query(
-      'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [req.user.userId, req.params.id]
-    );
+    // Carers only (owner decision, 2026-09-08): commenting used to make
+    // the writer a carer; now carer rights come from the care-photo step
+    // and the chat is the carers' room. Followers read it and get told.
+    if (!(await isCarer(req.user.userId, req.params.id))) {
+      return carersOnly(res, 'Yorum yazabilmek');
+    }
 
     const inserted = await pool.query(
       `INSERT INTO animal_comments (animal_id, user_id, health_record_id, body)
@@ -880,27 +1197,99 @@ async function addComment(req, res, next) {
     );
 
     const result = await pool.query(`${COMMENT_SELECT_SQL} WHERE c.id = $1`, [inserted.rows[0].id]);
+    await notifyAnimalEventSafe({
+      animalId: Number(req.params.id),
+      kind: 'comment',
+      actorId: req.user.userId,
+      text: String(body).trim().slice(0, 140),
+    });
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
+    await syncAnimalBadgesSafe(Number(req.params.id));
     res.status(201).json({ ...result.rows[0], newBadges });
   } catch (err) {
     next(err);
   }
 }
 
+async function followerCount(animalId) {
+  const result = await pool.query(
+    'SELECT count(*)::int AS count FROM animal_followers WHERE animal_id = $1',
+    [animalId]
+  );
+  return result.rows[0].count;
+}
+
+// "Takip et": no condition, toggles. A follower likes photos and hears
+// about the animal's events; carer rights are the care-photo step's.
 async function followAnimal(req, res, next) {
   try {
-    await pool.query(
-      'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [req.user.userId, req.params.id]
-    );
-
-    const carers = await pool.query(
-      `SELECT u.id, u.name FROM user_animal_care c
-       JOIN users u ON u.id = c.user_id
-       WHERE c.animal_id = $1 AND u.id != $2`,
+    const inserted = await pool.query(
+      'INSERT INTO animal_followers (animal_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [req.params.id, req.user.userId]
     );
-    res.status(201).json({ following: true, otherCarers: carers.rows });
+    if (inserted.rowCount > 0) await syncAnimalBadgesSafe(Number(req.params.id));
+    res.status(201).json({ following: true, followerCount: await followerCount(req.params.id) });
+  } catch (err) {
+    if (err.code === '23503') return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    next(err);
+  }
+}
+
+async function unfollowAnimal(req, res, next) {
+  try {
+    await pool.query('DELETE FROM animal_followers WHERE animal_id = $1 AND user_id = $2', [
+      req.params.id,
+      req.user.userId,
+    ]);
+    res.json({ following: false, followerCount: await followerCount(req.params.id) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function photoLikeState(photoId, userId) {
+  const result = await pool.query(
+    `SELECT count(*)::int AS like_count,
+            bool_or(user_id = $2) AS liked_by_me
+     FROM animal_photo_likes WHERE photo_id = $1`,
+    [photoId, userId]
+  );
+  return { likeCount: result.rows[0].like_count, liked: result.rows[0].liked_by_me === true };
+}
+
+// One like per user per photo, open to everyone signed in (the one thing
+// a non-carer may do besides following). The photo must belong to the
+// animal in the URL, or a like could be parked on any photo by id.
+async function likePhoto(req, res, next) {
+  try {
+    const photo = await pool.query(
+      'SELECT id FROM animal_photos WHERE id = $1 AND animal_id = $2',
+      [req.params.photoId, req.params.id]
+    );
+    if (photo.rows.length === 0) return res.status(404).json({ error: 'Fotoğraf bulunamadı' });
+    const inserted = await pool.query(
+      'INSERT INTO animal_photo_likes (photo_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.params.photoId, req.user.userId]
+    );
+    if (inserted.rowCount > 0) await syncAnimalBadgesSafe(Number(req.params.id));
+    res.status(201).json(await photoLikeState(req.params.photoId, req.user.userId));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function unlikePhoto(req, res, next) {
+  try {
+    const photo = await pool.query(
+      'SELECT id FROM animal_photos WHERE id = $1 AND animal_id = $2',
+      [req.params.photoId, req.params.id]
+    );
+    if (photo.rows.length === 0) return res.status(404).json({ error: 'Fotoğraf bulunamadı' });
+    await pool.query('DELETE FROM animal_photo_likes WHERE photo_id = $1 AND user_id = $2', [
+      req.params.photoId,
+      req.user.userId,
+    ]);
+    res.json(await photoLikeState(req.params.photoId, req.user.userId));
   } catch (err) {
     next(err);
   }
@@ -921,4 +1310,9 @@ module.exports = {
   listComments,
   addComment,
   followAnimal,
+  unfollowAnimal,
+  likePhoto,
+  unlikePhoto,
+  submitCarePhotos,
+  CARE_PHOTO_COUNT,
 };

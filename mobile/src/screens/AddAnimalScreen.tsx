@@ -318,7 +318,14 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   // the profile's bottom bar — "that's the one" drops us back here with the
   // confirmedAnimalId param.
   function handleReviewCandidate(animal: AnimalMatch) {
-    navigation.navigate('AnimalProfile', { animalId: animal.id, matchReview: true });
+    // The server decided whether this confirm may report a sighting
+    // (matchHit); the review bar says so and the confirm follows it.
+    navigation.navigate('AnimalProfile', {
+      animalId: animal.id,
+      matchReview: true,
+      matchHit: animal.matchHit,
+      photoChecked,
+    });
   }
 
   // The entry buttons go through the gate, but `pati://add-animal` (a
@@ -341,16 +348,19 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   }, []);
 
   const confirmedAnimalId: number | undefined = route.params?.confirmedAnimalId;
+  const confirmedMatchHit: boolean = !!route.params?.confirmedMatchHit;
   useEffect(() => {
     if (confirmedAnimalId) {
-      navigation.setParams({ confirmedAnimalId: undefined });
-      handleExistingAnimal(confirmedAnimalId);
+      navigation.setParams({ confirmedAnimalId: undefined, confirmedMatchHit: undefined });
+      handleExistingAnimal(confirmedAnimalId, confirmedMatchHit);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmedAnimalId]);
 
-  async function handleExistingAnimal(animalId: number) {
-    if (!location) {
+  async function handleExistingAnimal(animalId: number, matchHit: boolean) {
+    // Without the server's hit the confirm is a decision, not a sighting:
+    // no server call, the profile opens ("bakım ver" is the way in).
+    if (!location || !matchHit) {
       navigation.replace('AnimalProfile', { animalId });
       return;
     }
@@ -359,6 +369,13 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       await reportSighting(animalId, location.lat, location.lng);
       navigation.replace('AnimalProfile', { animalId });
     } catch (err: any) {
+      // Carers only: without a 'same' verdict the confirm cannot make the
+      // user a carer — the decision is still made, so the profile opens
+      // (web parity); "bakım ver" is the way in from there.
+      if (err?.response?.data?.code === 'carersOnly') {
+        navigation.replace('AnimalProfile', { animalId });
+        return;
+      }
       Alert.alert(
         'Güncellenemedi',
         err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'

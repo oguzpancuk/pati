@@ -347,6 +347,167 @@ function buildBadgesFor(userId, streaks, breeds, comments, health, vaccines) {
   };
 }
 
+// ---------------------------------------------------------------- animals
+//
+// Badges an ANIMAL earns (ROADMAP P6 item 5). The whole vocabulary is
+// THIS one constant: the rows in animal_badges keep only the key, so a
+// rename is a one-place change. Names are the owner's (2026-09-08); the
+// tier shows as the medallion colour, the name stays fixed — no "Altın …"
+// prefix here, unlike the user badges. `symbol` reuses the medallion
+// glyphs both clients already draw (BadgeSymbolName): no new art.
+//
+// Tiers are count-based: 1/5/20/100 (comments 1/10/50/200), the user
+// ladders. A tier, once earned, is permanent — the sync only ever inserts.
+const ANIMAL_BADGES = {
+  // Registration match hits: someone's photo was judged the same animal
+  // in the add-animal step, or went unjudged with no model (rows in
+  // animal_match_attempts, kind = 'register'; 'similar'/'unsure' are never
+  // logged), counted per person — a retried form is one recognition.
+  // Spent rows (used_at) count too: the animal WAS recognised; which
+  // animal the person confirmed afterwards is another fact.
+  matched: {
+    label: 'Tanıdık Yüz',
+    unit: 'eşleşme',
+    symbol: 'register',
+    thresholds: COUNT_THRESHOLDS,
+  },
+  commented: {
+    label: 'Mahallenin Dilinde',
+    unit: 'yorum',
+    symbol: 'comment',
+    thresholds: COMMENT_THRESHOLDS,
+  },
+  // Health records marked recovered.
+  recovered: {
+    label: 'Şifa Bulan',
+    unit: 'iyileşme',
+    symbol: 'health',
+    thresholds: COUNT_THRESHOLDS,
+  },
+  liked: { label: 'Gönül Çelen', unit: 'beğeni', symbol: 'paw', thresholds: COUNT_THRESHOLDS },
+  followed: {
+    label: 'Mahallenin Yıldızı',
+    unit: 'takipçi',
+    symbol: 'paw',
+    thresholds: COUNT_THRESHOLDS,
+  },
+  cared: { label: 'El Üstünde', unit: 'bakıcı', symbol: 'paw', thresholds: COUNT_THRESHOLDS },
+};
+
+/** The tier a count reaches for one animal badge key; null below bronze. */
+function animalBadgeTier(key, count) {
+  const meta = ANIMAL_BADGES[key];
+  if (!meta) return null;
+  return tierFor(Math.max(0, Number(count) || 0), meta.thresholds);
+}
+
+/** Every tier up to and including `tier`, in ladder order (for the inserts). */
+function tiersUpTo(tier) {
+  if (!tier) return [];
+  return TIER_ORDER.slice(0, TIER_ORDER.indexOf(tier) + 1);
+}
+
+// One query, six counts: the sync runs after every event that can move a
+// count, and a profile shows at most six chips.
+async function fetchAnimalCounts(animalId) {
+  const result = await pool.query(
+    `SELECT
+       (SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id = $1 AND kind = 'register')::int AS matched,
+       (SELECT count(*) FROM animal_comments WHERE animal_id = $1)::int AS commented,
+       (SELECT count(*) FROM health_records WHERE animal_id = $1 AND recovered_at IS NOT NULL)::int AS recovered,
+       (SELECT count(*) FROM animal_photo_likes l JOIN animal_photos p ON p.id = l.photo_id WHERE p.animal_id = $1)::int AS liked,
+       (SELECT count(*) FROM animal_followers WHERE animal_id = $1)::int AS followed,
+       (SELECT count(*) FROM user_animal_care WHERE animal_id = $1)::int AS cared`,
+    [animalId]
+  );
+  return result.rows[0];
+}
+
+function animalBadgeEntry(key, tier, value) {
+  const meta = ANIMAL_BADGES[key];
+  return {
+    key,
+    label: meta.label,
+    unit: meta.unit,
+    symbol: meta.symbol,
+    tier,
+    value,
+    nextThreshold: nextThresholdFor(tier, meta.thresholds),
+  };
+}
+
+/**
+ * Compares the counts with animal_badges and inserts the tiers newly
+ * reached (every tier up to the current one: a jump past silver still
+ * records silver). Returns the badges earned by this call.
+ */
+async function syncAnimalBadges(animalId) {
+  const counts = await fetchAnimalCounts(animalId);
+  const existing = await pool.query(
+    'SELECT badge_key, tier FROM animal_badges WHERE animal_id = $1',
+    [animalId]
+  );
+  const seen = new Set(existing.rows.map((row) => `${row.badge_key}:${row.tier}`));
+  const fresh = [];
+  for (const key of Object.keys(ANIMAL_BADGES)) {
+    const value = counts[key] ?? 0;
+    for (const tier of tiersUpTo(animalBadgeTier(key, value))) {
+      if (seen.has(`${key}:${tier}`)) continue;
+      const inserted = await pool.query(
+        `INSERT INTO animal_badges (animal_id, badge_key, tier) VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING RETURNING tier`,
+        [animalId, key, tier]
+      );
+      if (inserted.rowCount > 0) fresh.push(animalBadgeEntry(key, tier, value));
+    }
+  }
+  return fresh;
+}
+
+// A badge sync must never fail the request that triggered it: the like or
+// the comment is already written; the badge can catch up on the next event.
+async function syncAnimalBadgesSafe(animalId) {
+  try {
+    return await syncAnimalBadges(animalId);
+  } catch (err) {
+    console.warn(`[badges] animal ${animalId} sync failed: ${err?.message ?? err}`);
+    return [];
+  }
+}
+
+/**
+ * The earned badges of many animals at once (the list page, the profile):
+ * the highest tier per key from animal_badges, in ANIMAL_BADGES order.
+ * Reads the awards table only — the counts were compared when the event
+ * happened, and a list must not run six counts per row.
+ * @returns {Promise<Map<number, Array>>}
+ */
+async function getAnimalBadgesFor(animalIds) {
+  const map = new Map(animalIds.map((id) => [id, []]));
+  if (animalIds.length === 0) return map;
+  const result = await pool.query(
+    `SELECT animal_id, badge_key, tier FROM animal_badges WHERE animal_id = ANY($1)`,
+    [animalIds]
+  );
+  const best = new Map();
+  for (const row of result.rows) {
+    const k = `${row.animal_id}:${row.badge_key}`;
+    const current = best.get(k);
+    if (!current || TIER_ORDER.indexOf(row.tier) > TIER_ORDER.indexOf(current.tier)) {
+      best.set(k, row);
+    }
+  }
+  const keyOrder = Object.keys(ANIMAL_BADGES);
+  for (const row of best.values()) {
+    if (!ANIMAL_BADGES[row.badge_key]) continue; // a retired key: rows stay, nothing shows
+    map.get(row.animal_id)?.push(animalBadgeEntry(row.badge_key, row.tier, undefined));
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => keyOrder.indexOf(a.key) - keyOrder.indexOf(b.key));
+  }
+  return map;
+}
+
 async function getBadgesForUsers(userIds) {
   if (userIds.length === 0) return new Map();
   const [streaks, breeds, comments, health, vaccines] = await Promise.all([
@@ -379,4 +540,10 @@ module.exports = {
   STREAK_THRESHOLDS,
   COUNT_THRESHOLDS,
   COMMENT_THRESHOLDS,
+  ANIMAL_BADGES,
+  animalBadgeTier,
+  tiersUpTo,
+  syncAnimalBadges,
+  syncAnimalBadgesSafe,
+  getAnimalBadgesFor,
 };
