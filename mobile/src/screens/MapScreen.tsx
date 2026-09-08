@@ -53,7 +53,7 @@ import {
   ringTone,
 } from '../map/careMarkers';
 import { CARE_MARKER_IMAGES } from '../map/markers';
-import { viewportBounds } from '../map/viewport';
+import { viewportBoxes } from '../map/viewport';
 import { mapStyles } from '../map/styles';
 import { Button, Text } from '../components/ui';
 import { Icon, Logo } from '../components/brand';
@@ -160,6 +160,7 @@ export default function MapScreen({ navigation }: any) {
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
   const [actionsFailed, setActionsFailed] = useState(false);
+  const [statusFailed, setStatusFailed] = useState(false);
   // The settled zoom drives the stack layout (screen-space rule); the ref
   // stays for the celebration path.
   const [zoomLevel, setZoomLevel] = useState(WORLD_ZOOM);
@@ -228,12 +229,14 @@ export default function MapScreen({ navigation }: any) {
    * (map/viewport.ts turns the engine's corners into the server's box).
    * A failure is stated on the map instead of reading as "no records here".
    */
-  const loadActionsIn = useCallback(async (bounds: Bounds) => {
-    const seq = ++actionsSeqRef.current;
+  const loadActionsIn = useCallback(async (boxes: Bounds[], seq: number) => {
     try {
-      const data = await fetchCareActionsInBounds(bounds);
+      // An antimeridian viewport is two boxes; the records are the union.
+      const parts = await Promise.all(boxes.map((box) => fetchCareActionsInBounds(box)));
       if (seq !== actionsSeqRef.current) return;
-      setActions(data);
+      const byId = new Map<number, CareAction>();
+      for (const part of parts) for (const action of part) byId.set(action.id, action);
+      setActions([...byId.values()]);
       setActionsFailed(false);
     } catch {
       if (seq === actionsSeqRef.current) setActionsFailed(true);
@@ -241,14 +244,15 @@ export default function MapScreen({ navigation }: any) {
   }, []);
 
   const loadActionsForViewport = useCallback(async () => {
-    try {
-      const visible = await mapRef.current?.getVisibleBounds();
-      if (!visible) return;
-      const [ne, sw] = visible;
-      await loadActionsIn(viewportBounds(ne, sw));
-    } catch {
-      setActionsFailed(true);
-    }
+    // The sequence number is taken BEFORE the async bounds read: a slow
+    // native call must not overwrite a newer viewport's records.
+    const seq = ++actionsSeqRef.current;
+    const visible = await mapRef.current?.getVisibleBounds().catch(() => null);
+    // No bounds yet (the map is still coming up) is not a failure; the
+    // next region settle asks again.
+    if (!visible || seq !== actionsSeqRef.current) return;
+    const [ne, sw] = visible;
+    await loadActionsIn(viewportBoxes(ne, sw), seq);
   }, [loadActionsIn]);
 
   const load = useCallback(async (known?: Coordinates) => {
@@ -271,12 +275,16 @@ export default function MapScreen({ navigation }: any) {
         ]);
         if (seq !== loadSeqRef.current) return null;
         setStatuses({ food, water });
+        setStatusFailed(false);
         setAnimals(animalData);
         centerOnUser(loc);
         return animalData;
       }
     } catch (err: any) {
       if (seq === loadSeqRef.current) {
+        // The sheet must not read as "we don't know where you are" when the
+        // lookup itself failed (review finding).
+        setStatusFailed(true);
         Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
       }
     } finally {
@@ -299,7 +307,7 @@ export default function MapScreen({ navigation }: any) {
     const [ne, sw] = visibleBounds;
     if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
     viewportTimerRef.current = setTimeout(
-      () => loadActionsIn(viewportBounds(ne, sw)),
+      () => loadActionsIn(viewportBoxes(ne, sw), ++actionsSeqRef.current),
       VIEWPORT_REFRESH_MS
     );
     currentZoomRef.current = zoomLevel;
@@ -539,7 +547,9 @@ export default function MapScreen({ navigation }: any) {
   // Without a fix there is no "here" to judge (the map may be showing the
   // whole world): say so instead of claiming the area is empty.
   const sheetTitle = !statuses
-    ? 'Buranın durumu bilinmiyor'
+    ? statusFailed
+      ? 'Buranın durumu alınamadı'
+      : 'Buranın durumu bilinmiyor'
     : hasFood && hasWater
     ? 'Bu bölgede mama ve su var'
     : hasFood
@@ -756,19 +766,20 @@ export default function MapScreen({ navigation }: any) {
       {/* Top: the zoom hint (owner, P7 item 13 — it used to sit by the
           side controls). */}
       <SafeAreaView style={styles.topLayer} edges={['top']} pointerEvents="box-none">
-        {actionsFailed ? (
+        {actionsFailed && (
           <View style={styles.hint} pointerEvents="none">
             <Text variant="caption" center>
               Kayıtlar yüklenemedi
             </Text>
           </View>
-        ) : !animalsVisible && animals.length > 0 ? (
+        )}
+        {!animalsVisible && animals.length > 0 && (
           <View style={styles.hint} pointerEvents="none">
             <Text variant="caption" center>
               Hayvanları görmek için yakınlaştır
             </Text>
           </View>
-        ) : null}
+        )}
       </SafeAreaView>
 
       {/* Side: only the locate button (P7 item 11); the zoom pair is gone
@@ -802,6 +813,8 @@ export default function MapScreen({ navigation }: any) {
           <Text variant="body" style={styles.sheetDesc}>
             {statuses
               ? 'Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.'
+              : statusFailed
+              ? 'Bağlantı kurulunca burayı gösteririz; kayıt yine şu anki konumuna düşer.'
               : 'Konumunu açınca buranın durumunu gösteririz; kayıt yine şu anki konumuna düşer.'}
           </Text>
           {/* The pati logo on the button (owner, P8 item 1), white on the

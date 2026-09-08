@@ -2533,6 +2533,19 @@ the next docs touch.
     around the Kadıköy fallback. A web drop with no location falls back to
     the map centre only from zoom 14 on; below that the drop is refused
     (at world zoom one pixel is hundreds of kilometres).
+  - Second round of the same review: web's viewport failure no longer
+    lands in the page-wide (English, sticky) error banner — both clients
+    now show a Turkish "Kayıtlar yüklenemedi" pill that clears on the next
+    success; mobile takes its sequence number BEFORE the async bounds read
+    (the earlier note claimed a fix that was not in the code); an
+    antimeridian viewport is fetched as TWO boxes and merged instead of
+    asking for the world (the server answers a box with its 2000 newest
+    records, so the world box could hide the ones under the user's feet);
+    a failed status lookup now reads "Buranın durumu alınamadı" instead of
+    telling a located user to turn on location; the web drop refusal and
+    the permission guidance both name the zoom-in way out; `viewportBoxes`
+    guards non-finite latitudes too; the geometry index is mirrored into
+    001 (the 002 precedent); `FALLBACK_CENTER` is gone from web.
   - The world view opens at zoom 2.2 with a floor of 2 on both clients:
     the generated basemap drops the low-zoom `natural_earth` raster, so
     below ~2 the vector layers paint nothing (blank cream). The build

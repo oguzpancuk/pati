@@ -8,7 +8,7 @@ import { animalAvatarSvg } from '@shared/animalAvatarSvg';
 import { circleRing, featureCollection, pointFeature } from '@mobile/map/geo';
 import { logoSvg } from '@shared/logoSvg';
 import { layoutStacks } from '@mobile/map/stacks';
-import { viewportBounds } from '@mobile/map/viewport';
+import { viewportBoxes } from '@mobile/map/viewport';
 import {
   CARE_GLYPH_PATHS,
   CARE_MARKER_SCALE_SMALL,
@@ -179,6 +179,9 @@ export default function MapPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomHint, setZoomHint] = useState(false);
+  const [actionsFailed, setActionsFailed] = useState(false);
+  // A failed status lookup is not a missing location: the sheet says which.
+  const [statusFailed, setStatusFailed] = useState(false);
   // Minted once per pending photo and revoked on replacement/unmount (the
   // blob-URL-in-render lesson from the add form).
   const pendingPhotoUrl = useMemo(
@@ -433,11 +436,16 @@ export default function MapPage() {
     // region settle); `moveend` covers pans and zooms alike.
     // A pan is a burst of moveend events; the refetch waits for the map to
     // stand still (mobile debounces its region settles the same way).
+    // A failed refresh states itself on the map in Turkish and clears on
+    // the next success — it must not stick in the page-wide error banner
+    // that the add-record modal also shows (review finding).
     let viewportTimer: number | undefined;
     map.on('moveend', () => {
       window.clearTimeout(viewportTimer);
       viewportTimer = window.setTimeout(() => {
-        loadMarkers().catch((err) => setError(err.message));
+        loadMarkers()
+          .then(() => setActionsFailed(false))
+          .catch(() => setActionsFailed(true));
       }, VIEWPORT_REFRESH_MS);
     });
 
@@ -483,10 +491,13 @@ export default function MapPage() {
     // (@mobile/map/viewport turns the engine's corners into the server's
     // box — mobile uses the same helper).
     const b = map.getBounds();
-    const actions = await fetchCareActionsInBounds(
-      viewportBounds([b.getEast(), b.getNorth()], [b.getWest(), b.getSouth()])
-    );
+    // An antimeridian viewport is two boxes; the records are the union.
+    const boxes = viewportBoxes([b.getEast(), b.getNorth()], [b.getWest(), b.getSouth()]);
+    const parts = await Promise.all(boxes.map((box) => fetchCareActionsInBounds(box)));
     if (seq !== markersSeqRef.current) return;
+    const byId = new Map<number, CareAction>();
+    for (const part of parts) for (const action of part) byId.set(action.id, action);
+    const actions = [...byId.values()];
     actionsRef.current = actions;
     paintMarkers();
   }, [paintMarkers]);
@@ -499,9 +510,15 @@ export default function MapPage() {
         fetchCareStatus(center.lat, center.lng, 'food'),
         fetchCareStatus(center.lat, center.lng, 'water'),
       ]);
-      if (seq === statusSeqRef.current) setStatuses({ food, water });
+      if (seq === statusSeqRef.current) {
+        setStatuses({ food, water });
+        setStatusFailed(false);
+      }
     } catch {
-      if (seq === statusSeqRef.current) setStatuses(null);
+      if (seq === statusSeqRef.current) {
+        setStatuses(null);
+        setStatusFailed(true);
+      }
     }
   }, []);
 
@@ -557,7 +574,9 @@ export default function MapPage() {
 
   useEffect(() => {
     if (!mapReady) return;
-    loadMarkers().catch((err) => setError(err.message));
+    loadMarkers()
+      .then(() => setActionsFailed(false))
+      .catch(() => setActionsFailed(true));
   }, [mapReady, loadMarkers]);
 
   useEffect(() => {
@@ -568,8 +587,12 @@ export default function MapPage() {
   useEffect(() => {
     // Without a fix there is no "here" to judge — the sheet says so
     // instead of describing the fallback centre (review finding).
-    if (myLocation) loadStatuses(myLocation);
-    else setStatuses(null);
+    if (myLocation) {
+      loadStatuses(myLocation);
+    } else {
+      setStatuses(null);
+      setStatusFailed(false);
+    }
   }, [myLocation, loadStatuses]);
 
   /**
@@ -652,7 +675,11 @@ export default function MapPage() {
         // record at the centre of a world view would be nonsense).
         const map = mapRef.current;
         const center = map && map.getZoom() >= DROP_FALLBACK_MIN_ZOOM ? map.getCenter() : null;
-        if (!center) throw err;
+        if (!center) {
+          throw new Error(
+            `${describeLocationError(err)} Kaydı bırakmak için haritayı sokak seviyesine yakınlaştır.`
+          );
+        }
         usedFallback = describeLocationError(err);
         return { lat: center.lat, lng: center.lng };
       });
@@ -710,7 +737,7 @@ export default function MapPage() {
       if (perm?.state === 'denied') {
         setError(
           'Konum izni verilmedi. Tarayıcı ayarlarından bu siteye konum izni verebilirsin; ' +
-            'verilmezse kayıt haritanın ortasına düşer.'
+            'vermezsen haritayı sokak seviyesine yakınlaştır, kayıt haritanın ortasına düşsün.'
         );
       }
     } catch {
@@ -732,7 +759,9 @@ export default function MapPage() {
   // Without a fix there is no "here" to judge (the map may be showing the
   // whole world): say so instead of claiming the area is empty.
   const sheetTitle = !statuses
-    ? 'Buranın durumu bilinmiyor'
+    ? statusFailed
+      ? 'Buranın durumu alınamadı'
+      : 'Buranın durumu bilinmiyor'
     : hasFood && hasWater
     ? 'Bu bölgede mama ve su var'
     : hasFood
@@ -747,6 +776,7 @@ export default function MapPage() {
 
       <div className="map-top">
         {error && <div className="banner">{error}</div>}
+        {actionsFailed && <div className="zoom-hint">Kayıtlar yüklenemedi</div>}
         {zoomHint && <div className="zoom-hint">Hayvanları görmek için yakınlaştır</div>}
         {/* The add-to-home-screen invite: hidden when opened from the home
             screen or after "later" (install.tsx). */}
@@ -784,6 +814,8 @@ export default function MapPage() {
           <p className="muted" style={{ margin: '2px 0 12px' }}>
             {statuses
               ? 'Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.'
+              : statusFailed
+              ? 'Bağlantı kurulunca burayı gösteririz; kayıt yine şu anki konumuna düşer.'
               : 'Konumunu açınca buranın durumunu gösteririz; kayıt yine şu anki konumuna düşer.'}
           </p>
           {/* The pati logo on the button (owner, P8 item 1): white on the

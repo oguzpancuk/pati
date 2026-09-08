@@ -213,6 +213,12 @@ CREATE TABLE IF NOT EXISTS care_actions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_care_actions_location ON care_actions USING GIST (location);
+-- The map's viewport filter compares planar geometries (a geography
+-- envelope stops covering its interior past ~150° of longitude), so the
+-- cast needs its own index. Also in 010_care_bbox_geometry.sql, which is
+-- what production runs.
+CREATE INDEX IF NOT EXISTS idx_care_actions_location_geom
+  ON care_actions USING GIST ((location::geometry));
 
 -- Friend requests/relationships. If the other side also sends a request while
 -- a row is 'pending', the application layer auto-accepts it (see

@@ -5,7 +5,6 @@ export interface Coordinates {
 
 // Kadıköy: when no location is available (no permission / desktop), the map
 // opens on the seeded area instead of an empty Turkey.
-export const FALLBACK_CENTER: Coordinates = { lat: 40.9905, lng: 29.0277 };
 
 export type LocationFailure = 'insecure' | 'denied' | 'unavailable' | 'unsupported';
 
