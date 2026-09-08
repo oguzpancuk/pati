@@ -98,6 +98,9 @@ const MAX_ZOOM = 19;
 
 // Animal avatars draw only when zoomed well into building/street scale;
 // from farther out dozens of avatars piled up and covered the map.
+// Keep this an integer: the shoulder offset's `step` on zoom evaluates at
+// the tile's integer zoom while the avatar gate and the pin dimming compare
+// the fractional camera zoom — they agree only at whole numbers.
 const ANIMAL_VISIBLE_MIN_ZOOM = 17;
 
 // The scale the map focuses to after leaving food/water: slightly below

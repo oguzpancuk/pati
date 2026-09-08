@@ -65,6 +65,9 @@ const ACTION_CIRCLE_RADIUS_METERS = 100;
 // map, and the user's business is with the animals on their own street
 // anyway.
 const ANIMAL_RADIUS_METERS = 200;
+// Keep this an integer (same reason as MapScreen): the shoulder offset's
+// `step` evaluates at the tile's integer zoom, the avatar gate at the
+// fractional camera zoom.
 const ANIMAL_VISIBLE_MIN_ZOOM = 17;
 // The scale the map focuses to after leaving food/water: the 100 m circle
 // and the animals inside it should be visible.

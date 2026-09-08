@@ -2247,3 +2247,14 @@ the next docs touch.
   Still open, stated: the fan tap on the simulator (device shared with
   another session at the time) and the fan centre of an attached record
   (spreads around the avatar's spot rather than the shoulder icon).
+- Second review (NEEDS_WORK only for the missing simulator evidence; the
+  code checked out claim by claim, including the `step`-wrapped
+  `icon-offset` on both engines): the simulator freed up and the mobile
+  shots are in — z16 (record on the spot, pin dimmed), z18 (shoulder
+  offset, dimmed pin) and the fan: a tap on the shoulder record of the
+  seeded cat Ozi opens two members above and below the avatar with a
+  spoke; the native `step`/`case` layout expression applies without a
+  crash. A comment now pins ANIMAL_VISIBLE_MIN_ZOOM to an integer (tile
+  zoom vs. camera zoom, reviewer's minor). Stated divergence: on mobile a
+  tap on a fan member that overlaps a visible non-member is swallowed by
+  the fan; on web it opens that marker's fan.
