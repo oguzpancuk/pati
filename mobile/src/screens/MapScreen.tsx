@@ -560,9 +560,6 @@ export default function MapScreen({ navigation }: any) {
 
   /** The fan seats at an arbitrary zoom (the celebration reads the live one). */
   function seatsAt(zoom: number) {
-    return seatsAtImpl(zoom);
-  }
-  function seatsAtImpl(zoom: number) {
     const draw = new Map<string, Coordinates>();
     if (zoom < ANIMAL_VISIBLE_MIN_ZOOM) return draw;
     const items = [
