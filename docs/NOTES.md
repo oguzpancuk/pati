@@ -2456,3 +2456,24 @@ the next docs touch.
   six-member fan without spokes), the group conversation header in light
   and dark; simulator — the map and the group header (light). tsc ×2,
   jest 47/47, quick battery green on each commit.
+
+## 2026-09-09 — P8 Track C″ merged: the animal profile after the human profile's discipline
+
+- Merged `track/animal-profile-3` into main with `--no-ff` (three commits,
+  reviewer APPROVE; the last commit folds two minors). Owner finding 3:
+  the header is avatar + name row with "N takipçi · N bakıcı" right-aligned
+  on the name's line (wrapping under a long name), the descriptive line,
+  the two badge chips, then the takip et / bakım ver pair; one section
+  order on both clients — fotoğraflar, en son görüldüğü yer, aşı kayıtları,
+  sağlık kayıtları, sohbet; the carers-only door is an inline flat card at
+  the top of sohbet (no sticky overlap); "şikayet et" is the footer under
+  a hairline (`?report=1` still opens it on mobile; web never had that deep
+  link). The older "become a carer" hint under sağlık kayıtları is gone on
+  both clients. Stated divergence: on web the footer sits after the sticky
+  decision bar / composer in flow, on mobile those bars live outside the
+  ScrollView — same visual result.
+- Evidence: web playwright light + dark + page bottom (non-carer door card
+  and footer; the track also shot the carer view and a long-name wrap
+  probe); simulator light (header, chips, pair, fotoğraflar, map); quick
+  battery green on the track's HEAD and full battery on main after the
+  merge (see below). tsc ×2, jest 47/47.
