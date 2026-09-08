@@ -126,7 +126,11 @@ async function listConversations(req, res, next) {
          WHERE c.kind = 'direct' AND om.conversation_id = c.id AND om.user_id <> $1 LIMIT 1
        ) other ON true
        WHERE m.user_id = $1
-       ORDER BY COALESCE(c.last_message_at, c.created_at) DESC, c.id DESC`,
+       -- Ordered by the last message THIS member can see (the lateral is
+       -- cut at joined_at), not the conversation's own last_message_at: a
+       -- freshly added member would otherwise see the group sorted by a
+       -- message they cannot read.
+       ORDER BY COALESCE(lm.created_at, c.created_at) DESC, c.id DESC`,
       [userId]
     );
     res.json({
@@ -483,16 +487,20 @@ async function listMessages(req, res, next) {
     // the page itself: a deletion landing between two separate queries
     // would fall in the gap and never be reported (review finding). Read
     // first, a deletion during the page fetch is simply reported again on
-    // the next poll — the client tolerates a repeat.
+    // the next poll — the client tolerates a repeat, which is also why the
+    // watermark carries two seconds of slack: a delete whose transaction
+    // began just before the clock was read commits with an older
+    // deleted_at and would otherwise slip past `> since` for good.
     const clock = sinceValid
       ? await pool.query(
           `SELECT now() AS now,
                   COALESCE((SELECT json_agg(json_build_object(
                               'id', d.id,
-                              'deletedBySender', d.deleted_by IS NOT NULL AND d.deleted_by = d.sender_id
+                              'deletedBySender', d.deleted_by IS NOT NULL AND d.sender_id IS NOT NULL AND d.deleted_by = d.sender_id
                             ) ORDER BY d.id)
                             FROM messages d
-                            WHERE d.conversation_id = $1 AND d.created_at >= $2 AND d.deleted_at > $3),
+                            WHERE d.conversation_id = $1 AND d.created_at >= $2
+                              AND d.deleted_at > $3::timestamptz - interval '2 seconds'),
                            '[]'::json) AS deleted`,
           [id, joinedAt, sinceValid]
         )
@@ -562,12 +570,14 @@ async function sendMessage(req, res, next) {
       id,
       createdAt,
     ]);
+    // The echo is read inside the transaction: a failure here rolls the
+    // insert back too, so a retried send cannot duplicate the message.
+    const row = (await client.query(`${MESSAGE_SELECT} WHERE x.id = $1`, [messageId])).rows[0];
     await client.query('COMMIT');
     // Nothing is marked read here: own messages never count as unread
     // (sender_id IS DISTINCT FROM), and stamping last_read_at with this
     // message's time would hide a reply that landed between the sender's
     // last poll and the send (review finding). The next poll marks it.
-    const row = (await client.query(`${MESSAGE_SELECT} WHERE x.id = $1`, [messageId])).rows[0];
     res.status(201).json(shapeMessage(row));
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});

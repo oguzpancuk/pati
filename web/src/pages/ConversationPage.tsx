@@ -145,7 +145,7 @@ export default function ConversationPage() {
       const sent = await sendMessage(conversationId, body);
       setDraft('');
       setMessages((prev) =>
-        (prev ?? []).some((m) => m.id === sent.id) ? prev : [...(prev ?? []), sent]
+        (prev ?? []).some((m) => m.id === sent.id) ? prev : [...(prev ?? []), sent].sort((a, b) => a.id - b.id)
       );
       // The cursor stays where the last poll left it: advancing it to the
       // sent id would skip a reply that landed in between. The poll dedups
