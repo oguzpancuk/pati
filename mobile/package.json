@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "jest",
     "icons": "node scripts/generate-icons.mjs",
+    "care-markers": "node scripts/generate-care-markers.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" App.tsx index.js"
   },
   "dependencies": {

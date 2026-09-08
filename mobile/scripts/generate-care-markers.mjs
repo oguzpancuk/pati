@@ -7,7 +7,7 @@
  * Playwright, same as generate-icons.mjs):
  *   node scripts/generate-care-markers.mjs
  *
- * Writes src/map/markers/<key>@2x.png, <key>@3x.png and the index.ts that
+ * Writes src/map/markers/<key>.png, @2x, @3x and the index.ts that
  * `require`s them (Metro needs literal paths, so the index is generated too).
  * Rerun whenever careMarkers.ts changes; commit the output.
  */
@@ -19,7 +19,10 @@ import { careMarkerSvg, careMarkerVariants, CARE_MARKER_SIZE } from '../src/map/
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'src', 'map', 'markers');
-const SCALES = [2, 3];
+// 1x is written without a suffix: Metro resolves the scale variants from
+// it, and jest (no scale logic) needs the plain name to exist so the
+// generated index can be required in tests.
+const SCALES = [1, 2, 3];
 
 // Playwright is a web/ devDependency; mobile has none.
 const requireFromWeb = createRequire(join(ROOT, '..', 'web', 'package.json'));
@@ -43,7 +46,7 @@ for (const scale of SCALES) {
       `<body style="margin:0;background:transparent">${careMarkerSvg(type, step, theme)}</body>`
     );
     const png = await page.screenshot({ omitBackground: true, type: 'png' });
-    writeFileSync(join(OUT, `${key}@${scale}x.png`), png);
+    writeFileSync(join(OUT, scale === 1 ? `${key}.png` : `${key}@${scale}x.png`), png);
   }
   await context.close();
 }

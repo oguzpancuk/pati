@@ -2187,3 +2187,15 @@ the next docs touch.
   pin is covered by that DOM/MarkerView marker (the layers draw beneath
   views). The tap card with the record's remaining time and its 100 m
   circle, plus the zoomed-out heatmap, are the next session's items.
+- Review (APPROVE, two important + three minor) and the follow-up: jest
+  now pins the generated `markers/index.ts` keys to `careMarkerVariants()`
+  (a changed step count or theme without rerunning the generator would
+  otherwise render blank icons with every gate green) — which needed the
+  generator to also write the 1x file under the plain name, since jest
+  has no `@2x/@3x` resolution; `npm run care-markers` added; web guards
+  the marker image `onload` against `map.remove()` (hasImage would throw
+  on the dropped style); `step` travels as a string so the `concat` key
+  never depends on an engine's number formatting; the theme-switch comment
+  on mobile now describes the real mechanism (style reload → image-missing
+  path re-fetches from `<Images>`); web's "Hayvan ekle" tile shows the same
+  paw as mobile. Both clients re-screenshotted after the fixes.

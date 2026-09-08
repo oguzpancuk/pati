@@ -90,7 +90,9 @@ function registerCareMarkerImages(map: maplibregl.Map) {
     if (map.hasImage(key)) continue;
     const img = new Image(px, px);
     img.onload = () => {
-      if (map.hasImage(key)) return;
+      // The decode can outlive the page: map.remove() drops the style and
+      // hasImage() would throw on it (review finding).
+      if (!map.style || map.hasImage(key)) return;
       const canvas = document.createElement('canvas');
       canvas.width = px;
       canvas.height = px;
@@ -338,9 +340,11 @@ export default function MapPage() {
       actions.map((action) => {
         const [lng, lat] = action.location.coordinates;
         const weight = Number(action.weight);
+        // `step` as a string: the icon key is built with `concat`, and a
+        // string leaves no room for an engine to print a number as "5.0".
         return pointFeature(
           { lat, lng },
-          { type: action.action_type, step: ringStep(weight), weight }
+          { type: action.action_type, step: String(ringStep(weight)), weight }
         );
       })
     );
@@ -624,16 +628,14 @@ export default function MapPage() {
               }}
             >
               <span className="map-action-icon">
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                >
-                  <path d="M12 5.5v13M5.5 12h13" />
+                {/* The paw from mobile's brand/Icon (filled, no stroke) — the
+                    same tile shows the same glyph on both clients. */}
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="6.4" cy="10.6" r="2.1" />
+                  <circle cx="9.9" cy="7.2" r="2.2" />
+                  <circle cx="14.1" cy="7.2" r="2.2" />
+                  <circle cx="17.6" cy="10.6" r="2.1" />
+                  <path d="M12 12.2c2.6 0 5 2.1 5 4.5 0 1.8-1.4 2.9-3 2.9-.9 0-1.4-.4-2-.4s-1.1.4-2 .4c-1.6 0-3-1.1-3-2.9 0-2.4 2.4-4.5 5-4.5Z" />
                 </svg>
               </span>
               Hayvan ekle

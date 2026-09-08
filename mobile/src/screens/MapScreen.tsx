@@ -499,9 +499,11 @@ export default function MapScreen({ navigation }: any) {
       featureCollection(
         actions.map((action) => {
           const weight = Number(action.weight);
+          // `step` as a string: the icon key is built with `concat`, and a
+          // string leaves no room for an engine to print a number as "5.0".
           return pointFeature(
             { lat: action.location.coordinates[1], lng: action.location.coordinates[0] },
-            { type: action.action_type, step: ringStep(weight), weight }
+            { type: action.action_type, step: String(ringStep(weight)), weight }
           );
         })
       ),
@@ -537,9 +539,12 @@ export default function MapScreen({ navigation }: any) {
           maxZoomLevel={MAX_ZOOM}
         />
 
-        {/* Both themes' images are registered up front (44 tiny PNGs) so a
-            theme switch only changes the key suffix in the expression —
-            nothing to reload. */}
+        {/* Both themes' 40 images are registered up front. A theme switch
+            swaps mapStyle, which reloads the style: native re-attaches the
+            sources and layers itself, and the icons come back through the
+            image-missing path (MLRNImages fetches each key from this set
+            again). Keep <Images> — dropping it for onImageMissing alone
+            would leave nothing for that path to fetch. */}
         <Images images={CARE_MARKER_IMAGES} />
         <ShapeSource id="care-markers" shape={careMarkers}>
           <SymbolLayer

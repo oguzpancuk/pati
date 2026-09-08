@@ -5,6 +5,7 @@ import {
   RING_STEPS,
   ringStep,
 } from '../src/map/careMarkers';
+import { CARE_MARKER_IMAGES } from '../src/map/markers';
 
 describe('ringStep', () => {
   it('maps the server weight onto 1..RING_STEPS, rounding up', () => {
@@ -53,5 +54,16 @@ describe('careMarkerVariants', () => {
     expect(new Set(variants.map((v) => v.key)).size).toBe(variants.length);
     expect(variants.map((v) => v.key)).toContain(careMarkerKey('water', 7, 'dark'));
     expect(careMarkerKey('food', 1, 'light')).toBe('care-food-1-light');
+  });
+
+  it('matches the generated PNG index the mobile map renders from', () => {
+    // A changed RING_STEPS, type or theme without rerunning
+    // scripts/generate-care-markers.mjs would leave the SymbolLayer asking
+    // for images that don't exist — blank icons, nothing else failing.
+    expect(Object.keys(CARE_MARKER_IMAGES).sort()).toEqual(
+      careMarkerVariants()
+        .map((v) => v.key)
+        .sort()
+    );
   });
 });
