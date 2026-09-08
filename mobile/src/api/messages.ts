@@ -54,6 +54,16 @@ export interface ConversationDetail {
   members: Member[];
 }
 
+/** The quoted source of a reply, resolved server-side on every row (P7 item 7). */
+export interface Quote {
+  id: number;
+  /** Name only; null once the account is gone. */
+  sender: { id: number; name: string } | null;
+  /** The first ~120 characters, whitespace folded; null when the source is deleted. */
+  excerpt: string | null;
+  deleted: boolean;
+}
+
 export interface Message {
   id: number;
   conversationId: number;
@@ -64,6 +74,8 @@ export interface Message {
   deleted: boolean;
   /** For a deleted message: true = the sender took it back, false = an admin removed it. */
   deletedBySender: boolean | null;
+  /** The message this one replies to, or null. */
+  replyTo: Quote | null;
   createdAt: string;
 }
 
@@ -147,9 +159,10 @@ export async function fetchMessages(
   return data;
 }
 
-export async function sendMessage(id: number, body: string): Promise<Message> {
+export async function sendMessage(id: number, body: string, replyToId?: number): Promise<Message> {
   const { data } = await apiClient.post<Message>(`/messages/conversations/${id}/messages`, {
     body,
+    replyToId,
   });
   return data;
 }
@@ -170,6 +183,43 @@ export async function reportMessage(
   await apiClient.post(`/messages/${messageId}/report`, { reason, details });
 }
 
+const QUOTE_EXCERPT = 120;
+
+/** The composer's preview of a pending quote; the server cuts the real one the same way. */
+export function quoteOf(m: Message): Quote {
+  const flat = (m.body ?? '').replace(/\s+/g, ' ').trim();
+  return {
+    id: m.id,
+    sender: m.sender ? { id: m.sender.id, name: m.sender.name } : null,
+    excerpt: m.deleted
+      ? null
+      : flat.length > QUOTE_EXCERPT
+      ? `${flat.slice(0, QUOTE_EXCERPT).trimEnd()}…`
+      : flat,
+    deleted: m.deleted,
+  };
+}
+
+/**
+ * Blanks the given deletions in a list the screen holds: the message
+ * itself, and every quote that points at it — the source's placeholder
+ * must match wherever it is shown. Used by the poll and by a local delete.
+ */
+export function withDeleted(current: Message[], refs: DeletedRef[]): Message[] {
+  if (refs.length === 0) return current;
+  const deleted = new Map(refs.map((d) => [d.id, d.deletedBySender]));
+  return current.map((m) => {
+    let next = m;
+    if (deleted.has(m.id) && !m.deleted) {
+      next = { ...next, body: null, deleted: true, deletedBySender: deleted.get(m.id) ?? null };
+    }
+    if (next.replyTo && !next.replyTo.deleted && deleted.has(next.replyTo.id)) {
+      next = { ...next, replyTo: { ...next.replyTo, excerpt: null, deleted: true } };
+    }
+    return next;
+  });
+}
+
 /**
  * Folds a poll answer into the list the screen holds: blank the deleted,
  * append the new, and keep id order. The order matters because the client
@@ -177,12 +227,8 @@ export async function reportMessage(
  * back next to a reply that was sent just before it (review finding).
  */
 export function applyPoll(current: Message[], page: MessagesPage): Message[] {
-  const deleted = new Map(page.deleted.map((d) => [d.id, d.deletedBySender]));
   const known = new Set(current.map((m) => m.id));
-  const kept = current.map((m) =>
-    deleted.has(m.id) && !m.deleted
-      ? { ...m, body: null, deleted: true, deletedBySender: deleted.get(m.id) ?? null }
-      : m
-  );
-  return kept.concat(page.messages.filter((m) => !known.has(m.id))).sort((a, b) => a.id - b.id);
+  return withDeleted(current, page.deleted)
+    .concat(page.messages.filter((m) => !known.has(m.id)))
+    .sort((a, b) => a.id - b.id);
 }

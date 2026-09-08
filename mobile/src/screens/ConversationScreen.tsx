@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
   AppState,
@@ -21,8 +21,11 @@ import {
   markConversationRead,
   Message,
   POLL_INTERVAL_MS,
+  Quote,
+  quoteOf,
   reportMessage,
   sendMessage,
+  withDeleted,
 } from '../api/messages';
 import { REPORT_REASONS, ReportReason } from '../reportReasons';
 import { Avatar, Button, Chip, LoadingState, Text } from '../components/ui';
@@ -30,6 +33,8 @@ import { Icon } from '../components/brand';
 import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme';
 
 const PAGE = 50;
+const AVATAR = 28;
+const FLASH_MS = 1500;
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -38,8 +43,10 @@ function formatTime(iso: string) {
 /**
  * One conversation: the newest page, older pages as you scroll up, a
  * 5-second poll while the app is in front (ROADMAP P6 item 4 — no push in
- * this batch). Long-press a bubble to delete it (yours, or any as a group
- * admin) or report it.
+ * this batch). Long-press a bubble to reply to it (the quote shows above
+ * the composer and, once sent, above the bubble; tapping a quote jumps to
+ * its source), delete it (yours, or any as a group admin) or report it.
+ * The sender's avatar sits beside the first bubble of a run (P7 items 6–7).
  */
 export default function ConversationScreen({ route, navigation }: any) {
   const conversationId: number = route.params.conversationId;
@@ -53,6 +60,13 @@ export default function ConversationScreen({ route, navigation }: any) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [reporting, setReporting] = useState<Message | null>(null);
+  // The quote the next send will carry; cleared on send, cancel, or when
+  // the source is deleted under it (the server would refuse it anyway).
+  const [replyTo, setReplyTo] = useState<Quote | null>(null);
+  // The bubble a quote tap just scrolled to, outlined for a moment.
+  const [flashId, setFlashId] = useState<number | null>(null);
+  const listRef = useRef<FlatList<Message>>(null);
+  const inputRef = useRef<TextInput>(null);
   // Cursors for the poll: the newest id we hold and the server's clock at
   // the last answer. Refs, so the timer callback never closes over a stale
   // render.
@@ -148,6 +162,16 @@ export default function ConversationScreen({ route, navigation }: any) {
     }, [loadDetail, loadLatest, poll])
   );
 
+  useEffect(() => {
+    if (replyTo && messages?.some((m) => m.id === replyTo.id && m.deleted)) setReplyTo(null);
+  }, [messages, replyTo]);
+
+  useEffect(() => {
+    if (flashId === null) return;
+    const t = setTimeout(() => setFlashId(null), FLASH_MS);
+    return () => clearTimeout(t);
+  }, [flashId]);
+
   useLayoutEffect(() => {
     if (!detail) return;
     navigation.setOptions({
@@ -190,10 +214,13 @@ export default function ConversationScreen({ route, navigation }: any) {
     if (!body || sending) return;
     setSending(true);
     try {
-      const sent = await sendMessage(conversationId, body);
+      const sent = await sendMessage(conversationId, body, replyTo?.id);
       setDraft('');
+      setReplyTo(null);
       setMessages((prev) =>
-        (prev ?? []).some((m) => m.id === sent.id) ? prev! : [...(prev ?? []), sent].sort((a, b) => a.id - b.id)
+        (prev ?? []).some((m) => m.id === sent.id)
+          ? prev!
+          : [...(prev ?? []), sent].sort((a, b) => a.id - b.id)
       );
       // The cursor stays where the last poll left it: advancing it to the
       // sent id would skip a reply that landed in between. The poll dedups
@@ -211,6 +238,15 @@ export default function ConversationScreen({ route, navigation }: any) {
     const mine = !!myId && m.sender?.id === myId;
     const admin = detail?.kind === 'group' && detail.role === 'admin';
     const actions: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
+    if (detail?.canSend) {
+      actions.push({
+        text: 'Yanıtla',
+        onPress: () => {
+          setReplyTo(quoteOf(m));
+          inputRef.current?.focus();
+        },
+      });
+    }
     if (mine || admin) {
       actions.push({
         text: 'Sil',
@@ -218,11 +254,7 @@ export default function ConversationScreen({ route, navigation }: any) {
         onPress: async () => {
           try {
             await deleteMessage(m.id);
-            setMessages((prev) =>
-              (prev ?? []).map((x) =>
-                x.id === m.id ? { ...x, body: null, deleted: true, deletedBySender: mine } : x
-              )
-            );
+            setMessages((prev) => withDeleted(prev ?? [], [{ id: m.id, deletedBySender: mine }]));
           } catch (err: any) {
             Alert.alert('Silinemedi', err?.response?.data?.error ?? 'Tekrar dene');
           }
@@ -240,6 +272,15 @@ export default function ConversationScreen({ route, navigation }: any) {
   // bottom without scroll gymnastics; "older" loads at the visual top.
   const data = messages ? [...messages].reverse() : [];
 
+  // A quote tap scrolls to its source when it is loaded; a source further
+  // up than the pages fetched so far is left alone (the owner's spec).
+  function jumpTo(id: number) {
+    const index = data.findIndex((m) => m.id === id);
+    if (index < 0) return;
+    listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+    setFlashId(id);
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -250,6 +291,7 @@ export default function ConversationScreen({ route, navigation }: any) {
         <LoadingState />
       ) : (
         <FlatList
+          ref={listRef}
           data={data}
           inverted
           keyExtractor={(item) => String(item.id)}
@@ -257,43 +299,89 @@ export default function ConversationScreen({ route, navigation }: any) {
           onEndReached={loadOlder}
           onEndReachedThreshold={0.6}
           keyboardShouldPersistTaps="handled"
+          // Rows are not measured up front; land near the target, then retry.
+          onScrollToIndexFailed={({ index, averageItemLength }) => {
+            listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false });
+            setTimeout(
+              () => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true }),
+              120
+            );
+          }}
           renderItem={({ item, index }) => {
             const mine = !!myId && item.sender?.id === myId;
-            // Show the sender above the first bubble of a run (visually,
-            // the previous item is the older one at index + 1).
+            // The avatar (and, in a group, the name) marks the first bubble
+            // of a run; the rest of the run indents to stay aligned.
+            // Visually the previous item is the older one at index + 1.
             const older = data[index + 1];
-            const showName = isGroup && !mine && older?.sender?.id !== item.sender?.id;
+            const firstOfRun = older?.sender?.id !== item.sender?.id;
+            const showName = isGroup && !mine && firstOfRun;
+            const avatar = firstOfRun ? (
+              <Avatar
+                uri={item.sender?.avatar_url}
+                name={item.sender?.name}
+                size={AVATAR}
+                style={mine ? styles.avatarMine : styles.avatarTheirs}
+              />
+            ) : (
+              <View style={styles.avatarGap} />
+            );
             return (
               <View style={[styles.line, mine ? styles.lineMine : styles.lineTheirs]}>
-                {showName ? (
-                  <Text variant="micro" style={styles.sender}>
-                    {item.sender?.name ?? 'silinmiş kullanıcı'}
-                  </Text>
-                ) : null}
-                <Pressable
-                  onLongPress={() => onLongPress(item)}
-                  delayLongPress={300}
-                  style={[
-                    styles.bubble,
-                    mine ? styles.bubbleMine : styles.bubbleTheirs,
-                    item.deleted && styles.bubbleDeleted,
-                  ]}
-                >
-                  {item.deleted ? (
-                    <Text variant="caption" color="textSubtle" style={styles.deletedText}>
-                      {item.deletedBySender === false
-                        ? 'Yönetici bu mesajı sildi'
-                        : 'Bu mesaj silindi'}
+                {mine ? null : avatar}
+                <View style={[styles.column, mine ? styles.columnMine : styles.columnTheirs]}>
+                  {showName ? (
+                    <Text variant="micro" style={styles.sender}>
+                      {item.sender?.name ?? 'silinmiş kullanıcı'}
                     </Text>
-                  ) : (
-                    <Text variant="body" color="text">
-                      {item.body}
+                  ) : null}
+                  <Pressable
+                    onLongPress={() => onLongPress(item)}
+                    delayLongPress={300}
+                    style={[
+                      styles.bubble,
+                      mine ? styles.bubbleMine : styles.bubbleTheirs,
+                      item.deleted && styles.bubbleDeleted,
+                      flashId === item.id && styles.bubbleFlash,
+                    ]}
+                  >
+                    {item.replyTo ? (
+                      <Pressable
+                        onPress={() => jumpTo(item.replyTo!.id)}
+                        onLongPress={() => onLongPress(item)}
+                        delayLongPress={300}
+                        style={styles.quote}
+                        accessibilityLabel="Alıntılanan mesaja git"
+                      >
+                        <Text variant="micro" color="brand" numberOfLines={1}>
+                          {item.replyTo.sender?.name ?? 'silinmiş kullanıcı'}
+                        </Text>
+                        <Text
+                          variant="caption"
+                          color={item.replyTo.deleted ? 'textSubtle' : 'textMuted'}
+                          numberOfLines={2}
+                          style={item.replyTo.deleted && styles.quoteDeleted}
+                        >
+                          {item.replyTo.deleted ? 'Bu mesaj silindi' : item.replyTo.excerpt}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                    {item.deleted ? (
+                      <Text variant="caption" color="textSubtle" style={styles.deletedText}>
+                        {item.deletedBySender === false
+                          ? 'Yönetici bu mesajı sildi'
+                          : 'Bu mesaj silindi'}
+                      </Text>
+                    ) : (
+                      <Text variant="body" color="text">
+                        {item.body}
+                      </Text>
+                    )}
+                    <Text variant="caption" color="textSubtle" style={styles.time}>
+                      {formatTime(item.createdAt)}
                     </Text>
-                  )}
-                  <Text variant="caption" color="textSubtle" style={styles.time}>
-                    {formatTime(item.createdAt)}
-                  </Text>
-                </Pressable>
+                  </Pressable>
+                </View>
+                {mine ? avatar : null}
               </View>
             );
           }}
@@ -312,27 +400,49 @@ export default function ConversationScreen({ route, navigation }: any) {
             Artık arkadaş değilsiniz; yeni mesaj gönderilemez.
           </Text>
         ) : (
-          <View style={styles.composerRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="Mesaj yaz…"
-              placeholderTextColor={colors.textSubtle}
-              value={draft}
-              onChangeText={setDraft}
-              multiline
-              maxLength={2000}
-              editable={!!detail}
-            />
-            <Pressable
-              onPress={submit}
-              disabled={!draft.trim() || sending}
-              hitSlop={hitSlop}
-              accessibilityLabel="Gönder"
-              style={[styles.send, (!draft.trim() || sending) && styles.sendOff]}
-            >
-              <Icon name="chevronRight" size={20} color={colors.textOnBrand} />
-            </Pressable>
-          </View>
+          <>
+            {replyTo ? (
+              <View style={styles.replyBar}>
+                <View style={styles.replyBarText}>
+                  <Text variant="micro" color="brand" numberOfLines={1}>
+                    {replyTo.sender?.name ?? 'silinmiş kullanıcı'} · yanıtlanıyor
+                  </Text>
+                  <Text variant="caption" color="textMuted" numberOfLines={1}>
+                    {replyTo.excerpt}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => setReplyTo(null)}
+                  hitSlop={hitSlop}
+                  accessibilityLabel="Alıntıyı kaldır"
+                >
+                  <Icon name="close" size={18} color={colors.textSubtle} />
+                </Pressable>
+              </View>
+            ) : null}
+            <View style={styles.composerRow}>
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                placeholder="Mesaj yaz…"
+                placeholderTextColor={colors.textSubtle}
+                value={draft}
+                onChangeText={setDraft}
+                multiline
+                maxLength={2000}
+                editable={!!detail}
+              />
+              <Pressable
+                onPress={submit}
+                disabled={!draft.trim() || sending}
+                hitSlop={hitSlop}
+                accessibilityLabel="Gönder"
+                style={[styles.send, (!draft.trim() || sending) && styles.sendOff]}
+              >
+                <Icon name="chevronRight" size={20} color={colors.textOnBrand} />
+              </Pressable>
+            </View>
+          </>
         )}
       </View>
       {reporting ? (
@@ -431,9 +541,20 @@ function ReportMessageModal({ message, onClose }: { message: Message; onClose: (
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
   flex: { flex: 1, backgroundColor: c.background },
   list: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  line: { marginBottom: spacing.sm, maxWidth: '82%' },
-  lineMine: { alignSelf: 'flex-end', alignItems: 'flex-end' },
-  lineTheirs: { alignSelf: 'flex-start', alignItems: 'flex-start' },
+  line: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+    maxWidth: '86%',
+  },
+  lineMine: { alignSelf: 'flex-end' },
+  lineTheirs: { alignSelf: 'flex-start' },
+  column: { flexShrink: 1 },
+  columnMine: { alignItems: 'flex-end' },
+  columnTheirs: { alignItems: 'flex-start' },
+  avatarTheirs: { marginRight: spacing.sm, marginTop: 2 },
+  avatarMine: { marginLeft: spacing.sm, marginTop: 2 },
+  avatarGap: { width: AVATAR + spacing.sm },
   sender: { marginBottom: 2, marginLeft: spacing.sm },
   bubble: {
     borderRadius: radius.lg,
@@ -445,6 +566,30 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   bubbleMine: { backgroundColor: c.brandTint, borderColor: c.brandSoft },
   bubbleTheirs: { backgroundColor: c.surfaceAlt, borderColor: c.border },
   bubbleDeleted: { backgroundColor: c.surface, borderStyle: 'dashed' },
+  bubbleFlash: { borderColor: c.brand },
+  quote: {
+    borderLeftWidth: 3,
+    borderLeftColor: c.brand,
+    backgroundColor: c.background,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.xs,
+    maxWidth: '100%',
+  },
+  quoteDeleted: { fontStyle: 'italic' },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 3,
+    borderLeftColor: c.brand,
+    backgroundColor: c.surfaceAlt,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  replyBarText: { flex: 1, marginRight: spacing.sm },
   deletedText: { fontFamily: fonts.medium },
   time: { alignSelf: 'flex-end', marginTop: 2, fontSize: 10.5, lineHeight: 14 },
   empty: { paddingVertical: spacing.xl, transform: [{ scaleY: -1 }] },
