@@ -17,7 +17,9 @@ const RECIPIENTS_SQL = `
   SELECT user_id FROM user_animal_care WHERE animal_id = $1
 `;
 
-const KINDS = new Set(['comment', 'sighting', 'health_record', 'vaccination']);
+// `care` (P7 item 12): someone became a carer through either door; the
+// inbox line is "<name>, <animal> için bakım vermeye başladı".
+const KINDS = new Set(['comment', 'sighting', 'health_record', 'vaccination', 'care']);
 
 /**
  * Writes one inbox row per follower/carer of the animal. The payload

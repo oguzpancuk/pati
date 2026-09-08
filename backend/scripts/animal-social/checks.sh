@@ -4,14 +4,17 @@
 # Runs from backend/ (run.sh cd's there): the photo files it seeds and
 # removes live under ./uploads, the dev server's own directory.
 #
-# State: the script registers five throwaway accounts (an owner, a
-# follower, a carer, two confirmers) and the owner creates two throwaway
-# animals in the middle of the Pacific, so no seeded row is touched; on the
-# way out it DELETES that animal (its photos, likes, followers, badges,
-# notifications and match rows go with it, cascade), the accounts, and the
-# photo files the run wrote. test1@stray.test (seeded) is the one standing
-# account used, as the carer "A"; the comments and records it adds die
-# with the animal.
+# State: the script registers eight throwaway accounts (an owner, a
+# follower, two carers, two confirmers, a late follower, a double-sender) and the owner
+# creates two throwaway animals in the middle of the Pacific, so no seeded
+# row is touched; on the way out it DELETES those animals (their photos,
+# likes, followers, badges, notifications and match rows go with them,
+# cascade), the accounts, and the photo files the run wrote. The seeded
+# test1@stray.test is only logged in, never made a carer: until P7 it was
+# the carer "A", and every run wrote real inbox rows for it (the other
+# carers' sightings and comments on "Harness Kedisi") that lived until the
+# cleanup cascade — the "past notifications" the owner met on the
+# simulator (P7 finding 1). A standing account's inbox stays untouched.
 set -uo pipefail
 API=${API:-http://localhost:3107/api}
 FAKE=${FAKE:-http://localhost:4607}
@@ -67,12 +70,14 @@ echo "== accounts and the throwaway animal"
 # by the address pattern and the name at this spot).
 LEFT=$(psql_db "SELECT count(*) FROM animals WHERE name LIKE 'Harness Kedisi%'")
 if [ "$LEFT" != 0 ]; then
-  psql_db "DELETE FROM animals WHERE name LIKE 'Harness Kedisi%'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|ikinci|tekatis)-[0-9]+@stray\.test$';" >/dev/null
+  psql_db "DELETE FROM animals WHERE name LIKE 'Harness Kedisi%'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|bakicia|ikinci|tekatis|sonradan|esanli)-[0-9]+@stray\.test$';" >/dev/null
   echo "        (swept $LEFT leftover animal(s) of an earlier aborted run)"
 fi
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/auth/login" -H 'Content-Type: application/json' -d '{"email":"test1@stray.test","password":"password123"}')
-check "login test1 -> 200" 200 "$code"; A=$(j .token); A_ID=$(j .user.id)
+check "login test1 -> 200" 200 "$code"; T1=$(j .token)
+code=$(get "notifications" "$T1"); T1_TOTAL=$(j .total)
 STAMP=$(date +%s)
+read -r A A_ID < <(register "Bakıcı A" "bakicia-$STAMP@stray.test")
 read -r D D_ID < <(register "Sahip Test" "sahip-$STAMP@stray.test")
 read -r B B_ID < <(register "Takipçi Test" "takipci-$STAMP@stray.test")
 read -r C C_ID < <(register "Bakıcı Test" "bakici-$STAMP@stray.test")
@@ -86,6 +91,9 @@ check "species read back from the database" "cat" "$SPECIES"
 # gallery file on disk: one owner row whose file does not exist.
 psql_db "INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($ANIMAL, '$UPLOADS_URL/seed-missing-$STAMP.jpg', $D_ID)" >/dev/null
 code=$(get "animals/$ANIMAL" "$D"); check "the registrant is a carer, 'cared' bronze on record" "true 1" "$(j .isCarer) $(psql_db "SELECT count(*) FROM animal_badges WHERE animal_id=$ANIMAL AND badge_key='cared' AND tier='bronze'")"
+# A carer is a follower too (P7 item 2): the registrant starts both.
+check "…and follows it: isFollowing, followerCount 1" "true 1" "$(j .isFollowing) $(j .followerCount)"
+check "the profile carries the six-step badge ladder" "6" "$(j '.badgeLadder | length')"
 
 echo "== profile read, follow"
 code=$(get "animals/$ANIMAL" "$B"); check "B GET animal -> 200" 200 "$code"
@@ -94,9 +102,9 @@ check "photos carry like fields" "0 false" "$(j '.photos[0].like_count') $(j '.p
 check "profile carries badges array" "true" "$(j '.badges | type == "array"')"
 PHOTO=$(j '.photos[0].id')
 code=$(post "animals/$ANIMAL/follow" "$B" '{}'); check "B follow -> 201" 201 "$code"
-check "following true, count 1" "true 1" "$(j .following) $(j .followerCount)"
-code=$(get "animals/$ANIMAL" "$B"); check "GET shows isFollowing" "true 1" "$(j .isFollowing) $(j .followerCount)"
-code=$(del "animals/$ANIMAL/follow" "$B"); check "B unfollow -> 200" 200 "$code"; check "following false, count 0" "false 0" "$(j .following) $(j .followerCount)"
+check "following true, count 2 (the registrant and B)" "true 2" "$(j .following) $(j .followerCount)"
+code=$(get "animals/$ANIMAL" "$B"); check "GET shows isFollowing" "true 2" "$(j .isFollowing) $(j .followerCount)"
+code=$(del "animals/$ANIMAL/follow" "$B"); check "B unfollow -> 200" 200 "$code"; check "following false, count 1" "false 1" "$(j .following) $(j .followerCount)"
 code=$(post "animals/$ANIMAL/follow" "$B" '{}'); check "B follows again" 201 "$code"
 
 echo "== likes"
@@ -130,8 +138,16 @@ code=$(get "animals/$ANIMAL" "$A"); BEFORE=$(j '.photos | length')
 control '{"mode":"match","verdicts":["different","different","different","different","different","different","different","different"]}'
 code=$(care_photos $ANIMAL "$A" 2); check "A: no gallery file on disk -> accepted unchecked (fail open)" "201 true false 2" "$code $(j .matched) $(j .photoChecked) $(j '.photos | length')"
 check "answer carries the animalBadges list" "true" "$(j '.animalBadges | type == "array"')"
+check "…and the follow state: a new carer follows (P7 item 2)" "true 3" "$(j .following) $(j .followerCount)"
 code=$(get "animals/$ANIMAL" "$A"); check "A is now a carer, gallery grew by 2" "true $((BEFORE+2))" "$(j .isCarer) $(j '.photos | length')"
+check "GET shows A as carer AND follower" "true true" "$(j .isCarer) $(j .isFollowing)"
+# The new carer is announced (P7 item 12) to followers ∪ carers minus A:
+# B (follower) and D (registrant); A hears nothing about itself.
+code=$(get "notifications?limit=5" "$B"); check "B: one unread, kind care, from A" "1 care Bakıcı A" "$(j .unreadCount) $(j '.notifications[0].kind') $(j '.notifications[0].payload.actorName')"
+code=$(get "notifications/unread-count" "$D"); check "D (registrant) hears it too" "1" "$(j .unreadCount)"
+code=$(get "notifications/unread-count" "$A"); check "A is not told about itself" "0" "$(j .unreadCount)"
 code=$(care_photos $ANIMAL "$A" 2); check "A again -> alreadyCarer" "200 true" "$code $(j .alreadyCarer)"
+check "serial second submission (isCarer exit) announces nothing: one care row for B from A" "1" "$(psql_db "SELECT count(*) FROM notifications WHERE user_id=$B_ID AND kind='care' AND actor_id=$A_ID")"
 code=$(care_photos $ANIMAL "$B" 2); check "B: model says different -> 422 miss" "422 carePhotoMismatch" "$code $(j .code)"
 check "miss is Turkish" "true" "$(j '.error | test("benzemiyor")')"
 control '{"mode":"reject"}'
@@ -139,7 +155,30 @@ code=$(care_photos $ANIMAL "$B" 2); check "species screening refuses -> 422 phot
 control '{"mode":"match","verdicts":["different","same","different","different","different","different","different","different"]}'
 code=$(care_photos $ANIMAL "$C" 2); check "C: model says same -> 201 matched, checked" "201 true true 2" "$code $(j .matched) $(j .photoChecked) $(j '.photos | length')"
 code=$(get "animals/$ANIMAL" "$C"); check "C is a carer" "true" "$(j .isCarer)"
+# 009 is a one-shot backfill: a carer who unfollows stays unfollowed when
+# the deploy applies the file again (migrate.js runs every file each time).
+code=$(del "animals/$ANIMAL/follow" "$C"); check "C (carer) unfollows -> 200" 200 "$code"
+npm run migrate >/tmp/pati-animal-social-migrate2.log 2>&1 || { echo "  FAIL  migrate re-run failed (see /tmp/pati-animal-social-migrate2.log)"; FAILED=1; }
+check "009 applied again: C's follower row stays gone" "f" "$(psql_db "SELECT EXISTS (SELECT 1 FROM animal_followers WHERE animal_id=$ANIMAL AND user_id=$C_ID)")"
+check "…and the backfill is on record once" "1" "$(psql_db "SELECT count(*) FROM schema_backfills WHERE name='009_carers_follow'")"
+code=$(post "animals/$ANIMAL/follow" "$C" '{}'); check "C follows again" 201 "$code"
+code=$(get "notifications?limit=5" "$B"); check "B: two care rows now, the newest from C" "2 care Bakıcı Test" "$(j .unreadCount) $(j '.notifications[0].kind') $(j '.notifications[0].payload.actorName')"
+code=$(get "notifications/unread-count" "$A"); check "A (carer) hears about C" "1" "$(j .unreadCount)"
+# Read them away so the inbox section below counts from zero.
+for t in "$A" "$B" "$D"; do post notifications/read "$t" '{}' >/dev/null; done
 check "care attempts logged: A unchecked, C same" "|same" "$(psql_db "SELECT string_agg(coalesce(similarity,''), '|' ORDER BY id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='care'")"
+# The concurrent path: two submissions from one fresh account at once
+# both pass the isCarer read; addCarer's ON CONFLICT lets exactly one
+# insert the row, and only that one announces `care` (becameCarer).
+read -r H H_ID < <(register "Eşzamanlı Test" "esanli-$STAMP@stray.test")
+control '{"mode":"match","verdicts":["same","same","same","same","same","same","same","same"]}'
+curl -s -o /tmp/pati-animal-social-h1.json -w '%{http_code}\n' -X POST "$API/animals/$ANIMAL/care-photos" -H "Authorization: Bearer $H" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg" > /tmp/pati-animal-social-h1.code &
+curl -s -o /tmp/pati-animal-social-h2.json -w '%{http_code}\n' -X POST "$API/animals/$ANIMAL/care-photos" -H "Authorization: Bearer $H" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg" > /tmp/pati-animal-social-h2.code &
+wait
+check "H, two care submissions at once: both answer 2xx" "true" "$(for f in /tmp/pati-animal-social-h1.code /tmp/pati-animal-social-h2.code; do cat $f; done | awk '$1 ~ /^20[01]$/ {n++} END {print (n==2) ? "true" : "false"}')"
+check "…one carer row" "1" "$(psql_db "SELECT count(*) FROM user_animal_care WHERE user_id=$H_ID AND animal_id=$ANIMAL")"
+check "…and one care notification for B from H" "1" "$(psql_db "SELECT count(*) FROM notifications WHERE user_id=$B_ID AND kind='care' AND actor_id=$H_ID")"
+post notifications/read "$B" '{}' >/dev/null
 control '{"mode":"approve"}'
 echo "        (pending files on disk: $(ls uploads | grep -c '^pending-'))"
 
@@ -158,6 +197,19 @@ code=$(get "notifications?limit=10" "$B"); check "B has 3 unread: vaccination, h
 FIRST=$(j '.notifications[0].id')
 code=$(post "notifications/read" "$B" "{\"ids\":[$FIRST]}"); check "read one -> 2 left" "200 2" "$code $(j .unreadCount)"
 code=$(post "notifications/read" "$B" '{}'); check "read all -> 0" "0" "$(j .unreadCount)"
+
+echo "== follow timing (P7 finding 1): a follow brings nothing from before it"
+# Three events are on record now. Someone who follows afterwards must see
+# none of them — rows are written at event time to the recipients of that
+# moment, never backfilled — and hears only what comes later.
+read -r G G_ID < <(register "Sonradan Test" "sonradan-$STAMP@stray.test")
+code=$(post "animals/$ANIMAL/follow" "$G" '{}'); check "G follows after the events -> 201" 201 "$code"
+code=$(get "notifications" "$G"); check "G's inbox is empty: nothing unread, nothing at all" "0 0 0" "$(j .unreadCount) $(j .total) $(j '.notifications | length')"
+code=$(post "animals/$ANIMAL/comments" "$A" '{"body":"Akşam yine buradaydı."}'); check "A comments after the follow -> 201" 201 "$code"
+code=$(get "notifications" "$G"); check "G hears that one only" "1 1 comment" "$(j .unreadCount) $(j .total) $(j '.notifications[0].kind')"
+code=$(del "animals/$ANIMAL/follow" "$G"); check "G unfollows -> 200" 200 "$code"
+code=$(post "animals/$ANIMAL/comments" "$A" '{"body":"Su kabını doldurdum."}'); check "A comments again -> 201" 201 "$code"
+code=$(get "notifications" "$G"); check "…and G, unfollowed, hears nothing new" "1" "$(j .total)"
 
 echo "== the add-animal door: only a 'same' verdict opens it"
 # Our animal is the only candidate in the circle, so the fake's first
@@ -182,7 +234,8 @@ check "the answer carries matchHit for it" "true" "$(jq -r --argjson id $ANIMAL 
 code=$(photo_match "$B"); check "B matches again under same -> a second row, still one user" "2 1" "$(psql_db "SELECT count(*) FROM animal_match_attempts WHERE user_id=$B_ID AND animal_id=$ANIMAL AND kind='register'") $(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")"
 code=$(post "animals/$ANIMAL/sightings" "$B" "{\"lat\":$LAT,\"lng\":$LNG}"); check "B sighting after the 'same' hit -> 200" 200 "$code"
 code=$(get "animals/$ANIMAL" "$B"); check "B became a carer" "true" "$(j .isCarer)"
-code=$(get "notifications/unread-count" "$A"); check "A hears about the sighting" "$((A0+1))" "$(j .unreadCount)"
+code=$(get "notifications?limit=5" "$A"); check "A hears about the new carer, then the sighting" "$((A0+2)) sighting care" "$(j .unreadCount) $(j '.notifications[0].kind') $(j '.notifications[1].kind')"
+check "the door made B a follower as well" "t" "$(psql_db "SELECT EXISTS (SELECT 1 FROM animal_followers WHERE animal_id=$ANIMAL AND user_id=$B_ID)")"
 code=$(post "animals/$ANIMAL/comments" "$B" '{"body":"Ben de gördüm."}'); check "B (carer now) comment -> 201" 201 "$code"
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$ANIMAL/photos" -H "Authorization: Bearer $B" -F "photo=@$FIXTURES/b.jpg;type=image/jpeg"); check "B photo upload as carer -> 201" 201 "$code"
 # Without any model answer the hit is 'unchecked' (fail open, as the care
@@ -230,6 +283,14 @@ check "badge tiers follow the counts (liked followed cared commented matched rec
 check "every earned key is at bronze or above" "true" "$(jq -r '[.badges[] | .tier != null] | all' $BODY)"
 check "owner names in place" "Gönül Çelen" "$(jq -r '.badges[] | select(.key=="liked") | .label' $BODY)"
 code=$(get "animals?lat=$LAT&lng=$LNG&radiusMeters=50&limit=3" "$A"); check "list rows carry badges" "true" "$(jq -r --argjson id $ANIMAL '[.[] | select(.id==$id) | .badges | length > 0] | first' $BODY)"
+# The ladder (P7 item 3): every key with its live count and thresholds,
+# the tier from the awards table.
+code=$(get "animals/$ANIMAL" "$A")
+check "ladder keys in ANIMAL_BADGES order" "matched commented recovered liked followed cared" "$(jq -r '[.badgeLadder[].key] | join(" ")' $BODY)"
+check "ladder counts are the live ones (followed, cared)" "$(echo "$COUNTS" | cut -d'|' -f2) $(echo "$COUNTS" | cut -d'|' -f3)" "$(jq -r '.badgeLadder[] | select(.key=="followed") | .value' $BODY) $(jq -r '.badgeLadder[] | select(.key=="cared") | .value' $BODY)"
+check "ladder tiers agree with the chips" "true" "$(jq -r '[.badgeLadder[] | select(.tier != null) | .tier] == [.badges[] | .tier]' $BODY)"
+check "every ladder step carries the four thresholds" "true" "$(jq -r '[.badgeLadder[] | .thresholds | has("bronze") and has("silver") and has("gold") and has("diamond")] | all' $BODY)"
+code=$(get "animals/$ANIMAL2" "$D"); check "an unearned key: tier null, 0 of 1 to bronze" "null 0 1" "$(jq -r '.badgeLadder[] | select(.key=="liked") | "\(.tier) \(.value) \(.nextThreshold)"' $BODY)"
 
 echo "== device tokens"
 code=$(post "notifications/device-tokens" "$B" '{"platform":"ios","token":"apns-abc"}'); check "register token -> 201" 201 "$code"
@@ -238,12 +299,14 @@ check "token now belongs to A" "$A_ID" "$(psql_db "SELECT user_id FROM device_to
 code=$(post "notifications/device-tokens" "$B" '{"platform":"tv","token":"x"}'); check "bad platform -> 400" 400 "$code"
 code=$(del "notifications/device-tokens" "$A" '{"token":"apns-abc"}'); check "delete token -> 204" 204 "$code"
 
+code=$(get "notifications" "$T1"); check "the standing account's inbox is untouched by the run (P7 finding 1)" "$T1_TOTAL" "$(j .total)"
+
 echo; echo "passed $PASS checks; failed=$FAILED"
 # Cleanup: the run's photo files, then the throwaway animal (cascade) and
 # the accounts. A's rows on the animal go with it.
 psql_db "SELECT url FROM animal_photos WHERE animal_id IN ($ANIMAL,$ANIMAL2)" | while read -r u; do rm -f "uploads/$(basename "$u")" "uploads/$(basename "$u" .jpg)-face.jpg"; done
 while read -r f; do [ -n "$f" ] && rm -f "uploads/$f"; done < "$PENDING_MADE"
-if ! psql_db "DELETE FROM animals WHERE id IN ($ANIMAL,$ANIMAL2); DELETE FROM users WHERE id IN ($B_ID,$C_ID,$D_ID,$E_ID,$F_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null; then
-  echo "  FAIL  cleanup: the throwaway animals $ANIMAL $ANIMAL2 / accounts $B_ID $C_ID $D_ID $E_ID $F_ID are still in the database"; FAILED=1
+if ! psql_db "DELETE FROM animals WHERE id IN ($ANIMAL,$ANIMAL2); DELETE FROM users WHERE id IN ($A_ID,$B_ID,$C_ID,$D_ID,$E_ID,$F_ID,$G_ID,$H_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null; then
+  echo "  FAIL  cleanup: the throwaway animals $ANIMAL $ANIMAL2 / accounts $A_ID $B_ID $C_ID $D_ID $E_ID $F_ID $G_ID $H_ID are still in the database"; FAILED=1
 fi
 exit $FAILED

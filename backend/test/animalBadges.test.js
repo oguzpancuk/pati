@@ -7,6 +7,7 @@ const {
   ANIMAL_BADGES,
   animalBadgeTier,
   tiersUpTo,
+  buildAnimalBadgeLadder,
   COUNT_THRESHOLDS,
   COMMENT_THRESHOLDS,
 } = require('../src/utils/badges');
@@ -63,4 +64,55 @@ test('every badge has a Turkish label, a unit and a symbol the clients draw', ()
     assert.ok(meta.label && meta.unit, key);
     assert.ok(symbols.has(meta.symbol), `${key}: ${meta.symbol}`);
   }
+});
+
+test('the ladder lists every key in order, earned or not, with count and thresholds', () => {
+  const ladder = buildAnimalBadgeLadder(
+    { liked: 7, followed: 1, cared: 0, commented: 12, matched: 0, recovered: 0 },
+    [
+      { badge_key: 'liked', tier: 'bronze' },
+      { badge_key: 'liked', tier: 'silver' },
+      { badge_key: 'followed', tier: 'bronze' },
+      { badge_key: 'commented', tier: 'silver' },
+    ]
+  );
+  assert.deepEqual(
+    ladder.map((b) => b.key),
+    Object.keys(ANIMAL_BADGES)
+  );
+  const liked = ladder.find((b) => b.key === 'liked');
+  assert.equal(liked.tier, 'silver');
+  assert.equal(liked.value, 7);
+  assert.equal(liked.nextThreshold, 20);
+  assert.deepEqual(liked.thresholds, COUNT_THRESHOLDS);
+  assert.equal(liked.label, 'Gönül Çelen');
+  const commented = ladder.find((b) => b.key === 'commented');
+  assert.equal(commented.nextThreshold, 50);
+  assert.deepEqual(commented.thresholds, COMMENT_THRESHOLDS);
+  const cared = ladder.find((b) => b.key === 'cared');
+  assert.equal(cared.tier, null);
+  assert.equal(cared.value, 0);
+  assert.equal(cared.nextThreshold, 1, 'an unearned key points at bronze');
+});
+
+test('the ladder keeps the tier on record when the live count has dropped', () => {
+  // Five followers earned silver; three unfollowed. The chip stays silver
+  // and the progress reads 2 of the 20 gold needs.
+  const [followed] = buildAnimalBadgeLadder({ followed: 2 }, [
+    { badge_key: 'followed', tier: 'bronze' },
+    { badge_key: 'followed', tier: 'silver' },
+  ]).filter((b) => b.key === 'followed');
+  assert.equal(followed.tier, 'silver');
+  assert.equal(followed.value, 2);
+  assert.equal(followed.nextThreshold, 20);
+});
+
+test('a diamond key has no next threshold; a retired key in the awards is ignored', () => {
+  const ladder = buildAnimalBadgeLadder({ liked: 150 }, [
+    { badge_key: 'liked', tier: 'diamond' },
+    { badge_key: 'retired', tier: 'gold' },
+  ]);
+  assert.equal(ladder.find((b) => b.key === 'liked').nextThreshold, null);
+  assert.equal(ladder.length, Object.keys(ANIMAL_BADGES).length);
+  assert.ok(!ladder.some((b) => b.key === 'retired'));
 });

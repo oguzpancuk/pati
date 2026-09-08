@@ -121,7 +121,7 @@ export default function NotificationsScreen({ navigation }: any) {
           <EmptyState
             icon={<Icon name="bell" size={28} color={colors.brand} />}
             title="Henüz bildirim yok"
-            description="Takip ettiğin ya da bakım verdiğin hayvanlara yorum, görülme, sağlık veya aşı kaydı eklendiğinde burada görürsün."
+            description="Takip ettiğin ya da bakım verdiğin hayvanlara yorum, görülme, sağlık veya aşı kaydı eklendiğinde ya da biri bakım vermeye başladığında burada görürsün."
           />
         }
         ListFooterComponent={

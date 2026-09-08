@@ -1653,6 +1653,54 @@ strong {
   align-items: center;
 }
 
+/* The counts at the top of the header (P7 item 5), the bold number first. */
+.animal-stats {
+  display: flex;
+  gap: 16px;
+  margin: 2px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.animal-stats strong {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  margin-right: 3px;
+}
+
+/* A chip that opens the ladder (P7 item 3): a button in the chip's clothes. */
+.animal-badge.tappable {
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: inherit;
+}
+.animal-badge.tappable:hover {
+  border-color: var(--brand);
+  background: var(--brand-tint);
+}
+
+/* "bakım veriyorsun" keeps the outline (P7 item 4): the success ring,
+   centred, never a pointer. */
+.carer-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.ladder-next {
+  font-size: 13px;
+  color: var(--brand);
+}
+
+/* The ladder's rows are read-only: no pointer, whatever .badge-row says. */
+.badge-row.static {
+  cursor: default;
+}
+
 /* Square tiles, three a row; the like count sits on the photo. */
 .animal-photo-grid {
   display: grid;

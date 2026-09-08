@@ -4,6 +4,7 @@
  * out of api.ts on purpose (parallel tracks share that file); same
  * contract as mobile/src/api/animals.ts and notifications.ts.
  */
+import type { AnimalBadgeStep } from '@mobile/animalBadges';
 import type { BadgeSymbolName, BadgeTier } from '@mobile/badges';
 import { api, type Animal, type AnimalDetail, type AnimalPhoto } from '../api';
 
@@ -30,6 +31,8 @@ export interface AnimalSocialDetail extends AnimalDetail {
   followerCount: number;
   isFollowing: boolean;
   badges: AnimalBadge[];
+  /** Every badge key, earned or not, with the live count (P7 item 3): the tier ladder. */
+  badgeLadder: AnimalBadgeStep[];
 }
 
 /** The profile with its social fields; the same endpoint as fetchAnimal. */
@@ -78,6 +81,9 @@ export interface CarePhotoResult {
   photoChecked: boolean;
   photos: SocialPhoto[];
   carerCount?: number;
+  /** A new carer follows too (P7 item 2); the page reloads the profile anyway. */
+  following?: boolean;
+  followerCount?: number;
   animalBadges?: AnimalBadge[];
 }
 
@@ -94,7 +100,7 @@ export function submitCarePhotos(animalId: number, photos: File[]) {
 
 // ---------------------------------------------------------------- inbox
 
-export type NotificationKind = 'comment' | 'sighting' | 'health_record' | 'vaccination';
+export type NotificationKind = 'comment' | 'sighting' | 'health_record' | 'vaccination' | 'care';
 
 export interface NotificationPayload {
   animalName: string | null;
@@ -146,6 +152,8 @@ export function notificationTitle(n: AppNotification): string {
       return `${animal} için sağlık kaydı eklendi`;
     case 'vaccination':
       return `${animal} için aşı kaydı eklendi`;
+    case 'care':
+      return `${actor}, ${animal} için bakım vermeye başladı`;
     default:
       return animal;
   }

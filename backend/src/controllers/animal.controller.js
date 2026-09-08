@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
-const { syncAnimalBadgesSafe, getAnimalBadgesFor } = require('../utils/badges');
+const { syncAnimalBadgesSafe, getAnimalBadgesFor, animalBadgeLadder } = require('../utils/badges');
 const { notifyAnimalEventSafe } = require('./notification.controller');
 const ai = require('../utils/ai');
 const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
@@ -494,7 +494,8 @@ async function getAnimal(req, res, next) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
     }
 
-    const [photos, healthRecords, vaccinations, carers, followers, badges] = await Promise.all([
+    const [photos, healthRecords, vaccinations, carers, followers, badgeLadder] =
+      await Promise.all([
       pool.query(
         `SELECT p.id, p.url, p.thumb_url, p.face_score, p.uploaded_by, p.created_at,
                 u.name AS uploaded_by_name,
@@ -531,7 +532,7 @@ async function getAnimal(req, res, next) {
          FROM animal_followers WHERE animal_id = $1`,
         [req.params.id, req.user.userId]
       ),
-      getAnimalBadgesFor([Number(req.params.id)]),
+      animalBadgeLadder(Number(req.params.id)),
     ]);
 
     const isCarer = carers.rows.some((c) => c.id === req.user.userId);
@@ -557,7 +558,14 @@ async function getAnimal(req, res, next) {
       isCarer,
       followerCount: followers.rows[0]?.count ?? 0,
       isFollowing: followers.rows[0]?.mine === true,
-      badges: badges.get(Number(req.params.id)) ?? [],
+      // The earned badges, in the shape list rows carry (getAnimalBadgesFor),
+      // read off the ladder so the profile runs one badge query, not two.
+      badges: badgeLadder
+        .filter((step) => step.tier !== null)
+        .map(({ thresholds, value, ...badge }) => badge),
+      // Every key, earned or not, with the live count: the tier ladder
+      // behind the header's chips (P7 item 3). List rows carry `badges` only.
+      badgeLadder,
     });
   } catch (err) {
     next(err);
@@ -565,6 +573,26 @@ async function getAnimal(req, res, next) {
 }
 
 const CARERS_ONLY = 'carersOnly';
+
+/**
+ * Becoming a carer — through either door, or by registering the animal —
+ * also makes the user a follower (owner finding, P7 item 2): the profile
+ * shows both states, and the follower count reads as "everyone who hears
+ * about this animal", which the recipients query already treated carers
+ * as. Both inserts are idempotent. Returns true when the carer row is new:
+ * the moment the `care` notification announces.
+ */
+async function addCarer(db, userId, animalId) {
+  const inserted = await db.query(
+    'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+    [userId, animalId]
+  );
+  await db.query(
+    'INSERT INTO animal_followers (animal_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+    [animalId, userId]
+  );
+  return inserted.rowCount > 0;
+}
 
 function carersOnly(res, what) {
   return res.status(403).json({
@@ -596,6 +624,7 @@ async function reportSighting(req, res, next) {
     const client = await pool.connect();
     let result;
     let carer;
+    let becameCarer = false;
     try {
       await client.query('BEGIN');
       carer =
@@ -622,18 +651,22 @@ async function reportSighting(req, res, next) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Hayvan bulunamadı' });
       }
-      if (!carer) {
-        await client.query(
-          'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-          [req.user.userId, req.params.id]
-        );
-      }
+      if (!carer) becameCarer = await addCarer(client, req.user.userId, req.params.id);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
       throw err;
     } finally {
       client.release();
+    }
+    // The door opened: the carers and followers hear about the new carer
+    // first, then about the sighting the confirm reported.
+    if (becameCarer) {
+      await notifyAnimalEventSafe({
+        animalId: Number(req.params.id),
+        kind: 'care',
+        actorId: req.user.userId,
+      });
     }
     await notifyAnimalEventSafe({
       animalId: Number(req.params.id),
@@ -684,10 +717,8 @@ async function createAnimal(req, res, next) {
     );
 
     const animal = result.rows[0];
-    await pool.query(
-      'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [req.user.userId, animal.id]
-    );
+    // The registrant is the first carer, and so the first follower.
+    await addCarer(pool, req.user.userId, animal.id);
 
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
     // The registrant stays a carer automatically; that first carer is
@@ -892,10 +923,9 @@ async function submitCarePhotos(req, res, next) {
       });
     }
 
-    await pool.query(
-      'INSERT INTO user_animal_care (user_id, animal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [req.user.userId, animalId]
-    );
+    // Two submissions racing past the isCarer read above both land here;
+    // the second finds the row in place and announces nothing.
+    const becameCarer = await addCarer(pool, req.user.userId, animalId);
     await pool.query(
       `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity)
        VALUES ($1, $2, 'care', $3)`,
@@ -920,15 +950,27 @@ async function submitCarePhotos(req, res, next) {
     }
     keepFiles = true;
 
+    // Announced once the photos are in the gallery, so the profile a
+    // recipient opens from the inbox already shows the evidence.
+    if (becameCarer) {
+      await notifyAnimalEventSafe({ animalId, kind: 'care', actorId: req.user.userId });
+    }
     const animalBadges = await syncAnimalBadgesSafe(animalId);
     const carerCount = (
       await pool.query('SELECT count(*)::int AS count FROM user_animal_care WHERE animal_id = $1', [
         animalId,
       ])
     ).rows[0].count;
-    res
-      .status(201)
-      .json({ matched: true, alreadyCarer: false, photoChecked, photos, carerCount, animalBadges });
+    res.status(201).json({
+      matched: true,
+      alreadyCarer: false,
+      photoChecked,
+      photos,
+      carerCount,
+      following: true,
+      followerCount: await followerCount(animalId),
+      animalBadges,
+    });
   } catch (err) {
     next(err);
   } finally {

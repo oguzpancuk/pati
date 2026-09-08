@@ -24,7 +24,9 @@ import {
   unlikePhoto,
 } from '../api/animalSocial';
 import { AnimalAvatar, UserAvatar } from '../avatars';
+import { bumpLadderValue, headerBadges, setLadderValue } from '@mobile/animalBadges';
 import { BadgeSymbol } from '../badges';
+import { AnimalBadgeLadder } from '../components/AnimalBadgeLadder';
 import { MiniMap } from '../components/MiniMap';
 import { ReportLink } from '../components/ReportDialog';
 import { useBadgeAwards } from '../badgeAwards';
@@ -134,6 +136,9 @@ export default function AnimalPage() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const likeBusy = useRef<Set<number>>(new Set());
   const [followBusy, setFollowBusy] = useState(false);
+  // The badge ladder (P7 item 3) opens from a header chip; the tapped key
+  // is the highlighted row.
+  const [ladderKey, setLadderKey] = useState<string | null>(null);
   // "Bakım ver" (P6 item 8): the two-photo sheet.
   const [careOpen, setCareOpen] = useState(false);
   const [carePhotos, setCarePhotos] = useState<(File | null)[]>([null, null]);
@@ -296,15 +301,30 @@ export default function AnimalPage() {
       ...animal,
       isFollowing: !was,
       followerCount: animal.followerCount + (was ? -1 : 1),
+      badgeLadder: bumpLadderValue(animal.badgeLadder, 'followed', was ? -1 : 1),
     });
     try {
       const state = was ? await unfollowAnimal(animalId) : await followAnimal(animalId);
       setAnimal((prev) =>
-        prev ? { ...prev, isFollowing: state.following, followerCount: state.followerCount } : prev
+        prev
+          ? {
+              ...prev,
+              isFollowing: state.following,
+              followerCount: state.followerCount,
+              badgeLadder: setLadderValue(prev.badgeLadder, 'followed', state.followerCount),
+            }
+          : prev
       );
     } catch (err) {
       setAnimal((prev) =>
-        prev ? { ...prev, isFollowing: was, followerCount: animal.followerCount } : prev
+        prev
+          ? {
+              ...prev,
+              isFollowing: was,
+              followerCount: animal.followerCount,
+              badgeLadder: animal.badgeLadder,
+            }
+          : prev
       );
       setError(err instanceof Error ? err.message : 'Olmadı');
     } finally {
@@ -329,9 +349,9 @@ export default function AnimalPage() {
       setCareDone(
         result.alreadyCarer
           ? 'Zaten bakım veriyorsun.'
-          : result.photoChecked
-            ? 'Fotoğraflar eşleşti — artık bakıcısın. Yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin.'
-            : 'Artık bakıcısın. Yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin.'
+          : `${
+              result.photoChecked ? 'Fotoğraflar eşleşti — artık' : 'Artık'
+            } bakıcısın. Yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin. Takip de ediyorsun: haberleri sana gelir.`
       );
       await load();
     } catch (err) {
@@ -446,7 +466,17 @@ export default function AnimalPage() {
           size={64}
         />
         <div className="grow">
-          <h1 style={{ margin: '4px 0 2px', fontSize: 25 }}>{displayName}</h1>
+          {/* The counts come first (P7 item 5): who hears about this
+              animal, readable before its name. */}
+          <div className="animal-stats">
+            <span>
+              <strong>{animal.followerCount}</strong> takipçi
+            </span>
+            <span>
+              <strong>{animal.carerCount}</strong> bakıcı
+            </span>
+          </div>
+          <h1 style={{ margin: '0 0 2px', fontSize: 25 }}>{displayName}</h1>
           <div className="muted" style={{ fontSize: 13.5 }}>
             {[
               animal.color ?? 'Rengi belirtilmemiş',
@@ -456,15 +486,23 @@ export default function AnimalPage() {
               .filter(Boolean)
               .join(' · ')}
           </div>
-          {/* The animal's own badges (P6 item 5): the owner's name, the tier
-              as the medallion colour. */}
+          {/* The animal's two highest badges (P6 item 5, P7 item 3): the
+              owner's name, the tier as the medallion colour; a click opens
+              the whole ladder. */}
           {animal.badges.length > 0 && (
             <div className="animal-badges">
-              {animal.badges.map((b) => (
-                <span key={b.key} className="animal-badge" title={`${b.label} · ${b.tier}`}>
+              {headerBadges(animal.badges).map((b) => (
+                <button
+                  key={b.key}
+                  type="button"
+                  className="animal-badge tappable"
+                  title={`${b.label} · ${b.tier}`}
+                  aria-label={`${b.label} rozeti, kademeleri gör`}
+                  onClick={() => setLadderKey(b.key)}
+                >
                   <BadgeSymbol symbol={b.symbol} tier={b.tier} size={18} />
                   {b.label}
-                </span>
+                </button>
               ))}
             </div>
           )}
@@ -485,8 +523,10 @@ export default function AnimalPage() {
             {animal.isFollowing ? '✓ takip ediliyor' : 'takip et'}
           </button>
           {animal.isCarer ? (
-            <span className="tag success grow" style={{ justifyContent: 'center' }}>
-              bakım veriyorsun
+            /* The state keeps the button's outline (P7 item 4): the same
+               green ring as the followed state, not clickable. */
+            <span className="btn small grow outline-success carer-state" role="status">
+              ✓ bakım veriyorsun
             </span>
           ) : (
             <button className="btn small grow" onClick={openCare}>
@@ -495,9 +535,6 @@ export default function AnimalPage() {
           )}
         </div>
       )}
-      <div className="subtle" style={{ margin: '6px 0 10px' }}>
-        {animal.followerCount} takipçi · {animal.carerCount} bakıcı
-      </div>
 
       {/* The photo grid (P6 item 7): square tiles, three a row, each with
           its like count; a tap opens the swipeable viewer. */}
@@ -881,6 +918,14 @@ export default function AnimalPage() {
           </div>
         </div>
       )}
+
+      <AnimalBadgeLadder
+        open={ladderKey !== null}
+        onClose={() => setLadderKey(null)}
+        steps={animal.badgeLadder}
+        focusKey={ladderKey}
+        animalName={displayName}
+      />
 
       {careOpen && (
         <div className="backdrop" onClick={() => !careSending && setCareOpen(false)}>

@@ -508,6 +508,36 @@ async function getAnimalBadgesFor(animalIds) {
   return map;
 }
 
+/**
+ * The ladder behind the profile's badge chips (P7 item 3): every key,
+ * earned or not, in ANIMAL_BADGES order, with the tier on record
+ * (permanent, from animal_badges — a count that later drops never takes a
+ * chip away), the live count, and the thresholds the clients draw the
+ * bronze→diamond ladder from. `awarded` is the animal's animal_badges
+ * rows. Pure, so node:test covers it; the queries are the sync's own.
+ */
+function buildAnimalBadgeLadder(counts, awarded) {
+  const best = new Map();
+  for (const row of awarded) {
+    const current = best.get(row.badge_key);
+    if (!current || TIER_ORDER.indexOf(row.tier) > TIER_ORDER.indexOf(current)) {
+      best.set(row.badge_key, row.tier);
+    }
+  }
+  return Object.keys(ANIMAL_BADGES).map((key) => ({
+    ...animalBadgeEntry(key, best.get(key) ?? null, Math.max(0, Number(counts?.[key]) || 0)),
+    thresholds: ANIMAL_BADGES[key].thresholds,
+  }));
+}
+
+async function animalBadgeLadder(animalId) {
+  const [counts, awarded] = await Promise.all([
+    fetchAnimalCounts(animalId),
+    pool.query('SELECT badge_key, tier FROM animal_badges WHERE animal_id = $1', [animalId]),
+  ]);
+  return buildAnimalBadgeLadder(counts, awarded.rows);
+}
+
 async function getBadgesForUsers(userIds) {
   if (userIds.length === 0) return new Map();
   const [streaks, breeds, comments, health, vaccines] = await Promise.all([
@@ -546,4 +576,6 @@ module.exports = {
   syncAnimalBadges,
   syncAnimalBadgesSafe,
   getAnimalBadgesFor,
+  buildAnimalBadgeLadder,
+  animalBadgeLadder,
 };

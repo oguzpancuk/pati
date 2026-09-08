@@ -131,7 +131,7 @@ export default function NotificationsPage() {
           <strong>Henüz bildirim yok</strong>
           <p className="muted" style={{ margin: '6px 0 0' }}>
             Takip ettiğin ya da bakım verdiğin hayvanlara yorum, görülme, sağlık veya aşı kaydı
-            eklendiğinde burada görürsün.
+            eklendiğinde ya da biri bakım vermeye başladığında burada görürsün.
           </p>
         </div>
       )}

@@ -32,8 +32,10 @@ import {
   unfollowAnimal,
   Vaccination,
 } from '../api/animals';
+import { bumpLadderValue, headerBadges, setLadderValue } from '../animalBadges';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
+import AnimalBadgeLadderModal from '../components/AnimalBadgeLadderModal';
 import { BadgeSymbol } from '../components/badges';
 import ReportLink from '../components/ReportSheet';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
@@ -127,6 +129,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   // medication for this illness" pin to the record. Vaccinations have no chat.
   const [linkedRecord, setLinkedRecord] = useState<HealthRecord | null>(null);
   const [sending, setSending] = useState(false);
+  // The badge ladder (P7 item 3) opens from a header chip; the tapped key
+  // is the highlighted row.
+  const [ladderKey, setLadderKey] = useState<string | null>(null);
 
   const [recordModalVisible, setRecordModalVisible] = useState(false);
   const [recordType, setRecordType] = useState<HealthRecordType>('illness');
@@ -203,15 +208,30 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       ...animal,
       isFollowing: !wasFollowing,
       followerCount: animal.followerCount + (wasFollowing ? -1 : 1),
+      badgeLadder: bumpLadderValue(animal.badgeLadder, 'followed', wasFollowing ? -1 : 1),
     });
     try {
       const state = wasFollowing ? await unfollowAnimal(animalId) : await followAnimal(animalId);
       setAnimal((prev) =>
-        prev ? { ...prev, isFollowing: state.following, followerCount: state.followerCount } : prev
+        prev
+          ? {
+              ...prev,
+              isFollowing: state.following,
+              followerCount: state.followerCount,
+              badgeLadder: setLadderValue(prev.badgeLadder, 'followed', state.followerCount),
+            }
+          : prev
       );
     } catch (err: any) {
       setAnimal((prev) =>
-        prev ? { ...prev, isFollowing: wasFollowing, followerCount: animal.followerCount } : prev
+        prev
+          ? {
+              ...prev,
+              isFollowing: wasFollowing,
+              followerCount: animal.followerCount,
+              badgeLadder: animal.badgeLadder,
+            }
+          : prev
       );
       Alert.alert('Olmadı', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
@@ -387,6 +407,26 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             size={64}
           />
           <View style={styles.headerText}>
+            {/* The counts come first (P7 item 5): who hears about this
+                animal, readable before its name. */}
+            <View style={styles.statsRow}>
+              <View style={styles.stat}>
+                <Text variant="subheading" style={styles.statNumber}>
+                  {animal.followerCount}
+                </Text>
+                <Text variant="captionStrong" color="textMuted">
+                  takipçi
+                </Text>
+              </View>
+              <View style={styles.stat}>
+                <Text variant="subheading" style={styles.statNumber}>
+                  {animal.carerCount}
+                </Text>
+                <Text variant="captionStrong" color="textMuted">
+                  bakıcı
+                </Text>
+              </View>
+            </View>
             <Text variant="title" numberOfLines={1}>
               {displayName}
             </Text>
@@ -399,17 +439,24 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 .filter(Boolean)
                 .join(' · ')}
             </Text>
-            {/* The animal's own badges (P6 item 5): the owner's name, the
-                tier as the medallion colour. */}
+            {/* The animal's two highest badges (P6 item 5, P7 item 3): the
+                owner's name, the tier as the medallion colour; a tap opens
+                the whole ladder. */}
             {animal.badges.length > 0 && (
               <View style={styles.badgeRow}>
-                {animal.badges.map((badge) => (
-                  <View key={badge.key} style={styles.badgeChip}>
+                {headerBadges(animal.badges).map((badge) => (
+                  <Pressable
+                    key={badge.key}
+                    style={styles.badgeChip}
+                    onPress={() => setLadderKey(badge.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${badge.label} rozeti, kademeleri gör`}
+                  >
                     <BadgeSymbol symbol={badge.symbol} tier={badge.tier} size={18} />
                     <Text variant="micro" numberOfLines={1}>
                       {badge.label}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             )}
@@ -444,8 +491,13 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               style={styles.actionButton}
             />
             {animal.isCarer ? (
-              <View style={[styles.actionButton, styles.carerTag]}>
-                <Tag label="bakım veriyorsun" tone="success" />
+              /* The state keeps the button's outline (P7 item 4): the
+                 success variant's green ring and text, not pressable. */
+              <View style={[styles.actionButton, styles.carerState]} accessibilityRole="text">
+                <Icon name="check" size={16} color={colors.onSuccess} />
+                <Text variant="button" style={styles.carerStateText}>
+                  bakım veriyorsun
+                </Text>
               </View>
             ) : (
               <Button
@@ -458,9 +510,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             )}
           </View>
         )}
-        <Text variant="micro" color="textMuted" style={styles.counts}>
-          {animal.followerCount} takipçi · {animal.carerCount} bakıcı
-        </Text>
 
         {/* The photo grid (P6 item 7): square tiles, three a row, each with
             its like count; a tap opens the swipeable viewer. The last row
@@ -913,6 +962,13 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           </View>
         </View>
       </Modal>
+      <AnimalBadgeLadderModal
+        visible={ladderKey !== null}
+        onClose={() => setLadderKey(null)}
+        steps={animal.badgeLadder}
+        focusKey={ladderKey}
+        animalName={displayName}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -936,10 +992,30 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderWidth: 1,
     borderColor: c.border,
   },
-  actionRow: { flexDirection: 'row', gap: spacing.sm, marginTop: -spacing.sm },
+  statsRow: { flexDirection: 'row', gap: spacing.lg, marginBottom: spacing.xs },
+  stat: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
+  statNumber: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 26 },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+  },
   actionButton: { flex: 1 },
-  carerTag: { alignItems: 'center', justifyContent: 'center' },
-  counts: { marginTop: spacing.sm, marginBottom: spacing.md },
+  // Mirrors Button's `success` variant at size sm (pill, 1pt ring).
+  carerState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: c.success,
+    backgroundColor: c.surface,
+  },
+  carerStateText: { color: c.onSuccess, fontSize: 13, lineHeight: 18 },
   photoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
