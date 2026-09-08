@@ -26,12 +26,14 @@ CREATE TABLE IF NOT EXISTS animal_followers (
 );
 CREATE INDEX IF NOT EXISTS idx_animal_followers_user ON animal_followers (user_id);
 
--- Every time the match step (add-animal) or the care-photo step names this
--- animal: `register` rows are the candidates a registration showed
--- (high/medium similarity), `care` rows the "bakım ver" matches. A badge
--- source, and the evidence a sighting from the add-animal flow stands on
--- (see reportSighting: a register hit within fifteen minutes lets a
--- non-carer confirm "that's the one").
+-- Every time a PHOTO names this animal: `register` rows come from the
+-- add-animal match step (similarity = the model's photo verdict, or
+-- 'unchecked' when photos were sent and the model gave no answer — the
+-- field-only form logs nothing), `care` rows from the "bakım ver" step.
+-- A badge source (counted per distinct user), and the evidence a sighting
+-- from the add-animal flow stands on (see reportSighting: a register hit
+-- within fifteen minutes lets a non-carer confirm "that's the one"). Rows
+-- are bounded by the match rate limit; nothing prunes them yet.
 CREATE TABLE IF NOT EXISTS animal_match_attempts (
     id SERIAL PRIMARY KEY,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
@@ -65,7 +67,12 @@ CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications (user_id) W
 
 -- Where a push would go. Registered by the clients now; no sender exists
 -- yet (APNs/FCM is a later batch), the rows just wait. A token belongs to
--- one user at a time: re-registering after a sign-out moves it.
+-- one user at a time: re-registering after a sign-out moves it. Open
+-- point for that batch: any signed-in user can claim any token string
+-- (the server cannot verify ownership of an APNs/FCM token), so a sender
+-- must treat a moved token as the NEW user's device and the clients must
+-- delete theirs on sign-out — or the sender verifies tokens with the
+-- push service before its first send.
 CREATE TABLE IF NOT EXISTS device_tokens (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -359,8 +359,9 @@ function buildBadgesFor(userId, streaks, breeds, comments, health, vaccines) {
 // Tiers are count-based: 1/5/20/100 (comments 1/10/50/200), the user
 // ladders. A tier, once earned, is permanent — the sync only ever inserts.
 const ANIMAL_BADGES = {
-  // Registration match hits: the add-animal step showed this animal as a
-  // high/medium candidate (animal_match_attempts, kind = 'register').
+  // Registration match hits: someone's photo put this animal forward in
+  // the add-animal step (animal_match_attempts, kind = 'register'),
+  // counted per person — a retried form is one recognition, not five.
   matched: {
     label: 'Tanıdık Yüz',
     unit: 'eşleşme',
@@ -374,7 +375,12 @@ const ANIMAL_BADGES = {
     thresholds: COMMENT_THRESHOLDS,
   },
   // Health records marked recovered.
-  recovered: { label: 'Şifa Bulan', unit: 'iyileşme', symbol: 'health', thresholds: COUNT_THRESHOLDS },
+  recovered: {
+    label: 'Şifa Bulan',
+    unit: 'iyileşme',
+    symbol: 'health',
+    thresholds: COUNT_THRESHOLDS,
+  },
   liked: { label: 'Gönül Çelen', unit: 'beğeni', symbol: 'paw', thresholds: COUNT_THRESHOLDS },
   followed: {
     label: 'Mahallenin Yıldızı',
@@ -403,7 +409,7 @@ function tiersUpTo(tier) {
 async function fetchAnimalCounts(animalId) {
   const result = await pool.query(
     `SELECT
-       (SELECT count(*) FROM animal_match_attempts WHERE animal_id = $1 AND kind = 'register')::int AS matched,
+       (SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id = $1 AND kind = 'register')::int AS matched,
        (SELECT count(*) FROM animal_comments WHERE animal_id = $1)::int AS commented,
        (SELECT count(*) FROM health_records WHERE animal_id = $1 AND recovered_at IS NOT NULL)::int AS recovered,
        (SELECT count(*) FROM animal_photo_likes l JOIN animal_photos p ON p.id = l.photo_id WHERE p.animal_id = $1)::int AS liked,

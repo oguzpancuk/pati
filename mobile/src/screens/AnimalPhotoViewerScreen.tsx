@@ -26,6 +26,8 @@ export default function AnimalPhotoViewerScreen({ route, navigation }: any) {
   const [index, setIndex] = useState(initialIndex);
   const busyRef = useRef<Set<number>>(new Set());
 
+  // why: FlatList's ViewToken type is not exported by RN 0.74's public
+  // index; only `index` is read here.
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: any[] }) => {
     const first = viewableItems[0];
     if (first && typeof first.index === 'number') setIndex(first.index);
@@ -144,8 +146,9 @@ function formatDate(iso?: string) {
 }
 
 const useStyles = makeStyles(({ colors: c }) => ({
-  // The viewer is the one screen with a fixed dark ground in both themes:
-  // photos read best on black, and the bars sit on the photo itself.
+  // why: the one hex outside src/theme — the viewer ground is pure black
+  // in both themes (photos read best on it, the bars sit on the photo),
+  // and no palette token means "black regardless of theme".
   root: { flex: 1, backgroundColor: '#000000' },
   photo: { flex: 1 },
   topBar: {

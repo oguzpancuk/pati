@@ -379,17 +379,27 @@ async function matchAnimals(req, res, next) {
         { expiresIn: PHOTO_TOKEN_TTL, jwtid: crypto.randomUUID() }
       )
     );
+    // A "match hit": the user's photo put this animal forward. A badge
+    // source (ANIMAL_BADGES.matched) and, for fifteen minutes, the evidence
+    // that lets this user confirm "that's the one" as a non-carer (see
+    // reportSighting) — the add-animal flow's own care-photo step. Only a
+    // photo can mint one: the field-only GET never logs anything, and with
+    // the model's answer in hand only photo_same/photo_similar count; with
+    // photos sent but no answer the hit is logged unchecked, the way
+    // submitCarePhotos accepts unchecked (ADR-0005, the AI fails open).
+    // Awaited: the door reads this row right after the client's confirm.
+    const hits = files.length === 0 ? [] : matchHitsOf(candidates, photoChecked);
+    try {
+      await logMatchHits(req.user.userId, hits);
+    } catch (err) {
+      // A failed log must not turn into a failed match; the door then
+      // stays shut for this attempt and the care-photo step remains.
+      console.warn(`[match] could not log hits: ${err?.message ?? err}`);
+    }
     keepFiles = true;
     res.json({ candidates, radiusMeters: MATCH_RADIUS_METERS, photoChecked, photoTokens });
-
-    // Every candidate shown is a "match hit" on that animal: a badge source
-    // (ANIMAL_BADGES.matched) and, for fifteen minutes, the evidence that
-    // lets this user confirm "that's the one" as a non-carer (see
-    // reportSighting). After the response — the user is waiting on the
-    // matching screen, and a failed log must not turn into a failed match.
-    logMatchHits(req.user.userId, candidates).catch((err) =>
-      console.warn(`[match] could not log hits: ${err?.message ?? err}`)
-    );
+    // The badge counts catch up after the answer (up to twenty animals).
+    for (const hit of hits) syncAnimalBadgesSafe(hit.id);
   } catch (err) {
     next(err);
   } finally {
@@ -401,23 +411,31 @@ async function matchAnimals(req, res, next) {
 // animal" — the photoToken's lifetime, the add-animal flow's own window.
 const MATCH_HIT_WINDOW = '15 minutes';
 
-async function logMatchHits(userId, shown) {
-  // The field-only fallback lists low tiers too; those are not hits.
-  const candidates = shown.filter((c) => c.similarity !== 'low');
-  if (candidates.length === 0) return;
+// Which shown candidates the photo itself put forward. `similarity` on
+// the row records the evidence: the model's verdict, or 'unchecked' when
+// it gave none (the field-only fallback list, low tiers excluded).
+function matchHitsOf(candidates, photoChecked) {
+  return candidates.flatMap((c) => {
+    if (photoChecked) {
+      const reason = c.similarity_reasons.find((r) => r === 'photo_same' || r === 'photo_similar');
+      return reason ? [{ id: c.id, similarity: reason }] : [];
+    }
+    return c.similarity === 'low' ? [] : [{ id: c.id, similarity: 'unchecked' }];
+  });
+}
+
+async function logMatchHits(userId, hits) {
+  if (hits.length === 0) return;
   const values = [];
   const params = [userId];
-  for (const candidate of candidates) {
-    params.push(candidate.id, candidate.similarity);
+  for (const hit of hits) {
+    params.push(hit.id, hit.similarity);
     values.push(`($${params.length - 1}, $1, 'register', $${params.length})`);
   }
   await pool.query(
     `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity) VALUES ${values.join(', ')}`,
     params
   );
-  // The badge sync reads the counts back; sequential on purpose — up to
-  // twenty animals, and the request is already answered.
-  for (const candidate of candidates) await syncAnimalBadgesSafe(candidate.id);
 }
 
 async function hasRecentMatchHit(userId, animalId) {
@@ -525,10 +543,10 @@ function carersOnly(res, what) {
 // Reporting a sighting of a registered animal: moves the animal's current
 // location to the reporter's position. Carers only (owner decision,
 // 2026-09-08) — with one door: the add-animal flow calls this when "that's
-// the one" is confirmed, and that user just came through the match step,
-// where this animal was shown as a candidate (a photo the model compared,
-// when it is on). That logged hit, fresh, stands as the care-photo step
-// would and makes the reporter a carer.
+// the one" is confirmed, and that user just came through the match step
+// with photos of the animal, which the model compared with this one (see
+// matchHitsOf: a field-only match opens nothing). That logged hit, fresh,
+// stands as the care-photo step would and makes the reporter a carer.
 async function reportSighting(req, res, next) {
   try {
     const { lat, lng } = req.body;
@@ -792,6 +810,13 @@ async function submitCarePhotos(req, res, next) {
 
     let photoChecked = false;
     let same = false;
+    if (gallery.rows.length > 0 && candidates.length === 0) {
+      // Rows without a file: a volume swap, a sweep, a seeded database. The
+      // match then passes unchecked, which is worth a line in the log.
+      console.warn(
+        `[care] animal ${animalId}: none of ${gallery.rows.length} gallery photo(s) is on disk; accepting unchecked`
+      );
+    }
     if (ai.isConfigured() && candidates.length > 0) {
       for (const file of files) {
         const verdicts = await ai.compareAnimalPhotos(file.path, candidates, animal.species);

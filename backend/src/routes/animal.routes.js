@@ -30,8 +30,10 @@ router.get('/', listAnimals);
 // The literal '/match' path must precede '/:id', or "match" parses as an id.
 // GET is the field-only form; POST carries the new animal's photos — each
 // screened for the species, the first compared with the candidates — and
-// is limited on its own: each call is up to seven vision requests.
-router.get('/match', requireAuth, matchAnimals);
+// is limited on its own: each call is up to seven vision requests. GET
+// shares the bucket: it is one form's worth of calls either way, and a
+// loop over it must not be free (review finding).
+router.get('/match', requireAuth, limits.matchAnimals, matchAnimals);
 router.post(
   '/match',
   requireAuth,

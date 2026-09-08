@@ -130,7 +130,7 @@ export function notificationTitle(n: AppNotification): string {
     case 'comment':
       return `${actor}, ${animal} için yorum yazdı`;
     case 'sighting':
-      return `${actor}, ${animal}'i gördüğünü bildirdi`;
+      return `${actor}, ${animal} için görülme bildirdi`;
     case 'health_record':
       return `${animal} için sağlık kaydı eklendi`;
     case 'vaccination':
