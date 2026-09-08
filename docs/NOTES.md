@@ -2392,3 +2392,40 @@ the next docs touch.
   and an unbroken quoted word clamped inside the bubble (measured in
   headless Chromium by the reviewer); post-merge screenshots of a
   conversation on both clients from main.
+- Track A′ review (NEEDS_WORK twice, then the fixes in ab508e3, 6515919,
+  56eca0f): web seats the freshly created avatars (the repaint used to move
+  the markers about to be removed); one user-dot marker moved by every fix
+  (`placeUserDot`), so the locate button and the drop flow carry the dot,
+  the range ring and the layout anchor with them, and the marker is
+  positioned before it is added (a positionless marker paints at the
+  map's origin); the celebration hearts rise from the avatar's fan seat on
+  both clients — on mobile through a ref so the fallback timer armed by an
+  older render sees the reloaded data; mobile's locate refetches with the
+  fix it took and shows fixed Turkish copy on failure; a shared empty
+  placement below the gate; dead pin CSS and a duplicated `.user-dot`
+  block removed. Known, stated: single-link chaining has no cap (a street
+  of records under 61 m apart at zoom 15 becomes one wide fan) and a fan
+  seat can still land near the dot when the stack's centroid is off it.
+
+## 2026-09-09 — P7 Track C′ merged: carers follow, care notification, badge ladder
+
+- Merged `track/animal-social-2` into main with `--no-ff` (107ea46; seven
+  commits, review NEEDS_WORK → APPROVE → minors folded). Owner findings
+  1–5 and 12: "bakım ver" (both doors) also follows, with a one-shot
+  backfill for existing carers (009, behind a `schema_backfills` sentinel
+  so re-runs never re-follow someone who unfollowed); a `care`
+  notification kind ("<kişi>, <hayvan> için bakım vermeye başladı") to
+  followers ∪ carers, announced only when the carer row was really new;
+  the profile header shows follower/carer counts on top and the two
+  highest badges, tap opens the read-only ladder (bronze→diamond, live
+  count, "N kaldı"); the cared state keeps its outline. Finding 1 ("past
+  notifications on follow") was not the product: the animal-social harness
+  used test1 as its carer and left real inbox rows behind between runs;
+  it now registers its own carer and asserts test1's inbox is untouched,
+  and the follow-timing section proves a late follower gets nothing older
+  than the follow.
+- Evidence: harness 124/124 (incl. a concurrent double care-photo
+  submission → one carer row, one care notification), node:test 9/9, jest
+  34/34 in the track (41 on main after the merge), 009 applied three times
+  locally; web screenshots of the header, the ladder, Ozi's profile and a
+  care notification; simulator shot of the profile at the merge pass.
