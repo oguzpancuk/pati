@@ -2293,3 +2293,41 @@ the next docs touch.
   "Mahalle Kedileri" group) and a DM conversation (bubbles, "Bu mesaj
   silindi" placeholders, the composer) render on iOS from main — the owed
   mobile screenshots for Track B.
+
+## 2026-09-08 — P6 Track C merged: likes, follow/care, inbox, animal badges
+
+- Merged `track/animal-social` into main with `--no-ff` (b195e5d; 15
+  commits, six review rounds ending APPROVE). Three add/add conflicts
+  with Track B (the route mount in `backend/src/app.js`, the page imports
+  in `web/src/App.tsx`, the appended sections of `web/src/theme.css`)
+  were resolved by keeping both sides in order — additions only, nothing
+  rewritten. Owner decisions (items 5–8): kedi/köpek profili title;
+  square photo grid, swipeable viewer, one like per user with a count;
+  "takip et" (free) and "bakım ver" (two photos, model-matched); comments,
+  sightings, health/vaccination and photo uploads carers-only; followers
+  ∪ carers minus the actor get notifications; an in-app inbox (bell on
+  the profile tab, polled; the food/water care alerts are merged in from
+  a local log on both clients); `device_tokens` registered for a later
+  push sender; animal badges with the owner's names.
+- The add-animal door and its rules (server-side `matchHit`, the one-shot
+  spend, what "Tanıdık Yüz" counts) are recorded in ADR-0005's 2026-09-08
+  amendment "who may care for an animal"; the six review rounds were
+  mostly about closing photo-free or model-refused paths to carer rights.
+- Schema (007): animal_photo_likes, animal_followers,
+  animal_match_attempts (+ `used_at`), notifications, device_tokens,
+  animal_badges — new tables only, so the "also in 001" column rule does
+  not apply; 007 is re-runnable and was applied twice locally next to 006.
+- Evidence: `backend/scripts/animal-social/run.sh` 93/93 (fake Gemini),
+  `backend/test/animalBadges.test.js` 6/6 (now in the battery), twelve web
+  playwright screenshots in the track's scratchpad (profile, viewer,
+  buttons, care sheet miss/match, bell, inbox, list badges, the review bar
+  in its three states). Track decisions, stated: a care-step `similar` is
+  a miss; care photos join the gallery; badge symbols reuse the medallion
+  glyphs; the inbox marks itself read on open.
+- Left open: no client registers a device token yet and no local notifee
+  for inbox items (the push batch); `POST /reports` does not know
+  `message`.
+- Merge pass, simulator: "kedi profili" for Ozi with takip et / bakım ver,
+  the follower/carer counts, the photo grid with like counts and the
+  carers-only door bar; the notifications inbox from `pati://notifications`.
+  `backend/test` (node:test) joined the quick battery as "backend test".

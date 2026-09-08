@@ -37,6 +37,9 @@ step "mobile jest"     mobile  npx jest --ci
 step "admin tsc"       admin   npx tsc --noEmit
 step "web tsc"         web     npx tsc --noEmit
 step "backend load"    backend node -e "require('./src/app.js')"
+# The backend's only unit tests so far (badge thresholds); node:test, no
+# database needed.
+step "backend test"    backend node --test test/
 
 if [ "$mode" = "full" ]; then
   step "mobile bundle" mobile  npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output /tmp/pati-bundle.js
