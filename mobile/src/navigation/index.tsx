@@ -20,6 +20,10 @@ import FindFriendsScreen from '../screens/FindFriendsScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import UserCommentsScreen from '../screens/UserCommentsScreen';
 import VerifyEmailScreen from '../screens/VerifyEmailScreen';
+import MessagesScreen from '../screens/MessagesScreen';
+import NewConversationScreen from '../screens/NewConversationScreen';
+import ConversationScreen from '../screens/ConversationScreen';
+import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import { BadgeAwardProvider } from '../context/BadgeAwardContext';
 import { useCareAlerts } from '../useCareAlerts';
 
@@ -40,11 +44,16 @@ export type MainStackParamList = {
   Leaderboard: undefined;
   // Without userId, our own comments are listed.
   UserComments: { userId?: number | 'me'; name?: string } | undefined;
+  NewConversation: undefined;
+  // title: shown in the header until the conversation itself loads.
+  Conversation: { conversationId: number; title?: string };
+  GroupSettings: { conversationId: number };
 };
 
 export type MainTabParamList = {
   Map: undefined;
   Animals: undefined;
+  Messages: undefined;
   Profile: undefined;
 };
 
@@ -82,7 +91,7 @@ const linking: LinkingOptions<MainStackParamList> = {
     initialRouteName: 'Tabs',
     screens: {
       Tabs: {
-        screens: { Map: 'map', Animals: 'animals', Profile: 'profile' },
+        screens: { Map: 'map', Animals: 'animals', Messages: 'messages', Profile: 'profile' },
       },
       AddAnimal: 'add-animal',
       AnimalProfile: { path: 'animal/:animalId', parse: { animalId: Number } }, // ?matchReview=1 / ?report=1
@@ -90,6 +99,12 @@ const linking: LinkingOptions<MainStackParamList> = {
       FindFriends: 'friends',
       Leaderboard: 'leaderboard',
       UserComments: 'comments',
+      NewConversation: 'messages/new',
+      Conversation: { path: 'conversation/:conversationId', parse: { conversationId: Number } },
+      GroupSettings: {
+        path: 'conversation/:conversationId/settings',
+        parse: { conversationId: Number },
+      },
     },
   },
 };
@@ -110,6 +125,7 @@ function AuthNavigator() {
 const TAB_ICONS: Record<keyof MainTabParamList, IconName> = {
   Map: 'pin',
   Animals: 'paw',
+  Messages: 'chat',
   Profile: 'user',
 };
 
@@ -127,6 +143,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Map" component={MapScreen} options={{ title: 'harita' }} />
       <Tab.Screen name="Animals" component={AnimalsScreen} options={{ title: 'hayvanlar' }} />
+      <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'mesajlar' }} />
       <Tab.Screen name="Profile" component={UserProfileScreen} options={{ title: 'profilim' }} />
     </Tab.Navigator>
   );
@@ -166,6 +183,21 @@ function MainNavigator() {
         name="UserComments"
         component={UserCommentsScreen}
         options={{ title: 'yorumlar' }}
+      />
+      <MainStack.Screen
+        name="NewConversation"
+        component={NewConversationScreen}
+        options={{ title: 'yeni sohbet' }}
+      />
+      <MainStack.Screen
+        name="Conversation"
+        component={ConversationScreen}
+        options={({ route }) => ({ title: route.params.title ?? 'sohbet' })}
+      />
+      <MainStack.Screen
+        name="GroupSettings"
+        component={GroupSettingsScreen}
+        options={{ title: 'grup ayarları' }}
       />
     </MainStack.Navigator>
   );

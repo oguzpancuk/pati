@@ -75,6 +75,14 @@ const limits = {
   // hour against a million codes. Honest users type one code, maybe twice.
   verifyEmail: userRateLimit({ windowMs: HOUR, limit: 30, action: 'doğrulama denemesi' }),
   verifyResend: userRateLimit({ windowMs: HOUR, limit: 6, action: 'kod isteği' }),
+  // Direct messages: a fast back-and-forth is a few a minute; 300/hour is
+  // one every 12 seconds nonstop, and bounds a spam script's reach.
+  messages: userRateLimit({ windowMs: HOUR, limit: 300, action: 'mesaj' }),
+  // Conversation and membership changes (create, rename, add, remove,
+  // promote): setting up a handful of groups is well under this.
+  messageAdmin: userRateLimit({ windowMs: HOUR, limit: 40, action: 'sohbet işlemi' }),
+  // Reports on messages: the same tight budget as /reports.
+  messageReports: userRateLimit({ windowMs: HOUR, limit: 20, action: 'şikayet' }),
 };
 
 module.exports = { userRateLimit, limits };

@@ -18,6 +18,7 @@ const TARGET_LABELS: Record<string, string> = {
   comment: 'Yorum',
   care_action: 'Bakım kaydı',
   user: 'Kullanıcı',
+  message: 'Mesaj',
 };
 
 type StatusFilter = 'open' | 'resolved' | 'dismissed';
