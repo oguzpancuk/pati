@@ -97,6 +97,21 @@ test('a junk radius is refused rather than falling back to the default', async (
   }
 });
 
+test('addCareAction refuses an empty or out-of-range pin', async () => {
+  for (const body of [
+    { lat: '', lng: '29', actionType: 'food', photoToken: 'x' },
+    { lat: '999', lng: '29', actionType: 'food', photoToken: 'x' },
+    { lat: '41', lng: '181', actionType: 'food', photoToken: 'x' },
+  ]) {
+    const res = fakeRes();
+    await care.addCareAction({ body, file: null }, res, (err) =>
+      assert.fail(`passed to next(): ${err}`)
+    );
+    assert.strictEqual(res.code, 400, JSON.stringify(body));
+    assert.match(res.body.error, /geçerli bir konum olmalıdır/);
+  }
+});
+
 test('an empty coordinate never reaches the database', async () => {
   for (const handler of [care.listCareActions, care.getCareStatus]) {
     const res = fakeRes();

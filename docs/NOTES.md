@@ -2591,6 +2591,20 @@ the next docs touch.
     (`navigator.permissions`), the parity the mobile fix left open.
     `backend/test/coordinateGuards.test.js` pins all of it without a
     database (15 backend tests).
+  - Seventh round. `backend/src/utils/numbers.js` gained `coordinate()`,
+    which parses AND range-checks a pair: PostGIS silently coerces lat 999
+    into −81, so a drop could be stored hundreds of kilometres from where
+    the client said. Every coordinate WRITE now goes through it — the care
+    drop, the animal match, the sighting (which moves the animal) and the
+    create — all answering 400 "lat ve lng geçerli bir konum olmalıdır"
+    (verified live: 400 for lat 999 and for an empty lat on all four).
+    Web's failure flag moved to where the location attempt actually fails
+    (the initial fix's catch and locateMe) and uses the project's own
+    `hasLocationPermission`, which covers Safari's missing permission
+    query — the inline version announced "Buranın durumu alınamadı" while
+    the first fix was still in flight. Mobile's animals fetch no longer
+    drops the centre for a user at latitude or longitude exactly 0.
+    16 backend tests.
   - The world view opens at zoom 2.2 with a floor of 2 on both clients:
     the generated basemap drops the low-zoom `natural_earth` raster, so
     below ~2 the vector layers paint nothing (blank cream). The build

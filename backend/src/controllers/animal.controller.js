@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
-const { finiteNumber, isPresent } = require('../utils/numbers');
+const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
 const { syncAnimalBadgesSafe, getAnimalBadgesFor, animalBadgeLadder } = require('../utils/badges');
 const { notifyAnimalEventSafe } = require('./notification.controller');
 const ai = require('../utils/ai');
@@ -305,6 +305,13 @@ async function matchAnimals(req, res, next) {
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
+    // Parsed and range-checked here: PostGIS coerces an out-of-range
+    // coordinate instead of refusing it, and an empty string reaches it as
+    // an English 500 (review finding).
+    const point = coordinate(lat, lng);
+    if (!point) {
+      return res.status(400).json({ error: 'lat ve lng geçerli bir konum olmalıdır' });
+    }
 
     // Screened before the comparison: a photo of a person compared with
     // forty cats would only spend the model's time on a refusal. In
@@ -334,7 +341,7 @@ async function matchAnimals(req, res, next) {
          AND a.species = $4
        ORDER BY distance_meters, a.id
        LIMIT 200`,
-      [lng, lat, MATCH_RADIUS_METERS, species]
+      [point.lng, point.lat, MATCH_RADIUS_METERS, species]
     );
 
     const input = { breed, color };
@@ -639,6 +646,13 @@ async function reportSighting(req, res, next) {
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
+    // Parsed and range-checked here: PostGIS coerces an out-of-range
+    // coordinate instead of refusing it, and an empty string reaches it as
+    // an English 500 (review finding).
+    const point = coordinate(lat, lng);
+    if (!point) {
+      return res.status(400).json({ error: 'lat ve lng geçerli bir konum olmalıdır' });
+    }
 
     // One transaction: the carer read, the spend of the hit, the moved
     // location and the carer row happen together — a second confirm
@@ -668,7 +682,7 @@ async function reportSighting(req, res, next) {
          WHERE id = $3
          RETURNING id, species, name, color, breed, markings, created_at, location_updated_at,
                    ST_AsGeoJSON(location)::json AS location`,
-        [lng, lat, req.params.id]
+        [point.lng, point.lat, req.params.id]
       );
       if (result.rows.length === 0) {
         await client.query('ROLLBACK');
@@ -713,6 +727,13 @@ async function createAnimal(req, res, next) {
     if (lat === undefined || lng === undefined) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
+    // Parsed and range-checked here: PostGIS coerces an out-of-range
+    // coordinate instead of refusing it, and an empty string reaches it as
+    // an English 500 (review finding).
+    const point = coordinate(lat, lng);
+    if (!point) {
+      return res.status(400).json({ error: 'lat ve lng geçerli bir konum olmalıdır' });
+    }
     // Pattern and color come from a list, but "Diğer" lets users type free
     // text. The length cap matches the column (VARCHAR(120)); otherwise the
     // user sees a meaningless database error.
@@ -733,8 +754,8 @@ async function createAnimal(req, res, next) {
         color || null,
         breed || null,
         markings || null,
-        lng,
-        lat,
+        point.lng,
+        point.lat,
         req.user.userId,
       ]
     );

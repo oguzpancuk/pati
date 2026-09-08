@@ -18,4 +18,18 @@ function isPresent(value) {
   return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
-module.exports = { finiteNumber, isPresent };
+/**
+ * A latitude/longitude pair from the wire. PostGIS silently coerces an
+ * out-of-range coordinate (lat 999 becomes −81) and would store a record
+ * hundreds of kilometres from where the client said, so the range is
+ * checked here, not left to the database (review finding, 2026-09-09).
+ */
+function coordinate(lat, lng) {
+  const latN = finiteNumber(lat);
+  const lngN = finiteNumber(lng);
+  if (latN === null || lngN === null) return null;
+  if (latN < -90 || latN > 90 || lngN < -180 || lngN > 180) return null;
+  return { lat: latN, lng: lngN };
+}
+
+module.exports = { finiteNumber, isPresent, coordinate };

@@ -130,7 +130,11 @@ export async function fetchAnimals(options: FetchAnimalsOptions = {}): Promise<A
   const { lat, lng, radiusMeters, species, limit, offset } = options;
   const { data } = await apiClient.get<Animal[]>('/animals', {
     params:
-      lat && lng ? { lat, lng, radiusMeters, species, limit, offset } : { species, limit, offset },
+      // A user at latitude or longitude exactly 0 must still get their
+      // neighbourhood, not the newest animals worldwide (review finding).
+      lat !== undefined && lng !== undefined
+        ? { lat, lng, radiusMeters, species, limit, offset }
+        : { species, limit, offset },
   });
   return data;
 }

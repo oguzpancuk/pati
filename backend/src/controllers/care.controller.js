@@ -6,7 +6,7 @@ const pool = require('../config/db');
 const { UPLOADS_DIR } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const ai = require('../utils/ai');
-const { finiteNumber, isPresent } = require('../utils/numbers');
+const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
 
 // A checked photo is handed back to the client as a signed claim over the
 // stored file; the confirm step sends it instead of uploading again. Short
@@ -152,13 +152,15 @@ async function addCareAction(req, res, next) {
       return res.status(400).json({ error: 'Fotoğraf zorunludur' });
     }
 
-    // finiteNumber, not Number: '' would otherwise record the drop at 0,0.
-    const pinLat = finiteNumber(lat);
-    const pinLng = finiteNumber(lng);
-    if (pinLat === null || pinLng === null) {
+    // `coordinate`, not Number: '' would record the drop at 0,0 and a
+    // lat of 999 would be coerced by PostGIS into the southern ocean.
+    const pin = coordinate(lat, lng);
+    if (!pin) {
       if (req.file) fs.unlink(req.file.path, () => {});
-      return res.status(400).json({ error: 'lat ve lng sayı olmalıdır' });
+      return res.status(400).json({ error: 'lat ve lng geçerli bir konum olmalıdır' });
     }
+    const pinLat = pin.lat;
+    const pinLng = pin.lng;
 
     // Two ways in: a photoToken from the check step (both apps), or a
     // direct upload, which is checked here so that no client can skip the

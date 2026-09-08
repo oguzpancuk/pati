@@ -36,6 +36,7 @@ import {
 import {
   getCurrentLocation,
   describeLocationError,
+  hasLocationPermission,
   Coordinates,
 } from '../location';
 import { resolvedThemeName } from '../theme';
@@ -327,6 +328,7 @@ export default function MapPage() {
       map.flyTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM, duration: 500 });
     } catch (err) {
       setError(describeLocationError(err));
+      setStatusFailed(await hasLocationPermission());
     }
   }
 
@@ -468,9 +470,13 @@ export default function MapPage() {
         map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
         placeUserDot(loc);
       })
-      .catch(() => {
-        /* Without a location the map stays on the world view; the locate
-           button and the add-record flow ask again. */
+      .catch(async () => {
+        // Without a location the map stays on the world view. A granted
+        // permission that produced no fix is a failed lookup, a refused
+        // one is "we don't know where you are" — the sheet says which
+        // (mobile does the same with hasLocationPermission).
+        if (mapRef.current !== map) return;
+        setStatusFailed(await hasLocationPermission());
       });
 
     return () => {
@@ -597,26 +603,11 @@ export default function MapPage() {
   useEffect(() => {
     // Without a fix there is no "here" to judge — the sheet says so
     // instead of describing the fallback centre (review finding).
-    if (myLocation) {
-      loadStatuses(myLocation);
-      return;
-    }
-    // No fix: tell a denied permission ("we don't know where you are")
-    // from a granted one that produced none (a failed lookup) — mobile
-    // does the same with hasLocationPermission (review finding).
-    setStatuses(null);
-    let cancelled = false;
-    navigator.permissions
-      ?.query({ name: 'geolocation' })
-      .then((perm) => {
-        if (!cancelled) setStatusFailed(perm.state === 'granted');
-      })
-      .catch(() => {
-        if (!cancelled) setStatusFailed(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    // The failure flag is set where the location attempt actually fails
+    // (below and in locateMe); this effect only asks for the status of a
+    // known place — a fix still in flight must not read as a failure.
+    if (myLocation) loadStatuses(myLocation);
+    else setStatuses(null);
   }, [myLocation, loadStatuses]);
 
   /**
