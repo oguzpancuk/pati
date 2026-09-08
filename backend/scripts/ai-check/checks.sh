@@ -376,10 +376,22 @@ check "fresh pending file kept" yes "$([ -f "$FRESH" ] && echo yes || echo no)"
 check "old real file kept" yes "$([ -f "$REAL" ] && echo yes || echo no)"
 rm -f "$FRESH" "$REAL"
 
-echo "15. multer's refusals are 400s in Turkish"
+echo "15. multer's refusals are 400s in Turkish, and nothing of theirs is stored"
+before=$(uploads_count)
 code=$(upload_photos animals/match "$JWT" "$PHOTO $PHOTO $PHOTO $PHOTO $PHOTO $PHOTO $PHOTO" species=cat lat=$GLAT lng=$GLNG)
 check "seven photos -> 400" 400 "$code"
 contains "…in Turkish" "fotoğraf" "$(field .error)"
+check "…and nothing stored" "$before" "$(uploads_count)"
+TEXTFILE=/tmp/pati-ai-not-an-image.txt; echo "not an image" > "$TEXTFILE"
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$G/photos" -H "Authorization: Bearer $JWT" -F "photo=@$TEXTFILE;type=text/plain")
+check "a non-image -> 400" 400 "$code"
+contains "…in Turkish" "resim" "$(field .error)"
+check "…and nothing stored" "$before" "$(uploads_count)"
+
+# Not covered here: the addPhoto branch that puts a redeemed file back
+# under the pending prefix when the insert fails. The failure cannot be
+# forced from outside (the animal must exist for the species read and be
+# gone for the insert); it is a two-line branch read in review.
 
 echo ""
 if [ "$FAILED" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; exit 1; fi

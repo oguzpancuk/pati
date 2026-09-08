@@ -213,9 +213,10 @@ the gallery.
 - **Single use is a read, not a column.** A token whose file is already in a
   gallery answers 409 `photoAlreadyUsed`, found by file name so the Host the
   URL was built under does not matter. Unlike the care photos there is no
-  unique index behind it: a duplicate that slips through a race is a second
-  row on the same file in one gallery, not a second drop on the map, and
-  not worth a migration.
+  unique index behind it: two redeems of one token racing both pass the
+  read (reproduced in review), and the duplicate is a second row on the
+  same file in one gallery, not a second drop on the map — not worth a
+  migration.
 - **Clients: no "add anyway".** The refused photo leaves the strip with the
   model's reason under it; the user picks another. A photo that fails
   after the record exists lands the user on the profile with the reason —
@@ -227,9 +228,11 @@ the gallery.
 - **Pending files, swept.** The match step used to delete its scratch
   upload on every outcome; a photo behind a token has to stay. It stays as
   `pending-<name>` (its own multer store), the token names the final
-  `<name>`, and the redeem renames the file into it — atomic on one
-  volume, and the reason the single-use read works: a second redeem finds
-  no pending file, only the final one already in a gallery. Most match
+  `<name>`, and the redeem renames the file into it (atomic on one
+  volume) so the sweeper leaves it alone; a redeem that finds only the
+  final file is let through for the single-use read to judge. If the
+  insert then fails the file goes back under the prefix, so the token
+  still redeems and, failing that, the sweeper owns it. Most match
   calls end in "that one is already registered" or a step back, never in
   a create, so a sweeper (`config/upload.js`, at boot because the machine
   autostops when idle, then every five minutes) deletes pending files

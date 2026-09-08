@@ -2064,8 +2064,10 @@ the next docs touch.
   files per call on the volume with nothing reclaiming them, on the flow's
   most common non-create outcome (the user picks an existing animal).
   Now: match photos land as `pending-<name>` through their own multer
-  store, the token names the final `<name>`, the redeem renames (atomic,
-  and what makes the second redeem a 409), and a sweeper in
+  store, the token names the final `<name>`, the redeem renames (atomic;
+  the 409 on a second redeem is still the file-name read — two redeems
+  racing both pass it, reproduced in review, a duplicate row on one file
+  is the accepted cost), and a sweeper in
   `config/upload.js` deletes pending files older than thirty minutes at
   boot and every five minutes — no database, no prefix means no touch.
   Minor findings closed too: multer's refusals (7th photo, unexpected
@@ -2078,3 +2080,11 @@ the next docs touch.
   is a later migration if it shows up; the care check's abandoned file is
   the same leak class, one file per cancelled drop, not on the pending
   scheme yet.
+- Second review round: a redeem whose insert then fails had left a
+  plain-named file no row owns — the one thing the prefix-only sweeper can
+  never reclaim. The failed-insert branch now renames the file back under
+  the prefix (the token still redeems; otherwise the sweeper owns it);
+  not reachable from the harness, read in review. Also: a non-image
+  upload is a 400 (was a 500 with a stack trace), the multer message
+  covers the unknown-field case it is also raised for, and section 15
+  asserts multer stored nothing.

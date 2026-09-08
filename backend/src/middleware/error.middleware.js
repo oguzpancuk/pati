@@ -8,7 +8,9 @@ function notFoundHandler(req, res) {
 const MULTER_MESSAGES = {
   LIMIT_FILE_SIZE: 'Fotoğraf en fazla 10 MB olabilir',
   LIMIT_FILE_COUNT: 'Bu istek için çok fazla fotoğraf gönderildi',
-  LIMIT_UNEXPECTED_FILE: 'Bu istek için çok fazla fotoğraf gönderildi',
+  // Raised both for one file too many under a known field and for a field
+  // the route does not take; one message covers both.
+  LIMIT_UNEXPECTED_FILE: 'Beklenmeyen bir dosya alanı ya da çok fazla fotoğraf gönderildi',
 };
 
 function errorHandler(err, req, res, next) {

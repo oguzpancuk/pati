@@ -77,9 +77,12 @@ function photoRejection(res, check, species, extra = {}) {
 /**
  * Redeems a photoToken from matchAnimals: ours, this user's, issued for
  * this species, the file still on disk. The token names the file's final
- * name; the first redeem renames the pending file into it (atomic on one
- * volume), a later one finds only the final file and addPhoto's
- * single-use read answers 409. Returns the filename or a refusal.
+ * name; the redeem renames the pending file into it (atomic on one
+ * volume) so the sweeper leaves it alone, and a redeem that finds only the
+ * final file is let through for addPhoto's single-use read to judge (409
+ * when a row already has it). Single use is that read, not the rename:
+ * two redeems racing on one token both pass it (documented trade-off in
+ * addPhoto). Returns the filename or a refusal.
  */
 async function redeemPhotoToken(token, userId, species) {
   let claims;
@@ -581,8 +584,12 @@ async function addPhoto(req, res, next) {
     // Nothing references the file yet, so it goes with the failed insert.
     // Past this point the row owns the file: a failure below must not
     // delete it from under the gallery (review finding). A token's file
-    // stays: the token is still valid and the client retries with it.
-    discardUpload();
+    // goes back under the pending prefix: the token is still valid and a
+    // retry redeems it again, and if none comes the sweeper reclaims it —
+    // left under its final name it would be a plain file no row owns,
+    // which nothing ever reclaims (review finding).
+    if (req.file) discardUpload();
+    else fs.rename(filePath, path.join(UPLOADS_DIR, `${PENDING_PREFIX}${file}`), () => {});
     return next(err);
   }
   try {
