@@ -713,8 +713,10 @@ strong {
 }
 
 /* Half transparent when a record or an animal sits under the pin (owner,
-   2026-09-08) — mobile's pinDimmed. */
-.user-logo-marker.dimmed {
+   2026-09-08) — mobile's pinDimmed. On the glyph, not the marker element:
+   maplibre-gl writes `opacity: 1` inline on every Marker container, which
+   beats a class (QA finding). */
+.user-logo-marker.dimmed svg {
   opacity: 0.5;
 }
 

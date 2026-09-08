@@ -2303,7 +2303,7 @@ the next docs touch.
   were resolved by keeping both sides in order. Correction after the
   push-range review: the theme.css resolution had dropped the tail of
   `.msg-unread` (eight lines, its closing brace included) and one line of
-  `.bell-count`, nesting the 68 rules that followed into one block — the
+  `.bell-count`, nesting the 66 rules that followed into one block — the
   web build does not fail on that. The file was rebuilt from the two
   parents (main after the messaging merge + Track C's animal-social
   section), esbuild's CSS parser now runs in the quick battery as "web
@@ -2338,3 +2338,12 @@ the next docs touch.
   the follower/carer counts, the photo grid with like counts and the
   carers-only door bar; the notifications inbox from `pati://notifications`.
   `backend/test` (node:test) joined the quick battery as "backend test".
+- evaluator-qa on the merged batch (NEEDS_WORK → fixed here): web's pin
+  never dimmed — maplibre-gl writes `opacity: 1` inline on every Marker
+  container, so the `dimmed` class on it lost; the opacity now sits on
+  the pin's svg. QA's own evidence: harnesses 75/75 and 93/93 rerun, full
+  battery 10/10 on a clean tree, web playwright shots of the map (rings,
+  red last quarter, gradient actions, shoulder record, three-member fan),
+  the mesajlar tab (inbox, DM, group, settings, new), the kedi profili
+  (grid, viewer, care sheet, follow toggle round-trip) and bildirimler;
+  no console errors on any page.

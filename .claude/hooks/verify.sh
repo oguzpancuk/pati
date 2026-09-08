@@ -2,7 +2,8 @@
 # THE verification battery — single implementation (CI, /deploy-checklist and
 # the push-gate hook both call this; CLAUDE.md "Verification" documents it).
 # Modes:
-#   quick (default) — mobile tsc+jest, admin tsc, web tsc, backend load.
+#   quick (default) — mobile tsc+jest, admin tsc, web tsc + css parse,
+#     backend load + node:test.
 #     Used by the push-gate before every push: fast, catches whole classes.
 #   full — quick + RN release bundle + admin build + web build.
 #     Used by CI and before deploys.
