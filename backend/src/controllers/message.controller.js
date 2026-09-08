@@ -82,14 +82,20 @@ function excerptOf(body) {
   return flat.length > QUOTE_EXCERPT ? `${flat.slice(0, QUOTE_EXCERPT).trimEnd()}…` : flat;
 }
 
-/** Turns a joined message row into the wire shape; a deleted body never leaves the server. */
-function shapeMessage(row) {
+/**
+ * Turns a joined message row into the wire shape for one reader; a deleted
+ * body never leaves the server. `joinedAt` is the reader's membership
+ * start: a quote of a message from before it is dropped, since the reader
+ * may not see that message directly either (review finding).
+ */
+function shapeMessage(row, joinedAt) {
   const deleted = !!row.deleted_at;
   // The quote is resolved at read time, so a source deleted after the reply
   // was sent shows as deleted everywhere on the next page or poll; the
   // clients also blank it locally from the poll's `deleted` list.
   const quoteDeleted = !!row.quote_deleted_at;
-  const replyTo = row.quote_id
+  const quoteVisible = !!row.quote_id && row.quote_created_at >= joinedAt;
+  const replyTo = quoteVisible
     ? {
         id: row.quote_id,
         sender: row.quote_sender_id
@@ -120,7 +126,7 @@ const MESSAGE_SELECT = `
   SELECT x.id, x.conversation_id, x.sender_id, x.body, x.created_at, x.deleted_at, x.deleted_by,
          u.name AS sender_name, u.avatar_url AS sender_avatar_url,
          q.id AS quote_id, q.body AS quote_body, q.deleted_at AS quote_deleted_at,
-         q.sender_id AS quote_sender_id, qu.name AS quote_sender_name
+         q.created_at AS quote_created_at, q.sender_id AS quote_sender_id, qu.name AS quote_sender_name
   FROM messages x
   LEFT JOIN users u ON u.id = x.sender_id
   LEFT JOIN messages q ON q.id = x.reply_to_id
@@ -555,7 +561,7 @@ async function listMessages(req, res, next) {
       ).rows.reverse();
     }
     res.json({
-      messages: rows.map(shapeMessage),
+      messages: rows.map((row) => shapeMessage(row, joinedAt)),
       deleted: clock.rows[0].deleted,
       hasMore: !after && rows.length === limit,
       now: clock.rows[0].now,
@@ -582,6 +588,9 @@ async function sendMessage(req, res, next) {
     // id is not confirmed to exist elsewhere.
     let replyToId = null;
     if (req.body.replyToId !== undefined && req.body.replyToId !== null) {
+      if (typeof req.body.replyToId !== 'number') {
+        return res.status(400).json({ error: 'Geçersiz yanıt' });
+      }
       replyToId = parseId(req.body.replyToId);
       const source =
         replyToId &&
@@ -627,7 +636,7 @@ async function sendMessage(req, res, next) {
     // (sender_id IS DISTINCT FROM), and stamping last_read_at with this
     // message's time would hide a reply that landed between the sender's
     // last poll and the send (review finding). The next poll marks it.
-    res.status(201).json(shapeMessage(row));
+    res.status(201).json(shapeMessage(row, conv.joined_at));
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     next(err);

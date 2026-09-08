@@ -1345,6 +1345,7 @@ strong {
 }
 .msg-line.mine {
   margin-left: auto;
+  justify-content: flex-end;
 }
 .msg-avatar {
   flex: none;
@@ -1423,7 +1424,6 @@ strong {
 }
 .msg-quote.deleted .msg-quote-text {
   color: var(--text-subtle);
-  font-style: italic;
 }
 .msg-body {
   white-space: pre-wrap;

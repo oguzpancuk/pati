@@ -166,7 +166,10 @@ req "$T2" POST "/messages/conversations/$G/messages" "{\"body\":\"sana da\",\"re
 expect "group reply quotes u3" "$(echo "$BODY" | j '.replyTo.sender.id')" "$U3"
 req "$T1" POST "/messages/conversations/$G/messages" "{\"body\":\"x\",\"replyToId\":$M1}"; expect "quote across conversations 400" "$STATUS" "400"
 req "$T3" POST "/messages/conversations/$G/messages" "{\"body\":\"x\",\"replyToId\":$PRE}"; expect "late member quoting a pre-join message 400" "$STATUS" "400"
-req "$T2" POST "/messages/conversations/$G/messages" "{\"body\":\"x\",\"replyToId\":$PRE}"; expect "founding member quotes it 201" "$STATUS" "201"
+req "$T2" POST "/messages/conversations/$G/messages" "{\"body\":\"x\",\"replyToId\":$PRE}"; expect "founding member quotes it 201" "$STATUS" "201"; QP=$(echo "$BODY" | j '.id')
+req "$T1" GET "/messages/conversations/$G/messages"; expect "founding member sees the pre-join quote" "$(echo "$BODY" | j ".messages.find(m=>m.id===$QP).replyTo.id")" "$PRE"
+req "$T3" GET "/messages/conversations/$G/messages"; expect "late member gets no quote of a pre-join message" "$(echo "$BODY" | j ".messages.find(m=>m.id===$QP).replyTo")" "null"
+req "$T3" POST "/messages/conversations/$G/messages" "{\"body\":\"x\",\"replyToId\":\"$GM\"}"; expect "replyToId as a string 400" "$STATUS" "400"
 req "$T2" DELETE "/messages/$GM"; expect "non-admin delete 403" "$STATUS" "403"
 req "$T1" DELETE "/messages/$GM"; expect "admin deletes any 200" "$STATUS" "200"
 req "$T3" GET "/messages/conversations/$G/messages"; expect "admin-deleted flag" "$(echo "$BODY" | j '.messages[0].deletedBySender')" "false"

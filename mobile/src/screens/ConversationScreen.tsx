@@ -63,8 +63,12 @@ export default function ConversationScreen({ route, navigation }: any) {
   // The quote the next send will carry; cleared on send, cancel, or when
   // the source is deleted under it (the server would refuse it anyway).
   const [replyTo, setReplyTo] = useState<Quote | null>(null);
-  // The bubble a quote tap just scrolled to, outlined for a moment.
-  const [flashId, setFlashId] = useState<number | null>(null);
+  // The bubble a quote tap just scrolled to, outlined for a moment; the
+  // timestamp restarts the timer when the same quote is tapped again.
+  const [flash, setFlash] = useState<{ id: number; at: number } | null>(null);
+  const flashId = flash?.id ?? null;
+  // One retry per failed scrollToIndex, never a loop.
+  const scrollRetried = useRef(false);
   const listRef = useRef<FlatList<Message>>(null);
   const inputRef = useRef<TextInput>(null);
   // Cursors for the poll: the newest id we hold and the server's clock at
@@ -167,10 +171,10 @@ export default function ConversationScreen({ route, navigation }: any) {
   }, [messages, replyTo]);
 
   useEffect(() => {
-    if (flashId === null) return;
-    const t = setTimeout(() => setFlashId(null), FLASH_MS);
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), FLASH_MS);
     return () => clearTimeout(t);
-  }, [flashId]);
+  }, [flash]);
 
   useLayoutEffect(() => {
     if (!detail) return;
@@ -277,8 +281,9 @@ export default function ConversationScreen({ route, navigation }: any) {
   function jumpTo(id: number) {
     const index = data.findIndex((m) => m.id === id);
     if (index < 0) return;
+    scrollRetried.current = false;
     listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
-    setFlashId(id);
+    setFlash({ id, at: Date.now() });
   }
 
   return (
@@ -299,9 +304,12 @@ export default function ConversationScreen({ route, navigation }: any) {
           onEndReached={loadOlder}
           onEndReachedThreshold={0.6}
           keyboardShouldPersistTaps="handled"
-          // Rows are not measured up front; land near the target, then retry.
+          // Rows are not measured up front; land near the target, then
+          // retry once — a second failure leaves the list where it is.
           onScrollToIndexFailed={({ index, averageItemLength }) => {
             listRef.current?.scrollToOffset({ offset: index * averageItemLength, animated: false });
+            if (scrollRetried.current) return;
+            scrollRetried.current = true;
             setTimeout(
               () => listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true }),
               120
@@ -359,7 +367,6 @@ export default function ConversationScreen({ route, navigation }: any) {
                           variant="caption"
                           color={item.replyTo.deleted ? 'textSubtle' : 'textMuted'}
                           numberOfLines={2}
-                          style={item.replyTo.deleted && styles.quoteDeleted}
                         >
                           {item.replyTo.deleted ? 'Bu mesaj silindi' : item.replyTo.excerpt}
                         </Text>
@@ -577,7 +584,6 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginBottom: spacing.xs,
     maxWidth: '100%',
   },
-  quoteDeleted: { fontStyle: 'italic' },
   replyBar: {
     flexDirection: 'row',
     alignItems: 'center',

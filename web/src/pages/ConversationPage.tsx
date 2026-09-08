@@ -53,8 +53,10 @@ export default function ConversationPage() {
   // The quote the next send will carry; cleared on send, cancel, or when
   // the source is deleted under it (the server would refuse it anyway).
   const [replyTo, setReplyTo] = useState<Quote | null>(null);
-  // The bubble a quote click just scrolled to, outlined for a moment.
-  const [flashId, setFlashId] = useState<number | null>(null);
+  // The bubble a quote click just scrolled to, outlined for a moment; the
+  // timestamp restarts the timer when the same quote is clicked again.
+  const [flash, setFlash] = useState<{ id: number; at: number } | null>(null);
+  const flashId = flash?.id ?? null;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const lastId = useRef<number | null>(null);
   const since = useRef<string | null>(null);
@@ -111,10 +113,10 @@ export default function ConversationPage() {
   }, [messages, replyTo]);
 
   useEffect(() => {
-    if (flashId === null) return;
-    const t = window.setTimeout(() => setFlashId(null), FLASH_MS);
+    if (!flash) return;
+    const t = window.setTimeout(() => setFlash(null), FLASH_MS);
     return () => window.clearTimeout(t);
-  }, [flashId]);
+  }, [flash]);
 
   useEffect(() => {
     let timer: number | null = null;
@@ -207,7 +209,7 @@ export default function ConversationPage() {
     const el = document.getElementById(`msg-${id}`);
     if (!el) return;
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    setFlashId(id);
+    setFlash({ id, at: Date.now() });
   }
 
   const isGroup = detail?.kind === 'group';
