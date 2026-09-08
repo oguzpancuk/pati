@@ -2,9 +2,9 @@
 # The checks behind run.sh (see there). Needs API, FAKE, OUTBOX, FIXTURES
 # from the environment and the shared local database (docker: stray-db).
 #
-# State: the script registers four throwaway accounts (an owner, a
-# follower, a carer, a second confirmer) and the owner creates a throwaway
-# animal in the middle of the Pacific, so no seeded row is touched; on the
+# State: the script registers five throwaway accounts (an owner, a
+# follower, a carer, two confirmers) and the owner creates two throwaway
+# animals in the middle of the Pacific, so no seeded row is touched; on the
 # way out it DELETES that animal (its photos, likes, followers, badges,
 # notifications and match rows go with it, cascade), the accounts, and the
 # photo files the run wrote. test1@stray.test (seeded) is the one standing
@@ -25,6 +25,9 @@ PASS=0; FAILED=0
 # (the sweeper reclaims it after thirty minutes); the run removes exactly
 # the files it made — photo_match records each one's name in a file (it
 # runs inside command substitutions, so a variable would not reach here).
+# One run at a time: the file, the accounts' address pattern and the
+# animal's name are shared, so two runs side by side would clean each
+# other up.
 PENDING_MADE=/tmp/pati-animal-social-pending.txt; : > "$PENDING_MADE"
 check() { # name expected actual
   if [ "$2" = "$3" ]; then PASS=$((PASS+1)); echo "  ok    $1"; else FAILED=1; echo "  FAIL  $1 — expected [$2] got [$3]"; echo "        body: $(head -c 300 $BODY)"; fi; }
@@ -58,9 +61,9 @@ echo "== accounts and the throwaway animal"
 # An earlier run that died before its cleanup leaves its animal in the
 # circle and its accounts behind; sweep them first (they are recognisable
 # by the address pattern and the name at this spot).
-LEFT=$(psql_db "SELECT count(*) FROM animals WHERE name='Harness Kedisi'")
+LEFT=$(psql_db "SELECT count(*) FROM animals WHERE name LIKE 'Harness Kedisi%'")
 if [ "$LEFT" != 0 ]; then
-  psql_db "DELETE FROM animals WHERE name='Harness Kedisi'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|ikinci)-[0-9]+@stray\.test$';" >/dev/null
+  psql_db "DELETE FROM animals WHERE name LIKE 'Harness Kedisi%'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|ikinci|tekatis)-[0-9]+@stray\.test$';" >/dev/null
   echo "        (swept $LEFT leftover animal(s) of an earlier aborted run)"
 fi
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/auth/login" -H 'Content-Type: application/json' -d '{"email":"test1@stray.test","password":"password123"}')
@@ -166,10 +169,13 @@ check "no hit for an 'unsure' verdict" "none" "$(last_hit $E_ID)"
 control '{"mode":"match","verdicts":["similar"]}'
 code=$(photo_match "$E"); check "E photo match, model says similar -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
 check "no hit for a 'similar' verdict" "none" "$(last_hit $E_ID)"
+check "the answer carries matchHit false" "false" "$(jq -r --argjson id $ANIMAL '.candidates[] | select(.id==$id) | .matchHit' $BODY)"
 code=$(post "animals/$ANIMAL/sightings" "$E" "{\"lat\":$LAT,\"lng\":$LNG}"); check "E sighting still -> 403 (the clients then open the profile)" "403 carersOnly" "$code $(j .code)"
 control '{"mode":"match","verdicts":["same"]}'
 code=$(photo_match "$B"); check "B photo match, model says same -> 200, animal shown" "200 true 1" "$code $(j .photoChecked) $(j '.candidates | length')"
 check "hit logged as same" "same" "$(last_hit $B_ID)"
+check "the answer carries matchHit for it" "true" "$(jq -r --argjson id $ANIMAL '.candidates[] | select(.id==$id) | .matchHit' $BODY)"
+code=$(photo_match "$B"); check "B matches again under same -> a second row, still one user" "2 1" "$(psql_db "SELECT count(*) FROM animal_match_attempts WHERE user_id=$B_ID AND animal_id=$ANIMAL AND kind='register'") $(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")"
 code=$(post "animals/$ANIMAL/sightings" "$B" "{\"lat\":$LAT,\"lng\":$LNG}"); check "B sighting after the 'same' hit -> 200" 200 "$code"
 code=$(get "animals/$ANIMAL" "$B"); check "B became a carer" "true" "$(j .isCarer)"
 code=$(get "notifications/unread-count" "$A"); check "A hears about the sighting" "$((A0+1))" "$(j .unreadCount)"
@@ -182,6 +188,26 @@ code=$(photo_match "$E"); check "E photo match, model down -> 200, unchecked" "2
 check "hit logged as unchecked" "unchecked" "$(last_hit $E_ID)"
 code=$(post "animals/$ANIMAL/sightings" "$E" "{\"lat\":$LAT,\"lng\":$LNG}"); check "E sighting after the unchecked hit -> 200" 200 "$code"
 check "'matched' counts distinct users with a same/unchecked hit" "2" "$(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")"
+
+echo "== one-shot: one photo confirms one animal"
+# A second throwaway animal at the same spot; one 'same' answer for both
+# gives F two fresh hits. Confirming one spends the other.
+read -r F F_ID < <(register "Tek Atış Test" "tekatis-$STAMP@stray.test")
+code=$(post animals "$D" "{\"species\":\"cat\",\"name\":\"Harness Kedisi 2\",\"breed\":\"$BREED\",\"color\":\"$COLOR\",\"lat\":$LAT,\"lng\":$LNG}")
+check "D registers a second animal -> 201" 201 "$code"; ANIMAL2=$(j .id)
+# A cover the model can look at (a candidate without one is never judged,
+# so never a hit): one owner photo with a real file behind it.
+cp "$FIXTURES/b.jpg" "uploads/seed-harness-$STAMP.jpg"
+psql_db "INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($ANIMAL2, 'http://localhost:3107/uploads/seed-harness-$STAMP.jpg', $D_ID)" >/dev/null
+control '{"mode":"match","verdicts":["same","same"]}'
+code=$(photo_match "$F"); check "F photo match -> two hits" "200 2" "$code $(jq -r '[.candidates[] | select(.matchHit)] | length' $BODY)"
+check "two fresh register rows" "2" "$(psql_db "SELECT count(*) FROM animal_match_attempts WHERE user_id=$F_ID AND kind='register'")"
+code=$(post "animals/$ANIMAL2/sightings" "$F" "{\"lat\":$LAT,\"lng\":$LNG}"); check "F confirms the second animal -> 200" 200 "$code"
+check "the other hit is spent" "1 $ANIMAL2" "$(psql_db "SELECT count(*), max(animal_id) FROM animal_match_attempts WHERE user_id=$F_ID AND kind='register'" | tr '|' ' ')"
+code=$(post "animals/$ANIMAL/sightings" "$F" "{\"lat\":$LAT,\"lng\":$LNG}"); check "F confirming the first animal too -> 403" "403 carersOnly" "$code $(j .code)"
+code=$(get "animals/$ANIMAL2" "$F"); check "F is a carer of the second animal only" "true" "$(j .isCarer)"
+code=$(get "animals/$ANIMAL" "$F"); check "…and not of the first" "false" "$(j .isCarer)"
+control '{"mode":"approve"}'
 code=$(post "animals/$ANIMAL/health-records/$RECORD/recover" "$A" '{}'); check "A marks recovered -> 200" 200 "$code"
 control '{"mode":"approve"}'
 
@@ -205,9 +231,9 @@ code=$(del "notifications/device-tokens" "$A" '{"token":"apns-abc"}'); check "de
 echo; echo "passed $PASS checks; failed=$FAILED"
 # Cleanup: the run's photo files, then the throwaway animal (cascade) and
 # the accounts. A's rows on the animal go with it.
-psql_db "SELECT url FROM animal_photos WHERE animal_id=$ANIMAL" | while read -r u; do rm -f "uploads/$(basename "$u")" "uploads/$(basename "$u" .jpg)-face.jpg"; done
+psql_db "SELECT url FROM animal_photos WHERE animal_id IN ($ANIMAL,$ANIMAL2)" | while read -r u; do rm -f "uploads/$(basename "$u")" "uploads/$(basename "$u" .jpg)-face.jpg"; done
 while read -r f; do [ -n "$f" ] && rm -f "uploads/$f"; done < "$PENDING_MADE"
-if ! psql_db "DELETE FROM animals WHERE id=$ANIMAL; DELETE FROM users WHERE id IN ($B_ID,$C_ID,$D_ID,$E_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null; then
-  echo "  FAIL  cleanup: the throwaway animal $ANIMAL / accounts $B_ID $C_ID $D_ID $E_ID are still in the database"; FAILED=1
+if ! psql_db "DELETE FROM animals WHERE id IN ($ANIMAL,$ANIMAL2); DELETE FROM users WHERE id IN ($B_ID,$C_ID,$D_ID,$E_ID,$F_ID); DELETE FROM device_tokens WHERE token='apns-abc';" >/dev/null; then
+  echo "  FAIL  cleanup: the throwaway animals $ANIMAL $ANIMAL2 / accounts $B_ID $C_ID $D_ID $E_ID $F_ID are still in the database"; FAILED=1
 fi
 exit $FAILED

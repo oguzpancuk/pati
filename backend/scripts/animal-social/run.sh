@@ -10,8 +10,8 @@
 # database, migrations applied first) whose Gemini calls go to the fake API
 # on 4607 (scripts/ai-check/fake-gemini.js), and runs checks.sh. Both
 # processes are stopped on the way out; the dev server on 3000 is left
-# alone. checks.sh registers four throwaway accounts and a throwaway
-# animal and removes them again (its header says exactly what it deletes);
+# alone. checks.sh registers five throwaway accounts and two throwaway
+# animals and removes them again (its header says exactly what it deletes);
 # the seeded test1@stray.test is the one standing account it uses.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
