@@ -293,9 +293,14 @@ export default function MapPage() {
         const dot = document.createElement('div');
         dot.className = 'user-dot';
         dot.innerHTML = '<span class="user-dot-halo"></span><span class="user-dot-core"></span>';
-        userDotRef.current = new maplibregl.Marker({ element: dot, anchor: 'center' }).addTo(map);
+        // setLngLat before addTo: a marker added without a position is
+        // painted at the map's origin until its next update.
+        userDotRef.current = new maplibregl.Marker({ element: dot, anchor: 'center' })
+          .setLngLat([loc.lng, loc.lat])
+          .addTo(map);
+      } else {
+        userDotRef.current.setLngLat([loc.lng, loc.lat]);
       }
-      userDotRef.current.setLngLat([loc.lng, loc.lat]);
       myLocationRef.current = loc;
       userRingRef.current = featureCollection([circleRing(loc, ANIMAL_RADIUS_METERS)]);
       (map.getSource('user-ring') as maplibregl.GeoJSONSource | undefined)?.setData(
