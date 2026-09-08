@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # The checks behind run.sh (see there). Needs API, FAKE, OUTBOX, FIXTURES
 # from the environment and the shared local database (docker: stray-db).
+# Runs from backend/ (run.sh cd's there): the photo files it seeds and
+# removes live under ./uploads, the dev server's own directory.
 #
 # State: the script registers five throwaway accounts (an owner, a
 # follower, a carer, two confirmers) and the owner creates two throwaway
@@ -16,6 +18,8 @@ FAKE=${FAKE:-http://localhost:4607}
 OUTBOX=${OUTBOX:-/tmp/pati-animal-social-outbox.jsonl}
 FIXTURES=${FIXTURES:-/tmp/pati-animal-social-fixtures}
 BODY=/tmp/pati-animal-social-body.json
+# Seeded photo rows point at this backend's uploads; the API's origin.
+UPLOADS_URL="${API%/api}/uploads"
 # Nobody registers animals here; the 1 km match circle holds ours alone.
 LAT=-30.5; LNG=-150.5
 psql_db() { docker exec stray-db psql -U stray -d stray -tAc "$1"; }
@@ -80,7 +84,7 @@ read -r SPECIES BREED COLOR < <(psql_db "SELECT species, coalesce(breed,''), coa
 check "species read back from the database" "cat" "$SPECIES"
 # The likes need a photo to like, and the first care step must find no
 # gallery file on disk: one owner row whose file does not exist.
-psql_db "INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($ANIMAL, 'http://localhost:3107/uploads/seed-missing-$STAMP.jpg', $D_ID)" >/dev/null
+psql_db "INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($ANIMAL, '$UPLOADS_URL/seed-missing-$STAMP.jpg', $D_ID)" >/dev/null
 code=$(get "animals/$ANIMAL" "$D"); check "the registrant is a carer, 'cared' bronze on record" "true 1" "$(j .isCarer) $(psql_db "SELECT count(*) FROM animal_badges WHERE animal_id=$ANIMAL AND badge_key='cared' AND tier='bronze'")"
 
 echo "== profile read, follow"
@@ -198,15 +202,21 @@ check "D registers a second animal -> 201" 201 "$code"; ANIMAL2=$(j .id)
 # A cover the model can look at (a candidate without one is never judged,
 # so never a hit): one owner photo with a real file behind it.
 cp "$FIXTURES/b.jpg" "uploads/seed-harness-$STAMP.jpg"
-psql_db "INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($ANIMAL2, 'http://localhost:3107/uploads/seed-harness-$STAMP.jpg', $D_ID)" >/dev/null
+psql_db "INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($ANIMAL2, '$UPLOADS_URL/seed-harness-$STAMP.jpg', $D_ID)" >/dev/null
 control '{"mode":"match","verdicts":["same","same"]}'
 code=$(photo_match "$F"); check "F photo match -> two hits" "200 2" "$code $(jq -r '[.candidates[] | select(.matchHit)] | length' $BODY)"
 check "two fresh register rows" "2" "$(psql_db "SELECT count(*) FROM animal_match_attempts WHERE user_id=$F_ID AND kind='register'")"
+X_MATCHED=$(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")
 code=$(post "animals/$ANIMAL2/sightings" "$F" "{\"lat\":$LAT,\"lng\":$LNG}"); check "F confirms the second animal -> 200" 200 "$code"
-check "the other hit is spent" "1 $ANIMAL2" "$(psql_db "SELECT count(*), max(animal_id) FROM animal_match_attempts WHERE user_id=$F_ID AND kind='register'" | tr '|' ' ')"
+check "both hits are spent, none deleted" "2 2" "$(psql_db "SELECT count(*), count(used_at) FROM animal_match_attempts WHERE user_id=$F_ID AND kind='register'" | tr '|' ' ')"
 code=$(post "animals/$ANIMAL/sightings" "$F" "{\"lat\":$LAT,\"lng\":$LNG}"); check "F confirming the first animal too -> 403" "403 carersOnly" "$code $(j .code)"
 code=$(get "animals/$ANIMAL2" "$F"); check "F is a carer of the second animal only" "true" "$(j .isCarer)"
 code=$(get "animals/$ANIMAL" "$F"); check "…and not of the first" "false" "$(j .isCarer)"
+check "the first animal's recognised-user count is unchanged" "$X_MATCHED" "$(psql_db "SELECT count(DISTINCT user_id) FROM animal_match_attempts WHERE animal_id=$ANIMAL AND kind='register'")"
+# A spent hit opens nothing again: the carer row is what let F in, and
+# with it removed the second confirm on the same animal is refused.
+psql_db "DELETE FROM user_animal_care WHERE user_id=$F_ID AND animal_id=$ANIMAL2" >/dev/null
+code=$(post "animals/$ANIMAL2/sightings" "$F" "{\"lat\":$LAT,\"lng\":$LNG}"); check "a second confirm on the same animal, hit spent -> 403" "403 carersOnly" "$code $(j .code)"
 control '{"mode":"approve"}'
 code=$(post "animals/$ANIMAL/health-records/$RECORD/recover" "$A" '{}'); check "A marks recovered -> 200" 200 "$code"
 control '{"mode":"approve"}'
