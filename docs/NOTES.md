@@ -2475,5 +2475,7 @@ the next docs touch.
 - Evidence: web playwright light + dark + page bottom (non-carer door card
   and footer; the track also shot the carer view and a long-name wrap
   probe); simulator light (header, chips, pair, fotoğraflar, map); quick
-  battery green on the track's HEAD and full battery on main after the
-  merge (see below). tsc ×2, jest 47/47.
+  battery green on the track's HEAD; full battery 10/10 on main after the
+  merge (2290dd4); tsc ×2, jest 47/47. Simulator dark theme of the profile
+  taken at the merge pass (theme forced through the stored
+  `pati.themeMode`); the long-name wrap was probed on web only.
