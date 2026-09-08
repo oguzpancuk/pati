@@ -1396,6 +1396,7 @@ strong {
 .msg-quote {
   display: block;
   width: 100%;
+  min-width: 0;
   margin: 0 0 4px;
   padding: 4px 8px;
   border: none;
@@ -1419,6 +1420,9 @@ strong {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* An unbroken word must wrap here too, or the quote widens the bubble
+     past its column and the bubble is clipped at the screen edge. */
+  overflow-wrap: anywhere;
   font-size: 13px;
   color: var(--text-muted);
 }
