@@ -2038,7 +2038,7 @@ the next docs touch.
   exists lands on the profile with the reason. Cost: up to seven small
   image requests per registration instead of one (`AI_MATCH_CANDIDATES`
   unchanged; the match limiter bounds it).
-- Evidence: `scripts/ai-check/run.sh` 145 PASS (sections 11–13 new);
+- Evidence: `scripts/ai-check/run.sh` 145 PASS at the time (161 at the deployed HEAD, sections 11–15);
   playwright on the dev server with the fake in reject mode — the second
   of two photos refused, the strip down to one, the reason above the
   form; approve mode — `POST /animals/match` then two `POST
@@ -2096,3 +2096,25 @@ the next docs touch.
   fileFilter comment no longer implies the log line went away with the
   500. Fourth round on that commit: APPROVE. Reviewed range for the push:
   `710e247..HEAD`.
+
+## 2026-09-08 — eleventh deploy note (v30): species screening and the web retake fix live
+
+- Owner: "push ve deploy". Pushed `3643d3c..9165179` (7 commits, every one
+  reviewed: four code-reviewer rounds, the last two APPROVE), then
+  `fly deploy --app pati-app --ha=false` → v30: `release_command …
+  completed successfully` (no migration in the range; `migrate.js` a
+  no-op on production's schema), `Machine 7843d59f197e98 is now in a good
+  state`, `/health` ok, web and admin 200, boot log `mail: Resend`, `ai:
+  gemini-3.5-flash (photo checks and photo matching on)`. Full battery
+  (bundle and builds included) green on the exact commit; evaluator-qa
+  PASS — harness 161/161, the web add-animal refusal and the map retake
+  driven with playwright, the token create observed on the wire; the
+  mobile refusal UI it could not drive (no simulator automation), the
+  builder's simulator screenshots stand for it.
+- Production screenshot not taken: still no production credentials in
+  the session. First real registration after this deploy is the live
+  check of the screening; the Fly log will show `[ai:animal]` warnings if
+  the model misbehaves, and a refusal reaches the user as the model's
+  Turkish sentence.
+- Still owner-side: the Resend DNS records for `pati-app.com` (the
+  verification mail); the four hand-made test accounts from the v29 note.
