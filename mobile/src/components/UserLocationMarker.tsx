@@ -46,7 +46,7 @@ export default function UserLocationMarker() {
 // The halo swells to ~2.2× the dot; the wrap is sized so the fully-scaled
 // halo stays INSIDE the view bounds — Android marker containers may clip
 // children that overflow.
-export const USER_MARKER_SIZE = 40;
+const USER_MARKER_SIZE = 40;
 const DOT_SIZE = 14;
 const HALO_SIZE = 18;
 

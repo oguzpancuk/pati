@@ -92,9 +92,9 @@ const MAX_ZOOM = 19;
 // Animal avatars draw from neighbourhood scale (15, owner decision
 // 2026-09-08 — was 17); overlapping ones fan out (map/stacks.ts), so the
 // pile-up that forced 17 no longer happens.
-// Keep this an integer: the shoulder offset's `step` on zoom evaluates at
-// the tile's integer zoom while the avatar gate and the pin dimming compare
-// the fractional camera zoom — they agree only at whole numbers.
+// Keep this an integer: the layer's `step` on zoom (icon-allow-overlap)
+// evaluates at the tile's integer zoom while the avatar gate compares the
+// fractional camera zoom — they agree only at whole numbers.
 const ANIMAL_VISIBLE_MIN_ZOOM = 15;
 
 // The scale the map focuses to after leaving food/water: slightly below
@@ -121,6 +121,7 @@ const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 // Placement is collision-managed: where markers would overlap the fresher
 // one wins (symbolSortKey), and icons shrink toward country zoom.
 const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
+const NO_PLACEMENT = new Map<string, { drawAt: Coordinates; spot: Coordinates | null }>();
 
 // The "AI is checking the photo" interstitial is real since ADR-0005: the
 // photo goes up during it and the model says whether it shows the food or
@@ -161,9 +162,6 @@ export default function MapScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [animalsVisible, setAnimalsVisible] = useState(false);
-  // The open fan: the tapped record's spot, the member ids and the ground
-  // size of a pixel at the zoom it opened at (positions are geographic, so
-  // they only hold for that zoom — any move closes the fan).
   // The settled zoom drives the stack layout (screen-space rule); the ref
   // stays for the celebration path.
   const [zoomLevel, setZoomLevel] = useState(COUNTRY_ZOOM);
@@ -335,10 +333,11 @@ export default function MapScreen({ navigation }: any) {
 
     const bursts = await Promise.all(
       affected.map(async (animal) => {
-        const [x, y] = await map.getPointInView([
-          animal.location.coordinates[0],
-          animal.location.coordinates[1],
-        ]);
+        // From the avatar's fan seat at the settled zoom, not its true spot
+        // (review finding): a fresh record at the same spot fans it out.
+        const zoom = (await map.getZoom()) ?? currentZoomRef.current;
+        const at = seatsAt(zoom).get(`animal-${animal.id}`) ?? animalPosition(animal);
+        const [x, y] = await map.getPointInView([at.lng, at.lat]);
         return { id: animal.id, x, y };
       })
     );
@@ -489,21 +488,26 @@ export default function MapScreen({ navigation }: any) {
     setConfirmOpen(true);
   }
 
-  /** The locate button (owner, P7 item 11): a fresh fix, then fly there. */
+  /** The locate button (owner, P7 item 11): a fresh fix, fly there, and
+   * refetch statuses and animals around it (web does the same through its
+   * `myLocation` effects). */
   async function locateMe() {
     try {
       await ensureLocationPermission();
       const loc = await getCurrentLocation();
       setMyLocation(loc);
-      if (!insideServiceArea(loc)) return;
-      cameraRef.current?.setCamera({
-        centerCoordinate: [loc.lng, loc.lat],
-        zoomLevel: USER_ZOOM,
-        animationMode: 'flyTo',
-        animationDuration: 500,
-      });
-    } catch (err) {
+      if (insideServiceArea(loc)) {
+        cameraRef.current?.setCamera({
+          centerCoordinate: [loc.lng, loc.lat],
+          zoomLevel: USER_ZOOM,
+          animationMode: 'flyTo',
+          animationDuration: 500,
+        });
+      }
+      load();
+    } catch (err: any) {
       if (err instanceof LocationPermissionError) alertLocationPermission();
+      else Alert.alert('Konum alınamadı', err?.message ?? 'Bilinmeyen hata');
     }
   }
 
@@ -535,8 +539,10 @@ export default function MapScreen({ navigation }: any) {
   // every item sits on its own spot and the layer's collision placement
   // does the thinning.
   const placement = useMemo(() => {
+    // One shared empty map below the gate, so zooming around the country
+    // does not rebuild the feature set on every settle.
+    if (zoomLevel < ANIMAL_VISIBLE_MIN_ZOOM) return NO_PLACEMENT;
     const draw = new Map<string, { drawAt: Coordinates; spot: Coordinates | null }>();
-    if (zoomLevel < ANIMAL_VISIBLE_MIN_ZOOM) return draw;
     const items = [
       ...actions.map((action) => ({ id: `care-${action.id}`, at: actionPosition(action) })),
       ...animals.map((animal) => ({ id: `animal-${animal.id}`, at: animalPosition(animal) })),
@@ -546,6 +552,20 @@ export default function MapScreen({ navigation }: any) {
     }
     return draw;
   }, [actions, animals, myLocation, zoomLevel]);
+
+  /** The fan seats at an arbitrary zoom (the celebration reads the live one). */
+  function seatsAt(zoom: number) {
+    const draw = new Map<string, Coordinates>();
+    if (zoom < ANIMAL_VISIBLE_MIN_ZOOM) return draw;
+    const items = [
+      ...actions.map((action) => ({ id: `care-${action.id}`, at: actionPosition(action) })),
+      ...animals.map((animal) => ({ id: `animal-${animal.id}`, at: animalPosition(animal) })),
+    ];
+    for (const placed of layoutStacks(items, zoom, myLocation ? [myLocation] : [])) {
+      draw.set(placed.id, placed.drawAt);
+    }
+    return draw;
+  }
 
   // One point per record; the layer picks the image from type + tone + ring
   // step (see map/careMarkers.ts) and the weight decides who wins a
@@ -581,7 +601,7 @@ export default function MapScreen({ navigation }: any) {
     [placement]
   );
 
-  // The dashed 200 m ring marks the range where animals are drawn — the
+  // The dashed ring marks the range where animals are drawn (500 m) — the
   // depiction in the handoff.
   const userRing = useMemo(
     () => (myLocation ? circleRing(myLocation, ANIMAL_RADIUS_METERS) : null),

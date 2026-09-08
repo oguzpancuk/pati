@@ -125,11 +125,13 @@ export default function MapPage() {
   const careMarkersRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   const stackSpokesRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   const userRingRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
-  // The last fetched records and the spot the dot is drawn at: the map is
-  // imperative, so the stack layout is re-applied from these refs by
-  // paintMarkers() whenever records, animals, the dot or the zoom change.
+  // The last fetched records, the spot the dot is drawn at and the dot
+  // marker itself: the map is imperative, so the stack layout is
+  // re-applied from these refs by paintMarkers() whenever records,
+  // animals, the dot or the zoom change.
   const actionsRef = useRef<CareAction[]>([]);
   const myLocationRef = useRef<Coordinates | null>(null);
+  const userDotRef = useRef<maplibregl.Marker | null>(null);
   const animalMarkersRef = useRef<maplibregl.Marker[]>([]);
   // Request generations for the racy loaders (see loadMarkers).
   const markersSeqRef = useRef(0);
@@ -209,20 +211,33 @@ export default function MapPage() {
   };
 
   /**
-   * Rebuilds the record layers from the refs: one point per record with
-   * type + tone + ring step (the image key) and weight (placement
-   * priority), `attached` for records under an avatar, `hidden` for the
-   * open fan's members; then the fan's own icons and spokes; then the pin's
-   * transparency.
+   * Where each record and avatar is drawn at a zoom: from the avatar zoom
+   * on, overlapping ones take fan seats around their spot; below it the
+   * map is empty (everything sits on its own spot).
    */
+  const seatsAt = useCallback((zoom: number) => {
+    const draw = new Map<string, Coordinates>();
+    if (zoom < ANIMAL_VISIBLE_MIN_ZOOM) return draw;
+    const items = [
+      ...actionsRef.current.map((action) => ({ id: `care-${action.id}`, at: positionOf(action) })),
+      ...animalsDataRef.current.map((animal) => ({
+        id: `animal-${animal.id}`,
+        at: animalPositionOf(animal),
+      })),
+    ];
+    const me = myLocationRef.current;
+    for (const placed of layoutStacks(items, zoom, me ? [me] : [])) {
+      draw.set(placed.id, placed.drawAt);
+    }
+    return draw;
+  }, []);
+
   const paintMarkers = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
     const actions = actionsRef.current;
     const animals = animalsDataRef.current;
     const zoom = map.getZoom();
-    // From the avatar zoom on, overlapping records and avatars take fan
-    // seats around their spot; below it everything sits on its own spot.
     const draw = new Map<string, { drawAt: Coordinates; spot: Coordinates | null }>();
     if (zoom >= ANIMAL_VISIBLE_MIN_ZOOM) {
       const items = [
@@ -264,13 +279,43 @@ export default function MapPage() {
     });
   }, []);
 
-  /** The locate button (owner, P7 item 11): a fresh fix, then fly there. */
+  /**
+   * The user's location as a small dot with a breathing halo (owner, P7
+   * item 9 — the paw pin of 2026-08-31 retired), centred on the coordinate;
+   * one marker, moved on every fix. The stack layout keeps its spot clear
+   * and the animal range ring follows it.
+   */
+  const placeUserDot = useCallback(
+    (loc: Coordinates) => {
+      const map = mapRef.current;
+      if (!map) return;
+      if (!userDotRef.current) {
+        const dot = document.createElement('div');
+        dot.className = 'user-dot';
+        dot.innerHTML = '<span class="user-dot-halo"></span><span class="user-dot-core"></span>';
+        userDotRef.current = new maplibregl.Marker({ element: dot, anchor: 'center' }).addTo(map);
+      }
+      userDotRef.current.setLngLat([loc.lng, loc.lat]);
+      myLocationRef.current = loc;
+      userRingRef.current = featureCollection([circleRing(loc, ANIMAL_RADIUS_METERS)]);
+      (map.getSource('user-ring') as maplibregl.GeoJSONSource | undefined)?.setData(
+        userRingRef.current
+      );
+      paintMarkers();
+    },
+    [paintMarkers]
+  );
+
+  /** The locate button (owner, P7 item 11): a fresh fix, dot and ring
+   * follow, then fly there; animals and statuses refetch through the
+   * `myLocation` effects. */
   async function locateMe() {
     const map = mapRef.current;
     if (!map) return;
     try {
       const loc = await getCurrentLocation();
       setMyLocation(loc);
+      placeUserDot(loc);
       map.flyTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM, duration: 500 });
     } catch (err) {
       setError(describeLocationError(err));
@@ -382,7 +427,7 @@ export default function MapPage() {
       if (next !== zoomedInRef.current) {
         zoomedInRef.current = next;
         syncAnimalMarkers();
-        // Rule 3's animal half follows the avatar gate.
+        // The stack layout only exists above the gate: repaint on crossing.
         paintMarkers();
       }
     };
@@ -408,22 +453,7 @@ export default function MapPage() {
         if (mapRef.current !== map) return;
         setMyLocation(loc);
         map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
-        // The user's location as a small dot with a breathing halo (owner,
-        // P7 item 9 — the paw pin of 2026-08-31 retired), centred on the
-        // coordinate and created before the avatars so it stays underneath.
-        const dot = document.createElement('div');
-        dot.className = 'user-dot';
-        dot.innerHTML = '<span class="user-dot-halo"></span><span class="user-dot-core"></span>';
-        new maplibregl.Marker({ element: dot, anchor: 'center' })
-          .setLngLat([loc.lng, loc.lat])
-          .addTo(map);
-        // The stack layout keeps the dot's spot clear.
-        myLocationRef.current = loc;
-        paintMarkers();
-        userRingRef.current = featureCollection([circleRing(loc, ANIMAL_RADIUS_METERS)]);
-        (map.getSource('user-ring') as maplibregl.GeoJSONSource | undefined)?.setData(
-          userRingRef.current
-        );
+        placeUserDot(loc);
       })
       .catch(() => {
         /* Without a location we stay on Kadıköy; asked again when adding a record. */
@@ -473,8 +503,6 @@ export default function MapPage() {
       const animals: Animal[] = await fetchAnimals(center.lat, center.lng, ANIMAL_RADIUS_METERS);
       if (seq !== animalsSeqRef.current) return;
       animalsDataRef.current = animals;
-      // Rule 1 depends on where the animals are.
-      paintMarkers();
       for (const marker of animalMarkersRef.current) marker.remove();
       animalMarkersRef.current = animals.map((animal) => {
         const [lng, lat] = animal.location.coordinates;
@@ -500,6 +528,9 @@ export default function MapPage() {
         return new maplibregl.Marker({ element: el }).setLngLat([lng, lat]);
       });
       syncAnimalMarkers();
+      // Seat the new markers: the layout moves the markers that exist now,
+      // not the ones just removed (review finding).
+      paintMarkers();
     },
     [myLocation, navigate, paintMarkers, syncAnimalMarkers]
   );
@@ -533,10 +564,13 @@ export default function MapPage() {
     });
     const fire = () => {
       if (affected.length === 0) return;
+      // Hearts rise from where the avatar is drawn — its fan seat when it
+      // shares the spot with the fresh record (review finding).
+      const seats = seatsAt(map.getZoom());
       setHearts(
         affected.map((a) => {
-          const [lng, lat] = a.location.coordinates;
-          const pt = map.project([lng, lat]);
+          const at = seats.get(`animal-${a.id}`) ?? animalPositionOf(a);
+          const pt = map.project([at.lng, at.lat]);
           return { id: a.id, x: pt.x, y: pt.y };
         })
       );

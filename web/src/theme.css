@@ -764,61 +764,48 @@ strong {
   }
 }
 
-/* The animal marker — the avatar in a 42px white circle (a MapLibre DOM marker) */
-.animal-marker {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--surface);
+
+/* The user's position as a small brand dot in a white ring with a
+   breathing halo (owner, P7 item 9 — the paw pin of 2026-08-31 retired).
+   No `position` on the container: MapLibre's own .maplibregl-marker is
+   absolute and anchors it. */
+.user-dot {
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 0;
-  box-shadow: var(--shadow-float);
+  pointer-events: none;
 }
 
-/* The user's position as the app-icon glyph — no backing disc; a drop
-   shadow separates it from the map ground. */
-/* No `position` here: MapLibre's own .maplibregl-marker is absolute and
-   already anchors the halo; a relative override breaks its placement. */
-.user-logo-marker svg {
-  display: block;
-  position: relative;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
-}
-
-/* Half transparent when a record or an animal sits under the pin (owner,
-   2026-09-08) — mobile's pinDimmed. On the glyph, not the marker element:
-   maplibre-gl writes `opacity: 1` inline on every Marker container, which
-   beats a class (QA finding). */
-.user-logo-marker.dimmed svg {
-  opacity: 0.5;
-}
-
-/* Breathing halo at the pin tip: a flattened ellipse (ground perspective)
-   that swells and fades — the "live position" idiom without the visual
-   noise of a bouncing marker. */
-.user-logo-marker .user-halo {
-  position: absolute;
-  left: 50%;
-  bottom: -7px;
-  width: 26px;
+.user-dot-core {
+  width: 14px;
   height: 14px;
   border-radius: 50%;
   background: var(--brand);
-  pointer-events: none;
-  animation: user-halo 2s ease-out infinite;
+  border: 2.5px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  position: relative;
 }
 
-@keyframes user-halo {
+.user-dot-halo {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--brand);
+  animation: user-dot-halo 2s ease-out infinite;
+}
+
+@keyframes user-dot-halo {
   0% {
     opacity: 0.35;
-    transform: translateX(-50%) scale(0.5);
+    transform: scale(0.6);
   }
   70%,
   100% {
     opacity: 0;
-    transform: translateX(-50%) scale(1.6);
+    transform: scale(2.2);
   }
 }
 
