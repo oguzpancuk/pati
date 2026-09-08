@@ -774,3 +774,56 @@ asks the server "is there food/water within 100 m of me") is untouched.
   screenshots of the single map (light + dark on mobile) with rings at
   different fill levels; the confirm flow still creates a record of the
   chosen type (curl/log).
+
+### P6 — Owner batch of 2026-09-08 (eight items, three tracks)
+
+Owner request after P5 shipped: (1) the ring turns red in the record's
+last hour; (2) a care marker, an animal avatar and the user pin on one
+spot look bad — needs a design; (3) the sheet actions back to the old
+gradient buttons, bigger icons, no discs; (4) user-to-user messaging as a
+fourth tab, with named groups, admins who can remove members and delete
+messages; (5) badges for animals — to be discussed first; (6) the animal
+screen is titled "kedi profili" / "köpek profili"; (7) bigger animal
+photos, a tap-to-open viewer, likes with a count (a badge source);
+(8) follow vs. care: "takip et" (no condition; followers only like photos
+and get notified on comments, sightings, health and vaccination records)
+and "bakım ver" (two fresh photos, AI-matched against the animal's photos,
+then full carer rights); everyone else can only like photos. Follower and
+carer counts become animal badges.
+
+Owner asked for the disjoint parts to run in worktrees (/parallel-tracks).
+Proposed partition — files are the claim, migrations are numbered up
+front so the tracks never collide:
+
+- **Track A — map (main session):** items 1, 2, 3. Files:
+  `mobile/src/map/careMarkers.ts` + generated markers, `MapScreen.tsx`,
+  `MapPage.tsx`, `web/src/theme.css` (map section only).
+- **Track B — messaging (worktree):** item 4. Migration `006_messaging.sql`
+  (conversations, conversation_members with role, messages; soft-deleted
+  messages keep the row for reports). New `message.controller.js` /
+  `message.routes.js`, `mobile/src/api/messages.ts`, new screens
+  (Messages list, Conversation, Group settings), `MessagesPage` +
+  `ConversationPage` on web, the fourth tab. Shared-file touches limited to
+  one Tab.Screen line in `navigation/index.tsx`, one route block in
+  `web/src/App.tsx`, one tab in the web shell — merged by the main session.
+  Web API calls live in a new `web/src/api/messages.ts` to keep
+  `web/src/api.ts` untouched.
+- **Track C — animal profile (worktree):** items 6, 7, 8, then 5 once
+  decided. Migration `007_animal_social.sql` (animal_photo_likes,
+  animal_followers, notifications, animal_badges). `animal.controller.js`,
+  `AnimalProfileScreen.tsx`, `AnimalPage.tsx`, `badges.js` (animal
+  section), a notifications inbox (bell on the profile tab; polled like
+  the care alert — no APNs/FCM yet).
+
+Decisions still owed by the owner (asked 2026-09-08, see NOTES):
+item 2 design, item 3 "Hayvan ekle" also gradient?, item 4 who may DM
+whom + polling vs. push, item 5 badge list/tiers, item 8 the tightening of
+comment/sighting/health rights to carers only.
+
+- **Done when (per track):** A — screenshots of red rings and the
+  stacked-marker design on both clients; B — curl end-to-end of DM, group
+  create/rename/admin/remove/delete-message, screenshots of the tab on
+  both clients; C — screenshots of the renamed profile, the photo viewer
+  with likes, follow/care buttons and the match step, the notification
+  inbox; badge thresholds unit-tested. Every track ends with code-reviewer;
+  the main session merges, runs the full battery and evaluator-qa.
