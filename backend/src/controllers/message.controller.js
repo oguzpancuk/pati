@@ -129,8 +129,9 @@ async function listConversations(req, res, next) {
        -- Ordered by the last message THIS member can see (the lateral is
        -- cut at joined_at), not the conversation's own last_message_at: a
        -- freshly added member would otherwise see the group sorted by a
-       -- message they cannot read.
-       ORDER BY COALESCE(lm.created_at, c.created_at) DESC, c.id DESC`,
+       -- message they cannot read. With nothing visible yet, the moment
+       -- they joined is the freshest thing about it.
+       ORDER BY COALESCE(lm.created_at, m.joined_at) DESC, c.id DESC`,
       [userId]
     );
     res.json({
