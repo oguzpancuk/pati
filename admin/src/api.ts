@@ -118,7 +118,7 @@ export interface AdminVaccination {
 
 export interface AdminReport {
   id: number;
-  target_type: 'animal' | 'comment' | 'care_action' | 'user';
+  target_type: 'animal' | 'comment' | 'care_action' | 'user' | 'message';
   target_id: number;
   reason: string;
   details: string | null;

@@ -779,6 +779,7 @@ const REPORT_LIST_SQL = `
            WHEN 'animal' THEN (SELECT concat_ws(' · ', a.name, a.species, a.breed) FROM animals a WHERE a.id = r.target_id)
            WHEN 'user' THEN (SELECT u2.name FROM users u2 WHERE u2.id = r.target_id)
            WHEN 'care_action' THEN (SELECT concat(ca.action_type, ' · ', to_char(ca.created_at, 'DD Mon YYYY')) FROM care_actions ca WHERE ca.id = r.target_id)
+           WHEN 'message' THEN (SELECT concat(left(msg.body, 200), CASE WHEN msg.deleted_at IS NOT NULL THEN ' · (silindi)' END) FROM messages msg WHERE msg.id = r.target_id)
          END AS target_summary
   FROM content_reports r
   JOIN users reporter ON reporter.id = r.reporter_id

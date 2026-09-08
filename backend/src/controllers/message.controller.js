@@ -53,7 +53,7 @@ async function friendIdsAmong(db, userId, ids) {
 /** The conversation plus the caller's role, or null when not a member. */
 async function loadMembership(db, conversationId, userId) {
   const r = await db.query(
-    `SELECT c.id, c.kind, c.name, c.created_by, c.created_at, c.last_message_at, m.role, m.last_read_at
+    `SELECT c.id, c.kind, c.name, c.created_by, c.created_at, c.last_message_at, m.role, m.last_read_at, m.joined_at
      FROM conversation_members m
      JOIN conversations c ON c.id = m.conversation_id
      WHERE m.conversation_id = $1 AND m.user_id = $2`,
@@ -107,6 +107,7 @@ async function listConversations(req, res, next) {
               (SELECT count(*)::int FROM conversation_members cm WHERE cm.conversation_id = c.id) AS member_count,
               (SELECT count(*)::int FROM messages x
                 WHERE x.conversation_id = c.id AND x.deleted_at IS NULL
+                  AND x.created_at >= m.joined_at
                   AND x.sender_id IS DISTINCT FROM $1
                   AND (m.last_read_at IS NULL OR x.created_at > m.last_read_at)) AS unread_count,
               lm.id AS last_id, lm.body AS last_body, lm.deleted_at AS last_deleted_at,
@@ -117,7 +118,7 @@ async function listConversations(req, res, next) {
        JOIN conversations c ON c.id = m.conversation_id
        LEFT JOIN LATERAL (
          SELECT id, body, deleted_at, sender_id, created_at FROM messages
-         WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1
+         WHERE conversation_id = c.id AND created_at >= m.joined_at ORDER BY id DESC LIMIT 1
        ) lm ON true
        LEFT JOIN users ls ON ls.id = lm.sender_id
        LEFT JOIN LATERAL (
@@ -458,7 +459,10 @@ async function listMessages(req, res, next) {
     const conv = id && (await loadMembership(pool, id, req.user.userId));
     if (!conv) return res.status(404).json({ error: 'Sohbet bulunamadı' });
 
-    const limit = Math.min(PAGE_MAX, Math.max(1, Number(req.query.limit) || PAGE_DEFAULT));
+    const limit = Math.min(
+      PAGE_MAX,
+      Math.max(1, Math.floor(Number(req.query.limit) || PAGE_DEFAULT))
+    );
     const after = parseId(req.query.after);
     const before = parseId(req.query.before);
     // `since` is the `now` of the previous answer, echoed back: soft
@@ -468,38 +472,55 @@ async function listMessages(req, res, next) {
     const since = req.query.since ? new Date(String(req.query.since)) : null;
     const sinceValid = since && !Number.isNaN(since.getTime()) ? since : null;
 
+    // Decision (review, 2026-09-08): a member sees the conversation from
+    // their own joined_at on — someone added to a group later does not
+    // inherit what was said before they were in the room. joined_at is the
+    // membership row's, so leaving and being re-added starts over.
+    const scope = 'x.conversation_id = $1 AND x.created_at >= $2';
+    const joinedAt = conv.joined_at;
+
+    // The clock and the deleted list come from ONE statement, read before
+    // the page itself: a deletion landing between two separate queries
+    // would fall in the gap and never be reported (review finding). Read
+    // first, a deletion during the page fetch is simply reported again on
+    // the next poll — the client tolerates a repeat.
+    const clock = sinceValid
+      ? await pool.query(
+          `SELECT now() AS now,
+                  COALESCE((SELECT json_agg(json_build_object(
+                              'id', d.id,
+                              'deletedBySender', d.deleted_by IS NOT NULL AND d.deleted_by = d.sender_id
+                            ) ORDER BY d.id)
+                            FROM messages d
+                            WHERE d.conversation_id = $1 AND d.created_at >= $2 AND d.deleted_at > $3),
+                           '[]'::json) AS deleted`,
+          [id, joinedAt, sinceValid]
+        )
+      : await pool.query(`SELECT now() AS now, '[]'::json AS deleted`);
+
     let rows;
     if (after) {
       rows = (
         await pool.query(
-          `${MESSAGE_SELECT} WHERE x.conversation_id = $1 AND x.id > $2 ORDER BY x.id ASC LIMIT $3`,
-          [id, after, limit]
+          `${MESSAGE_SELECT} WHERE ${scope} AND x.id > $3 ORDER BY x.id ASC LIMIT $4`,
+          [id, joinedAt, after, limit]
         )
       ).rows;
     } else {
       // The newest page, oldest first for rendering.
       rows = (
         await pool.query(
-          `${MESSAGE_SELECT} WHERE x.conversation_id = $1 ${before ? 'AND x.id < $3' : ''}
-           ORDER BY x.id DESC LIMIT $2`,
-          before ? [id, limit, before] : [id, limit]
+          `${MESSAGE_SELECT} WHERE ${scope} ${before ? 'AND x.id < $4' : ''}
+           ORDER BY x.id DESC LIMIT $3`,
+          before ? [id, joinedAt, limit, before] : [id, joinedAt, limit]
         )
       ).rows.reverse();
     }
-    const deletedIds = sinceValid
-      ? (
-          await pool.query(
-            'SELECT id FROM messages WHERE conversation_id = $1 AND deleted_at > $2',
-            [id, sinceValid]
-          )
-        ).rows.map((r) => r.id)
-      : [];
-    const now = (await pool.query('SELECT now() AS now')).rows[0].now;
     res.json({
       messages: rows.map(shapeMessage),
-      deletedIds,
+      deleted: clock.rows[0].deleted,
       hasMore: !after && rows.length === limit,
-      now,
+      now: clock.rows[0].now,
     });
   } catch (err) {
     next(err);
@@ -507,10 +528,11 @@ async function listMessages(req, res, next) {
 }
 
 async function sendMessage(req, res, next) {
+  const id = parseId(req.params.id);
+  const userId = req.user.userId;
+  const client = await pool.connect();
   try {
-    const id = parseId(req.params.id);
-    const userId = req.user.userId;
-    const conv = id && (await loadMembership(pool, id, userId));
+    const conv = id && (await loadMembership(client, id, userId));
     if (!conv) return res.status(404).json({ error: 'Sohbet bulunamadı' });
     const body = typeof req.body.body === 'string' ? req.body.body.trim() : '';
     if (!body) return res.status(400).json({ error: 'Mesaj boş olamaz' });
@@ -520,35 +542,38 @@ async function sendMessage(req, res, next) {
     if (conv.kind === 'direct') {
       // The friendship is the permission, not the conversation: after an
       // unfriend the history stays readable but nothing new goes through.
-      const other = await pool.query(
+      const other = await client.query(
         'SELECT user_id FROM conversation_members WHERE conversation_id = $1 AND user_id <> $2',
         [id, userId]
       );
       const otherId = other.rows[0]?.user_id;
-      if (!otherId || !(await areFriends(pool, userId, otherId))) {
+      if (!otherId || !(await areFriends(client, userId, otherId))) {
         return res.status(403).json({ error: 'Artık arkadaş değilsiniz; mesaj gönderilemez' });
       }
     }
-    const inserted = await pool.query(
+    // The row and the inbox ordering land together or not at all.
+    await client.query('BEGIN');
+    const inserted = await client.query(
       `INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1, $2, $3) RETURNING id, created_at`,
       [id, userId, body]
     );
     const { id: messageId, created_at: createdAt } = inserted.rows[0];
-    // Your own message is read by definition; otherwise the sender's inbox
-    // would show the conversation as unread when someone else's reply
-    // arrives with the same timestamp ordering.
-    await pool.query(`UPDATE conversations SET last_message_at = $2 WHERE id = $1`, [
+    await client.query('UPDATE conversations SET last_message_at = $2 WHERE id = $1', [
       id,
       createdAt,
     ]);
-    await pool.query(
-      `UPDATE conversation_members SET last_read_at = $3 WHERE conversation_id = $1 AND user_id = $2`,
-      [id, userId, createdAt]
-    );
-    const row = (await pool.query(`${MESSAGE_SELECT} WHERE x.id = $1`, [messageId])).rows[0];
+    await client.query('COMMIT');
+    // Nothing is marked read here: own messages never count as unread
+    // (sender_id IS DISTINCT FROM), and stamping last_read_at with this
+    // message's time would hide a reply that landed between the sender's
+    // last poll and the send (review finding). The next poll marks it.
+    const row = (await client.query(`${MESSAGE_SELECT} WHERE x.id = $1`, [messageId])).rows[0];
     res.status(201).json(shapeMessage(row));
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     next(err);
+  } finally {
+    client.release();
   }
 }
 
