@@ -23,7 +23,7 @@ export class ApiError extends Error {
   retryAfter?: number;
   /** A machine-readable reason, when the server sends one (`linkRequiresPassword`). */
   code?: string;
-  /** The rest of the server's answer, for codes that carry detail (`photoIndex`). */
+  /** The rest of the server's answer, for codes that carry detail (`photoIndexes`). */
   data: Record<string, unknown>;
   constructor(
     status: number,
@@ -622,7 +622,7 @@ export const matchAnimals = (input: {
   color?: string | null;
   /**
    * Every photo of the new animal, in the form's order: each is screened
-   * for the species (a refusal is `photoRejected` with the photo's index),
+   * for the species (a refusal is `photoRejected` with `photoIndexes`, every refused one),
    * the first is compared with the candidates' cover photos.
    */
   photos: File[];

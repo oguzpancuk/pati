@@ -425,13 +425,18 @@ export default function AddAnimalPage() {
         // The model saw no cat/dog (or the other species) in one photo:
         // that photo leaves the strip, the reason stays above the form,
         // and the user picks another — no "add anyway" (ADR-0005).
-        const index = Number.isInteger(err.data.photoIndex) ? (err.data.photoIndex as number) : 0;
-        setPhotos((prev) => prev.filter((_, i) => i !== index));
+        const listed = err.data.photoIndexes;
+        const refused = new Set<number>(
+          Array.isArray(listed) && listed.length > 0
+            ? (listed as number[])
+            : [Number.isInteger(err.data.photoIndex) ? (err.data.photoIndex as number) : 0]
+        );
+        setPhotos((prev) => prev.filter((_, i) => !refused.has(i)));
         setPhotoTokens([]);
         setError(
-          `${err.message} Bu fotoğrafı listeden kaldırdık; ${
+          `${err.message} ${refused.size > 1 ? 'Bu fotoğrafları' : 'Bu fotoğrafı'} listeden kaldırdık; ${
             species === 'dog' ? 'köpeğin' : 'kedinin'
-          } göründüğü bir fotoğraf ekle.`
+          } göründüğü ${refused.size > 1 ? 'fotoğraflar' : 'bir fotoğraf'} ekle.`
         );
       } else {
         setError(err instanceof Error ? err.message : 'Eşleştirme yapılamadı');

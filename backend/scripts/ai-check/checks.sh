@@ -336,12 +336,14 @@ code=$(upload_photos animals/match "$JWT" "$PHOTO $PHOTO2" species=cat breed=Tek
 check "match with the second photo refused -> 422" 422 "$code"
 check "code photoRejected" photoRejected "$(field .code)"
 check "photoIndex names the second photo" 1 "$(field .photoIndex)"
+check "photoIndexes lists only it" "[1]" "$(node -pe "JSON.stringify(JSON.parse(require('fs').readFileSync('$BODY')).photoIndexes)")"
 contains "reason shown" "görünmüyor" "$(field .error)"
 check "no tokens" none "$(field .photoTokens)"
 check "files deleted" "$before" "$(uploads_count)"
 mode '{"mode":"reject"}'
 code=$(upload_photos animals/match "$JWT" "$PHOTO $PHOTO2" species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
 check "both refused -> the first index" 0 "$(field .photoIndex)"
+check "…and photoIndexes lists both" "[0,1]" "$(node -pe "JSON.stringify(JSON.parse(require('fs').readFileSync('$BODY')).photoIndexes)")"
 check "files deleted" "$before" "$(uploads_count)"
 code=$(upload "animals/$G/photos" "$JWT")
 check "direct upload while rejecting -> 422" 422 "$code"

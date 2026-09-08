@@ -2118,3 +2118,16 @@ the next docs touch.
   Turkish sentence.
 - Still owner-side: the Resend DNS records for `pati-app.com` (the
   verification mail); the four hand-made test accounts from the v29 note.
+
+## 2026-09-08 — v30 follow-up: every refused photo leaves the form, not the first
+
+- Owner, on production: two wrong photos, "kaydet", only the last one
+  was removed. The match step answered the first refused index only and
+  the clients dropped that one — a second attempt lost the second. Now
+  `POST /animals/match` answers `photoIndexes` (every refused photo;
+  `photoIndex` stays as the first, whose reason is shown) and both
+  clients drop them all in one go, with plural wording. Evidence:
+  harness 162 PASS (the two-photo refusal asserts `[1]`, the both-refused
+  case `[0,1]`); playwright on web — two refused → strip 0, "Bu
+  fotoğrafları listeden kaldırdık"; simulator — same, alert "Fotoğraflar
+  uygun görünmüyor" and the empty strip with the caption. tsc ×2 clean.

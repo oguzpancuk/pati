@@ -280,9 +280,15 @@ async function matchAnimals(req, res, next) {
     let photoChecks = [];
     if (files.length > 0) {
       photoChecks = await Promise.all(files.map((f) => ai.checkAnimalPhoto(f.path, species)));
-      const photoIndex = photoChecks.findIndex((c) => c.verdict === 'rejected');
-      if (photoIndex !== -1) {
-        return photoRejection(res, photoChecks[photoIndex], species, { photoIndex });
+      // Every refused photo is named, not just the first: the clients drop
+      // them all in one go (a form with two wrong photos used to lose one
+      // per attempt — owner report). The reason shown is the first one's.
+      const photoIndexes = photoChecks.flatMap((c, i) => (c.verdict === 'rejected' ? [i] : []));
+      if (photoIndexes.length > 0) {
+        return photoRejection(res, photoChecks[photoIndexes[0]], species, {
+          photoIndex: photoIndexes[0],
+          photoIndexes,
+        });
       }
     }
 

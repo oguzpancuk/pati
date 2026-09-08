@@ -146,7 +146,7 @@ export interface MatchResult {
  * pattern/color and distance, then has the model compare the photo with
  * the best candidates' cover photos — high/medium/low similarity, no
  * numeric percentage, on purpose. A photo that does not show the claimed
- * species is refused with `photoRejected` and the index of the photo.
+ * species is refused with `photoRejected` and `photoIndexes`, every refused one.
  */
 export async function matchAnimals(input: MatchAnimalsInput): Promise<MatchResult> {
   const form = new FormData();

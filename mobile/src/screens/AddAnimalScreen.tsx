@@ -238,16 +238,22 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         // The model saw no cat/dog (or the other species) in one photo:
         // that photo leaves the strip, the reason stays under it, and the
         // user picks another — there is no "add anyway" (ADR-0005).
-        const index = Number.isInteger(data.photoIndex) ? data.photoIndex : 0;
+        const refused = new Set<number>(
+          Array.isArray(data.photoIndexes) && data.photoIndexes.length > 0
+            ? data.photoIndexes
+            : [Number.isInteger(data.photoIndex) ? data.photoIndex : 0]
+        );
         const reason: string = data.error ?? 'Fotoğrafta seçtiğin tür görünmüyor.';
-        setPhotos((prev) => prev.filter((_, i) => i !== index));
+        setPhotos((prev) => prev.filter((_, i) => !refused.has(i)));
         setPhotoTokens([]);
         setPhotoIssue(reason);
         Alert.alert(
-          'Fotoğraf uygun görünmüyor',
-          `${reason} Bu fotoğrafı listeden kaldırdık; ${
+          refused.size > 1 ? 'Fotoğraflar uygun görünmüyor' : 'Fotoğraf uygun görünmüyor',
+          `${reason} ${
+            refused.size > 1 ? 'Bu fotoğrafları' : 'Bu fotoğrafı'
+          } listeden kaldırdık; ${
             species === 'dog' ? 'köpeğin' : 'kedinin'
-          } göründüğü bir fotoğraf ekle.`
+          } göründüğü ${refused.size > 1 ? 'fotoğraflar' : 'bir fotoğraf'} ekle.`
         );
       } else {
         Alert.alert(

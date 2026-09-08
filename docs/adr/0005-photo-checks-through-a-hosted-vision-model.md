@@ -203,7 +203,8 @@ the gallery.
 - **Enforced the way the care photos are.** `POST /animals/match` takes the
   form's whole set (`photos`; the older single `photo` still works), screens
   each photo in parallel before the comparison, answers 422 `photoRejected`
-  with the `photoIndex` of the first refusal, and otherwise hands back one
+  naming every refused photo (`photoIndexes`; `photoIndex` is the first,
+  whose reason is shown), and otherwise hands back one
   signed `photoToken` per photo (kind `animalPhoto`; user, species, file,
   what the model said; fifteen minutes). `POST /animals/:id/photos` redeems
   a token — the species must be the animal's — or screens a direct upload
