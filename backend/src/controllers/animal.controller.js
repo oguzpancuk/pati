@@ -254,8 +254,8 @@ function byScoreThenDistance(a, b) {
 /**
  * GET carries the fields only; POST (multipart) adds the new animal's
  * photos — `photos`, all of them in the form's order, or the older single
- * `photo`. Every photo is screened for the claimed species first (one
- * refusal ends the request, naming the photo), then the first is compared
+ * `photo`. Every photo is screened for the claimed species first (a
+ * refusal ends the request, naming every refused photo), then the first is compared
  * with the cover photos of the field-ranked candidates. Photos that pass
  * stay on disk behind a photoToken each for the create step; on any other
  * outcome the files are deleted here.

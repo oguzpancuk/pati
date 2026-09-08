@@ -436,7 +436,7 @@ export default function AddAnimalPage() {
         setError(
           `${err.message} ${refused.size > 1 ? 'Bu fotoğrafları' : 'Bu fotoğrafı'} listeden kaldırdık; ${
             species === 'dog' ? 'köpeğin' : 'kedinin'
-          } göründüğü ${refused.size > 1 ? 'fotoğraflar' : 'bir fotoğraf'} ekle.`
+          } göründüğü ${refused.size > 1 ? 'yeni fotoğraflar' : 'bir fotoğraf'} ekle.`
         );
       } else {
         setError(err instanceof Error ? err.message : 'Eşleştirme yapılamadı');

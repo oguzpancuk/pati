@@ -249,11 +249,9 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         setPhotoIssue(reason);
         Alert.alert(
           refused.size > 1 ? 'Fotoğraflar uygun görünmüyor' : 'Fotoğraf uygun görünmüyor',
-          `${reason} ${
-            refused.size > 1 ? 'Bu fotoğrafları' : 'Bu fotoğrafı'
-          } listeden kaldırdık; ${
+          `${reason} ${refused.size > 1 ? 'Bu fotoğrafları' : 'Bu fotoğrafı'} listeden kaldırdık; ${
             species === 'dog' ? 'köpeğin' : 'kedinin'
-          } göründüğü ${refused.size > 1 ? 'fotoğraflar' : 'bir fotoğraf'} ekle.`
+          } göründüğü ${refused.size > 1 ? 'yeni fotoğraflar' : 'bir fotoğraf'} ekle.`
         );
       } else {
         Alert.alert(
@@ -305,7 +303,9 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     setSubmitting(false);
     if (failures.length > 0) {
       Alert.alert(
-        failures.length === photos.length ? 'Fotoğraflar eklenemedi' : 'Bazı fotoğraflar eklenemedi',
+        failures.length === photos.length
+          ? 'Fotoğraflar eklenemedi'
+          : 'Bazı fotoğraflar eklenemedi',
         `${failures[0]} Fotoğrafı daha sonra profilden ekleyebilirsin.`
       );
     }
@@ -399,7 +399,12 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             style={styles.candidateRow}
             onPress={() => handleReviewCandidate(animal)}
           >
-            <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={52} />
+            <AnimalAvatar
+              species={animal.species}
+              breed={animal.breed}
+              photoUrl={animal.cover_thumb_url}
+              size={52}
+            />
             <View style={styles.candidateText}>
               <View style={styles.candidateHead}>
                 <Text variant="subheading" numberOfLines={1} style={styles.candidateName}>
