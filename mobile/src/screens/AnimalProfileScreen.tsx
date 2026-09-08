@@ -32,7 +32,7 @@ import {
   unfollowAnimal,
   Vaccination,
 } from '../api/animals';
-import { headerBadges } from '../animalBadges';
+import { bumpLadderValue, headerBadges } from '../animalBadges';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import AnimalBadgeLadderModal from '../components/AnimalBadgeLadderModal';
@@ -208,6 +208,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       ...animal,
       isFollowing: !wasFollowing,
       followerCount: animal.followerCount + (wasFollowing ? -1 : 1),
+      badgeLadder: bumpLadderValue(animal.badgeLadder, 'followed', wasFollowing ? -1 : 1),
     });
     try {
       const state = wasFollowing ? await unfollowAnimal(animalId) : await followAnimal(animalId);
@@ -216,7 +217,14 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       );
     } catch (err: any) {
       setAnimal((prev) =>
-        prev ? { ...prev, isFollowing: wasFollowing, followerCount: animal.followerCount } : prev
+        prev
+          ? {
+              ...prev,
+              isFollowing: wasFollowing,
+              followerCount: animal.followerCount,
+              badgeLadder: animal.badgeLadder,
+            }
+          : prev
       );
       Alert.alert('Olmadı', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {

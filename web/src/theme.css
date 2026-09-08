@@ -1547,6 +1547,11 @@ strong {
   color: var(--brand);
 }
 
+/* The ladder's rows are read-only: no pointer, whatever .badge-row says. */
+.badge-row.static {
+  cursor: default;
+}
+
 /* Square tiles, three a row; the like count sits on the photo. */
 .animal-photo-grid {
   display: grid;

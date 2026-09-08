@@ -46,7 +46,7 @@ export function AnimalBadgeLadder({
           return (
             <div
               key={step.key}
-              className={`badge-row ${step.tier ? '' : 'locked'} ${
+              className={`badge-row static ${step.tier ? '' : 'locked'} ${
                 step.key === focusKey ? 'selected' : ''
               }`}
             >

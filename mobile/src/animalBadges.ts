@@ -32,6 +32,21 @@ export function headerBadges<T extends { tier: BadgeTier }>(badges: T[], count =
     .map((entry) => entry.badge);
 }
 
+/**
+ * The optimistic follow toggle moves the ladder's `followed` count with
+ * the follower count, so a ladder opened right after the tap agrees with
+ * the header; the server's profile replaces both on the next load.
+ */
+export function bumpLadderValue(
+  ladder: AnimalBadgeStep[],
+  key: string,
+  delta: number
+): AnimalBadgeStep[] {
+  return ladder.map((step) =>
+    step.key === key ? { ...step, value: Math.max(0, step.value + delta) } : step
+  );
+}
+
 /** "Gümüş" for an earned step; below bronze, that it is not earned yet. */
 export function stepTierText(step: AnimalBadgeStep): string {
   return step.tier ? TIER_LABELS[step.tier] : 'henüz kazanılmadı';

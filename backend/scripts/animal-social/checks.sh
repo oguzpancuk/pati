@@ -147,6 +147,7 @@ code=$(get "notifications?limit=5" "$B"); check "B: one unread, kind care, from 
 code=$(get "notifications/unread-count" "$D"); check "D (registrant) hears it too" "1" "$(j .unreadCount)"
 code=$(get "notifications/unread-count" "$A"); check "A is not told about itself" "0" "$(j .unreadCount)"
 code=$(care_photos $ANIMAL "$A" 2); check "A again -> alreadyCarer" "200 true" "$code $(j .alreadyCarer)"
+check "a second submission announces nothing: one care row for B from A" "1" "$(psql_db "SELECT count(*) FROM notifications WHERE user_id=$B_ID AND kind='care' AND actor_id=$A_ID")"
 code=$(care_photos $ANIMAL "$B" 2); check "B: model says different -> 422 miss" "422 carePhotoMismatch" "$code $(j .code)"
 check "miss is Turkish" "true" "$(j '.error | test("benzemiyor")')"
 control '{"mode":"reject"}'
@@ -154,6 +155,13 @@ code=$(care_photos $ANIMAL "$B" 2); check "species screening refuses -> 422 phot
 control '{"mode":"match","verdicts":["different","same","different","different","different","different","different","different"]}'
 code=$(care_photos $ANIMAL "$C" 2); check "C: model says same -> 201 matched, checked" "201 true true 2" "$code $(j .matched) $(j .photoChecked) $(j '.photos | length')"
 code=$(get "animals/$ANIMAL" "$C"); check "C is a carer" "true" "$(j .isCarer)"
+# 009 is a one-shot backfill: a carer who unfollows stays unfollowed when
+# the deploy applies the file again (migrate.js runs every file each time).
+code=$(del "animals/$ANIMAL/follow" "$C"); check "C (carer) unfollows -> 200" 200 "$code"
+npm run migrate >/tmp/pati-animal-social-migrate2.log 2>&1 || { echo "  FAIL  migrate re-run failed (see /tmp/pati-animal-social-migrate2.log)"; FAILED=1; }
+check "009 applied again: C's follower row stays gone" "f" "$(psql_db "SELECT EXISTS (SELECT 1 FROM animal_followers WHERE animal_id=$ANIMAL AND user_id=$C_ID)")"
+check "…and the backfill is on record once" "1" "$(psql_db "SELECT count(*) FROM schema_backfills WHERE name='009_carers_follow'")"
+code=$(post "animals/$ANIMAL/follow" "$C" '{}'); check "C follows again" 201 "$code"
 code=$(get "notifications?limit=5" "$B"); check "B: two care rows now, the newest from C" "2 care Bakıcı Test" "$(j .unreadCount) $(j '.notifications[0].kind') $(j '.notifications[0].payload.actorName')"
 code=$(get "notifications/unread-count" "$A"); check "A (carer) hears about C" "1" "$(j .unreadCount)"
 # Read them away so the inbox section below counts from zero.

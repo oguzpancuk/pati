@@ -494,7 +494,7 @@ async function getAnimal(req, res, next) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
     }
 
-    const [photos, healthRecords, vaccinations, carers, followers, badges, badgeLadder] =
+    const [photos, healthRecords, vaccinations, carers, followers, badgeLadder] =
       await Promise.all([
       pool.query(
         `SELECT p.id, p.url, p.thumb_url, p.face_score, p.uploaded_by, p.created_at,
@@ -532,7 +532,6 @@ async function getAnimal(req, res, next) {
          FROM animal_followers WHERE animal_id = $1`,
         [req.params.id, req.user.userId]
       ),
-      getAnimalBadgesFor([Number(req.params.id)]),
       animalBadgeLadder(Number(req.params.id)),
     ]);
 
@@ -559,7 +558,11 @@ async function getAnimal(req, res, next) {
       isCarer,
       followerCount: followers.rows[0]?.count ?? 0,
       isFollowing: followers.rows[0]?.mine === true,
-      badges: badges.get(Number(req.params.id)) ?? [],
+      // The earned badges, in the shape list rows carry (getAnimalBadgesFor),
+      // read off the ladder so the profile runs one badge query, not two.
+      badges: badgeLadder
+        .filter((step) => step.tier !== null)
+        .map(({ thresholds, value, ...badge }) => badge),
       // Every key, earned or not, with the live count: the tier ladder
       // behind the header's chips (P7 item 3). List rows carry `badges` only.
       badgeLadder,
@@ -919,7 +922,9 @@ async function submitCarePhotos(req, res, next) {
       });
     }
 
-    await addCarer(pool, req.user.userId, animalId);
+    // Two submissions racing past the isCarer read above both land here;
+    // the second finds the row in place and announces nothing.
+    const becameCarer = await addCarer(pool, req.user.userId, animalId);
     await pool.query(
       `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity)
        VALUES ($1, $2, 'care', $3)`,
@@ -946,7 +951,9 @@ async function submitCarePhotos(req, res, next) {
 
     // Announced once the photos are in the gallery, so the profile a
     // recipient opens from the inbox already shows the evidence.
-    await notifyAnimalEventSafe({ animalId, kind: 'care', actorId: req.user.userId });
+    if (becameCarer) {
+      await notifyAnimalEventSafe({ animalId, kind: 'care', actorId: req.user.userId });
+    }
     const animalBadges = await syncAnimalBadgesSafe(animalId);
     const carerCount = (
       await pool.query('SELECT count(*)::int AS count FROM user_animal_care WHERE animal_id = $1', [

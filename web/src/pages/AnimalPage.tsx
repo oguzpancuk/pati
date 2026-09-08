@@ -24,7 +24,7 @@ import {
   unlikePhoto,
 } from '../api/animalSocial';
 import { AnimalAvatar, UserAvatar } from '../avatars';
-import { headerBadges } from '@mobile/animalBadges';
+import { bumpLadderValue, headerBadges } from '@mobile/animalBadges';
 import { BadgeSymbol } from '../badges';
 import { AnimalBadgeLadder } from '../components/AnimalBadgeLadder';
 import { MiniMap } from '../components/MiniMap';
@@ -301,6 +301,7 @@ export default function AnimalPage() {
       ...animal,
       isFollowing: !was,
       followerCount: animal.followerCount + (was ? -1 : 1),
+      badgeLadder: bumpLadderValue(animal.badgeLadder, 'followed', was ? -1 : 1),
     });
     try {
       const state = was ? await unfollowAnimal(animalId) : await followAnimal(animalId);
@@ -309,7 +310,14 @@ export default function AnimalPage() {
       );
     } catch (err) {
       setAnimal((prev) =>
-        prev ? { ...prev, isFollowing: was, followerCount: animal.followerCount } : prev
+        prev
+          ? {
+              ...prev,
+              isFollowing: was,
+              followerCount: animal.followerCount,
+              badgeLadder: animal.badgeLadder,
+            }
+          : prev
       );
       setError(err instanceof Error ? err.message : 'Olmadı');
     } finally {
