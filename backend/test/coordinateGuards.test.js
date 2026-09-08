@@ -112,6 +112,40 @@ test('addCareAction refuses an empty or out-of-range pin', async () => {
   }
 });
 
+test('the animal write paths refuse an empty or out-of-range point', async () => {
+  const bad = [
+    { lat: '', lng: '29' },
+    { lat: '999', lng: '29' },
+    { lat: '41', lng: '181' },
+  ];
+  for (const { lat, lng } of bad) {
+    const create = fakeRes();
+    await animals.createAnimal({ body: { species: 'cat', lat, lng }, user: { userId: 1 } }, create, (err) =>
+      assert.fail(`createAnimal passed to next(): ${err}`)
+    );
+    assert.strictEqual(create.code, 400, `create ${lat}/${lng}`);
+    assert.match(create.body.error, /geçerli bir konum olmalıdır/);
+
+    const sighting = fakeRes();
+    await animals.reportSighting(
+      { body: { lat, lng }, params: { id: '1' }, user: { userId: 1 } },
+      sighting,
+      (err) => assert.fail(`reportSighting passed to next(): ${err}`)
+    );
+    assert.strictEqual(sighting.code, 400, `sighting ${lat}/${lng}`);
+    assert.match(sighting.body.error, /geçerli bir konum olmalıdır/);
+
+    const match = fakeRes();
+    await animals.matchAnimals(
+      { method: 'POST', body: { species: 'cat', lat, lng }, files: [], user: { userId: 1 } },
+      match,
+      (err) => assert.fail(`matchAnimals passed to next(): ${err}`)
+    );
+    assert.strictEqual(match.code, 400, `match ${lat}/${lng}`);
+    assert.match(match.body.error, /geçerli bir konum olmalıdır/);
+  }
+});
+
 test('an empty coordinate never reaches the database', async () => {
   for (const handler of [care.listCareActions, care.getCareStatus]) {
     const res = fakeRes();

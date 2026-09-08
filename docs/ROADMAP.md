@@ -883,3 +883,16 @@ Same three tracks as P6, same claims; the owner asked to talk first.
 - **Done when:** screenshots of the map button, a spokeless fan, the
   conversation header (light + dark) and the reworked profile on both
   clients; code-reviewer per track; merge with the battery and QA.
+
+### Follow-up from the P8 map reviews (2026-09-09)
+
+- The coordinate READ paths (`GET /care-actions`, `/care-actions/status`,
+  `GET /animals`) parse with `finiteNumber` but do not range-check, so
+  `lat=999` answers 200 about a point PostGIS coerced into the southern
+  ocean instead of 400. `coordinate()` in `backend/src/utils/numbers.js`
+  is the natural guard; the write paths already use it.
+- An absurd `radiusMeters` (1e300) is still accepted on the public care
+  routes; an upper clamp belongs with the same pass.
+- Web's initial location catch throws away the reason: on an http origin
+  the sheet says "Konumunu açınca…" although no permission can help.
+  `describeLocationError` already has the accurate sentence.
