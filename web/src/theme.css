@@ -325,6 +325,13 @@ strong {
   width: 100%;
 }
 
+/* The pati logo inside a button (the map's "Ekle"): inline svg markup from
+   shared/logoSvg with the heart cut out. */
+.btn-logo {
+  display: inline-flex;
+  line-height: 0;
+}
+
 /* Floating "zoom in to see the animals" pill on the map (mobile parity). */
 .zoom-hint {
   align-self: center;
@@ -659,10 +666,6 @@ strong {
 }
 
 /* The locate button (P7 item 11): a round surface button above the sheet. */
-.btn-logo {
-  display: inline-flex;
-  line-height: 0;
-}
 .map-locate {
   position: absolute;
   right: 16px;

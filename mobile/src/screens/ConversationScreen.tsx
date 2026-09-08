@@ -181,8 +181,9 @@ export default function ConversationScreen({ route, navigation }: any) {
     navigation.setOptions({
       headerRight: () =>
         // One round header control (owner, P8 item 4): a surface disc with
-        // a hairline, the glyph centred; theme colours read at render so
-        // dark mode never keeps a light disc.
+        // a hairline, the glyph centred. The styles object changes identity
+        // on a theme flip (makeStyles caches per theme name) and sits in the
+        // deps below, so the header re-renders with the right disc colour.
         detail.kind === 'group' ? (
           <Pressable
             hitSlop={hitSlop}

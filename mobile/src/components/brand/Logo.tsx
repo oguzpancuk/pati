@@ -22,14 +22,21 @@ export type LogoProps = {
  *
  * The fill defaults to the vertical orange gradient — the logo is one of the
  * four places the gradient is allowed. Pass `color` where a flat mark is
- * needed (a tab icon, white on orange). The heart cutout ALWAYS takes the
- * background color, never a color of its own, so it reads as a hole in both
- * themes.
+ * needed (a tab icon, white on orange). The heart cutout takes the
+ * background color so it reads as a hole in both themes; on a ground that
+ * is not one flat color (the gradient button) pass `accent="transparent"`
+ * and the heart becomes a real hole — the pin and the heart are one
+ * even-odd path, so whatever is behind shows through.
  */
+const PIN_PATH =
+  'M60 48C76.6 48 90 61.4 90 78c0 18-22 38-30 44-8-6-30-26-30-44 0-16.6 13.4-30 30-30z';
+const HEART_PATH =
+  'M60 90c-13-9-17-15.5-17-21 0-5.2 3.8-9 8.6-9 3.4 0 6.6 2 8.4 5 1.8-3 5-5 8.4-5 4.8 0 8.6 3.8 8.6 9 0 5.5-4 12-17 21z';
 export default function Logo({ size = 64, color, accent, style }: LogoProps) {
   const { colors } = useTheme();
   const height = Math.round((size * 130) / 120);
   const heartColor = accent ?? colors.background;
+  const cutout = accent === 'transparent';
   // Several logos can share a screen (tab bar + header); a per-instance id
   // keeps their gradient definitions apart.
   const gradId = `pati-logo-${useId()}`;
@@ -53,15 +60,16 @@ export default function Logo({ size = 64, color, accent, style }: LogoProps) {
           <Ellipse cx={44} cy={25} rx={12.5} ry={17.5} transform="rotate(-9 44 25)" />
           <Ellipse cx={76} cy={25} rx={12.5} ry={17.5} transform="rotate(9 76 25)" />
           <Ellipse cx={102} cy={47} rx={12.5} ry={16.5} transform="rotate(24 102 47)" />
-          {/* Main pad = map pin */}
-          <Path d="M60 48C76.6 48 90 61.4 90 78c0 18-22 38-30 44-8-6-30-26-30-44 0-16.6 13.4-30 30-30z" />
+          {/* Main pad = map pin; with the heart as a hole when cut out */}
+          {cutout ? (
+            <Path d={`${PIN_PATH} ${HEART_PATH}`} fillRule="evenodd" />
+          ) : (
+            <Path d={PIN_PATH} />
+          )}
         </G>
 
-        {/* The heart cutout inside the pin */}
-        <Path
-          d="M60 90c-13-9-17-15.5-17-21 0-5.2 3.8-9 8.6-9 3.4 0 6.6 2 8.4 5 1.8-3 5-5 8.4-5 4.8 0 8.6 3.8 8.6 9 0 5.5-4 12-17 21z"
-          fill={heartColor}
-        />
+        {/* The heart painted in the ground colour when not cut out */}
+        {cutout ? null : <Path d={HEART_PATH} fill={heartColor} />}
       </Svg>
     </View>
   );
