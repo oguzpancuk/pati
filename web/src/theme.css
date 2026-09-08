@@ -1610,13 +1610,15 @@ strong {
 }
 
 /* The name row (P8 review): the name left, the follower/carer pair
-   right-aligned on the same line. A long name truncates; the pair never
-   wraps. */
+   right-aligned on the same line while both fit; a long name pushes the
+   pair onto its own line underneath (wrap before shrink), so the name is
+   never squeezed and the pair never breaks. */
 .animal-name-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  column-gap: 8px;
 }
 .animal-name-row h1 {
   margin: 0;

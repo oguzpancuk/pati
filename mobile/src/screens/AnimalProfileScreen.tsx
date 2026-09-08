@@ -618,11 +618,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           onAction={animal.isCarer ? () => setRecordModalVisible(true) : undefined}
           style={styles.sectionTop}
         />
-        {!animal.isCarer && (
-          <Text variant="caption" style={styles.hint}>
-            Sağlık kaydı ekleyebilmek için "bakım ver" ile bu hayvanın bakıcısı ol.
-          </Text>
-        )}
         {animal.healthRecords.length === 0 ? (
           <Card variant="flat" style={styles.block}>
             <Text variant="caption">Henüz kayıt yok.</Text>
@@ -973,15 +968,18 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   flex: { flex: 1, backgroundColor: c.background },
   header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.lg },
   headerText: { flex: 1, marginLeft: spacing.lg },
+  // The pair sits right of the name while both fit; a long name pushes it
+  // onto its own line underneath (wrap happens before shrink), so the name
+  // is never squeezed to a few characters and the pair never breaks.
   nameRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    columnGap: spacing.sm,
   },
-  // The name yields to the counts: a long name truncates, the pair never wraps.
   name: { flexShrink: 1 },
-  counts: { flexShrink: 0, textAlign: 'right' },
+  counts: { flexShrink: 0 },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
   badgeChip: {
     flexDirection: 'row',
@@ -1049,7 +1047,6 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   sectionTop: { marginTop: spacing.xl },
   seenAt: { marginTop: spacing.sm },
-  hint: { marginBottom: spacing.md },
   miniMapWrapper: {
     height: 168,
     borderRadius: radius.lg,

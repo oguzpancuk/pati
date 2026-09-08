@@ -634,11 +634,6 @@ export default function AnimalPage() {
           </button>
         )}
       </div>
-      {!animal.isCarer && (
-        <p className="subtle">
-          Sağlık kaydı ekleyebilmek için "bakım ver" ile bu hayvanın bakıcısı ol.
-        </p>
-      )}
       {animal.healthRecords.length === 0 ? (
         <div className="card flat muted">Henüz kayıt yok.</div>
       ) : (
