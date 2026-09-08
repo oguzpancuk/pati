@@ -379,16 +379,20 @@ async function matchAnimals(req, res, next) {
         { expiresIn: PHOTO_TOKEN_TTL, jwtid: crypto.randomUUID() }
       )
     );
-    // A "match hit": the user's photo put this animal forward. A badge
+    // A "match hit": the user's photos put this animal forward. A badge
     // source (ANIMAL_BADGES.matched) and, for fifteen minutes, the evidence
     // that lets this user confirm "that's the one" as a non-carer (see
     // reportSighting) — the add-animal flow's own care-photo step. Only a
-    // photo can mint one: the field-only GET never logs anything, and with
-    // the model's answer in hand only photo_same/photo_similar count; with
-    // photos sent but no answer the hit is logged unchecked, the way
-    // submitCarePhotos accepts unchecked (ADR-0005, the AI fails open).
-    // Awaited: the door reads this row right after the client's confirm.
-    const hits = files.length === 0 ? [] : matchHitsOf(candidates, photoChecked);
+    // photo can mint one: the field-only GET never logs anything. With
+    // photos sent, every candidate shown is a hit — the row records the
+    // model's verdict ('same'/'similar'), or 'unchecked' when the model
+    // gave none for it (no answer at all, an unsure verdict, a candidate
+    // without a readable cover or beyond the comparison cap): the clients
+    // offer "that's the one" on every candidate shown, and only a
+    // 'different' verdict — already dropped to low and hidden — is a real
+    // no (ADR-0005, the AI fails open, the way submitCarePhotos accepts
+    // unchecked). Awaited: the door reads this row right after the confirm.
+    const hits = files.length === 0 ? [] : matchHitsOf(candidates);
     try {
       await logMatchHits(req.user.userId, hits);
     } catch (err) {
@@ -411,17 +415,18 @@ async function matchAnimals(req, res, next) {
 // animal" — the photoToken's lifetime, the add-animal flow's own window.
 const MATCH_HIT_WINDOW = '15 minutes';
 
-// Which shown candidates the photo itself put forward. `similarity` on
-// the row records the evidence: the model's verdict, or 'unchecked' when
-// it gave none (the field-only fallback list, low tiers excluded).
-function matchHitsOf(candidates, photoChecked) {
-  return candidates.flatMap((c) => {
-    if (photoChecked) {
-      const reason = c.similarity_reasons.find((r) => r === 'photo_same' || r === 'photo_similar');
-      return reason ? [{ id: c.id, similarity: reason }] : [];
-    }
-    return c.similarity === 'low' ? [] : [{ id: c.id, similarity: 'unchecked' }];
-  });
+// The hits among the shown candidates (see above). `similarity` uses the
+// model's own words, the vocabulary of the 'care' rows; the column is
+// VARCHAR(10), so the photo_* reason names never go in as they are.
+const HIT_VERDICT = { photo_same: 'same', photo_similar: 'similar' };
+
+function matchHitsOf(candidates) {
+  return candidates
+    .filter((c) => c.similarity !== 'low')
+    .map((c) => ({
+      id: c.id,
+      similarity: HIT_VERDICT[c.similarity_reasons.find((r) => HIT_VERDICT[r])] ?? 'unchecked',
+    }));
 }
 
 async function logMatchHits(userId, hits) {
@@ -645,10 +650,11 @@ async function createAnimal(req, res, next) {
 /**
  * Two ways in: a photoToken from the match step (both apps' add-animal
  * flow), or a direct upload, which is screened here so that no client can
- * put an unscreened photo in a gallery. Carers only, with the add-animal
- * door reportSighting has: a fresh match hit on this animal (the flow adds
- * its photos right after confirming "that's the one", and on web the
- * sighting is skipped without a location, so the photos may come first).
+ * put an unscreened photo in a gallery. Carers only (owner decision,
+ * 2026-09-08): the add-animal flow adds no photo to an EXISTING animal
+ * after "that's the one" — it reports a sighting, which makes the user a
+ * carer through the match-hit door, and opens the profile — so there is
+ * no door here; the care-photo step is the way in.
  */
 async function addPhoto(req, res, next) {
   const photoToken = req.body?.photoToken;
@@ -664,10 +670,7 @@ async function addPhoto(req, res, next) {
       discardUpload();
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
     }
-    if (
-      !(await isCarer(req.user.userId, req.params.id)) &&
-      !(await hasRecentMatchHit(req.user.userId, req.params.id))
-    ) {
+    if (!(await isCarer(req.user.userId, req.params.id))) {
       discardUpload();
       return carersOnly(res, 'Fotoğraf ekleyebilmek');
     }
