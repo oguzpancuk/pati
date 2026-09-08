@@ -38,8 +38,10 @@ step "admin tsc"       admin   npx tsc --noEmit
 step "web tsc"         web     npx tsc --noEmit
 step "backend load"    backend node -e "require('./src/app.js')"
 # The backend's only unit tests so far (badge thresholds); node:test, no
-# database needed.
-step "backend test"    backend node --test test/
+# database needed. No path argument: a bare directory is not a test file
+# to node:test (it fails with "test failed"), the default discovery
+# (**/*.test.js, node_modules excluded) is what we want.
+step "backend test"    backend node --test
 
 if [ "$mode" = "full" ]; then
   step "mobile bundle" mobile  npx react-native bundle --platform ios --dev false --entry-file index.js --bundle-output /tmp/pati-bundle.js
