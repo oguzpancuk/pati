@@ -2289,3 +2289,7 @@ the next docs touch.
 - Known limitations, stated: a message the sender took back whose account
   was later deleted reads "Yönetici bu mesajı sildi"; `POST /reports`
   does not know `message` — reports go through `POST /messages/:id/report`.
+- Merge pass, simulator: the mesajlar tab (inbox with a DM and the
+  "Mahalle Kedileri" group) and a DM conversation (bubbles, "Bu mesaj
+  silindi" placeholders, the composer) render on iOS from main — the owed
+  mobile screenshots for Track B.
