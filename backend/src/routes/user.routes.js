@@ -8,6 +8,7 @@ const {
   setAvatarKey,
   clearAvatar,
   setFeaturedBadges,
+  setShowDemo,
   getUserAnimals,
   getUserComments,
   getMyBadgeAwards,
@@ -28,6 +29,8 @@ router.post('/me/avatar', requireAuth, limits.avatar, upload.single('photo'), up
 router.put('/me/avatar-key', requireAuth, limits.avatar, setAvatarKey);
 router.delete('/me/avatar', requireAuth, clearAvatar);
 router.put('/me/featured-badges', requireAuth, setFeaturedBadges);
+// Each person's own showcase-world switch (owner, 2026-09-09).
+router.put('/me/show-demo', requireAuth, setShowDemo);
 router.get('/me/animals', requireAuth, getUserAnimals);
 router.get('/me/comments', requireAuth, getUserComments);
 router.get('/me/badge-awards', requireAuth, getMyBadgeAwards);

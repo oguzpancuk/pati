@@ -37,6 +37,7 @@ import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import AnimalBadgeLadderModal from '../components/AnimalBadgeLadderModal';
 import { BadgeSymbol } from '../components/badges';
+import DemoChip from '../components/DemoChip';
 import ReportLink from '../components/ReportSheet';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
@@ -463,9 +464,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         <View style={styles.header}>
           <View style={styles.headerText}>
             <View style={styles.nameRow}>
-              <Text variant="title" numberOfLines={1} style={styles.name}>
-                {displayName}
-              </Text>
+              <View style={styles.nameWrap}>
+                <Text variant="title" numberOfLines={1} style={styles.name}>
+                  {displayName}
+                </Text>
+                <DemoChip visible={animal.is_demo === true} />
+              </View>
               {/* The audience (P7 item 5, placed by the P8 review): the
                   follower/carer pair right-aligned on the name's line. */}
               <Text variant="body" style={styles.counts}>
@@ -985,6 +989,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     columnGap: spacing.sm,
   },
   name: { flexShrink: 1 },
+  nameWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
   // Black, 17/23 and the NAME's weight (medium — owner, 2026-09-09): the
   // audience reads as a peer of the name, not as a footnote under it.
   counts: { flexShrink: 0, fontFamily: fonts.medium, fontSize: 17, lineHeight: 23, color: c.text },

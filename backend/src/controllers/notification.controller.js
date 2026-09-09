@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { demoFilter } = require('../utils/settings');
 
 /**
  * The in-app inbox (ROADMAP P6, track C). Rows are written by the animal
@@ -86,6 +87,7 @@ async function listNotifications(req, res, next) {
          FROM notifications n
          LEFT JOIN users u ON u.id = n.actor_id
          WHERE n.user_id = $1
+         ${await demoFilter(req, 'n')}
          ORDER BY n.created_at DESC, n.id DESC
          LIMIT $2::int OFFSET $3::int`,
         [req.user.userId, limit, offset]

@@ -32,6 +32,8 @@ export interface Animal {
   cover_photo_url?: string | null;
   /** The face cut-out of the best photo (P3); null → the SVG avatar stands in. */
   cover_thumb_url?: string | null;
+  /** Showcase (demo) account or record: the clients mark it with a chip. */
+  is_demo?: boolean;
   /** Earned animal badges, highest tier per key; list rows and the profile both carry them. */
   badges?: AnimalBadge[];
 }

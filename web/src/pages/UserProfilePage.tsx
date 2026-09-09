@@ -110,7 +110,10 @@ export default function UserProfilePage() {
         <div style={{ display: 'inline-block' }}>
           <UserAvatar avatarUrl={profile.avatar_url} name={profile.name} size={88} />
         </div>
-        <h1 style={{ margin: '8px 0 0', fontSize: 22 }}>{profile.name}</h1>
+        <div className="name-with-chip" style={{ justifyContent: 'center' }}>
+          <h1 style={{ margin: '8px 0 0', fontSize: 22 }}>{profile.name}</h1>
+          {profile.is_demo && <span className="demo-chip">demo</span>}
+        </div>
         <div className="muted">{formatDate(profile.created_at)} tarihinde katıldı</div>
         {profile.rank && (
           <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: 13, marginTop: 4 }}>

@@ -17,6 +17,7 @@ import {
   removeFriendship,
   setAvatarKey,
   setFeaturedBadges,
+  setShowDemo as saveShowDemo,
   uploadAvatar,
 } from '../api/users';
 import { deleteCareAction, fetchMyCareActions, MyCareAction } from '../api/care';
@@ -110,6 +111,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const { logout } = useAuth();
   const { checkPending } = useBadgeAwards();
   const [me, setMe] = useState<Me | null>(null);
+  // The showcase (demo) world is each person's own switch (owner,
+  // 2026-09-09). Absent field means on, matching the column default.
+  const [demoBusy, setDemoBusy] = useState(false);
   const [myAnimals, setMyAnimals] = useState<ProfileAnimal[]>([]);
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
@@ -290,6 +294,23 @@ export default function UserProfileScreen({ navigation, route }: any) {
       Alert.alert('Kaydedilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function toggleShowDemo() {
+    if (!me || demoBusy) return;
+    const next = me.show_demo === false;
+    setDemoBusy(true);
+    // Flipped locally first so the chip answers the tap; rolled back if the
+    // server refuses.
+    setMe((prev) => (prev ? { ...prev, show_demo: next } : prev));
+    try {
+      await saveShowDemo(next);
+    } catch (err: any) {
+      setMe((prev) => (prev ? { ...prev, show_demo: !next } : prev));
+      Alert.alert('Kaydedilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setDemoBusy(false);
     }
   }
 
@@ -639,6 +660,25 @@ export default function UserProfileScreen({ navigation, route }: any) {
         ))}
       </View>
 
+      {/* The showcase (demo) world is each person's own choice (owner,
+          2026-09-09): on by default so a new user finds a neighbourhood in
+          use, off with one tap when the tour is over. */}
+      <View style={styles.demoRow}>
+        <View style={styles.demoText}>
+          <Text variant="bodyStrong">Demo verileri</Text>
+          <Text variant="caption">
+            {me.show_demo === false
+              ? 'Sadece gerçek kayıtlar görünüyor.'
+              : 'Örnek mahalleler haritada ve listelerde görünüyor.'}
+          </Text>
+        </View>
+        <Chip
+          label={me.show_demo === false ? 'kapalı' : 'açık'}
+          selected={me.show_demo !== false}
+          onPress={toggleShowDemo}
+        />
+      </View>
+
       <Pressable onPress={logout} style={styles.logout} accessibilityRole="button">
         <Text variant="captionStrong" color="textSubtle" center>
           çıkış yap
@@ -909,6 +949,13 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   friendName: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
   themeRow: { flexDirection: 'row', gap: spacing.sm },
+  demoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  demoText: { flex: 1 },
   logout: { marginTop: spacing.xxl, alignSelf: 'center' },
   legal: { marginTop: spacing.md, marginBottom: spacing.lg, alignSelf: 'center' },
 }));

@@ -39,7 +39,13 @@ CREATE TABLE IF NOT EXISTS users (
     -- not lost. When set, the API returns 403.
     suspended_at TIMESTAMPTZ,
     suspended_reason TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false,
+    -- Whether this person sees the showcase (demo) world. On by default:
+    -- a fresh app should open on a neighbourhood in use (011).
+    show_demo BOOLEAN NOT NULL DEFAULT true
 );
 
 -- Every e-mail lookup now compares lower(email) (addresses are stored
@@ -100,7 +106,10 @@ CREATE TABLE IF NOT EXISTS animals (
     location GEOGRAPHY(POINT, 4326) NOT NULL,
     location_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_by INTEGER NOT NULL REFERENCES users(id),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE INDEX IF NOT EXISTS idx_animals_location ON animals USING GIST (location);
@@ -116,7 +125,10 @@ CREATE TABLE IF NOT EXISTS animal_photos (
     thumb_url TEXT,
     face_score REAL,
     face_box JSONB,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false
 );
 -- The (animal_id, face_score, created_at) index lives in 005 only: this file
 -- re-runs on every deploy before 005, and on a database that predates the
@@ -141,7 +153,10 @@ CREATE TABLE IF NOT EXISTS health_records (
     recorded_by INTEGER NOT NULL REFERENCES users(id),
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     recovered_at TIMESTAMPTZ,
-    recovered_by INTEGER REFERENCES users(id)
+    recovered_by INTEGER REFERENCES users(id),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false
 );
 
 -- Vaccination and antiparasitic treatment records.
@@ -159,7 +174,10 @@ CREATE TABLE IF NOT EXISTS vaccinations (
     administered_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     next_due_at TIMESTAMPTZ,
     recorded_by INTEGER NOT NULL REFERENCES users(id),
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE INDEX IF NOT EXISTS idx_vaccinations_animal ON vaccinations (animal_id, administered_at DESC);
@@ -176,7 +194,10 @@ CREATE TABLE IF NOT EXISTS animal_comments (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     health_record_id INTEGER REFERENCES health_records(id) ON DELETE SET NULL,
     body TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE INDEX IF NOT EXISTS idx_animal_comments_animal ON animal_comments (animal_id, created_at DESC);
@@ -187,7 +208,10 @@ CREATE TABLE IF NOT EXISTS user_animal_care (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     animal_id INTEGER NOT NULL REFERENCES animals(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, animal_id)
+    PRIMARY KEY (user_id, animal_id),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false
 );
 
 -- Care points: the exact locations where users left food/water.
@@ -209,7 +233,10 @@ CREATE TABLE IF NOT EXISTS care_actions (
     -- re-run on every deploy and on an existing table the column arrives
     -- after this statement, so an index here would fail the deploy.
     photo_token_jti TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE INDEX IF NOT EXISTS idx_care_actions_location ON care_actions USING GIST (location);
@@ -232,7 +259,10 @@ CREATE TABLE IF NOT EXISTS friendships (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     responded_at TIMESTAMPTZ,
     CHECK (requester_id <> addressee_id),
-    UNIQUE (requester_id, addressee_id)
+    UNIQUE (requester_id, addressee_id),
+    -- Rows the showcase seed created (011): a person who switches the demo
+    -- world off in their profile never sees them.
+    is_demo BOOLEAN NOT NULL DEFAULT false
 );
 
 -- The moment a badge was earned. The badge itself is derived data (see

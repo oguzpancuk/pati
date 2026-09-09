@@ -7,6 +7,7 @@ const { UPLOADS_DIR } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const ai = require('../utils/ai');
 const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
+const { demoFilter } = require('../utils/settings');
 
 // A checked photo is handed back to the client as a signed claim over the
 // stored file; the confirm step sends it instead of uploading again. Short
@@ -283,6 +284,7 @@ async function listCareActions(req, res, next) {
          WHERE location::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
            AND ${WITHIN_WINDOW_SQL}
            ${filter.sql}
+           ${await demoFilter(req, 'care_actions')}
          ORDER BY created_at DESC
          LIMIT 2000`,
         params
@@ -311,6 +313,7 @@ async function listCareActions(req, res, next) {
        WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
          AND ${WITHIN_WINDOW_SQL}
          ${filter.sql}
+         ${await demoFilter(req, 'care_actions')}
        ORDER BY created_at DESC
        LIMIT 1000`,
       params
@@ -347,7 +350,8 @@ async function getCareStatus(req, res, next) {
        FROM care_actions
        WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
          AND ${WITHIN_WINDOW_SQL}
-         ${filter.sql}`,
+         ${filter.sql}
+         ${await demoFilter(req, 'care_actions')}`,
       params
     );
 

@@ -16,6 +16,7 @@ import {
   removeFriendship,
   setAvatarKey,
   setFeaturedBadges,
+  setShowDemo,
   uploadAvatar,
 } from '../api';
 import { fetchUnreadCount } from '../api/animalSocial';
@@ -104,6 +105,9 @@ export default function ProfilePage() {
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [visibleFriends, setVisibleFriends] = useState(PREVIEW);
   const [theme, setTheme] = useState<ThemeMode>(readThemeMode());
+  // The showcase (demo) world is each person's own switch (owner,
+  // 2026-09-09); a missing field means on, matching the column default.
+  const [demoBusy, setDemoBusy] = useState(false);
   // Server inbox rows plus the browser's own food/water alerts (careAlertLog).
   const [unread, setUnread] = useState(0);
   useEffect(() => {
@@ -436,6 +440,42 @@ export default function ProfilePage() {
         remaining={friends.length - visibleFriends}
         onClick={() => setVisibleFriends((n) => n + PAGE)}
       />
+
+      {/* The showcase (demo) world: on by default so a new user finds a
+          neighbourhood in use, off with one tap when the tour is over
+          (owner, 2026-09-09). Mobile parity: profile → "Demo verileri". */}
+      <h2 className="section">demo verileri</h2>
+      <div className="row" style={{ gap: 12, marginBottom: 18 }}>
+        <div className="grow">
+          <div className="subtle">
+            {me.show_demo === false
+              ? 'Sadece gerçek kayıtlar görünüyor.'
+              : 'Örnek mahalleler haritada ve listelerde görünüyor.'}
+          </div>
+        </div>
+        <button
+          className={`chip ${me.show_demo === false ? '' : 'selected'}`}
+          disabled={demoBusy}
+          onClick={async () => {
+            const next = me.show_demo === false;
+            setDemoBusy(true);
+            // Flipped locally first so the chip answers the click; rolled
+            // back if the server refuses.
+            applyMe({ ...me, show_demo: next });
+            try {
+              await setShowDemo(next);
+              await refresh();
+            } catch (err) {
+              applyMe({ ...me, show_demo: !next });
+              setError(err instanceof Error ? err.message : 'Kaydedilemedi');
+            } finally {
+              setDemoBusy(false);
+            }
+          }}
+        >
+          {me.show_demo === false ? 'kapalı' : 'açık'}
+        </button>
+      </div>
 
       <h2 className="section">görünüm</h2>
       <div className="segmented" style={{ marginBottom: 18 }}>

@@ -16,6 +16,7 @@ import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { BadgeSymbol } from '../components/badges';
 import LevelBar from '../components/LevelBar';
+import DemoChip from '../components/DemoChip';
 import StatStrip from '../components/StatStrip';
 import RecentComments from '../components/RecentComments';
 import {
@@ -120,9 +121,12 @@ export default function PublicProfileScreen({ route, navigation }: any) {
       <View style={styles.header}>
         <Avatar uri={profile.avatar_url} name={profile.name} size={60} />
         <View style={styles.headerText}>
-          <Text variant="title" numberOfLines={1}>
-            {profile.name}
-          </Text>
+          <View style={styles.nameWrap}>
+            <Text variant="title" numberOfLines={1} style={styles.name}>
+              {profile.name}
+            </Text>
+            <DemoChip visible={profile.is_demo === true} />
+          </View>
           <Text variant="caption">{formatDate(profile.created_at)} tarihinde katıldı</Text>
         </View>
       </View>
@@ -289,6 +293,8 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 const useStyles = makeStyles(() => ({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
   headerText: { flex: 1, marginLeft: spacing.lg },
+  nameWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  name: { flexShrink: 1 },
   statStrip: { marginBottom: spacing.md },
   levelCard: { marginBottom: spacing.lg },
   statsRow: { flexDirection: 'row', marginBottom: spacing.xl },

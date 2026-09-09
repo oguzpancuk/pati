@@ -91,6 +91,8 @@ export interface Me {
   hasPassword: boolean;
   /** Same meaning as on `User` (api/auth): the code screen is still due. */
   email_verification_pending?: boolean;
+  /** Whether this person sees the showcase (demo) world (their own switch). */
+  show_demo?: boolean;
   authProviders: SocialProvider[];
 }
 
@@ -110,6 +112,8 @@ export interface PublicProfile {
   id: number;
   name: string;
   avatar_url: string | null;
+  /** Showcase (demo) account or record: the clients mark it with a chip. */
+  is_demo?: boolean;
   created_at: string;
   stats: UserStats;
   badges: Badge[];
@@ -150,6 +154,8 @@ export interface LeaderboardEntry {
   id: number;
   name: string;
   avatar_url: string | null;
+  /** Showcase (demo) account or record: the clients mark it with a chip. */
+  is_demo?: boolean;
   points: number;
   badgePoints: number;
   commentPoints: number;
@@ -297,4 +303,13 @@ export async function acceptFriendRequest(friendshipId: number): Promise<void> {
 
 export async function removeFriendship(friendshipId: number): Promise<void> {
   await apiClient.delete(`/friendships/${friendshipId}`);
+}
+
+/**
+ * Each person decides whether the showcase (demo) world is part of their
+ * app — the bots' animals, their food and water, the chat and the
+ * leaderboard entries (owner, 2026-09-09). On by default.
+ */
+export async function setShowDemo(showDemo: boolean): Promise<void> {
+  await apiClient.put('/users/me/show-demo', { showDemo });
 }

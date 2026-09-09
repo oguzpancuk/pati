@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth.middleware');
+const { requireAuth, identifyUser } = require('../middleware/auth.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 const { upload } = require('../config/upload');
 const {
@@ -13,8 +13,10 @@ const {
 
 const router = express.Router();
 
-router.get('/', listCareActions);
-router.get('/status', getCareStatus);
+// Open to signed-out visitors, but a signed-in one's demo preference has
+// to be known: identifyUser names the caller without ever refusing.
+router.get('/', identifyUser, listCareActions);
+router.get('/status', identifyUser, getCareStatus);
 router.get('/mine', requireAuth, listMyCareActions);
 // The check has its own bucket: sharing the create budget halved the
 // route the limiter was sized for (review finding).

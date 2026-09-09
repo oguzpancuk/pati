@@ -501,7 +501,10 @@ export default function AnimalPage() {
       <div className="animal-identity">
         <div className="grow">
           <div className="animal-name-row">
-            <h1>{displayName}</h1>
+            <div className="name-with-chip">
+              <h1>{displayName}</h1>
+              {animal.is_demo && <span className="demo-chip">demo</span>}
+            </div>
             {/* The audience (P7 item 5, placed by the P8 review): the
                 follower/carer pair right-aligned on the name's line. */}
             <span className="animal-counts">

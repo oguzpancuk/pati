@@ -6,6 +6,7 @@ const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
+const { demoFilter } = require('../utils/settings');
 const { syncAnimalBadgesSafe, getAnimalBadgesFor, animalBadgeLadder } = require('../utils/badges');
 const { notifyAnimalEventSafe } = require('./notification.controller');
 const ai = require('../utils/ai');
@@ -155,6 +156,9 @@ async function listAnimals(req, res, next) {
     }
     const { limit, offset } = pageParams(req.query);
     const speciesFilter = species ? 'AND a.species = $SPECIES' : '';
+    // The showcase world is one switch: when it is off, no demo animal is
+    // listed anywhere (owner, 2026-09-09).
+    const hideDemo = await demoFilter(req, 'a');
 
     // The parsed numbers decide the branch, not the raw strings: a blank
     // "   " is truthy but not a coordinate (review finding). Half a centre
@@ -182,7 +186,7 @@ async function listAnimals(req, res, next) {
       // table — review measured 621 ms against 13 ms). The cover photo is
       // joined to the page's rows only; the outer ORDER BY just fixes ties
       // within the page.
-      let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
+      let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at, a.is_demo,
                         ST_AsGeoJSON(a.location)::json AS location, ${COVER_COLUMNS},
                         a.distance_meters
                  FROM (
@@ -190,6 +194,7 @@ async function listAnimals(req, res, next) {
                    FROM animals a
                    WHERE ${bounded ? `ST_DWithin(a.location, ${point}, $3)` : 'true'}
                    ${speciesFilter}
+                   ${hideDemo}
                    ORDER BY a.location <-> ${point}
                    LIMIT $${bounded ? 4 : 3}::int OFFSET $${bounded ? 5 : 4}::int
                  ) a
@@ -204,12 +209,13 @@ async function listAnimals(req, res, next) {
     }
 
     const params = [limit, offset];
-    let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
+    let sql = `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at, a.is_demo,
                       ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url, cover.thumb_url AS cover_thumb_url
                FROM animals a
                ${COVER_PHOTO_JOIN}
                WHERE true
                ${speciesFilter}
+               ${hideDemo}
                ORDER BY a.created_at DESC, a.id DESC
                LIMIT $1::int OFFSET $2::int`;
     if (species) {
@@ -332,13 +338,14 @@ async function matchAnimals(req, res, next) {
     }
 
     const result = await pool.query(
-      `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
+      `SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at, a.is_demo,
               ST_AsGeoJSON(a.location)::json AS location, cover.url AS cover_photo_url, cover.thumb_url AS cover_thumb_url,
               ST_Distance(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
        FROM animals a
        ${COVER_PHOTO_JOIN}
        WHERE ST_DWithin(a.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
          AND a.species = $4
+         ${await demoFilter(req, 'a')}
        ORDER BY distance_meters, a.id
        LIMIT 200`,
       [point.lng, point.lat, MATCH_RADIUS_METERS, species]
@@ -516,7 +523,7 @@ async function getAnimal(req, res, next) {
   try {
     const animalResult = await pool.query(
       `SELECT id, species, name, color, breed, markings, created_by, created_at, location_updated_at,
-              ST_AsGeoJSON(location)::json AS location
+              is_demo, ST_AsGeoJSON(location)::json AS location
        FROM animals WHERE id = $1`,
       [req.params.id]
     );

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../config/db');
 const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
+const { demoFilter, rememberShowsDemo } = require('../utils/settings');
 const { UPLOADS_DIR } = require('../config/upload');
 const { writeAuditLog } = require('../utils/auditLog');
 const { getUserBadges } = require('../utils/badges');
@@ -64,7 +65,7 @@ async function getMe(req, res, next) {
   try {
     const result = await pool.query(
       `SELECT id, name, email, role, avatar_url, featured_badges, created_at,
-              email_verification_pending
+              email_verification_pending, show_demo
          FROM users WHERE id = $1`,
       [req.user.userId]
     );
@@ -336,6 +337,27 @@ async function markMyBadgeAwardsSeen(req, res, next) {
   }
 }
 
+/**
+ * Whether this person sees the showcase (demo) world. Their own switch,
+ * on their own profile (owner, 2026-09-09).
+ */
+async function setShowDemo(req, res, next) {
+  try {
+    const { showDemo } = req.body ?? {};
+    if (typeof showDemo !== 'boolean') {
+      return res.status(400).json({ error: 'showDemo true veya false olmalıdır' });
+    }
+    await pool.query('UPDATE users SET show_demo = $1 WHERE id = $2', [
+      showDemo,
+      req.user.userId,
+    ]);
+    rememberShowsDemo(req.user.userId, showDemo);
+    res.json({ showDemo });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function searchUsers(req, res, next) {
   try {
     const q = (req.query.q || '').trim();
@@ -345,6 +367,7 @@ async function searchUsers(req, res, next) {
     const result = await pool.query(
       `SELECT id, name, avatar_url FROM users
        WHERE id != $1 AND name ILIKE $2
+       ${await demoFilter(req, 'users')}
        ORDER BY name
        LIMIT 20`,
       [req.user.userId, `%${q}%`]
@@ -359,7 +382,7 @@ async function getPublicProfile(req, res, next) {
   try {
     const targetId = Number(req.params.id);
     const userResult = await pool.query(
-      'SELECT id, name, avatar_url, featured_badges, created_at FROM users WHERE id = $1',
+      'SELECT id, name, avatar_url, featured_badges, created_at, is_demo FROM users WHERE id = $1',
       [targetId]
     );
     if (userResult.rows.length === 0) {
@@ -575,6 +598,7 @@ module.exports = {
   getMyBadgeAwards,
   markMyBadgeAwardsSeen,
   searchUsers,
+  setShowDemo,
   getPublicProfile,
   deleteMyAccount,
 };

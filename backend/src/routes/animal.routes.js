@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth.middleware');
+const { requireAuth, identifyUser } = require('../middleware/auth.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 const { upload, pendingUpload } = require('../config/upload');
 const {
@@ -26,7 +26,9 @@ const {
 
 const router = express.Router();
 
-router.get('/', listAnimals);
+// Open to signed-out visitors; identifyUser names a signed-in one so their
+// demo preference is honoured (it never refuses a request).
+router.get('/', identifyUser, listAnimals);
 // The literal '/match' path must precede '/:id', or "match" parses as an id.
 // GET is the field-only form; POST carries the new animal's photos — each
 // screened for the species, the first compared with the candidates — and

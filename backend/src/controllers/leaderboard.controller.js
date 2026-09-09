@@ -1,15 +1,22 @@
 const pool = require('../config/db');
 const { getBadgesForUsers } = require('../utils/badges');
+const { demoFilter } = require('../utils/settings');
 
 // The ranking is computed over all users. Badges are derived data and are
 // not stored; the badge computation runs as set-based queries, so the query
 // count doesn't grow with the user count. At much larger scale this table
 // will need periodic caching (unnecessary at the current size).
-async function computeLeaderboard() {
+async function computeLeaderboard(viewerId) {
   // Suspended and self-deleted (anonymized) accounts are excluded: a
   // "Silinmiş Üye" holding a rank pushes living volunteers down the board.
+  // The showcase world competes on the board of everyone who keeps it on,
+  // and leaves the board of anyone who switches it off in their profile
+  // (owner, 2026-09-09).
   const users = await pool.query(
-    'SELECT id, name, avatar_url FROM users WHERE suspended_at IS NULL'
+    `SELECT id, name, avatar_url, is_demo FROM users WHERE suspended_at IS NULL${await demoFilter(
+      { user: { userId: viewerId } },
+      'users'
+    )}`
   );
   const userIds = users.rows.map((u) => u.id);
   const badgeMap = await getBadgesForUsers(userIds);
@@ -21,6 +28,9 @@ async function computeLeaderboard() {
       id: user.id,
       name: user.name,
       avatar_url: user.avatar_url,
+      // Showcase accounts wear a "demo" chip wherever they appear, so a
+      // newcomer can tell the tour from the neighbourhood (owner).
+      is_demo: user.is_demo,
       points: data.points.total,
       badgePoints: data.points.badges,
       commentPoints: data.points.comments,
@@ -52,7 +62,7 @@ async function computeLeaderboard() {
 async function getLeaderboard(req, res, next) {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
-    const rows = await computeLeaderboard();
+    const rows = await computeLeaderboard(req.user.userId);
     const me = rows.find((r) => r.id === req.user.userId) || null;
 
     res.json({
@@ -66,7 +76,7 @@ async function getLeaderboard(req, res, next) {
 }
 
 async function getUserRank(userId) {
-  const rows = await computeLeaderboard();
+  const rows = await computeLeaderboard(userId);
   const entry = rows.find((r) => r.id === userId);
   return entry ? { rank: entry.rank, points: entry.points, totalUsers: rows.length } : null;
 }

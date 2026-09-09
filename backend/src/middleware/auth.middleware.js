@@ -73,6 +73,30 @@ function authenticator({ allowPending }) {
   };
 }
 
+/**
+ * Names the caller on a PUBLIC route without ever refusing one. The map and
+ * the drop list are open to signed-out visitors, but a signed-in visitor's
+ * showcase (demo) preference can only be honoured if the request knows who
+ * they are (owner, 2026-09-09).
+ *
+ * Deliberately minimal: only `userId` is set, and no role — nothing
+ * downstream may mistake this for an authenticated, privileged session, and
+ * suspension or a pending e-mail is irrelevant to a preference lookup.
+ */
+function identifyUser(req, _res, next) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) return next();
+  try {
+    const payload = verifyToken(header.slice('Bearer '.length));
+    // Purpose tokens (the care photoToken) carry a userId too; they are not
+    // sessions (same rule as requireAuth).
+    if (payload.kind === undefined && payload.userId) req.user = { userId: payload.userId };
+  } catch {
+    // An expired or malformed token simply leaves the request anonymous.
+  }
+  next();
+}
+
 const requireAuth = authenticator({ allowPending: false });
 const requireAuthAllowPending = authenticator({ allowPending: true });
 
@@ -85,4 +109,4 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAuthAllowPending, requireAdmin };
+module.exports = { requireAuth, requireAuthAllowPending, requireAdmin, identifyUser };
