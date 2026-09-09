@@ -42,6 +42,13 @@ app.use(
 );
 app.use(express.json());
 app.use('/uploads', express.static(UPLOADS_DIR));
+// The showcase animals' photos ship inside the image, not on the uploads
+// volume: the seed can then run against any environment (and `--remove`
+// leaves no orphaned files behind). Long cache — the files are immutable.
+app.use(
+  '/demo',
+  express.static(path.join(__dirname, '..', 'demo-assets'), { maxAge: '30d', fallthrough: true })
+);
 
 // Brute-force brake for login/registration. Auth endpoints only: the rest
 // are JWT-protected, and a client opening the map fires many requests fast.
