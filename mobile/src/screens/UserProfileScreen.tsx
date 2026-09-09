@@ -447,7 +447,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
             // its cell names what the account is instead of an empty rank.
             value: me.is_demo ? 'demo' : me.rank ? `${me.rank.rank}.` : '—',
             label: me.is_demo ? 'hesabı' : 'sıra',
-            onPress: () => navigation.navigate('Leaderboard'),
+            // A showcase account is not on the board, so its cell does not
+            // open one (review finding).
+            onPress: me.is_demo ? undefined : () => navigation.navigate('Leaderboard'),
           },
           { value: String(me.level?.level ?? 1), label: 'seviye' },
         ]}

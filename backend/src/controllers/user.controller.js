@@ -73,13 +73,13 @@ const ME_COLUMNS = `id, name, email, role, avatar_url, featured_badges, created_
  * `recentComments`/`commentCount`/`email_verification_pending`, in two
  * consecutive review rounds — so there is only one builder now.
  */
-async function buildMeResponse(req, user) {
+async function buildMeResponse(user) {
   const [stats, badgeData, rank, recentComments, commentCount, authMethods] = await Promise.all([
     getStats(user.id),
     getUserBadges(user.id),
     getUserRank(user.id),
-    fetchRecentComments(req, user.id),
-    countComments(req, user.id),
+    fetchRecentComments(user.id),
+    countComments(user.id),
     getAuthMethods(user.id),
   ]);
 
@@ -111,7 +111,7 @@ async function getMe(req, res, next) {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
-    res.json(await buildMeResponse(req, result.rows[0]));
+    res.json(await buildMeResponse(result.rows[0]));
   } catch (err) {
     next(err);
   }
@@ -148,12 +148,12 @@ async function setFeaturedBadges(req, res, next) {
 }
 
 /** Changes the profile image and answers with the whole profile. */
-async function setAvatarAndRespond(req, userId, avatarValue, res) {
+async function setAvatarAndRespond(userId, avatarValue, res) {
   const result = await pool.query(
     `UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING ${ME_COLUMNS}`,
     [avatarValue, userId]
   );
-  res.json(await buildMeResponse(req, result.rows[0]));
+  res.json(await buildMeResponse(result.rows[0]));
 }
 
 async function uploadAvatar(req, res, next) {
@@ -164,7 +164,7 @@ async function uploadAvatar(req, res, next) {
     const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
     // Uploading a photo replaces the selected built-in avatar: both live in
     // the same column because only one can be active at a time.
-    await setAvatarAndRespond(req, req.user.userId, avatarUrl, res);
+    await setAvatarAndRespond(req.user.userId, avatarUrl, res);
   } catch (err) {
     if (req.file) {
       fs.unlink(req.file.path, () => {});
@@ -184,7 +184,7 @@ async function setAvatarKey(req, res, next) {
     if (!avatarValue) {
       return res.status(400).json({ error: 'Geçersiz avatar seçimi' });
     }
-    await setAvatarAndRespond(req, req.user.userId, avatarValue, res);
+    await setAvatarAndRespond(req.user.userId, avatarValue, res);
   } catch (err) {
     next(err);
   }
@@ -193,7 +193,7 @@ async function setAvatarKey(req, res, next) {
 /** Removes the image entirely; the UI falls back to the initial letter. */
 async function clearAvatar(req, res, next) {
   try {
-    await setAvatarAndRespond(req, req.user.userId, null, res);
+    await setAvatarAndRespond(req.user.userId, null, res);
   } catch (err) {
     next(err);
   }
@@ -201,11 +201,14 @@ async function clearAvatar(req, res, next) {
 
 // Cared-for animals are listed the same way (with a cover photo) on your own
 // profile and on other people's; keep the query in one place.
-// `hideDemo` is the reader's showcase filter: a real volunteer can care for
-// a showcase animal while the world is on, and when they switch it off the
-// animal 404s — a card that cannot be opened is worse than no card (review
-// finding).
-const caredAnimalsSql = (hideDemo) => `
+// NOT demo-filtered, on purpose. What a volunteer did is theirs: their care
+// records and comments feed the badges and points shown on the same screen,
+// and filtering the lists while the badge engine counts everything put "0
+// yorum" next to a gold comment badge (review finding). The showcase world
+// disappears from DISCOVERY — map, lists, board, search, inbox — and an
+// animal the reader has their own history with stays openable (see
+// middleware/demo.middleware.js).
+const CARED_ANIMALS_SQL = `
   SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
          ST_AsGeoJSON(a.location)::json AS location,
          ${COVER_COLUMNS}
@@ -213,7 +216,6 @@ const caredAnimalsSql = (hideDemo) => `
   JOIN user_animal_care uac ON uac.animal_id = a.id
   ${coverPhotoJoin('a')}
   WHERE uac.user_id = $1
-  ${hideDemo}
   ORDER BY uac.created_at DESC
   LIMIT $2::int OFFSET $3::int`;
 
@@ -224,20 +226,14 @@ const caredAnimalsSql = (hideDemo) => `
 const PROFILE_ANIMAL_PREVIEW = 3;
 const MAX_ANIMAL_PAGE = 50;
 
-async function fetchCaredAnimals(req, userId, limit = PROFILE_ANIMAL_PREVIEW, offset = 0) {
-  const result = await pool.query(caredAnimalsSql(await demoFilter(req, 'a')), [
-    userId,
-    limit,
-    offset,
-  ]);
+async function fetchCaredAnimals(userId, limit = PROFILE_ANIMAL_PREVIEW, offset = 0) {
+  const result = await pool.query(CARED_ANIMALS_SQL, [userId, limit, offset]);
   return result.rows;
 }
 
-async function countCaredAnimals(req, userId) {
+async function countCaredAnimals(userId) {
   const result = await pool.query(
-    `SELECT count(*)::int AS count FROM user_animal_care uac
-     JOIN animals a ON a.id = uac.animal_id
-     WHERE uac.user_id = $1${await demoFilter(req, 'a')}`,
+    'SELECT count(*)::int AS count FROM user_animal_care WHERE user_id = $1',
     [userId]
   );
   return result.rows[0].count;
@@ -245,7 +241,7 @@ async function countCaredAnimals(req, userId) {
 
 // The "recent comments" list shown on the profile. The animal each comment
 // belongs to is returned too, so the list can link straight to its profile.
-const userCommentsSql = (hideDemo) => `
+const USER_COMMENTS_SQL = `
   SELECT c.id, c.body, c.created_at, c.health_record_id,
          a.id AS animal_id, a.species AS animal_species,
          a.name AS animal_name, a.breed AS animal_breed,
@@ -254,26 +250,19 @@ const userCommentsSql = (hideDemo) => `
   JOIN animals a ON a.id = c.animal_id
   ${coverPhotoJoin('a')}
   WHERE c.user_id = $1
-  ${hideDemo}
   ORDER BY c.created_at DESC
   LIMIT $2::int OFFSET $3::int`;
 
 const PROFILE_COMMENT_PREVIEW = 3;
 
-async function fetchRecentComments(req, userId, limit = PROFILE_COMMENT_PREVIEW, offset = 0) {
-  const result = await pool.query(userCommentsSql(await demoFilter(req, 'a')), [
-    userId,
-    limit,
-    offset,
-  ]);
+async function fetchRecentComments(userId, limit = PROFILE_COMMENT_PREVIEW, offset = 0) {
+  const result = await pool.query(USER_COMMENTS_SQL, [userId, limit, offset]);
   return result.rows;
 }
 
-async function countComments(req, userId) {
+async function countComments(userId) {
   const result = await pool.query(
-    `SELECT count(*)::int AS count FROM animal_comments c
-     JOIN animals a ON a.id = c.animal_id
-     WHERE c.user_id = $1${await demoFilter(req, 'a')}`,
+    'SELECT count(*)::int AS count FROM animal_comments WHERE user_id = $1',
     [userId]
   );
   return result.rows[0].count;
@@ -290,8 +279,8 @@ async function getUserAnimals(req, res, next) {
     const limit = Math.min(Number(req.query.limit) || PROFILE_ANIMAL_PREVIEW, MAX_ANIMAL_PAGE);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
     const [animals, total] = await Promise.all([
-      fetchCaredAnimals(req, targetId, limit, offset),
-      countCaredAnimals(req, targetId),
+      fetchCaredAnimals(targetId, limit, offset),
+      countCaredAnimals(targetId),
     ]);
     res.json({ animals, total });
   } catch (err) {
@@ -310,8 +299,8 @@ async function getUserComments(req, res, next) {
 
     const [user, comments, total] = await Promise.all([
       pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [targetId]),
-      fetchRecentComments(req, targetId, limit, offset),
-      countComments(req, targetId),
+      fetchRecentComments(targetId, limit, offset),
+      countComments(targetId),
     ]);
 
     if (user.rows.length === 0) {
@@ -409,16 +398,16 @@ async function getPublicProfile(req, res, next) {
     ] = await Promise.all([
       getStats(targetId),
       getUserBadges(targetId),
-      fetchCaredAnimals(req, targetId),
-      countCaredAnimals(req, targetId),
+      fetchCaredAnimals(targetId),
+      countCaredAnimals(targetId),
       pool.query(
         `SELECT count(*)::int AS count FROM friendships
            WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
         [targetId]
       ),
       getUserRank(targetId),
-      fetchRecentComments(req, targetId),
-      countComments(req, targetId),
+      fetchRecentComments(targetId),
+      countComments(targetId),
     ]);
 
     let friendshipStatus = 'none';

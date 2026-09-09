@@ -2777,3 +2777,31 @@ the next docs touch.
   bot and never hear back. Auto-accepting would need a job that runs after
   the seed, and the request sitting in "gönderilen istekler" is at least
   honest about what it is.
+
+### Same day — where the line between "hidden" and "mine" falls
+
+- The fifth review round caught the filter overshooting: with the profile's
+  own comment and care lists filtered, a volunteer who had worked on
+  showcase animals saw "0 yorum" beside a gold comment badge, because the
+  badge engine counts everything. The rule is now explicit, in the guard's
+  own docblock: **the switch hides DISCOVERY — map, lists, board, search,
+  inbox — and never takes away what the reader themselves did.** The
+  profile lists are unfiltered again, and `guardDemoAnimal` lets through an
+  animal the reader has cared for, commented on or followed. Verified: with
+  the showcase off, an animal I cared for opens (200), a bot animal I never
+  touched is 404, my counts and my list agree.
+- The write side had the same hole the read side did: a friend request to a
+  hidden bot landed, then vanished from the sender's own list and answered
+  409 forever. `isHiddenDemoUser` refuses it with the same 404.
+- Three more from that round: the guards sit AFTER the rate limiters now (a
+  loop over a demo id was never counted by any bucket), a demo carer or
+  comment author on a REAL animal is filtered out (tapping them 404s), and
+  the own-profile "demo hesabı" cell no longer opens a board the account is
+  not on.
+- The seasonal gate was reading the machine clock, so a run on 5 November
+  would have stamped cold-weather chat onto rows dated 6 October, and the
+  plan stopped being a pure function of `(seed, now)`. Every pool is now
+  asked of the ROW's own date. The group's opening line is a founder's
+  ("Grubu açtım…"), not the joiner greeting the previous fix had put in the
+  creator's mouth. Four new tests pin the bowl photos, the seasonal rule
+  and the opening line.

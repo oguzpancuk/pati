@@ -83,6 +83,9 @@ const {
   DM_TOPICS,
   GROUP_LINES,
   GROUP_OPENING,
+  COLD_GROUP_LINES,
+  COLD_DM_TOPICS,
+  isColdAt,
   GROUP_SUFFIXES,
   VACCINE_NOTES,
   pick,
@@ -482,7 +485,8 @@ function planDistrict(district, { users: userCount, base }, now) {
   // should find the feature, not hunt for it.
   for (const user of pickMany(rng, users, Math.min(users.length, int(rng, 14, 22)))) {
     const mine = animals.filter((a) => a.owner === user);
-    for (let k = 0; k < int(rng, 1, 3); k += 1) {
+    const fresh = int(rng, 1, 3);
+    for (let k = 0; k < fresh; k += 1) {
       const type = chance(rng, 0.55) ? 'food' : 'water';
       care.push({
         user,
@@ -515,11 +519,16 @@ function planDistrict(district, { users: userCount, base }, now) {
     if (!chance(rng, 0.45)) continue;
     for (const author of pickMany(rng, users, int(rng, 1, 3))) {
       if (author === animal.owner && chance(rng, 0.7)) continue;
+      // Dated first: what a comment can say depends on its season.
+      const commentAt = noLaterThan(
+        new Date(animal.createdAt.getTime() + int(rng, 2, 25 * 24) * MS_HOUR),
+        now
+      );
       comments.push({
         animal,
         author,
-        body: animalComment(rng, { animal: animal.name }),
-        at: noLaterThan(new Date(animal.createdAt.getTime() + int(rng, 2, 25 * 24) * MS_HOUR), now),
+        body: animalComment(rng, { animal: animal.name, at: commentAt }),
+        at: commentAt,
       });
     }
   }
@@ -595,7 +604,9 @@ function planDistrict(district, { users: userCount, base }, now) {
   const directs = [];
   for (const friendship of friendships) {
     if (friendship.status !== 'accepted' || !chance(rng, 0.15)) continue;
-    const script = pick(rng, DM_TOPICS);
+    // A winter script only for a conversation that happens in winter.
+    const topics = isColdAt(friendship.at) ? [...DM_TOPICS, ...COLD_DM_TOPICS] : DM_TOPICS;
+    const script = pick(rng, topics);
     const lines = script.slice(0, int(rng, 3, script.length));
     let at = noLaterThan(new Date(friendship.at.getTime() + int(rng, 1, 10) * MS_HOUR), now);
     const messages = lines.map((body, i) => {
@@ -609,11 +620,14 @@ function planDistrict(district, { users: userCount, base }, now) {
   const groupMembers = pickMany(rng, users, Math.min(users.length, int(rng, 14, 26)));
   const groupCreatedAt = momentDaysAgo(rng, int(rng, 20, HISTORY_DAYS), now);
   let groupAt = groupCreatedAt;
-  // The creator opens the group; the rest is the shuffled pool, so the
-  // inbox preview is never a month-old "gruba yeni katıldım" (QA finding).
+  // The creator opens the group with a line only a founder would write; the
+  // rest is the shuffled pool, so the inbox preview is never a month-old
+  // greeting (QA finding) spoken by the founder (review finding). The cold
+  // lines join the pool only when the group's own month is cold.
+  const groupPool = isColdAt(groupCreatedAt) ? [...GROUP_LINES, ...COLD_GROUP_LINES] : GROUP_LINES;
   const groupMessages = [
     { body: GROUP_OPENING, sender: groupMembers[0], at: groupCreatedAt },
-    ...pickMany(rng, GROUP_LINES, int(rng, 12, 20)).map((body) => {
+    ...pickMany(rng, groupPool, int(rng, 12, 20)).map((body) => {
       groupAt = noLaterThan(new Date(groupAt.getTime() + int(rng, 30, 40 * 60) * 60_000), now);
       return { body, sender: pick(rng, groupMembers), at: groupAt };
     }),

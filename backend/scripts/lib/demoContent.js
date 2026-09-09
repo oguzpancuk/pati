@@ -350,13 +350,22 @@ const RELIEF = [
 /**
  * Seeded content carries real timestamps, so a line about the cold under an
  * August date reads as filler and gives the showcase away for the wrong
- * reason (QA finding, 2026-09-09). November to March the cold lines join
- * their pool; the rest of the year they stay out. Decided once, at load:
- * a seed run is a single process of a few minutes.
+ * reason (QA finding, 2026-09-09).
+ *
+ * The season is asked of the MESSAGE, not of the machine: history reaches a
+ * month back, so a run on 5 November would otherwise stamp cold-weather chat
+ * onto rows dated 6 October, and a plan would stop being a pure function of
+ * (seed, now) — which is what the determinism test rests on (review
+ * finding).
  */
 const COLD_MONTHS = new Set([10, 11, 0, 1, 2]);
-const isCold = (now = new Date()) => COLD_MONTHS.has(now.getMonth());
-const whenCold = (lines) => (isCold() ? lines : []);
+const isColdAt = (at) => COLD_MONTHS.has(at.getMonth());
+
+/** The cold-weather lines, kept apart so a caller can add them by date. */
+const COLD_COORDINATION = [
+  'Kışlık kulübeyi bu hafta sonu yerleştirelim diyorum',
+  'Kulübeye battaniye koydum, hava soğudu',
+];
 
 const COORDINATION = [
   'Yarın sabah ben mama bırakacağım, akşamı biri alabilir mi',
@@ -365,10 +374,6 @@ const COORDINATION = [
   'Bu köşeye kalıcı bir su kabı koysak çok iyi olur',
   'Kısırlaştırma için belediyeye başvurdum, sıraya aldılar',
   'Akşamları burada oluyor, arayanlara duyurulur',
-  ...whenCold([
-    'Kışlık kulübeyi bu hafta sonu yerleştirelim diyorum',
-    'Kulübeye battaniye koydum, hava soğudu',
-  ]),
 ];
 const THANKS = [
   'Emeğinize sağlık',
@@ -379,14 +384,18 @@ const THANKS = [
 ];
 
 /** One animal-profile comment. Six families, each with its own slots. */
-function animalComment(rng, { animal }) {
+function animalComment(rng, { animal, at }) {
+  // The coordination pool grows in the cold half of the year — asked of the
+  // comment's own date, so a run in November cannot stamp "kulübeye battaniye
+  // koydum" onto a row dated October (review finding).
+  const coordination = at && isColdAt(at) ? [...COORDINATION, ...COLD_COORDINATION] : COORDINATION;
   const roll = rng();
   if (roll < 0.3) return `${pick(rng, WHEN)} ${pick(rng, PLACE)} gördüm, ${pick(rng, STATE)}.`;
   if (roll < 0.55)
     return `${pick(rng, WHEN)} ${pick(rng, OFFERING)} bıraktım, ${pick(rng, REACTION)}.`;
   if (roll < 0.68) return `${pick(rng, CONCERN)}.`;
   if (roll < 0.76) return `${pick(rng, RELIEF)}.`;
-  if (roll < 0.92) return `${pick(rng, COORDINATION)}.`;
+  if (roll < 0.92) return `${pick(rng, coordination)}.`;
   return `${animal} için ${pick(rng, THANKS).toLocaleLowerCase('tr')}.`;
 }
 
@@ -464,10 +473,15 @@ const DM_TOPICS = [
 
 // -------------------------------------------------------------- group messages
 
-// The line a group opens with. Kept out of the shuffled pool: as one of them
-// it could land last, and four of 44 inboxes previewed a month-old group with
-// "gruba yeni katıldım" as its newest message (QA finding).
-const GROUP_OPENING = 'Merhaba herkese, gruba yeni katıldım';
+// The line a group opens with, spoken by whoever created it. The greeting it
+// replaced ("gruba yeni katıldım") was in the shuffled pool, so it could land
+// last — four of 44 inboxes previewed a month-old group with it as the newest
+// message (QA finding) — and putting THAT in the creator's mouth would have
+// been worse (review finding): the founder announcing they just joined.
+const GROUP_OPENING = 'Grubu açtım, mahallede kim varsa beklerim';
+
+/** Group lines that need cold weather; added by date, like COLD_COORDINATION. */
+const COLD_GROUP_LINES = ['Hava çok soğuk, kulübelere battaniye koyalım'];
 
 const GROUP_LINES = [
   'Bu akşam park tarafına mama bırakacağım',
@@ -488,10 +502,15 @@ const GROUP_LINES = [
   'Herkese kolay gelsin, emeğinize sağlık',
   'Kapları biraz daha içeri çektim, yağmurdan korunsun',
   'Grup çok kalabalık oldu, ne güzel',
-  ...whenCold(['Hava çok soğuk, kulübelere battaniye koyalım']),
 ];
 
 /** Group names read like a real neighbourhood group: "<İlçe> Patileri". */
+/**
+ * Whole conversations that need cold weather. Added by the caller for a
+ * conversation whose own date is cold — never pushed into DM_TOPICS at load,
+ * which made an exported array's length depend on the wall clock (review
+ * finding).
+ */
 const COLD_DM_TOPICS = [
   [
     'Kışlık kulübe yapmayı düşünüyorum, malzeme önerin var mı',
@@ -501,7 +520,6 @@ const COLD_DM_TOPICS = [
     'Deneyeceğim, teşekkürler',
   ],
 ];
-DM_TOPICS.push(...whenCold(COLD_DM_TOPICS));
 
 const GROUP_SUFFIXES = [
   'Patileri',
@@ -533,6 +551,10 @@ module.exports = {
   DM_TOPICS,
   GROUP_LINES,
   GROUP_OPENING,
+  COLD_GROUP_LINES,
+  COLD_DM_TOPICS,
+  COLD_COORDINATION,
+  isColdAt,
   GROUP_SUFFIXES,
   VACCINE_NOTES,
   pick,

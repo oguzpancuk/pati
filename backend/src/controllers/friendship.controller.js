@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { demoFilter } = require('../utils/settings');
+const { isHiddenDemoUser } = require('../middleware/demo.middleware');
 
 async function sendRequest(req, res, next) {
   try {
@@ -10,7 +11,10 @@ async function sendRequest(req, res, next) {
     }
 
     const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [addresseeId]);
-    if (userCheck.rows.length === 0) {
+    // A showcase account a reader has hidden does not exist for them on the
+    // write side either: the request would land, then vanish from their own
+    // list and answer 409 on every retry (review finding).
+    if (userCheck.rows.length === 0 || (await isHiddenDemoUser(req, addresseeId))) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 

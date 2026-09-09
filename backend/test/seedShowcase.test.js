@@ -3,6 +3,7 @@ const assert = require('node:assert');
 
 const seed = require('../scripts/seed-showcase');
 const { demoPhotoFile } = require('../scripts/lib/demoPhotos');
+const { GROUP_OPENING, isColdAt } = require('../scripts/lib/demoContent');
 
 /**
  * seed-showcase.js runs against PRODUCTION, next to real rows. The parts
@@ -41,6 +42,16 @@ test('every pattern the seed can pick has a committed PNG', () => {
       const file = path.join(dir, demoPhotoFile(species, pattern));
       assert.ok(fs.existsSync(file), `missing ${file} — rerun generate-demo-animal-photos.mjs`);
     }
+  }
+});
+
+test('the two care photos are committed', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', 'demo-assets', 'care');
+  for (const type of ['food', 'water']) {
+    const file = path.join(dir, `${type}.png`);
+    assert.ok(fs.existsSync(file), `missing ${file} — rerun generate-demo-care-photos.mjs`);
   }
 });
 
@@ -152,6 +163,45 @@ test('every animal gets exactly one photo, inside its district', () => {
     assert.ok(animal.spot.lng > Math.min(...lngs) - 0.01);
     assert.ok(animal.spot.lng < Math.max(...lngs) + 0.01);
   }
+});
+
+// A drop's photo shows the BOWL of what was left, never an animal: that is
+// what a real drop carries and what the admin panel renders (QA finding).
+test('every drop carries the bowl photo for its own type', () => {
+  const { plan } = samplePlan();
+  assert.ok(plan.care.length > 0);
+  for (const drop of plan.care) {
+    assert.strictEqual(drop.photo, `https://x.test/demo/care/${drop.type}.png`);
+  }
+});
+
+// The seasonal pools are asked of each row's own date, so a run in November
+// cannot stamp cold-weather chat onto rows dated October (review finding).
+test('nothing talks about the cold outside the cold months', () => {
+  const { plan } = samplePlan();
+  const cold = /soğu|kışlık|battaniye/i;
+  const rows = [
+    ...plan.comments.map((c) => ({ body: c.body, at: c.at })),
+    ...plan.group.messages,
+    ...plan.directs.flatMap((d) => d.messages),
+  ];
+  for (const row of rows) {
+    if (cold.test(row.body)) {
+      assert.ok(
+        isColdAt(row.at),
+        `"${row.body}" is dated ${row.at.toISOString()}, which is not a cold month`
+      );
+    }
+  }
+});
+
+test('a group opens with its creator, and never with a joiner greeting', () => {
+  const { plan } = samplePlan();
+  const [first, ...rest] = plan.group.messages;
+  assert.strictEqual(first.body, GROUP_OPENING);
+  assert.strictEqual(first.sender, plan.group.createdBy);
+  assert.ok(!/yeni katıldım/.test(first.body));
+  assert.ok(rest.every((m) => m.at >= first.at));
 });
 
 test('friendships are one row per pair and never self-directed', () => {
