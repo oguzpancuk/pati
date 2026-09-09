@@ -116,8 +116,24 @@ const FRESH_HOURS = { food: 3.5, water: 5.5 };
  */
 const carePhoto = (base, type) => `${base}/demo/care/${type}.png`;
 
-/** The longest a seeded one-to-one chat can run: 5 lines, 220 minutes apart. */
-const DM_MAX_SPAN_MS = 5 * 220 * 60_000;
+/**
+ * The longest a seeded one-to-one chat can run: the longest cold script's
+ * lines, at the loop's widest step. Derived, not typed: a six-line cold topic
+ * would otherwise let cold lines past the bound again, silently (review
+ * finding).
+ */
+const DM_STEP_MAX_MIN = 220;
+const DM_MAX_SPAN_MS =
+  Math.max(...COLD_DM_TOPICS.map((script) => script.length)) * DM_STEP_MAX_MIN * 60_000;
+
+/**
+ * Whether a chat starting at `at` may use a winter script: its lines run up
+ * to DM_MAX_SPAN_MS past the first, so BOTH ends have to be in winter. Asking
+ * only the start planned "kışlık kulübe" onto 1 April (review finding).
+ * Exported because the violation it prevents is far too rare to catch by
+ * sampling plans — one line in tens of thousands.
+ */
+const coldChatAllowed = (at) => isColdAt(at) && isColdAt(new Date(at.getTime() + DM_MAX_SPAN_MS));
 const EMAIL_DOMAIN = 'pati.demo';
 const MS_DAY = 86_400_000;
 const MS_HOUR = 3_600_000;
@@ -611,12 +627,11 @@ function planDistrict(district, { users: userCount, base }, now) {
     // A winter script only when the WHOLE chat is in winter: its lines run up
     // to 18 h past the first, so asking only the start put cold lines on 1
     // April (review finding). DM_MAX_SPAN_MS bounds that: 5 lines × 220 min.
-    const cold = isColdAt(at) && isColdAt(new Date(at.getTime() + DM_MAX_SPAN_MS));
-    const topics = cold ? [...DM_TOPICS, ...COLD_DM_TOPICS] : DM_TOPICS;
+    const topics = coldChatAllowed(at) ? [...DM_TOPICS, ...COLD_DM_TOPICS] : DM_TOPICS;
     const script = pick(rng, topics);
     const lines = script.slice(0, int(rng, 3, script.length));
     const messages = lines.map((body, i) => {
-      at = noLaterThan(new Date(at.getTime() + int(rng, 2, 220) * 60_000), now);
+      at = noLaterThan(new Date(at.getTime() + int(rng, 2, DM_STEP_MAX_MIN) * 60_000), now);
       return { body, sender: i % 2 === 0 ? friendship.requester : friendship.addressee, at };
     });
     directs.push({ a: friendship.requester, b: friendship.addressee, messages });
@@ -1610,6 +1625,8 @@ module.exports = {
   momentDaysAgo,
   HISTORY_DAYS,
   FRESH_HOURS,
+  coldChatAllowed,
+  DM_MAX_SPAN_MS,
   ANIMALS_PER_USER,
   REMOVE_ORDER,
 };

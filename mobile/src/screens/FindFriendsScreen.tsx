@@ -3,6 +3,7 @@ import { FlatList } from 'react-native';
 import { searchUsers, UserSummary } from '../api/users';
 import { Avatar, Card, EmptyState, Input, Screen, Text } from '../components/ui';
 import { Icon } from '../components/brand';
+import DemoChip from '../components/DemoChip';
 import { makeStyles, spacing, useTheme } from '../theme';
 
 export default function FindFriendsScreen({ navigation }: any) {
@@ -53,6 +54,7 @@ export default function FindFriendsScreen({ navigation }: any) {
             <Text variant="bodyStrong" style={styles.name} numberOfLines={1}>
               {item.name}
             </Text>
+            <DemoChip visible={item.is_demo === true} />
             <Icon name="chevronRight" size={18} color={colors.textSubtle} />
           </Card>
         )}

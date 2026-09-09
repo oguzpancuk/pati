@@ -138,6 +138,8 @@ export interface UserSummary {
   id: number;
   name: string;
   avatar_url: string | null;
+  /** Showcase account: the clients mark it with a chip. */
+  is_demo?: boolean;
 }
 
 export interface FriendshipEntry {

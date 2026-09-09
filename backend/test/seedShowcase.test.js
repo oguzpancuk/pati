@@ -198,12 +198,14 @@ function datedRows(plan) {
 // January `now` cannot fail (everything is cold) and an August one produces
 // no cold line at all; a test at either date passes against the very code it
 // exists to catch (review finding).
-// A cold line on a warm date is rare — the reviewer's probe found 18 rows in
-// 66.492 — so a single district on a single date proves nothing: the earlier
-// version of this test passed against the very code it was written to catch.
-// The sweep is what bites: every district, across the two week-long windows
-// where a 30-day history straddles the season boundary. It costs ~0.3 s and
-// found 18 violations against the pre-fix planner, 0 against this one.
+// A cold line on a warm date is rare, so a single district on a single date
+// proves nothing: two earlier versions of this test passed against the very
+// code they were written to catch. The sweep is what bites for the GROUP
+// path — every district across the two week-long windows where a 30-day
+// history straddles the season boundary, ~0.15 s — and it does fail against
+// the per-group planner (18 violations there, 0 here). The DM path's own
+// violation is rarer still (the review's year-long probe found none by
+// sampling), so its rule is pinned directly, below, instead of by sweeping.
 test('no district plans a cold-weather line onto a warm date', () => {
   const districts = seed.selectDistricts(seed.loadDistricts(), 'all');
   const dates = [];
@@ -578,4 +580,22 @@ test('assignIds also catches a permutation that keeps the correlating value', ()
 test('--help answers even alongside flags that conflict', () => {
   assert.strictEqual(seed.parseArgs(['--force', '--help']).help, true);
   assert.strictEqual(seed.parseArgs(['--help']).help, true);
+});
+
+// The DM rule, pinned as a predicate. A winter script's lines run up to
+// DM_MAX_SPAN_MS past the first message, so a chat that STARTS in winter can
+// end outside it; asking only the start planned "kışlık kulübe" onto 1 April
+// (review finding). Sampling cannot catch this — the combination is one line
+// in tens of thousands — so the rule is asserted where it is decided.
+test('a winter script needs BOTH ends of the chat in winter', () => {
+  assert.ok(seed.DM_MAX_SPAN_MS > 0);
+  // Deep winter: allowed.
+  assert.strictEqual(seed.coldChatAllowed(new Date('2027-01-15T12:00:00Z')), true);
+  // The last hours of March: the chat would run into April.
+  assert.strictEqual(seed.coldChatAllowed(new Date('2027-03-31T12:00:00Z')), false);
+  assert.strictEqual(seed.coldChatAllowed(new Date('2027-03-31T23:00:00Z')), false);
+  // Far enough inside March that the whole chat stays there.
+  assert.strictEqual(seed.coldChatAllowed(new Date('2027-03-30T00:00:00Z')), true);
+  // Warm side of the boundary: never.
+  assert.strictEqual(seed.coldChatAllowed(new Date('2027-04-01T12:00:00Z')), false);
 });

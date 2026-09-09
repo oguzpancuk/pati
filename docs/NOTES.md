@@ -2850,12 +2850,15 @@ the next docs touch.
   top 200.
 - The seasonal tests were passing against the code they were written to
   catch — twice in a row. A cold line on a warm date is rare (18 rows in
-  66.492), so one district on one date proves nothing. The test is a sweep
-  now: every district across the two week-long windows where a 30-day
-  history straddles the season boundary, ~0.3 s, and it fails against the
-  previous commit's planner. The DM path had the same bug the group path
-  did — a chat runs up to 18 h past its first message, so both ends have to
-  be in winter for a winter script.
+  66.492 against the PER-GROUP planner of `b62c826`), so one district on one
+  date proves nothing. The test is a sweep now: every district across the
+  two week-long windows where a 30-day history straddles the season
+  boundary, ~0.15 s. **Correction (round eight):** the sweep fails against
+  `b62c826`, not against `83232e9` as this entry first claimed — the DM
+  variant of the bug is rarer than sampling can reach, so its rule is pinned
+  as a predicate (`coldChatAllowed`) instead. A chat runs up to 18 h past
+  its first message, so both ends have to be in winter for a winter
+  script.
 - `demoFilter`'s call sites are pinned by a source scan
   (`demoVisibility.test.js`). Six rounds moved that filter around; the rule
   is a statement about which call sites exist, so that is what the test
@@ -2866,3 +2869,28 @@ the next docs touch.
   that already had it. Drops are deliberately unmarked: the owner asked for
   users and animals to be recognisable, and a map marker cannot carry a
   chip.
+
+### Same day — flagging by author, not by animal
+
+- The eighth review round caught a real defect in the guide flagging: three
+  of the nine statements claimed rows by the ANIMAL they hang off, so a real
+  volunteer with carer rights on a guide animal would have had their injury
+  record or their photo stamped as bot data — within the hour, since the
+  refresh ran the whole block. Every row is claimed by its AUTHOR now, in
+  the script and in migration 012, and guide friendships (both sides bots)
+  were added. Locally nothing had been mis-flagged; on production it would
+  have been silent, because no read path consumes those three columns yet.
+- The hourly refresh no longer runs the flagging block at all: it sets
+  `is_demo` on the rows it inserts, inline. That removes eight full-table
+  scans an hour, closes the window where a fresh drop was visible before
+  being flagged, and makes 012's one-shot rationale true — nothing puts the
+  flag back on a row an admin deliberately cleared.
+- A notification inherits `is_demo` from the ACTOR only. Keying it on the
+  animal too meant that once guide animals were flagged, a real person's
+  comment on one stopped reaching another real person who follows it — a
+  discovery switch hiding real activity.
+- `@pati.demo` is now refused at registration. The whole scheme keys on that
+  domain, and a person who registered there would have been flagged as a bot
+  by the next seed and deleted by `purge-demo`.
+- Chips reached the last two surfaces a bot can be met on: user search and
+  the friend finder.

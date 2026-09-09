@@ -53,7 +53,10 @@ export default function FindFriendsPage() {
           style={{ textDecoration: 'none', color: 'inherit' }}
         >
           <UserAvatar avatarUrl={u.avatar_url} name={u.name} size={40} />
-          <strong className="grow">{u.name}</strong>
+          <div className="name-with-chip grow">
+            <strong>{u.name}</strong>
+            {u.is_demo && <span className="demo-chip">demo</span>}
+          </div>
           <span className="subtle">›</span>
         </Link>
       ))}

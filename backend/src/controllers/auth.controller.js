@@ -36,6 +36,12 @@ function randomAvatarValue() {
   return `${AVATAR_PREFIX}${AVATAR_KEYS[Math.floor(Math.random() * AVATAR_KEYS.length)]}`;
 }
 
+// The two bot worlds sign their accounts with this domain, and everything
+// that hides them keys on it (utils/settings.js, seed-guides.js). A person
+// registering here would be flagged as a bot by the next seed and could be
+// deleted by purge-demo (review finding), so the domain is reserved.
+const RESERVED_EMAIL_DOMAIN = '@pati.demo';
+
 async function register(req, res, next) {
   try {
     const { name, email, password } = req.body;
@@ -52,6 +58,9 @@ async function register(req, res, next) {
     }
 
     const normalizedEmail = normalizeEmail(email);
+    if (normalizedEmail.endsWith(RESERVED_EMAIL_DOMAIN)) {
+      return res.status(400).json({ error: 'Bu e-posta adresi kullanılamaz' });
+    }
 
     // A registration that never verified holds its address for PENDING_HOLD,
     // then becomes replaceable. Holding it at all is what keeps someone from

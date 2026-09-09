@@ -73,6 +73,10 @@ test('a fresh choice overrides the one before it, per user', async () => {
  * statement about WHICH call sites exist, so that is what this asserts. A new
  * one is not necessarily wrong; it means somebody is changing the rule and
  * should say so here.
+ *
+ * A tripwire, not coverage: it counts call sites per file, so moving the
+ * filter from one query to another inside the same controller still passes.
+ * What it catches is a filter appearing somewhere new, or quietly leaving.
  */
 test('demoFilter is applied to the discovery paths, and only those', () => {
   const fs = require('node:fs');

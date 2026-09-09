@@ -360,7 +360,7 @@ async function searchUsers(req, res, next) {
       return res.json([]);
     }
     const result = await pool.query(
-      `SELECT id, name, avatar_url FROM users
+      `SELECT id, name, avatar_url, is_demo FROM users
        WHERE id != $1 AND name ILIKE $2
        ${await demoFilter(req, 'users')}
        ORDER BY name

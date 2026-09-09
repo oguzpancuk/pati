@@ -657,9 +657,15 @@ async function demoUserIds() {
  * leaderboard for everyone ("botlar sıralamada gözükmesin") and out of the
  * map, the lists and the search of anyone who switched the showcase world off
  * in their profile. Run at the end of a seed and of every hourly refresh, and
- * scoped by the same `@pati.demo` domain the accounts are created under, so a
- * row this script did not write is never touched. Idempotent by shape: the
- * `NOT is_demo` guard makes a second run a no-op.
+ * Every row is claimed by its AUTHOR, never by the animal it hangs off: a
+ * real volunteer can earn carer rights on a guide animal and record an
+ * injury or upload a photo there, and that row is theirs (review finding —
+ * the animal-keyed version stamped it as bot data within the hour).
+ *
+ * Runs at the end of a full seed only. The hourly refresh flags the rows it
+ * inserts inline instead, so nothing re-stamps a row an admin deliberately
+ * un-flagged. Idempotent by shape: the `NOT is_demo` guard makes a second
+ * run a no-op.
  */
 async function flagGuideWorld(db = pool) {
   const like = `%@${DEMO_EMAIL_DOMAIN}`;
@@ -667,20 +673,25 @@ async function flagGuideWorld(db = pool) {
   for (const sql of [
     `UPDATE animals a SET is_demo = true FROM users u
       WHERE u.id = a.created_by AND u.is_demo AND NOT a.is_demo`,
-    `UPDATE animal_photos p SET is_demo = true FROM animals a
-      WHERE a.id = p.animal_id AND a.is_demo AND NOT p.is_demo`,
+    `UPDATE animal_photos p SET is_demo = true FROM users u
+      WHERE u.id = p.uploaded_by AND u.is_demo AND NOT p.is_demo`,
     `UPDATE care_actions c SET is_demo = true FROM users u
       WHERE u.id = c.user_id AND u.is_demo AND NOT c.is_demo`,
     `UPDATE animal_comments c SET is_demo = true FROM users u
       WHERE u.id = c.user_id AND u.is_demo AND NOT c.is_demo`,
-    `UPDATE health_records h SET is_demo = true FROM animals a
-      WHERE a.id = h.animal_id AND a.is_demo AND NOT h.is_demo`,
-    `UPDATE vaccinations v SET is_demo = true FROM animals a
-      WHERE a.id = v.animal_id AND a.is_demo AND NOT v.is_demo`,
+    `UPDATE health_records h SET is_demo = true FROM users u
+      WHERE u.id = h.recorded_by AND u.is_demo AND NOT h.is_demo`,
+    `UPDATE vaccinations v SET is_demo = true FROM users u
+      WHERE u.id = v.recorded_by AND u.is_demo AND NOT v.is_demo`,
     `UPDATE user_animal_care uac SET is_demo = true FROM users u
       WHERE u.id = uac.user_id AND u.is_demo AND NOT uac.is_demo`,
     `UPDATE animal_followers af SET is_demo = true FROM users u
       WHERE u.id = af.user_id AND u.is_demo AND NOT af.is_demo`,
+    // Both sides bots: a friendship between a guide and a real person, if
+    // one is ever made, stays real.
+    `UPDATE friendships f SET is_demo = true FROM users a, users b
+      WHERE a.id = f.requester_id AND b.id = f.addressee_id
+        AND a.is_demo AND b.is_demo AND NOT f.is_demo`,
   ]) {
     await db.query(sql);
   }
@@ -720,15 +731,17 @@ async function refreshGuides({ quiet = false } = {}) {
       Math.random() < 0.6 ? 'food' : 'water',
       randomItem(photoUrls),
       when.toISOString(),
+      // Flagged as it is written: the hourly job must not scan eight tables
+      // to mark fifty rows it created itself, and a drop must never be
+      // visible-then-flagged (review finding).
+      true,
     ]);
   }
   await bulkInsertGeo(
-    `INSERT INTO care_actions (location, user_id, action_type, photo_url, created_at)
+    `INSERT INTO care_actions (location, user_id, action_type, photo_url, created_at, is_demo)
      VALUES __VALUES__`,
     rows
   );
-  // The hourly refresh writes new rows, so they need the flag too.
-  await flagGuideWorld();
   if (!quiet) console.log(`Added ${rows.length} fresh food/water actions.`);
   return rows.length;
 }
@@ -1084,6 +1097,9 @@ async function createGuides() {
 
   // One round of fresh food/water so the map is born green.
   await refreshGuides({ quiet: true });
+
+  // Everything above belongs to the bot world; mark it in one pass.
+  await flagGuideWorld();
 
   console.log('\nDone (data was only ADDED; nothing existing was touched):');
   console.log(`  Districts      : ${DISTRICTS.length}`);
