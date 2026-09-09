@@ -276,3 +276,155 @@ test('the removal order deletes children before their parents', () => {
   before('friendships', 'users');
   assert.strictEqual(order[order.length - 1], 'users');
 });
+
+// ------------------------------------------- the whole run, without a database
+
+/**
+ * A stand-in for a pg client that records every statement and hands back
+ * plausible RETURNING rows. It exists because the first version of this
+ * suite sampled ONE district at --users=12 and so missed thirteen
+ * future-dated health records that appear at the shipping configuration,
+ * plus two whole classes of timestamp that are built in writeDistrict and
+ * never appear in the plan at all.
+ */
+function fakeClient() {
+  const statements = [];
+  let nextId = 1;
+  return {
+    statements,
+    async query(sql, params = []) {
+      statements.push({ sql, params });
+      const match = /^INSERT INTO (\w+) \(([^)]+)\) VALUES/.exec(sql);
+      if (!match) return { rows: [] };
+      const columns = match[2].split(', ');
+      // Every column binds one parameter except the PostGIS point, which
+      // binds lng and lat.
+      const width = columns.length + (columns.includes('location') ? 1 : 0);
+      const offsetOf = (name) => {
+        let offset = 0;
+        for (const column of columns) {
+          if (column === name) return offset;
+          offset += column === 'location' ? 2 : 1;
+        }
+        return -1;
+      };
+      const returning = (/RETURNING (.+)$/.exec(sql)?.[1] ?? '').split(', ').filter(Boolean);
+      const rows = [];
+      for (let start = 0; start < params.length; start += width) {
+        const row = { id: nextId++ };
+        for (const field of returning) {
+          if (field === 'id') continue;
+          const offset = offsetOf(field);
+          row[field] = offset < 0 ? null : params[start + offset];
+        }
+        rows.push(row);
+      }
+      return { rows };
+    },
+  };
+}
+
+test('no district at the shipping configuration plans a future timestamp', () => {
+  const now = new Date('2026-09-09T12:00:00Z');
+  const districts = seed.selectDistricts(seed.loadDistricts(), 'all');
+  assert.ok(districts.length >= 44);
+  let checked = 0;
+  for (const district of districts) {
+    const plan = seed.planDistrict(district, { users: 50, base: 'https://x.test' }, now);
+    const dates = [
+      ...plan.users.map((u) => u.createdAt),
+      ...plan.animals.map((a) => a.createdAt),
+      ...plan.care.map((c) => c.at),
+      ...plan.comments.map((c) => c.at),
+      ...plan.followers.map((f) => f.at),
+      ...plan.health.flatMap((h) => [h.recordedAt, h.recoveredAt]),
+      ...plan.vaccinations.flatMap((v) => [v.administeredAt, v.nextDueAt]),
+      ...plan.friendships.map((f) => f.at),
+      ...plan.directs.flatMap((d) => d.messages.map((m) => m.at)),
+      ...plan.group.messages.map((m) => m.at),
+      ...plan.group.members.map((m) => m.at),
+      plan.group.createdAt,
+    ].filter(Boolean);
+    for (const at of dates) {
+      // next_due_at is the one column that is meant to be ahead of now: a
+      // booster is due in the future or it is not a booster.
+      checked += 1;
+      assert.ok(at <= now || plan.vaccinations.some((v) => v.nextDueAt === at),
+        `${district.key}: ${at.toISOString()} is after ${now.toISOString()}`);
+    }
+  }
+  assert.ok(checked > 70000, `only ${checked} timestamps checked`);
+});
+
+test('writeDistrict binds no future timestamp either', async () => {
+  const now = new Date('2026-09-09T12:00:00Z');
+  const district = seed
+    .selectDistricts(seed.loadDistricts(), 'all')
+    .find((d) => d.key === 'İstanbul/Kadıköy');
+  const plan = seed.planDistrict(district, { users: 50, base: 'https://x.test' }, now);
+  const client = fakeClient();
+  const counts = await seed.writeDistrict(client, plan, '$2b$10$fakehash', now);
+
+  assert.strictEqual(counts.users, 50);
+  assert.strictEqual(counts.animals, 50 * seed.ANIMALS_PER_USER);
+  assert.strictEqual(counts.animal_photos, counts.animals, 'exactly one photo per animal');
+
+  const nextDue = new Set(plan.vaccinations.map((v) => v.nextDueAt?.getTime()).filter(Boolean));
+  let dates = 0;
+  for (const { sql, params } of client.statements) {
+    for (const value of params) {
+      if (!(value instanceof Date)) continue;
+      dates += 1;
+      if (nextDue.has(value.getTime()) && sql.includes('vaccinations')) continue;
+      assert.ok(value <= now, `${sql.slice(0, 40)}… bound ${value.toISOString()}`);
+    }
+  }
+  assert.ok(dates > 3000, `only ${dates} bound timestamps`);
+});
+
+test('assignIds refuses ids that came back out of order', () => {
+  const items = [{ createdAt: new Date(1) }, { createdAt: new Date(2) }];
+  assert.throws(
+    () =>
+      seed.assignIds(
+        'animals',
+        items,
+        [
+          { id: 9, created_at: new Date(2) },
+          { id: 8, created_at: new Date(1) },
+        ],
+        (i) => i.createdAt,
+        'created_at'
+      ),
+    /out of order/
+  );
+  assert.throws(
+    () => seed.assignIds('animals', items, [{ id: 9, created_at: new Date(1) }], (i) => i.createdAt, 'created_at'),
+    /got 1 ids back/
+  );
+  seed.assignIds(
+    'animals',
+    items,
+    [
+      { id: 8, created_at: new Date(1) },
+      { id: 9, created_at: new Date(2) },
+    ],
+    (i) => i.createdAt,
+    'created_at'
+  );
+  assert.deepStrictEqual(items.map((i) => i.id), [8, 9]);
+});
+
+test('noLaterThan never returns a moment after now', () => {
+  const now = new Date('2026-09-09T12:00:00Z');
+  assert.strictEqual(seed.noLaterThan(new Date('2026-09-20T00:00:00Z'), now), now);
+  const earlier = new Date('2026-09-01T00:00:00Z');
+  assert.strictEqual(seed.noLaterThan(earlier, now), earlier);
+});
+
+test('--remove flags are parsed and --force is opt-in', () => {
+  assert.strictEqual(seed.parseArgs(['--remove']).force, false);
+  assert.strictEqual(seed.parseArgs(['--remove', '--force']).force, true);
+  assert.strictEqual(seed.parseArgs(['--badges-only']).badgesOnly, true);
+  assert.strictEqual(seed.parseArgs(['--skip-photo-check']).skipPhotoCheck, true);
+});

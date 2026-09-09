@@ -374,7 +374,7 @@ function animalComment(rng, { animal }) {
   if (roll < 0.68) return `${pick(rng, CONCERN)}.`;
   if (roll < 0.76) return `${pick(rng, RELIEF)}.`;
   if (roll < 0.92) return `${pick(rng, COORDINATION)}.`;
-  return `${animal} için ${pick(rng, THANKS).toLowerCase()}.`;
+  return `${animal} için ${pick(rng, THANKS).toLocaleLowerCase('tr')}.`;
 }
 
 /** A comment attached to a health record: it is about the treatment. */

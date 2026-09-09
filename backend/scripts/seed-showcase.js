@@ -21,8 +21,27 @@
  *                        http://localhost:3000; production passes
  *                        https://pati-app.com)
  *   --remove             delete every is_demo row, in dependency order
+ *   --force              with --remove, delete even when real users have
+ *                        attached rows that would cascade away with it
+ *   --badges-only        skip seeding; just (re)sync badges for the demo
+ *                        users that already exist — the resume path when a
+ *                        run dies during the badge phase
+ *   --skip-photo-check   do not verify that --base actually serves the demo
+ *                        photos before writing their URLs
  *   --dry-run            do the whole run inside transactions and ROLLBACK
- *                        them; the reported counts are what would be written
+ *                        them; the reported counts are what would be
+ *                        written, minus the cross-district friendships and
+ *                        badge awards, which need committed ids
+ *
+ * ## Two things must be true before the production run
+ * 1. `--base` must already serve `demo-assets/` at `/demo` — the photo URLs
+ *    are STORED, so a route added afterwards only helps if the path matches
+ *    exactly. The preflight below refuses to write until it does.
+ * 2. The admin demo filter must be live. `computeLeaderboard` has no
+ *    is_demo filter of its own, so until the filter ships, 2200 demo
+ *    accounts sit in the real ranking — and `syncBadgeAwards` freezes that
+ *    contaminated rank into REAL users' award history, which `--remove`
+ *    cannot repair.
  *
  * ## Re-running is safe
  * A district is seeded inside one transaction, so it is either wholly there
@@ -90,6 +109,9 @@ function parseArgs(argv) {
     users: 50,
     base: process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
     remove: false,
+    force: false,
+    badgesOnly: false,
+    skipPhotoCheck: false,
     dryRun: false,
   };
   for (const arg of argv) {
@@ -124,6 +146,15 @@ function parseArgs(argv) {
       }
       case 'remove':
         flags.remove = true;
+        break;
+      case 'force':
+        flags.force = true;
+        break;
+      case 'badges-only':
+        flags.badgesOnly = true;
+        break;
+      case 'skip-photo-check':
+        flags.skipPhotoCheck = true;
         break;
       case 'dry-run':
         flags.dryRun = true;
@@ -205,6 +236,38 @@ async function insertRows(client, table, columns, rows, { conflict = '', returni
   return out;
 }
 
+/**
+ * Attaches generated ids back onto the plan objects that produced them.
+ *
+ * Postgres happens to return multi-row `INSERT … VALUES … RETURNING` in
+ * VALUES order, but that is not a contract, and a permutation here would be
+ * silent and catastrophic: every photo, comment, health record and
+ * notification would attach to the wrong animal without anything erroring.
+ * So each insert also returns a column that identifies the row, and the
+ * assignment is checked against it rather than trusted.
+ *
+ * @param {Array} items the planned objects, in the order they were inserted
+ * @param {Array} rows the RETURNING rows
+ * @param {(item: object) => unknown} expect the value `rows[i][field]` must equal
+ * @param {string} field the correlating column in the RETURNING rows
+ */
+function assignIds(label, items, rows, expect, field) {
+  if (rows.length !== items.length) {
+    throw new Error(`${label}: inserted ${items.length} rows but got ${rows.length} ids back`);
+  }
+  items.forEach((item, i) => {
+    const got = rows[i][field];
+    const want = expect(item);
+    const same = got instanceof Date && want instanceof Date ? got.getTime() === want.getTime() : got === want;
+    if (!same) {
+      throw new Error(
+        `${label}: RETURNING came back out of order (row ${i}: ${field} ${String(got)} != ${String(want)})`
+      );
+    }
+    item.id = rows[i].id;
+  });
+}
+
 /** A geography point column: two parameters, lng first (PostGIS x, y). */
 const POINT = { tpl: 'ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography' };
 
@@ -258,18 +321,42 @@ function jitter(rng, point, meters) {
 }
 
 /**
+ * Nothing the seed writes may be dated in the future: a "recovered" note
+ * dated next week, or a notification created ahead of now (which is then
+ * never old enough to be marked read, so the bell stays lit forever), reads
+ * as a bug in the app rather than as demo data. Every derived timestamp
+ * goes through here — `momentDaysAgo` picks a plausible moment, this makes
+ * sure a chain of "+ N days" offsets on top of it cannot walk past now.
+ */
+function noLaterThan(at, now) {
+  return at > now ? now : at;
+}
+
+/**
  * A timestamp `daysAgo` days back, at a plausible hour: care happens on the
  * way to work and after dinner, not uniformly around the clock.
+ *
+ * The hour is Türkiye's, not the machine's. The production run happens on a
+ * Fly machine in UTC, and `setHours` there would shift the morning and
+ * evening clusters by three hours — the "after dinner" drops would render to
+ * a Turkish user as after midnight. Türkiye is UTC+3 all year (no DST), so
+ * the offset is a constant.
  */
+const TR_UTC_OFFSET_HOURS = 3;
+
 function momentDaysAgo(rng, daysAgo, now) {
   const morning = chance(rng, 0.55);
   const hour = morning ? 6.5 + rng() * 3.5 : 17.5 + rng() * 5;
   const day = new Date(now.getTime() - daysAgo * MS_DAY);
-  day.setHours(Math.floor(hour), Math.floor((hour % 1) * 60), int(rng, 0, 59), 0);
-  // daysAgo === 0 with an evening hour lands after "now"; a care action in
-  // the future would sit in the map's live window forever and read as a
-  // bug. Push it back a day rather than clamping every such row onto the
-  // same instant.
+  day.setUTCHours(
+    Math.floor(hour) - TR_UTC_OFFSET_HOURS,
+    Math.floor((hour % 1) * 60),
+    int(rng, 0, 59),
+    0
+  );
+  // daysAgo === 0 with an evening hour lands after "now". Push it back a
+  // whole day rather than clamping, so the row keeps a plausible hour
+  // instead of piling onto the same instant as every other clamped row.
   return day > now ? new Date(day.getTime() - MS_DAY) : day;
 }
 
@@ -319,7 +406,7 @@ function planDistrict(district, { users: userCount, base }, now) {
         name: animalName(rng, species),
         markings: chance(rng, 0.35) ? pick(rng, MARKINGS) : null,
         spot,
-        createdAt: createdAt > now ? now : createdAt,
+        createdAt: noLaterThan(createdAt, now),
         photoUrl: `${base}/demo/animals/${demoPhotoFile(species, breed)}`,
       });
     }
@@ -384,7 +471,7 @@ function planDistrict(district, { users: userCount, base }, now) {
       followers.push({
         animal,
         user,
-        at: new Date(animal.createdAt.getTime() + int(rng, 1, 20 * 24) * MS_HOUR),
+        at: noLaterThan(new Date(animal.createdAt.getTime() + int(rng, 1, 20 * 24) * MS_HOUR), now),
       });
     }
   }
@@ -399,7 +486,7 @@ function planDistrict(district, { users: userCount, base }, now) {
         animal,
         author,
         body: animalComment(rng, { animal: animal.name }),
-        at: new Date(animal.createdAt.getTime() + int(rng, 2, 25 * 24) * MS_HOUR),
+        at: noLaterThan(new Date(animal.createdAt.getTime() + int(rng, 2, 25 * 24) * MS_HOUR), now),
       });
     }
   }
@@ -409,7 +496,10 @@ function planDistrict(district, { users: userCount, base }, now) {
   for (const animal of animals) {
     if (!chance(rng, 0.08)) continue;
     const recordType = chance(rng, 0.55) ? 'illness' : 'injury';
-    const recordedAt = new Date(animal.createdAt.getTime() + int(rng, 1, 24 * 24) * MS_HOUR);
+    const recordedAt = noLaterThan(
+      new Date(animal.createdAt.getTime() + int(rng, 1, 24 * 24) * MS_HOUR),
+      now
+    );
     const recovered = chance(rng, 0.5);
     health.push({
       animal,
@@ -417,7 +507,12 @@ function planDistrict(district, { users: userCount, base }, now) {
       description: pick(rng, recordType === 'illness' ? ILLNESSES : INJURIES),
       recordedBy: chance(rng, 0.7) ? animal.owner : pick(rng, users),
       recordedAt,
-      recoveredAt: recovered ? new Date(recordedAt.getTime() + int(rng, 3, 14) * MS_DAY) : null,
+      // A stray only counts as recovered once the days have actually
+      // passed, so a record made last week cannot already be closed.
+      recoveredAt:
+        recovered && recordedAt.getTime() + 3 * MS_DAY <= now.getTime()
+          ? noLaterThan(new Date(recordedAt.getTime() + int(rng, 3, 14) * MS_DAY), now)
+          : null,
       vetVerified: chance(rng, 0.25),
       followUps: chance(rng, 0.6) ? int(rng, 1, 2) : 0,
     });
@@ -425,7 +520,10 @@ function planDistrict(district, { users: userCount, base }, now) {
   const vaccinations = [];
   for (const animal of animals) {
     if (!chance(rng, 0.15)) continue;
-    const administeredAt = new Date(animal.createdAt.getTime() + int(rng, 1, 25 * 24) * MS_HOUR);
+    const administeredAt = noLaterThan(
+      new Date(animal.createdAt.getTime() + int(rng, 1, 25 * 24) * MS_HOUR),
+      now
+    );
     vaccinations.push({
       animal,
       vaccineType: pick(rng, VACCINE_TYPES),
@@ -466,9 +564,9 @@ function planDistrict(district, { users: userCount, base }, now) {
     if (friendship.status !== 'accepted' || !chance(rng, 0.15)) continue;
     const script = pick(rng, DM_TOPICS);
     const lines = script.slice(0, int(rng, 3, script.length));
-    let at = new Date(friendship.at.getTime() + int(rng, 1, 10) * MS_HOUR);
+    let at = noLaterThan(new Date(friendship.at.getTime() + int(rng, 1, 10) * MS_HOUR), now);
     const messages = lines.map((body, i) => {
-      at = new Date(at.getTime() + int(rng, 2, 220) * 60_000);
+      at = noLaterThan(new Date(at.getTime() + int(rng, 2, 220) * 60_000), now);
       return { body, sender: i % 2 === 0 ? friendship.requester : friendship.addressee, at };
     });
     directs.push({ a: friendship.requester, b: friendship.addressee, messages });
@@ -479,8 +577,8 @@ function planDistrict(district, { users: userCount, base }, now) {
   const groupCreatedAt = momentDaysAgo(rng, int(rng, 20, HISTORY_DAYS), now);
   let groupAt = groupCreatedAt;
   const groupMessages = pickMany(rng, GROUP_LINES, int(rng, 12, 20)).map((body) => {
-    groupAt = new Date(groupAt.getTime() + int(rng, 30, 40 * 60) * 60_000);
-    return { body, sender: pick(rng, groupMembers), at: groupAt > now ? now : groupAt };
+    groupAt = noLaterThan(new Date(groupAt.getTime() + int(rng, 30, 40 * 60) * 60_000), now);
+    return { body, sender: pick(rng, groupMembers), at: groupAt };
   });
   const group = {
     name: `${district.district} ${pick(rng, GROUP_SUFFIXES)}`,
@@ -488,7 +586,7 @@ function planDistrict(district, { users: userCount, base }, now) {
     members: groupMembers.map((user, i) => ({
       user,
       role: i < int(rng, 2, 3) ? 'admin' : 'member',
-      at: new Date(groupCreatedAt.getTime() + i * int(rng, 10, 300) * 60_000),
+      at: noLaterThan(new Date(groupCreatedAt.getTime() + i * int(rng, 10, 300) * 60_000), now),
     })),
     createdAt: groupCreatedAt,
     messages: groupMessages,
@@ -566,17 +664,15 @@ async function writeDistrict(client, plan, passwordHash, now) {
       a.createdAt,
       DEMO,
     ]),
-    { returning: 'id' }
+    { returning: 'id, created_at' }
   );
-  // Multi-row INSERT returns in VALUES order; nothing here can conflict
-  // (animals have no unique key), but a short answer would silently
-  // mis-assign every photo and comment below.
-  if (animalRows.length !== plan.animals.length) {
-    throw new Error(`${plan.district.key}: animal insert returned ${animalRows.length} ids`);
-  }
-  plan.animals.forEach((a, i) => {
-    a.id = animalRows[i].id;
-  });
+  assignIds(
+    `${plan.district.key} animals`,
+    plan.animals,
+    animalRows,
+    (a) => a.createdAt,
+    'created_at'
+  );
   bump('animals', animalRows.length);
 
   bump(
@@ -590,7 +686,7 @@ async function writeDistrict(client, plan, passwordHash, now) {
           a.id,
           a.photoUrl,
           a.owner.id,
-          new Date(a.createdAt.getTime() + int(rng, 1, 40) * 60_000),
+          noLaterThan(new Date(a.createdAt.getTime() + int(rng, 1, 40) * 60_000), now),
           DEMO,
         ]),
         { returning: 'id' }
@@ -668,11 +764,15 @@ async function writeDistrict(client, plan, passwordHash, now) {
       h.recoveredAt ? h.recordedBy.id : null,
       DEMO,
     ]),
-    { returning: 'id' }
+    { returning: 'id, recorded_at' }
   );
-  plan.health.forEach((h, i) => {
-    h.id = healthRows[i]?.id ?? null;
-  });
+  assignIds(
+    `${plan.district.key} health_records`,
+    plan.health,
+    healthRows,
+    (h) => h.recordedAt,
+    'recorded_at'
+  );
   bump('health_records', healthRows.length);
 
   bump(
@@ -726,7 +826,7 @@ async function writeDistrict(client, plan, passwordHash, now) {
         userId: h.recordedBy.id,
         healthRecordId: h.id,
         body: healthComment(rng),
-        at: new Date(h.recordedAt.getTime() + (k + 1) * int(rng, 6, 72) * MS_HOUR),
+        at: noLaterThan(new Date(h.recordedAt.getTime() + (k + 1) * int(rng, 6, 72) * MS_HOUR), now),
         animal: h.animal,
         actor: h.recordedBy,
       }))
@@ -829,7 +929,9 @@ async function writeDistrict(client, plan, passwordHash, now) {
           f.addressee.id,
           f.status,
           f.at,
-          f.status === 'accepted' ? new Date(f.at.getTime() + int(rng, 5, 40) * MS_HOUR) : null,
+          f.status === 'accepted'
+            ? noLaterThan(new Date(f.at.getTime() + int(rng, 5, 40) * MS_HOUR), now)
+            : null,
           DEMO,
         ]),
         { conflict: 'ON CONFLICT (requester_id, addressee_id) DO NOTHING', returning: 'id' }
@@ -884,14 +986,15 @@ async function writeConversations(client, plan, bump) {
       c.lastMessageAt,
       DEMO,
     ]),
-    { returning: 'id' }
+    { returning: 'id, created_at' }
   );
-  if (rows.length !== conversations.length) {
-    throw new Error(`${plan.district.key}: conversation insert returned ${rows.length} ids`);
-  }
-  conversations.forEach((c, i) => {
-    c.id = rows[i].id;
-  });
+  assignIds(
+    `${plan.district.key} conversations`,
+    conversations,
+    rows,
+    (c) => c.createdAt,
+    'created_at'
+  );
   bump('conversations', rows.length);
 
   bump(
@@ -956,7 +1059,7 @@ async function linkNeighbouringDistricts(client, plans, now) {
           hi,
           'accepted',
           at,
-          new Date(at.getTime() + int(rng, 2, 30) * MS_HOUR),
+          noLaterThan(new Date(at.getTime() + int(rng, 2, 30) * MS_HOUR), now),
           DEMO,
         ]);
       }
@@ -987,6 +1090,12 @@ async function linkNeighbouringDistricts(client, plans, now) {
  * this phase. For a bulk backfill that is also the more truthful number:
  * the demo users' activity was not really interleaved, and the order the
  * script happens to walk them in is not a ranking event.
+ *
+ * A consequence worth knowing when reading a demo profile: every badge a
+ * demo user has was earned inside one syncBadgeAwards call, so they all
+ * share points_before = 0 and the same points_after and rank_after. The
+ * award history reads as one big jump rather than a climb. Real users, who
+ * earn badges one action at a time, are unaffected.
  */
 async function syncDemoBadges(userIds, { onProgress }) {
   const leaderboard = require('../src/controllers/leaderboard.controller');
@@ -1082,6 +1191,42 @@ async function realCollateral(client) {
       'messages',
       'SELECT count(*)::int AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.is_demo AND NOT m.is_demo',
     ],
+    // These do not hang off a demo animal but off a demo USER, and every
+    // one of them is ON DELETE CASCADE — so they disappear with the demo
+    // account without any is_demo flag of their own ever being consulted.
+    [
+      'friendships (real <-> demo)',
+      `SELECT count(*)::int AS n FROM friendships f
+         JOIN users a ON a.id = f.requester_id JOIN users b ON b.id = f.addressee_id
+        WHERE NOT f.is_demo AND (a.is_demo OR b.is_demo)`,
+    ],
+    [
+      'notifications (real user)',
+      `SELECT count(*)::int AS n FROM notifications n
+         JOIN users u ON u.id = n.user_id
+        WHERE NOT n.is_demo AND NOT u.is_demo
+          AND (n.animal_id IN (SELECT id FROM animals WHERE is_demo)
+               OR n.actor_id IN (SELECT id FROM users WHERE is_demo))`,
+    ],
+    [
+      'conversation_members (real user)',
+      `SELECT count(*)::int AS n FROM conversation_members m
+         JOIN conversations c ON c.id = m.conversation_id
+         JOIN users u ON u.id = m.user_id
+        WHERE c.is_demo AND NOT u.is_demo`,
+    ],
+    [
+      'animal_match_attempts',
+      `SELECT count(*)::int AS n FROM animal_match_attempts m
+         JOIN animals a ON a.id = m.animal_id WHERE a.is_demo`,
+    ],
+    [
+      'content_reports (would orphan)',
+      `SELECT count(*)::int AS n FROM content_reports r
+        WHERE r.status = 'open'
+          AND ((r.target_type = 'animal' AND r.target_id IN (SELECT id FROM animals WHERE is_demo))
+            OR (r.target_type = 'user' AND r.target_id IN (SELECT id FROM users WHERE is_demo)))`,
+    ],
   ];
   const found = [];
   for (const [table, sql] of checks) {
@@ -1091,11 +1236,25 @@ async function realCollateral(client) {
   return found;
 }
 
-async function removeDemo(client) {
+/**
+ * Deletes every demo row. REFUSES if a real user has attached anything to
+ * the demo world, because those rows cascade away with it and no flag marks
+ * them: printing the number and deleting anyway is how a volunteer's
+ * comments and friendships get destroyed by a one-word command. `--force`
+ * is the deliberate override, and it has to be typed.
+ */
+async function removeDemo(client, { force }) {
   const collateral = await realCollateral(client);
   if (collateral.length > 0) {
-    console.log('\n  real rows attached to demo content (they cascade with it):');
-    for (const c of collateral) console.log(`    ${c.table.padEnd(22)} ${c.n}`);
+    console.log('\n  real rows attached to the demo world (they cascade with it):');
+    for (const c of collateral) console.log(`    ${c.table.padEnd(32)} ${c.n}`);
+    if (!force) {
+      throw new Error(
+        `refusing to delete: ${collateral.reduce((a, c) => a + c.n, 0)} real rows would go with` +
+          ' the demo world. Re-run with --force once that is what you want.'
+      );
+    }
+    console.log('  --force given: deleting them too.');
   }
   const counts = {};
   // user_badge_awards has no is_demo of its own — a badge belongs to the
@@ -1122,6 +1281,61 @@ function report(title, counts) {
   console.log(`  ${'TOTAL'.padEnd(22)} ${String(total).padStart(8)}`);
 }
 
+/**
+ * Refuses to write until `--base` actually serves the demo photos.
+ *
+ * The URL is stored in every animal_photos row and every care_actions row,
+ * not computed at read time — so seeding against a base that does not serve
+ * demo-assets/ at /demo bakes tens of thousands of 404s into production, and
+ * mounting the route afterwards only rescues them if the path matches to the
+ * character. One request is a cheap way to find that out first.
+ */
+async function checkPhotosAreServed(base) {
+  const url = `${base}/demo/animals/${demoPhotoFile('cat', CAT_PATTERNS[0])}`;
+  let res;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  } catch (err) {
+    throw new Error(
+      `${url} is unreachable (${err.message}).\n` +
+        '  The demo photos must be served before their URLs are stored. Start the\n' +
+        '  backend, or pass --skip-photo-check if you know what you are doing.'
+    );
+  }
+  const type = res.headers.get('content-type') || '';
+  if (!res.ok || !type.startsWith('image/')) {
+    throw new Error(
+      `${url} answered ${res.status} ${type}`.trim() +
+        '\n  demo-assets/ is not served at /demo on this origin, so every photo URL\n' +
+        '  this run would store is dead. Land the static mount first, or pass\n' +
+        '  --skip-photo-check.'
+    );
+  }
+  console.log(`  photos verified: ${url}`);
+}
+
+/**
+ * The resume path. The badge phase runs after every district has committed
+ * and is not itself transactional, so a dropped `fly ssh console` session
+ * leaves some demo users without their badges — and a plain rerun skips
+ * every district as "already seeded" and so never reaches the badge code.
+ */
+async function badgesOnly() {
+  const ids = (await pool.query('SELECT id FROM users WHERE is_demo ORDER BY id')).rows.map(
+    (r) => r.id
+  );
+  if (ids.length === 0) {
+    console.log('no demo users — nothing to sync');
+    return;
+  }
+  const startedAt = Date.now();
+  process.stdout.write(`badge sync: ${ids.length} demo users`);
+  const awarded = await syncDemoBadges(ids, {
+    onProgress: (n) => process.stdout.write(` ${n}…`),
+  });
+  console.log(`\n  ${awarded} badge awards in ${((Date.now() - startedAt) / 1000).toFixed(1)} s`);
+}
+
 async function main() {
   const flags = parseArgs(process.argv.slice(2));
   if (flags.help) {
@@ -1134,7 +1348,7 @@ async function main() {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const counts = await removeDemo(client);
+      const counts = await removeDemo(client, { force: flags.force });
       await client.query(flags.dryRun ? 'ROLLBACK' : 'COMMIT');
       report(flags.dryRun ? 'would delete (rolled back)' : 'deleted', counts);
     } catch (err) {
@@ -1147,6 +1361,12 @@ async function main() {
     return;
   }
 
+  if (flags.badgesOnly) {
+    await badgesOnly();
+    console.log(`\ndone in ${((Date.now() - startedAt) / 1000).toFixed(1)} s`);
+    return;
+  }
+
   const districts = selectDistricts(loadDistricts(), flags.districts);
   const now = new Date();
   console.log(
@@ -1154,6 +1374,9 @@ async function main() {
       `\n  photos: ${flags.base}/demo/animals/` +
       (flags.dryRun ? '\n  DRY RUN — every transaction is rolled back' : '')
   );
+
+  if (flags.skipPhotoCheck) console.log('  photo check skipped (--skip-photo-check)');
+  else await checkPhotosAreServed(flags.base);
 
   // One hash for every demo account: bcrypt is deliberately slow and 2200
   // hashes of the same throwaway password would cost minutes for nothing.
@@ -1212,7 +1435,9 @@ async function main() {
 
   if (skipped > 0) {
     console.log(
-      `\nalready seeded: ${skipped} districts, ${skippedUsers} demo accounts — left alone`
+      `\nalready seeded: ${skipped} districts, ${skippedUsers} demo accounts — left alone.` +
+        '\n  Cross-district friendships are only drawn between districts seeded in the' +
+        '\n  same run, so an incremental run leaves the old and new sets unlinked.'
     );
   }
 
@@ -1232,6 +1457,12 @@ async function main() {
   }
 
   report(flags.dryRun ? 'would insert (rolled back)' : 'inserted', totals);
+  if (flags.dryRun) {
+    console.log(
+      '  (cross-district friendships and badge awards need committed ids,' +
+        ' so they are not in this count)'
+    );
+  }
   const seedSeconds = (Date.now() - startedAt) / 1000;
   console.log(`\nrows written in ${seedSeconds.toFixed(1)} s`);
 
@@ -1265,6 +1496,9 @@ if (require.main === module) {
 
 module.exports = {
   parseArgs,
+  noLaterThan,
+  assignIds,
+  writeDistrict,
   rngFor,
   insertRows,
   loadDistricts,
