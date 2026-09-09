@@ -318,8 +318,22 @@ check "animal H (dog) -> 201" 201 "$code"; H=$(field .id)
 code=$(post_auth "animals/$H/photos" "$JWT" "{\"photoToken\":\"$PT2\"}")
 check "a cat token on a dog -> 400" 400 "$code"
 check "…photoTokenInvalid" photoTokenInvalid "$(field .code)"
+# The carer gate is the OUTER door here (see addPhoto's docblock): a
+# stranger is refused for not being a carer, whosever token they hold.
+# This asserted 400 until the gate landed with the P6 batch, and has been
+# failing on main ever since — the harness exits non-zero, but only a run
+# that reads its output notices (night run, 2026-09-10).
 code=$(post_auth "animals/$G/photos" "$JWT2" "{\"photoToken\":\"$PT2\"}")
-check "another user's token -> 400" 400 "$code"
+check "a stranger with someone's token -> 403" 403 "$code"
+check "…carersOnly" carersOnly "$(field .code)"
+# And behind that door, the token's own owner check still bites: JWT is a
+# carer of G, and the token it is offering was issued to JWT2.
+code=$(upload_photos animals/match "$JWT2" "$PHOTO" species=cat breed=Tekir color=gri lat=$GLAT lng=$GLNG)
+check "the stranger's own match -> 200" 200 "$code"
+PT_OTHER=$(field .photoTokens[0])
+code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"$PT_OTHER\"}")
+check "a carer redeeming another user's token -> 400" 400 "$code"
+check "…photoTokenInvalid" photoTokenInvalid "$(field .code)"
 code=$(post_auth "animals/$G/photos" "$JWT" "{\"photoToken\":\"not.a.token\"}")
 check "garbage token -> 400" 400 "$code"
 code=$(curl -s -o "$BODY" -w '%{http_code}' "$API/users/me" -H "Authorization: Bearer $PT2")

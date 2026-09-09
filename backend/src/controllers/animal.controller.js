@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
+const storage = require('../config/storage');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
 const { demoFilter } = require('../utils/settings');
@@ -846,6 +847,9 @@ async function addPhoto(req, res, next) {
   const photoUrl = `${base}${file}`;
   let row;
   try {
+    // Before the row: a bucket that refuses the object must fail the
+    // upload, not leave a gallery pointing at bytes nobody kept.
+    await storage.publish(file);
     const result = await pool.query(
       'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
       [req.params.id, photoUrl, req.user.userId]
@@ -887,6 +891,7 @@ async function attachFaceThumb(row, file, species, base) {
   if (!face?.found) return;
   try {
     const thumb = await makeFaceThumb(file, face.box);
+    await storage.publish(thumb);
     const updated = await pool.query(
       'UPDATE animal_photos SET thumb_url = $1, face_score = $2, face_box = $3 WHERE id = $4 RETURNING thumb_url, face_score',
       [`${base}${thumb}`, face.score, JSON.stringify(face.box), row.id]
@@ -992,6 +997,7 @@ async function submitCarePhotos(req, res, next) {
     for (const file of files) {
       const finalName = pendingToFinal(file.filename);
       await fs.promises.rename(file.path, path.join(UPLOADS_DIR, finalName));
+      await storage.publish(finalName);
       const inserted = await pool.query(
         'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
         [animalId, `${base}${finalName}`, req.user.userId]

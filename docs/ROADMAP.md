@@ -389,9 +389,13 @@ These are not features; they are "become shippable" work. Rationale lives in
 
 **Data safety (no real data before these):**
 
-- [ ] Move photos to object storage (S3/R2) + image resizing — today they
-      sit on the machine's disk (a persistent Fly volume, but single-node
-      and unversioned)
+- [x] Move photos to object storage (S3/R2) + image resizing — the code
+      landed 2026-09-10: uploads are fitted to 1600 px (512 for avatars),
+      and `config/storage.js` puts them in an S3-compatible bucket when the
+      four `S3_*` secrets are set, disk otherwise, with the stored URLs
+      unchanged either way. **Owner side still open:** create the R2 bucket
+      and set the secrets (docs/DEPLOYMENT.md), and sync the existing
+      `/data/uploads` backlog into it once
 - [ ] Move to incremental migrations (node-pg-migrate / Knex) — today a
       schema change resets the database
 - [x] Database backups — automatic with managed Fly Postgres
@@ -433,8 +437,8 @@ Ops/owner side, still open — the actual go/no-go gates:
 - [ ] `git pull` + `/deploy-checklist` (ships everything above), then smoke-test
       /gizlilik, a report, and an account deletion against production
 - [ ] iletisim@pati-app.com mailbox or forward (KVKK requests must land)
-- [ ] Check Fly volume snapshots are enabled (photo files' only backup
-      until object storage)
+- [x] Fly volume snapshots are enabled — checked 2026-09-10: the
+      `uploads` volume has scheduled snapshots, 14-day retention
 - [ ] TestFlight/internal-testing build from current main (fonts changed:
       needs `npx react-native-asset` + a native build)
 - [ ] Store metadata when going past TestFlight: screenshots, privacy

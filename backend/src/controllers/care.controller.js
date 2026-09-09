@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 const { UPLOADS_DIR } = require('../config/upload');
+const storage = require('../config/storage');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const ai = require('../utils/ai');
 const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
@@ -195,6 +196,7 @@ async function addCareAction(req, res, next) {
     const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${file}`;
     let result;
     try {
+      await storage.publish(file);
       result = await pool.query(
         `INSERT INTO care_actions (location, user_id, action_type, photo_url, ai_check, photo_token_jti)
          VALUES (ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3, $4, $5, $6, $7)
@@ -446,6 +448,7 @@ async function deleteCareAction(req, res, next) {
     const uploadsMatch = /\/uploads\/([^/?#]+)/.exec(deleted.rows[0].photo_url ?? '');
     if (uploadsMatch) {
       fs.unlink(path.join(UPLOADS_DIR, path.basename(uploadsMatch[1])), () => {});
+      storage.remove(uploadsMatch[1]);
     }
     res.status(204).end();
   } catch (err) {

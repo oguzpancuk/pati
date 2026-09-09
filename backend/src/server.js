@@ -4,6 +4,7 @@ const { startDemoGuideRefresh } = require('./utils/demoGuideRefresh');
 const { describeTransport } = require('./utils/mailer');
 const { describeAi } = require('./utils/ai');
 const { startPendingSweeper } = require('./config/upload');
+const storage = require('./config/storage');
 
 const PORT = process.env.PORT || 3000;
 
@@ -15,6 +16,9 @@ app.listen(PORT, () => {
   // Likewise without GEMINI_API_KEY: photos are accepted unchecked and
   // matching is field-only, exactly as before ADR-0005.
   console.log(`ai: ${describeAi()}`);
+  // And likewise for the bucket: without it the volume is the only copy of
+  // every photo, which the release log should not leave to memory.
+  console.log(`photos: ${storage.describe()}`);
 });
 
 // Hourly refresh keeping the guide (demo) areas alive on the map;

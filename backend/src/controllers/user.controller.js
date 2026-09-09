@@ -6,6 +6,7 @@ const pool = require('../config/db');
 const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
 const { demoFilter, rememberShowsDemo } = require('../utils/settings');
 const { UPLOADS_DIR } = require('../config/upload');
+const storage = require('../config/storage');
 const { writeAuditLog } = require('../utils/auditLog');
 const { getUserBadges } = require('../utils/badges');
 const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../utils/badgeAwards');
@@ -161,6 +162,7 @@ async function uploadAvatar(req, res, next) {
     if (!req.file) {
       return res.status(400).json({ error: 'Fotoğraf zorunludur' });
     }
+    await storage.publish(req.file.filename);
     const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
     // Uploading a photo replaces the selected built-in avatar: both live in
     // the same column because only one can be active at a time.
@@ -567,6 +569,7 @@ async function deleteMyAccount(req, res, next) {
 
     if (uploadsMatch) {
       fs.unlink(path.join(UPLOADS_DIR, uploadsMatch[1]), () => {});
+      storage.remove(uploadsMatch[1]);
     }
 
     // No PII in the details on purpose — the audit trail must not undo the

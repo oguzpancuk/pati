@@ -1,6 +1,7 @@
 const fs = require('fs');
 const ai = require('../utils/ai');
 const { UPLOADS_DIR } = require('../config/upload');
+const storage = require('../config/storage');
 const pool = require('../config/db');
 const { coverPhotoJoin } = require('../utils/coverPhoto');
 const { writeAuditLog } = require('../utils/auditLog');
@@ -299,6 +300,10 @@ async function deleteAnimal(req, res, next) {
     for (const url of files) {
       const file = ai.uploadPathFromUrl(url, UPLOADS_DIR);
       if (file) fs.unlink(file, () => {});
+      // Keyed off the URL, not the cached file: an object this machine
+      // never pulled down still has to leave the bucket.
+      const remote = /\/uploads\/([^/?#]+)/.exec(url ?? '');
+      if (remote) storage.remove(remote[1]);
     }
 
     // The deleted record's content goes into the audit log: the row is gone,
@@ -720,6 +725,7 @@ async function uploadAdvertiserImage(req, res, next) {
       return res.status(400).json({ error: 'Görsel zorunludur' });
     }
     const id = Number(req.params.id);
+    await storage.publish(req.file.filename);
     const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
 
     const result = await pool.query(

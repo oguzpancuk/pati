@@ -16,6 +16,7 @@ const messageRoutes = require('./routes/message.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const { notFoundHandler, errorHandler } = require('./middleware/error.middleware');
 const { UPLOADS_DIR } = require('./config/upload');
+const storage = require('./config/storage');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
@@ -41,7 +42,20 @@ app.use(
   )
 );
 app.use(express.json());
-app.use('/uploads', express.static(UPLOADS_DIR));
+// The volume first — when the file is on this machine, this is byte for
+// byte what it always was. The fallback only runs on a miss, and only does
+// anything when a bucket is configured: it pulls the object into the cache
+// so a second machine (or a restored volume) can serve what it never
+// received itself (src/config/storage.js).
+app.use('/uploads', express.static(UPLOADS_DIR), async (req, res, next) => {
+  try {
+    const file = await storage.localPath(decodeURIComponent(req.path.slice(1)));
+    if (!file) return next();
+    res.sendFile(file);
+  } catch (err) {
+    next(err);
+  }
+});
 // The showcase animals' photos ship inside the image, not on the uploads
 // volume: the seed can then run against any environment (and `--remove`
 // leaves no orphaned files behind). A day of caching, not more: the names

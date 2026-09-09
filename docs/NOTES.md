@@ -2918,3 +2918,48 @@ the next docs touch.
   sentinel `012_guide_world_is_demo_v2`: its first version keyed three
   tables on the animal instead of the author, and a database that claimed
   the old name has to be able to run the corrected one.
+
+## 2026-09-10 — night run: photos get a size and a second home
+
+- **Every upload is fitted before it is stored.** A phone's original went
+  onto the volume as it arrived and came back down in full to every
+  viewer; the resizer re-encodes it as a JPEG inside 1600 px — 512 for
+  avatars, which are rendered at 40–120 pt — and renames it to `.jpg`,
+  updating multer's file object so the controllers store the new name.
+  It fails open, like the rest of the photo pipeline: a file sharp cannot
+  decode (HEIC on the prebuilt binaries, a corrupt upload) is left exactly
+  as it arrived.
+- Baking the EXIF rotation in was the part worth thinking about. The face
+  box the model returns is on a 0–1000 grid of the image *as sent*, and it
+  was sent rotated; now the stored pixels are the rotated ones too, so the
+  later `sharp(...).rotate()` calls become no-ops on our own files and the
+  box still describes the pixels it is cut from. Older files, still
+  unrotated on disk, go through the same path they always did.
+- **`config/storage.js` decides where a photo lives.** Disk by default —
+  byte for byte the old behaviour — or an S3-compatible bucket when the
+  four `S3_*` variables are set, and then the volume is a cache. The rule
+  that keeps the change small: **the stored URL never changes.** Photos are
+  served by us at `/uploads/<file>` either way, so every row already in the
+  database, `uploadPathFromUrl`, the delete regexes and `purge-demo` are
+  untouched, and no migration is needed. The static handler keeps the fast
+  path and only falls through to the bucket on a miss, which is what lets a
+  second machine (or a restored volume) serve what it never received.
+- The one place this deliberately does **not** copy the photo AI is failing
+  open: publish runs BEFORE the row that names the file, and a refusal
+  fails the upload with a Turkish 503. A gallery pointing at bytes nobody
+  kept is worse than an upload the user retries. Deletes are the mirror
+  image — best-effort and logged, because the row is already gone and a
+  stranded object costs a fraction of a cent.
+- Photos already on the volume are NOT copied up when a bucket is
+  configured; the bucket owns what arrives after it. Copying the backlog is
+  a one-off `rclone`/`aws s3 sync`, safe at any time (docs/DEPLOYMENT.md).
+- **`scripts/ai-check/run.sh` was red on main and had been for some time.**
+  "a stranger with someone's token" still asserted the 400 that
+  `POST /animals/:id/photos` answered before the carers-only gate landed
+  with the P6 batch; the gate is the outer door now, so a stranger gets
+  403 `carersOnly` whosever token they hold. Verified pre-existing by
+  running the harness against `2faf1c4` with tonight's work stashed. The
+  assertion now pins the gate, and a new pair pins what it was really
+  about — a carer redeeming a token issued to somebody else is still a
+  400. The harness does exit non-zero; it was a `| tail` in the earlier
+  run that hid it, which is worth remembering when reading a harness.

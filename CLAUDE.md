@@ -94,6 +94,20 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   redeem; a direct upload is checked inline either way, so the server
   always decides. Evidence: `backend/scripts/ai-check/run.sh` (fake
   `generateContent` endpoint).
+- **Photos are fitted before they are stored, and where they live is
+  configurable.** Every upload is re-encoded as a JPEG inside 1600 px (512
+  for avatars) with the EXIF rotation baked in
+  (`middleware/imageResize.middleware.js`), so later `sharp(...).rotate()`
+  calls are no-ops on our own files. `config/storage.js` then decides the
+  home: the machine's disk by default, an S3-compatible bucket (Cloudflare
+  R2) when the four `S3_*` variables are set, with the disk as its cache.
+  Stored URLs stay `/uploads/<file>` either way — never build a bucket URL
+  into a row. Unlike the photo AI this does **not** fail open: a bucket
+  that refuses the object fails the upload (Turkish 503) rather than
+  recording a photo nobody kept. Evidence:
+  `backend/scripts/storage-check/run.sh` (fake bucket); setup in
+  docs/DEPLOYMENT.md.
+
 - **`users.avatar_url` holds two kinds of values**: an uploaded photo URL or a
   built-in key like `pati-avatar:f3` (`backend/src/utils/avatars.js`). Never
   put it straight into `<img src>` / `<Image uri>`; mobile's `ui/Avatar`

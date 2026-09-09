@@ -202,6 +202,48 @@ reject, dead model, matching); `node backend/scripts/ai-check/live-sample.js`
 sends real photos to the real model with your key — that is the accuracy
 check; it counts against the key's quota.
 
+## Photo storage (Cloudflare R2 or any S3-compatible bucket)
+
+Without configuration nothing changes: photos are written to the machine's
+disk (`UPLOADS_DIR=/data/uploads`, the Fly volume, scheduled snapshots with
+14-day retention). That is one copy on one machine — fine for the pilot,
+not for growth, which is why the launch sprint lists object storage first
+under data safety.
+
+With a bucket configured the bucket becomes the copy of record and the
+volume becomes a cache. **Stored URLs do not change**: photos are served by
+us at `/uploads/<file>` either way, so every row already in the database
+keeps working and no migration is needed.
+
+1. Cloudflare dashboard → R2 → *Create bucket* (`pati-uploads`, region
+   Automatic). The free tier is 10 GB of storage, and R2 charges nothing
+   for egress.
+2. R2 → *Manage API tokens* → *Create API token*, permission **Object Read
+   & Write**, scoped to that bucket. Note the access key id, the secret and
+   the S3 endpoint (`https://<account-id>.r2.cloudflarestorage.com`).
+3. Set the secrets and deploy:
+
+```bash
+fly secrets set --app pati-app \
+  S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com \
+  S3_BUCKET=pati-uploads \
+  S3_ACCESS_KEY_ID=... \
+  S3_SECRET_ACCESS_KEY=...
+```
+
+4. Confirm from the release log — `photos: s3 (...)` on boot, `photos: disk
+   (...)` when any of the four is missing. Then upload one photo and check
+   it appears in the bucket.
+
+`S3_REGION` defaults to `auto` (R2's); AWS S3 needs the real region.
+`S3_PREFIX` puts every object under a folder, if a bucket is shared.
+
+**Photos already on the volume are not copied up.** The bucket owns what is
+uploaded after it is configured; older photos keep being served from the
+volume, and the fallback fetch only runs when the volume does not have the
+file. Copying the backlog is a one-off `rclone`/`aws s3 sync` of
+`/data/uploads` into the bucket, safe to run at any time.
+
 ## Custom domains
 
 ```bash
@@ -218,8 +260,9 @@ as well as `001_init.sql` (see CLAUDE.md).
 
 ## Known limits (pilot)
 
-- Photos sit on a single machine's disk: keep machine count at 1; moving to
-  object storage (R2/S3) is on the roadmap.
+- Photos sit on a single machine's disk **until an R2/S3 bucket is
+  configured** (see "Photo storage" above): without one, keep machine count
+  at 1.
 - `auto_stop_machines`: the machine sleeps without traffic; the first request
   takes ~1-2 s.
 - The admin panel is served from the same app: requests arriving at
