@@ -204,10 +204,8 @@ async function clearAvatar(req, res, next) {
 // NOT demo-filtered, on purpose. What a volunteer did is theirs: their care
 // records and comments feed the badges and points shown on the same screen,
 // and filtering the lists while the badge engine counts everything put "0
-// yorum" next to a gold comment badge (review finding). The showcase world
-// disappears from DISCOVERY — map, lists, board, search, inbox — and an
-// animal the reader has their own history with stays openable (see
-// middleware/demo.middleware.js).
+// yorum" next to a gold comment badge (review finding). See
+// utils/settings.js for where the filter does belong.
 const CARED_ANIMALS_SQL = `
   SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
          ST_AsGeoJSON(a.location)::json AS location,

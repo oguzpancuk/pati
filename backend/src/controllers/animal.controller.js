@@ -557,11 +557,9 @@ async function getAnimal(req, res, next) {
         [req.params.id]
       ),
       pool.query(
-        // A showcase carer on a real animal is a profile the reader has
-        // hidden — and would 404 on tap (review finding).
         `SELECT u.id, u.name, u.avatar_url FROM user_animal_care c
          JOIN users u ON u.id = c.user_id
-         WHERE c.animal_id = $1${await demoFilter(req, 'u')}
+         WHERE c.animal_id = $1
          ORDER BY c.created_at`,
         [req.params.id]
       ),
@@ -1234,12 +1232,10 @@ async function listComments(req, res, next) {
     const countParams = [...params];
     params.push(limit, offset);
 
-    // Same rule as the carer list: a hidden author's comment leads nowhere.
-    const hideDemo = await demoFilter(req, 'u');
     const [page, count] = await Promise.all([
       pool.query(
         `${COMMENT_SELECT_SQL}
-         WHERE c.animal_id = $1 ${filter} ${hideDemo}
+         WHERE c.animal_id = $1 ${filter}
          ORDER BY c.created_at DESC, c.id DESC
          LIMIT $${params.length - 1}::int OFFSET $${params.length}::int`,
         params
@@ -1249,7 +1245,7 @@ async function listComments(req, res, next) {
         // promise comments the reader can never be shown.
         `SELECT count(*)::int AS count FROM animal_comments c
          JOIN users u ON u.id = c.user_id
-         WHERE c.animal_id = $1 ${filter} ${hideDemo}`,
+         WHERE c.animal_id = $1 ${filter}`,
         countParams
       ),
     ]);

@@ -604,11 +604,13 @@ function planDistrict(district, { users: userCount, base }, now) {
   const directs = [];
   for (const friendship of friendships) {
     if (friendship.status !== 'accepted' || !chance(rng, 0.15)) continue;
-    // A winter script only for a conversation that happens in winter.
-    const topics = isColdAt(friendship.at) ? [...DM_TOPICS, ...COLD_DM_TOPICS] : DM_TOPICS;
+    let at = noLaterThan(new Date(friendship.at.getTime() + int(rng, 1, 10) * MS_HOUR), now);
+    // A winter script only when the conversation ITSELF happens in winter —
+    // its messages run days after the friendship, so the start of the chat is
+    // what decides, not the friendship's date (review finding).
+    const topics = isColdAt(at) ? [...DM_TOPICS, ...COLD_DM_TOPICS] : DM_TOPICS;
     const script = pick(rng, topics);
     const lines = script.slice(0, int(rng, 3, script.length));
-    let at = noLaterThan(new Date(friendship.at.getTime() + int(rng, 1, 10) * MS_HOUR), now);
     const messages = lines.map((body, i) => {
       at = noLaterThan(new Date(at.getTime() + int(rng, 2, 220) * 60_000), now);
       return { body, sender: i % 2 === 0 ? friendship.requester : friendship.addressee, at };
@@ -624,12 +626,19 @@ function planDistrict(district, { users: userCount, base }, now) {
   // rest is the shuffled pool, so the inbox preview is never a month-old
   // greeting (QA finding) spoken by the founder (review finding). The cold
   // lines join the pool only when the group's own month is cold.
-  const groupPool = isColdAt(groupCreatedAt) ? [...GROUP_LINES, ...COLD_GROUP_LINES] : GROUP_LINES;
+  // Dated first, then worded: a group's messages span about a month, so the
+  // season has to be asked of each message, not of the group (review
+  // finding — a run in early April stamped "hava çok soğuk" onto rows dated
+  // 5 April). The pool is drawn without replacement so lines stay unique.
+  const groupPool = pickMany(rng, GROUP_LINES, int(rng, 12, 20));
+  const coldPool = [...COLD_GROUP_LINES];
   const groupMessages = [
     { body: GROUP_OPENING, sender: groupMembers[0], at: groupCreatedAt },
-    ...pickMany(rng, groupPool, int(rng, 12, 20)).map((body) => {
+    ...groupPool.map((body) => {
       groupAt = noLaterThan(new Date(groupAt.getTime() + int(rng, 30, 40 * 60) * 60_000), now);
-      return { body, sender: pick(rng, groupMembers), at: groupAt };
+      // A cold line takes a slot only when its own moment is cold.
+      const cold = isColdAt(groupAt) && coldPool.length > 0 && chance(rng, 0.15);
+      return { body: cold ? coldPool.pop() : body, sender: pick(rng, groupMembers), at: groupAt };
     }),
   ];
   const group = {

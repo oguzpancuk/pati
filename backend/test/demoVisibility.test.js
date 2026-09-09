@@ -18,7 +18,6 @@ const assert = require('node:assert');
 
 const {
   demoFilter,
-  hidesDemo,
   showsDemo,
   rememberShowsDemo,
   clearSettingsCache,
@@ -62,22 +61,4 @@ test('a fresh choice overrides the one before it, per user', async () => {
   assert.strictEqual(await demoFilter({ user: { userId: 9 } }, 'a'), ' AND NOT a.is_demo');
   rememberShowsDemo(9, true);
   assert.strictEqual(await demoFilter({ user: { userId: 9 } }, 'a'), '');
-});
-
-// `hidesDemo` decides whether a single-row route 404s, so its default matters
-// more than most: a wrong answer here hides real content from a real reader.
-test('hidesDemo is false for a signed-out visitor and for a showcase reader', async () => {
-  clearSettingsCache();
-  assert.strictEqual(await hidesDemo({}), false);
-  assert.strictEqual(await hidesDemo({ user: {} }), false);
-  rememberShowsDemo(11, true);
-  assert.strictEqual(await hidesDemo({ user: { userId: 11 } }), false);
-});
-
-test('hidesDemo is true only for someone who switched the showcase off', async () => {
-  clearSettingsCache();
-  rememberShowsDemo(11, false);
-  assert.strictEqual(await hidesDemo({ user: { userId: 11 } }), true);
-  rememberShowsDemo(11, true);
-  assert.strictEqual(await hidesDemo({ user: { userId: 11 } }), false);
 });

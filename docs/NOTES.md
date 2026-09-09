@@ -2805,3 +2805,30 @@ the next docs touch.
   ("Grubu açtım…"), not the joiner greeting the previous fix had put in the
   creator's mouth. Four new tests pin the bowl photos, the seasonal rule
   and the opening line.
+
+### Same day — the rule that finally composed
+
+- Six review rounds walked the same loop: filter a surface, and a number or
+  a link somewhere else stops agreeing with it. Round six found the last
+  two — another person's profile still handed out showcase cards that 404
+  on tap, and a health record's comment count contradicted the chat behind
+  it once demo authors were filtered out of it.
+- The rule that composes, now written into `utils/settings.js` next to
+  `demoFilter`: **the switch hides DISCOVERY — the map, the animal list,
+  search, notifications; bots are off the leaderboard for everyone — and
+  nothing else.** A row somebody navigates to always opens, and anyone's
+  own record (their profile history, their friends, their chats, an
+  animal's own carers and comments) is never filtered. A demo row a reader
+  does reach wears the "demo" chip, which is what the owner asked for in
+  the first place ("sadece çip").
+- That deleted `demo.middleware.js` and its seventeen mounts, the friend
+  and inbox filters, the carer/comment-author filters and `hidesDemo`. The
+  surviving filters are exactly the owner's own list: harita, listeler,
+  arama, bildirimler.
+- Two seed corrections from the same round: the season is asked per MESSAGE
+  (a group's messages span a month, so choosing the pool from the group's
+  creation date stamped "hava çok soğuk" onto rows dated 5 April), and it
+  is asked in UTC (`getMonth()` made a plan depend on the seeding machine's
+  time zone, which contradicts its own determinism test). The seasonal test
+  now plans a JANUARY world, so it asserts that cold lines appear at all —
+  at the old September date the loop body never ran.

@@ -64,22 +64,22 @@ function rememberShowsDemo(userId, value) {
 }
 
 /**
- * The SQL fragment that hides the demo world from this request's user, or
- * an empty string when they want to see it. `alias` is the table alias the
+ * The SQL fragment that hides the demo world from this request's user, or an
+ * empty string when they want to see it. `alias` is the table alias the
  * `is_demo` column lives on.
+ *
+ * WHERE it belongs, learned over six review rounds: the switch takes the
+ * showcase out of DISCOVERY — the map, the animal list, search, the
+ * leaderboard (where bots never appear at all) and notifications, which is
+ * the owner's own list. It is not applied to a row someone navigates to, nor
+ * to anyone's own record: their profile history, an animal opened by id,
+ * their friends and chats. Every attempt to filter those produced a number
+ * that disagreed with a list, or a card that 404s when tapped. A demo row
+ * that a reader does reach wears the "demo" chip, which is what the owner
+ * asked for in the first place.
  */
 async function demoFilter(req, alias) {
   return (await showsDemo(req?.user?.userId)) ? '' : ` AND NOT ${alias}.is_demo`;
-}
-
-/**
- * Whether this request's user has switched the showcase world OFF. For the
- * read paths that answer with a single row instead of a filtered list — a
- * profile, an animal opened by id — which must 404 rather than hand out a
- * demo row (review finding).
- */
-async function hidesDemo(req) {
-  return !(await showsDemo(req?.user?.userId));
 }
 
 /** Only for tests: forget what was read. */
@@ -87,4 +87,4 @@ function clearSettingsCache() {
   cache.clear();
 }
 
-module.exports = { showsDemo, hidesDemo, rememberShowsDemo, demoFilter, clearSettingsCache };
+module.exports = { showsDemo, rememberShowsDemo, demoFilter, clearSettingsCache };

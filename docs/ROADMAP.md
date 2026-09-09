@@ -950,16 +950,17 @@ Two owner decisions arrived mid-build and supersede the original plan:
   does not serve them (the URLs are stored, so a wrong origin would bake
   dead links into production). `npm run seed-showcase`, and
   `npm run seed-showcase:remove` to take it all back out.
-- **Where the filter reaches** (settled across four review rounds and a QA
-  pass): the care list and status, the animal list/near/match, the
-  leaderboard, user search, notifications (counts, the bell poll and
-  mark-read included), the friend list, the inbox, and both profile lists
-  (cared animals, comments) with their counts. Single-row and sub-resource
-  routes 404 instead of filtering — `guardDemoUser` / `guardDemoAnimal` on
-  every `/:id` route of users and animals — so a reader never finds a
-  profile they cannot open holding animals they can, or an animal they can
-  follow but not read. Notifications inherit `is_demo` from the actor or
-  the animal, so the filter keeps working for rows created at runtime.
+- **Where the filter reaches** (settled over six review rounds and a QA
+  pass): **discovery only** — the care list and status, the animal
+  list/near/match, user search, and notifications (counts, the bell poll
+  and mark-read included); bots are off the leaderboard for everyone, so
+  it needs no filter. Nothing filters a row someone navigates to, or
+  anyone's own record: a profile, an animal opened by id, friends, chats,
+  an animal's own carers and comments. Every attempt to filter those
+  produced either a number that disagreed with a list or a card that 404s
+  when tapped — the chip is what marks a demo row a reader does reach.
+  Notifications inherit `is_demo` from the actor or the animal, so the
+  filter keeps working for rows created at runtime.
 - **Still open, and deliberately:** `npm run seed` writes its local demo
   world WITHOUT `is_demo`, so on a freshly seeded dev database the switch
   appears to do nothing — only `seed-showcase.js` sets the flag. And a

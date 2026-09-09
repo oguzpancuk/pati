@@ -175,24 +175,54 @@ test('every drop carries the bowl photo for its own type', () => {
   }
 });
 
-// The seasonal pools are asked of each row's own date, so a run in November
-// cannot stamp cold-weather chat onto rows dated October (review finding).
-test('nothing talks about the cold outside the cold months', () => {
-  const { plan } = samplePlan();
-  const cold = /soğu|kışlık|battaniye/i;
-  const rows = [
+// The seasonal pools are asked of each ROW's own date, not of the machine
+// clock or of the group's creation date: a run in early April used to stamp
+// "hava çok soğuk" onto messages dated 5 April (review findings). Both
+// directions are pinned, and the January date matters — at a September `now`
+// no cold line is generated at all, so a one-sided test would pass while
+// asserting nothing.
+const COLD_WORDS = /soğu|kışlık|battaniye/i;
+
+function datedRows(plan) {
+  return [
     ...plan.comments.map((c) => ({ body: c.body, at: c.at })),
     ...plan.group.messages,
     ...plan.directs.flatMap((d) => d.messages),
   ];
+}
+
+test('nothing talks about the cold outside the cold months', () => {
+  // A January `now`: history reaches back to December, so both cold and warm
+  // dates are in play and the assertion has something to bite on.
+  const { plan } = samplePlan(new Date('2027-01-20T12:00:00Z'));
+  const rows = datedRows(plan);
+  assert.ok(
+    rows.some((r) => COLD_WORDS.test(r.body)),
+    'a winter plan should produce at least one cold-weather line'
+  );
   for (const row of rows) {
-    if (cold.test(row.body)) {
+    if (COLD_WORDS.test(row.body)) {
       assert.ok(
         isColdAt(row.at),
         `"${row.body}" is dated ${row.at.toISOString()}, which is not a cold month`
       );
     }
   }
+});
+
+test('an August plan mentions the cold nowhere', () => {
+  const { plan } = samplePlan(new Date('2026-08-20T12:00:00Z'));
+  for (const row of datedRows(plan)) {
+    assert.ok(!COLD_WORDS.test(row.body), `"${row.body}" is dated ${row.at.toISOString()}`);
+  }
+});
+
+// A plan must be a function of (seed, now) — not of the seeding machine's
+// time zone, which `getMonth()` would have made it (review finding).
+test('the season is decided in UTC', () => {
+  const boundary = new Date('2026-11-01T02:00:00Z');
+  assert.strictEqual(isColdAt(boundary), true);
+  assert.strictEqual(isColdAt(new Date('2026-10-31T22:00:00Z')), false);
 });
 
 test('a group opens with its creator, and never with a joiner greeting', () => {

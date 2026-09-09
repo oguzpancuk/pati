@@ -359,7 +359,9 @@ const RELIEF = [
  * finding).
  */
 const COLD_MONTHS = new Set([10, 11, 0, 1, 2]);
-const isColdAt = (at) => COLD_MONTHS.has(at.getMonth());
+// UTC on purpose: `getMonth()` would make the plan depend on the seeding
+// machine's time zone, and a plan must be a function of (seed, now) alone.
+const isColdAt = (at) => COLD_MONTHS.has(at.getUTCMonth());
 
 /** The cold-weather lines, kept apart so a caller can add them by date. */
 const COLD_COORDINATION = [

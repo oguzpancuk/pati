@@ -84,6 +84,16 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'dark', label: 'koyu' },
 ];
 
+/** The strip opens the leaderboard — unless this account is not on it. */
+function StatStrip({ demo, children }: { demo: boolean; children: React.ReactNode }) {
+  if (demo) return <div className="statstrip">{children}</div>;
+  return (
+    <Link to="/siralama" className="statstrip" style={{ textDecoration: 'none', color: 'inherit' }}>
+      {children}
+    </Link>
+  );
+}
+
 export default function ProfilePage() {
   const { me, logout, applyMe, refresh } = useAuth();
   const { checkPending } = useBadgeAwards();
@@ -246,12 +256,9 @@ export default function ProfilePage() {
         {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
         <span className="subtle">›</span>
       </Link>
-      {/* Stat strip: points / rank / level — links to the leaderboard. */}
-      <Link
-        to="/siralama"
-        className="statstrip"
-        style={{ textDecoration: 'none', color: 'inherit' }}
-      >
+      {/* Stat strip: points / rank / level — links to the leaderboard, except
+          for a showcase account, which is not on it (mobile parity). */}
+      <StatStrip demo={me.is_demo === true}>
         <div>
           <strong>{me.points?.total ?? 0}</strong>
           <div className="micro">puan</div>
@@ -271,7 +278,7 @@ export default function ProfilePage() {
           <strong>{me.level.level}</strong>
           <div className="micro">seviye</div>
         </div>
-      </Link>
+      </StatStrip>
 
       <LevelBar level={me.level} points={me.points?.total ?? 0} />
 
