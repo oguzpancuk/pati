@@ -2722,3 +2722,36 @@ the next docs touch.
   alternative is to keep bots off the ranking entirely, which contradicts
   "girsinler" (they DO appear on the leaderboard). Not a code problem;
   a choice.
+
+### Same day — the owner takes the bots off the leaderboard
+
+- The open decision recorded above is settled, and the other way round:
+  **"botlar sıralamada gözükmesin. profillerinde sıralamalarında demo
+  hesabı yazsın."** So there is one board for everyone with `is_demo`
+  accounts excluded, `getUserRank` is the only rank function again, and a
+  showcase profile shows "demo hesabı" where the number would be — on the
+  public profile and on its own. Anything written above about a canonical
+  board beside a viewer-relative one, or about bots inflating stored ranks,
+  describes code that no longer exists.
+- That decision deleted more than it added: the canonical/viewer split, the
+  `show_demo` gate on the rank snapshot (which also froze board-independent
+  `last_points` — a review finding), and the leaderboard's demo chip.
+  Production was never seeded under the old code, so no stored rank ever
+  saw a bot; nothing needs migrating.
+- **The leak both the fourth review round and the QA pass found
+  independently**, and how it is closed: filtering lists while single rows
+  answered 200 left a reader with the showcase off able to open a bot's
+  profile sub-resources (`/users/:id/animals`, `/users/:id/comments`) and a
+  demo animal's comments, and to follow an animal they could not read.
+  `guardDemoUser` / `guardDemoAnimal` (`middleware/demo.middleware.js`) now
+  sit on every `/:id` route of both routers, after `requireAuth` — a param
+  handler would have run BEFORE it and seen no `req.user`. They cost
+  nothing for the default reader: the preference is cached and the lookup
+  only happens once someone has switched the showcase off.
+- The mirror image mattered too: a real volunteer can care for or comment
+  on a showcase animal while the world is on, so the profile lists (and
+  their counts) are filtered as well — otherwise the switch left a card
+  that 404s when tapped.
+- Two labels a fingertip apart both said "açık" on the profile — the demo
+  switch and the light theme. The demo switch reads "görünüyor / gizli"
+  now.

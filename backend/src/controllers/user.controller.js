@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../config/db');
 const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
-const { demoFilter, hidesDemo, rememberShowsDemo } = require('../utils/settings');
+const { demoFilter, rememberShowsDemo } = require('../utils/settings');
 const { UPLOADS_DIR } = require('../config/upload');
 const { writeAuditLog } = require('../utils/auditLog');
 const { getUserBadges } = require('../utils/badges');
@@ -63,7 +63,7 @@ async function getStats(userId) {
 
 /** Every column the profile response carries; one list, one meaning. */
 const ME_COLUMNS = `id, name, email, role, avatar_url, featured_badges, created_at,
-                    email_verification_pending, show_demo`;
+                    email_verification_pending, show_demo, is_demo`;
 
 /**
  * THE profile response. Both getMe and the avatar endpoints answer with it,
@@ -73,13 +73,13 @@ const ME_COLUMNS = `id, name, email, role, avatar_url, featured_badges, created_
  * `recentComments`/`commentCount`/`email_verification_pending`, in two
  * consecutive review rounds — so there is only one builder now.
  */
-async function buildMeResponse(user) {
+async function buildMeResponse(req, user) {
   const [stats, badgeData, rank, recentComments, commentCount, authMethods] = await Promise.all([
     getStats(user.id),
     getUserBadges(user.id),
     getUserRank(user.id),
-    fetchRecentComments(user.id),
-    countComments(user.id),
+    fetchRecentComments(req, user.id),
+    countComments(req, user.id),
     getAuthMethods(user.id),
   ]);
 
@@ -111,7 +111,7 @@ async function getMe(req, res, next) {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
-    res.json(await buildMeResponse(result.rows[0]));
+    res.json(await buildMeResponse(req, result.rows[0]));
   } catch (err) {
     next(err);
   }
@@ -148,12 +148,12 @@ async function setFeaturedBadges(req, res, next) {
 }
 
 /** Changes the profile image and answers with the whole profile. */
-async function setAvatarAndRespond(userId, avatarValue, res) {
+async function setAvatarAndRespond(req, userId, avatarValue, res) {
   const result = await pool.query(
     `UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING ${ME_COLUMNS}`,
     [avatarValue, userId]
   );
-  res.json(await buildMeResponse(result.rows[0]));
+  res.json(await buildMeResponse(req, result.rows[0]));
 }
 
 async function uploadAvatar(req, res, next) {
@@ -164,7 +164,7 @@ async function uploadAvatar(req, res, next) {
     const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
     // Uploading a photo replaces the selected built-in avatar: both live in
     // the same column because only one can be active at a time.
-    await setAvatarAndRespond(req.user.userId, avatarUrl, res);
+    await setAvatarAndRespond(req, req.user.userId, avatarUrl, res);
   } catch (err) {
     if (req.file) {
       fs.unlink(req.file.path, () => {});
@@ -184,7 +184,7 @@ async function setAvatarKey(req, res, next) {
     if (!avatarValue) {
       return res.status(400).json({ error: 'Geçersiz avatar seçimi' });
     }
-    await setAvatarAndRespond(req.user.userId, avatarValue, res);
+    await setAvatarAndRespond(req, req.user.userId, avatarValue, res);
   } catch (err) {
     next(err);
   }
@@ -193,7 +193,7 @@ async function setAvatarKey(req, res, next) {
 /** Removes the image entirely; the UI falls back to the initial letter. */
 async function clearAvatar(req, res, next) {
   try {
-    await setAvatarAndRespond(req.user.userId, null, res);
+    await setAvatarAndRespond(req, req.user.userId, null, res);
   } catch (err) {
     next(err);
   }
@@ -201,7 +201,11 @@ async function clearAvatar(req, res, next) {
 
 // Cared-for animals are listed the same way (with a cover photo) on your own
 // profile and on other people's; keep the query in one place.
-const CARED_ANIMALS_SQL = `
+// `hideDemo` is the reader's showcase filter: a real volunteer can care for
+// a showcase animal while the world is on, and when they switch it off the
+// animal 404s — a card that cannot be opened is worse than no card (review
+// finding).
+const caredAnimalsSql = (hideDemo) => `
   SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
          ST_AsGeoJSON(a.location)::json AS location,
          ${COVER_COLUMNS}
@@ -209,6 +213,7 @@ const CARED_ANIMALS_SQL = `
   JOIN user_animal_care uac ON uac.animal_id = a.id
   ${coverPhotoJoin('a')}
   WHERE uac.user_id = $1
+  ${hideDemo}
   ORDER BY uac.created_at DESC
   LIMIT $2::int OFFSET $3::int`;
 
@@ -219,14 +224,20 @@ const CARED_ANIMALS_SQL = `
 const PROFILE_ANIMAL_PREVIEW = 3;
 const MAX_ANIMAL_PAGE = 50;
 
-async function fetchCaredAnimals(userId, limit = PROFILE_ANIMAL_PREVIEW, offset = 0) {
-  const result = await pool.query(CARED_ANIMALS_SQL, [userId, limit, offset]);
+async function fetchCaredAnimals(req, userId, limit = PROFILE_ANIMAL_PREVIEW, offset = 0) {
+  const result = await pool.query(caredAnimalsSql(await demoFilter(req, 'a')), [
+    userId,
+    limit,
+    offset,
+  ]);
   return result.rows;
 }
 
-async function countCaredAnimals(userId) {
+async function countCaredAnimals(req, userId) {
   const result = await pool.query(
-    'SELECT count(*)::int AS count FROM user_animal_care WHERE user_id = $1',
+    `SELECT count(*)::int AS count FROM user_animal_care uac
+     JOIN animals a ON a.id = uac.animal_id
+     WHERE uac.user_id = $1${await demoFilter(req, 'a')}`,
     [userId]
   );
   return result.rows[0].count;
@@ -234,7 +245,7 @@ async function countCaredAnimals(userId) {
 
 // The "recent comments" list shown on the profile. The animal each comment
 // belongs to is returned too, so the list can link straight to its profile.
-const USER_COMMENTS_SQL = `
+const userCommentsSql = (hideDemo) => `
   SELECT c.id, c.body, c.created_at, c.health_record_id,
          a.id AS animal_id, a.species AS animal_species,
          a.name AS animal_name, a.breed AS animal_breed,
@@ -243,19 +254,26 @@ const USER_COMMENTS_SQL = `
   JOIN animals a ON a.id = c.animal_id
   ${coverPhotoJoin('a')}
   WHERE c.user_id = $1
+  ${hideDemo}
   ORDER BY c.created_at DESC
   LIMIT $2::int OFFSET $3::int`;
 
 const PROFILE_COMMENT_PREVIEW = 3;
 
-async function fetchRecentComments(userId, limit = PROFILE_COMMENT_PREVIEW, offset = 0) {
-  const result = await pool.query(USER_COMMENTS_SQL, [userId, limit, offset]);
+async function fetchRecentComments(req, userId, limit = PROFILE_COMMENT_PREVIEW, offset = 0) {
+  const result = await pool.query(userCommentsSql(await demoFilter(req, 'a')), [
+    userId,
+    limit,
+    offset,
+  ]);
   return result.rows;
 }
 
-async function countComments(userId) {
+async function countComments(req, userId) {
   const result = await pool.query(
-    'SELECT count(*)::int AS count FROM animal_comments WHERE user_id = $1',
+    `SELECT count(*)::int AS count FROM animal_comments c
+     JOIN animals a ON a.id = c.animal_id
+     WHERE c.user_id = $1${await demoFilter(req, 'a')}`,
     [userId]
   );
   return result.rows[0].count;
@@ -272,8 +290,8 @@ async function getUserAnimals(req, res, next) {
     const limit = Math.min(Number(req.query.limit) || PROFILE_ANIMAL_PREVIEW, MAX_ANIMAL_PAGE);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
     const [animals, total] = await Promise.all([
-      fetchCaredAnimals(targetId, limit, offset),
-      countCaredAnimals(targetId),
+      fetchCaredAnimals(req, targetId, limit, offset),
+      countCaredAnimals(req, targetId),
     ]);
     res.json({ animals, total });
   } catch (err) {
@@ -292,8 +310,8 @@ async function getUserComments(req, res, next) {
 
     const [user, comments, total] = await Promise.all([
       pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [targetId]),
-      fetchRecentComments(targetId, limit, offset),
-      countComments(targetId),
+      fetchRecentComments(req, targetId, limit, offset),
+      countComments(req, targetId),
     ]);
 
     if (user.rows.length === 0) {
@@ -378,14 +396,6 @@ async function getPublicProfile(req, res, next) {
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
-    // Someone who switched the showcase world off must not reach it sideways
-    // either — through an old link, a friendship or a conversation. The
-    // profile carries the bot's animals, comments and points, so filtering
-    // the rank alone would have shown them "half a demo world" (review
-    // finding); it simply does not exist for them.
-    if (userResult.rows[0].is_demo && (await hidesDemo(req))) {
-      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
-    }
 
     const [
       stats,
@@ -399,16 +409,16 @@ async function getPublicProfile(req, res, next) {
     ] = await Promise.all([
       getStats(targetId),
       getUserBadges(targetId),
-      fetchCaredAnimals(targetId),
-      countCaredAnimals(targetId),
+      fetchCaredAnimals(req, targetId),
+      countCaredAnimals(req, targetId),
       pool.query(
         `SELECT count(*)::int AS count FROM friendships
            WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
         [targetId]
       ),
       getUserRank(targetId),
-      fetchRecentComments(targetId),
-      countComments(targetId),
+      fetchRecentComments(req, targetId),
+      countComments(req, targetId),
     ]);
 
     let friendshipStatus = 'none';

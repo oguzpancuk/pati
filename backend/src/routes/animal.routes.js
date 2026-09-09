@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth, identifyUser } = require('../middleware/auth.middleware');
+const { guardDemoAnimal } = require('../middleware/demo.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 const { upload, pendingUpload } = require('../config/upload');
 const {
@@ -50,37 +51,37 @@ router.post(
   ]),
   matchAnimals
 );
-router.get('/:id', requireAuth, getAnimal);
+router.get('/:id', requireAuth, guardDemoAnimal, getAnimal);
 router.post('/', requireAuth, limits.createAnimal, createAnimal);
-router.post('/:id/sightings', requireAuth, limits.animalTouch, reportSighting);
-router.post('/:id/photos', requireAuth, limits.animalTouch, upload.single('photo'), addPhoto);
-router.post('/:id/health-records', requireAuth, limits.healthRecords, addHealthRecord);
+router.post('/:id/sightings', requireAuth, guardDemoAnimal, limits.animalTouch, reportSighting);
+router.post('/:id/photos', requireAuth, guardDemoAnimal, limits.animalTouch, upload.single('photo'), addPhoto);
+router.post('/:id/health-records', requireAuth, guardDemoAnimal, limits.healthRecords, addHealthRecord);
 router.post(
   '/:id/health-records/:recordId/recover',
-  requireAuth,
+  requireAuth, guardDemoAnimal,
   limits.healthRecords,
   markRecovered
 );
 router.post(
   '/:id/health-records/:recordId/reopen',
-  requireAuth,
+  requireAuth, guardDemoAnimal,
   limits.healthRecords,
   reopenRecord
 );
-router.post('/:id/vaccinations', requireAuth, limits.healthRecords, addVaccination);
-router.get('/:id/comments', requireAuth, listComments);
-router.post('/:id/comments', requireAuth, limits.comments, addComment);
+router.post('/:id/vaccinations', requireAuth, guardDemoAnimal, limits.healthRecords, addVaccination);
+router.get('/:id/comments', requireAuth, guardDemoAnimal, listComments);
+router.post('/:id/comments', requireAuth, guardDemoAnimal, limits.comments, addComment);
 // "Takip et" toggles a follower row; "bakım ver" is the care-photo step:
 // two fresh photos, screened and compared with this animal's gallery, then
 // carer rights. Pending files like the match step's — the miss path
 // deletes them, the match path renames them into the gallery.
-router.post('/:id/follow', requireAuth, limits.follows, followAnimal);
-router.delete('/:id/follow', requireAuth, limits.follows, unfollowAnimal);
-router.post('/:id/photos/:photoId/like', requireAuth, limits.photoLikes, likePhoto);
-router.delete('/:id/photos/:photoId/like', requireAuth, limits.photoLikes, unlikePhoto);
+router.post('/:id/follow', requireAuth, guardDemoAnimal, limits.follows, followAnimal);
+router.delete('/:id/follow', requireAuth, guardDemoAnimal, limits.follows, unfollowAnimal);
+router.post('/:id/photos/:photoId/like', requireAuth, guardDemoAnimal, limits.photoLikes, likePhoto);
+router.delete('/:id/photos/:photoId/like', requireAuth, guardDemoAnimal, limits.photoLikes, unlikePhoto);
 router.post(
   '/:id/care-photos',
-  requireAuth,
+  requireAuth, guardDemoAnimal,
   limits.matchAnimals,
   pendingUpload.fields([{ name: 'photos', maxCount: CARE_PHOTO_COUNT }]),
   submitCarePhotos

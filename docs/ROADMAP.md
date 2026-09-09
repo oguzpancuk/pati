@@ -904,14 +904,22 @@ active demo users, each with 3 animals; the animals carry a generated
 species/breed avatar as their single photo; the bots comment, drop food
 and water regularly, are friends, chat one-to-one and in groups, and look
 like a month of use. Demo rows are marked with a **chip only** (names stay
-ordinary). They DO appear in the leaderboard — and one switch hides every
-demo row everywhere: map records, animals, leaderboard, chat and
-notifications ("mama ve suları da silinsin, bildirim işleri karışmasın").
-The switch moved mid-build: the owner replaced the single admin-panel
-button with **a button on every user's profile** ("fikrimi değiştirdim,
-her kullanıcının profilinde demo verisini gösterme butonu olsun"), so the
-preference is `users.show_demo`, default true, and each person decides for
-themselves.
+ordinary). One switch hides every demo row everywhere: map records,
+animals, chat, comments and notifications ("mama ve suları da silinsin,
+bildirim işleri karışmasın").
+
+Two owner decisions arrived mid-build and supersede the original plan:
+
+1. The switch is **on every user's profile**, not in the admin panel
+   ("fikrimi değiştirdim, her kullanıcının profilinde demo verisini
+   gösterme butonu olsun"): `users.show_demo`, default true.
+2. **Bots are off the leaderboard entirely** ("botlar sıralamada
+   gözükmesin. profillerinde sıralamalarında demo hesabı yazsın") —
+   replacing "they DO appear in the leaderboard". One board for
+   everyone, no bot on it, and a showcase profile reads "demo hesabı"
+   where the rank would be. This is also what keeps stored ranks
+   honest: `users.last_rank` and the badge award rows can never be
+   inflated by the seed.
 
 - **Track A — visibility (main session): DONE** (`bd86e3d`). Migration
   `011_demo_data.sql` (`is_demo` on every table a read path touches +
@@ -939,18 +947,21 @@ themselves.
   does not serve them (the URLs are stored, so a wrong origin would bake
   dead links into production). `npm run seed-showcase`, and
   `npm run seed-showcase:remove` to take it all back out.
-- **Open before the production seed run** (from the track A review):
-  `npm run seed` writes its local demo world WITHOUT `is_demo`, so on a
-  freshly seeded dev database the switch appears to do nothing — only
-  `seed-showcase.js` sets the flag. And ten of the fourteen flagged tables
-  have no read-path filter yet (friendships, conversations, members,
-  messages, comments, health records, vaccinations, followers, care links,
-  photos): harmless as long as the bots only ever touch each other, a leak
-  the moment they touch a real user's animal. Confirm against what track
-  S's seed actually writes, then either filter those paths or drop the
-  unused columns.
+- **Where the filter reaches** (settled across four review rounds and a QA
+  pass): the care list and status, the animal list/near/match, the
+  leaderboard, user search, notifications (counts, the bell poll and
+  mark-read included), the friend list, the inbox, and both profile lists
+  (cared animals, comments) with their counts. Single-row and sub-resource
+  routes 404 instead of filtering — `guardDemoUser` / `guardDemoAnimal` on
+  every `/:id` route of users and animals — so a reader never finds a
+  profile they cannot open holding animals they can, or an animal they can
+  follow but not read. Notifications inherit `is_demo` from the actor or
+  the animal, so the filter keeps working for rows created at runtime.
+- **Still open, and deliberately:** `npm run seed` writes its local demo
+  world WITHOUT `is_demo`, so on a freshly seeded dev database the switch
+  appears to do nothing — only `seed-showcase.js` sets the flag.
 - **Done when:** both clients show the demo world (screenshots), the
   profile toggle hides and restores it in one tap (screenshots of both
-  states),
+  states, both clients),
   the script is rerunnable and `--remove` leaves no demo row, code-reviewer
   per track, then the production run through `fly ssh console`.

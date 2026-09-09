@@ -257,9 +257,14 @@ export default function ProfilePage() {
           <div className="micro">puan</div>
         </div>
         <div>
-          <strong>{me.rank ? `${me.rank.rank}.` : '—'}</strong>
+          {/* A showcase account does not compete (owner, 2026-09-09). */}
+          <strong>{me.is_demo ? 'demo' : me.rank ? `${me.rank.rank}.` : '—'}</strong>
           <div className="micro">
-            {me.rank ? `sıra / ${me.rank.totalUsers.toLocaleString('tr-TR')}` : 'sıra'}
+            {me.is_demo
+              ? 'demo hesabı'
+              : me.rank
+                ? `sıra / ${me.rank.totalUsers.toLocaleString('tr-TR')}`
+                : 'sıra'}
           </div>
         </div>
         <div>
@@ -473,7 +478,7 @@ export default function ProfilePage() {
             }
           }}
         >
-          {me.show_demo === false ? 'kapalı' : 'açık'}
+          {me.show_demo === false ? 'gizli' : 'görünüyor'}
         </button>
       </div>
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth, requireAuthAllowPending } = require('../middleware/auth.middleware');
+const { guardDemoUser } = require('../middleware/demo.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 const { upload } = require('../config/upload');
 const {
@@ -37,8 +38,8 @@ router.get('/me/badge-awards', requireAuth, getMyBadgeAwards);
 router.post('/me/badge-awards/seen', requireAuth, markMyBadgeAwardsSeen);
 router.get('/search', requireAuth, searchUsers);
 // '/:id' routes go last so the literal '/me/...' paths above match first.
-router.get('/:id/comments', requireAuth, getUserComments);
-router.get('/:id/animals', requireAuth, getUserAnimals);
-router.get('/:id', requireAuth, getPublicProfile);
+router.get('/:id/comments', requireAuth, guardDemoUser, getUserComments);
+router.get('/:id/animals', requireAuth, guardDemoUser, getUserAnimals);
+router.get('/:id', requireAuth, guardDemoUser, getPublicProfile);
 
 module.exports = router;

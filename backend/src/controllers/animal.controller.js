@@ -6,7 +6,7 @@ const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
-const { demoFilter, hidesDemo } = require('../utils/settings');
+const { demoFilter } = require('../utils/settings');
 const { syncAnimalBadgesSafe, getAnimalBadgesFor, animalBadgeLadder } = require('../utils/badges');
 const { notifyAnimalEventSafe } = require('./notification.controller');
 const ai = require('../utils/ai');
@@ -528,12 +528,6 @@ async function getAnimal(req, res, next) {
       [req.params.id]
     );
     if (animalResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Hayvan bulunamadı' });
-    }
-    // A showcase animal does not exist for someone who switched the showcase
-    // world off: the list hid it, and a direct link or an old deep link must
-    // not walk around that (review finding).
-    if (animalResult.rows[0].is_demo && (await hidesDemo(req))) {
       return res.status(404).json({ error: 'Hayvan bulunamadı' });
     }
 

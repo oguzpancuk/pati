@@ -93,6 +93,8 @@ export interface Me {
   email_verification_pending?: boolean;
   /** Whether this person sees the showcase (demo) world (their own switch). */
   show_demo?: boolean;
+  /** Showcase account: it does not compete on the board (`rank` is null). */
+  is_demo?: boolean;
   authProviders: SocialProvider[];
 }
 

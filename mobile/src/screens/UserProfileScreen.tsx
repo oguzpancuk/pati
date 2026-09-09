@@ -443,8 +443,10 @@ export default function UserProfileScreen({ navigation, route }: any) {
           { value: String(me.points?.total ?? 0), label: 'puan' },
           {
             // Rank alone; the total is on the leaderboard (the strip cell is narrow).
-            value: me.rank ? `${me.rank.rank}.` : '—',
-            label: 'sıra',
+            // A showcase account does not compete (owner, 2026-09-09), so
+            // its cell names what the account is instead of an empty rank.
+            value: me.is_demo ? 'demo' : me.rank ? `${me.rank.rank}.` : '—',
+            label: me.is_demo ? 'hesabı' : 'sıra',
             onPress: () => navigation.navigate('Leaderboard'),
           },
           { value: String(me.level?.level ?? 1), label: 'seviye' },
@@ -697,8 +699,11 @@ export default function UserProfileScreen({ navigation, route }: any) {
               : 'Örnek mahalleler haritada ve listelerde görünüyor.'}
           </Text>
         </View>
+        {/* "görünüyor / gizli", not "açık / kapalı": the theme chips sit
+            directly below and one of THEM is called "açık" (light) —
+            two chips a finger apart, same word, different meaning (QA). */}
         <Chip
-          label={me.show_demo === false ? 'kapalı' : 'açık'}
+          label={me.show_demo === false ? 'gizli' : 'görünüyor'}
           selected={me.show_demo !== false}
           onPress={toggleShowDemo}
         />

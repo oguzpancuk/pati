@@ -200,6 +200,8 @@ export interface WithNewBadges {
 export interface Me extends User {
   /** Whether this person sees the showcase (demo) world (their own switch). */
   show_demo?: boolean;
+  /** Showcase account: it does not compete on the board (`rank` is null). */
+  is_demo?: boolean;
   created_at: string;
   stats: UserStats;
   badges: Badge[];
