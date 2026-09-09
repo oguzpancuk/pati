@@ -81,7 +81,7 @@ script — and nothing here has to be done before a deploy.
    (`/gizlilik`, `/kosullar`).
 4. **iOS only, and this one is load-bearing:** paste the Google iOS client's
    _reversed_ id (it looks like `com.googleusercontent.apps.123-abc`) into
-   `mobile/ios/StrayMobile/Info.plist` as an extra `CFBundleURLSchemes`
+   `mobile/ios/PatiMobile/Info.plist` as an extra `CFBundleURLSchemes`
    entry next to `pati`, **and** put the plain id into
    `mobile/src/googleClientId.ts` in the same commit, then rebuild natively.
    The app compares the _server's_ id to the compiled-in one and draws the
@@ -95,7 +95,7 @@ script — and nothing here has to be done before a deploy.
    error — it terminates**: Google's SDK raises an Objective-C exception and
    the React Native wrapper only catches it under `#if DEBUG`, which is why
    the simulator looked well-behaved. The Sign in with Apple entitlement is
-   already in the project (`StrayMobile.entitlements`).
+   already in the project (`PatiMobile.entitlements`).
 
 **Then the secrets** — every one of them is a public identifier, not a
 password; nothing here is a client _secret_:

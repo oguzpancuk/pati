@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "StrayMobile.app"
-               BlueprintName = "StrayMobile"
-               ReferencedContainer = "container:StrayMobile.xcodeproj">
+               BuildableName = "PatiMobile.app"
+               BlueprintName = "PatiMobile"
+               ReferencedContainer = "container:PatiMobile.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "StrayMobileTests.xctest"
-               BlueprintName = "StrayMobileTests"
-               ReferencedContainer = "container:StrayMobile.xcodeproj">
+               BuildableName = "PatiMobileTests.xctest"
+               BlueprintName = "PatiMobileTests"
+               ReferencedContainer = "container:PatiMobile.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "StrayMobile.app"
-            BlueprintName = "StrayMobile"
-            ReferencedContainer = "container:StrayMobile.xcodeproj">
+            BuildableName = "PatiMobile.app"
+            BlueprintName = "PatiMobile"
+            ReferencedContainer = "container:PatiMobile.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "StrayMobile.app"
-            BlueprintName = "StrayMobile"
-            ReferencedContainer = "container:StrayMobile.xcodeproj">
+            BuildableName = "PatiMobile.app"
+            BlueprintName = "PatiMobile"
+            ReferencedContainer = "container:PatiMobile.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

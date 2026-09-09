@@ -13,7 +13,7 @@ import fs from 'fs';
 import path from 'path';
 import { IOS_GOOGLE_CLIENT_ID } from '../src/googleClientId';
 
-const PLIST = path.join(__dirname, '..', 'ios', 'StrayMobile', 'Info.plist');
+const PLIST = path.join(__dirname, '..', 'ios', 'PatiMobile', 'Info.plist');
 const SUFFIX = '.apps.googleusercontent.com';
 const SCHEME_PREFIX = 'com.googleusercontent.apps.';
 

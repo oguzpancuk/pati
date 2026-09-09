@@ -7,11 +7,11 @@
 #define TIMEOUT_SECONDS 600
 #define TEXT_TO_LOOK_FOR @"Welcome to React"
 
-@interface StrayMobileTests : XCTestCase
+@interface PatiMobileTests : XCTestCase
 
 @end
 
-@implementation StrayMobileTests
+@implementation PatiMobileTests
 
 - (BOOL)findSubviewInView:(UIView *)view matching:(BOOL (^)(UIView *view))test
 {
