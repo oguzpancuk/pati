@@ -23,11 +23,25 @@ DO $$
 DECLARE
   claimed INTEGER;
 BEGIN
-  INSERT INTO schema_backfills (name) VALUES ('012_guide_world_is_demo') ON CONFLICT DO NOTHING;
+  -- `_v2`: the first version of this file claimed three tables by the ANIMAL
+  -- a row hangs off, which stamped a real volunteer's health record, photo or
+  -- vaccination on a guide animal as bot data. Production never ran either
+  -- version, but a development database that claimed the old name has to be
+  -- able to run the corrected one — and to have those rows put back.
+  INSERT INTO schema_backfills (name) VALUES ('012_guide_world_is_demo_v2') ON CONFLICT DO NOTHING;
   GET DIAGNOSTICS claimed = ROW_COUNT;
   IF claimed = 0 THEN
     RETURN;
   END IF;
+
+  -- Repair first: a row whose author is a real person is that person's,
+  -- whatever an earlier run said.
+  UPDATE animal_photos p SET is_demo = false
+   FROM users u WHERE u.id = p.uploaded_by AND NOT u.is_demo AND p.is_demo;
+  UPDATE health_records h SET is_demo = false
+   FROM users u WHERE u.id = h.recorded_by AND NOT u.is_demo AND h.is_demo;
+  UPDATE vaccinations v SET is_demo = false
+   FROM users u WHERE u.id = v.recorded_by AND NOT u.is_demo AND v.is_demo;
 
   UPDATE users SET is_demo = true WHERE email LIKE '%@pati.demo' AND NOT is_demo;
 

@@ -401,7 +401,10 @@ export default function ProfilePage() {
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
                 <UserAvatar avatarUrl={entry.avatar_url} name={entry.name} size={36} />
-                <strong className="grow">{entry.name}</strong>
+                <div className="name-with-chip grow">
+                  <strong>{entry.name}</strong>
+                  {entry.is_demo && <span className="demo-chip">demo</span>}
+                </div>
               </Link>
               <div className="row" style={{ marginTop: 8 }}>
                 <button
@@ -446,7 +449,10 @@ export default function ProfilePage() {
             style={{ textDecoration: 'none', color: 'inherit' }}
           >
             <UserAvatar avatarUrl={f.avatar_url} name={f.name} size={36} />
-            <strong className="grow">{f.name}</strong>
+            <div className="name-with-chip grow">
+              <strong>{f.name}</strong>
+              {f.is_demo && <span className="demo-chip">demo</span>}
+            </div>
             <span className="subtle">›</span>
           </Link>
         ))

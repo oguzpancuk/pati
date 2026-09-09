@@ -36,11 +36,14 @@ function randomAvatarValue() {
   return `${AVATAR_PREFIX}${AVATAR_KEYS[Math.floor(Math.random() * AVATAR_KEYS.length)]}`;
 }
 
-// The two bot worlds sign their accounts with this domain, and everything
-// that hides them keys on it (utils/settings.js, seed-guides.js). A person
-// registering here would be flagged as a bot by the next seed and could be
-// deleted by purge-demo (review finding), so the domain is reserved.
-const RESERVED_EMAIL_DOMAIN = '@pati.demo';
+// The bot worlds' domains: the showcase seed's and the guides' accounts live
+// under these, everything that hides them keys on them, and purge-demo
+// DELETES every account matching them. A person registering there would be
+// flagged as a bot by the next seed and deleted by the next purge (review
+// findings), so both are reserved. Kept next to purge-demo's own list —
+// scripts/purge-demo.js DEMO_EMAIL_PATTERNS — which must not grow without
+// this one growing too.
+const RESERVED_EMAIL_DOMAINS = ['@pati.demo', '@stray.test'];
 
 async function register(req, res, next) {
   try {
@@ -58,7 +61,7 @@ async function register(req, res, next) {
     }
 
     const normalizedEmail = normalizeEmail(email);
-    if (normalizedEmail.endsWith(RESERVED_EMAIL_DOMAIN)) {
+    if (RESERVED_EMAIL_DOMAINS.some((domain) => normalizedEmail.endsWith(domain))) {
       return res.status(400).json({ error: 'Bu e-posta adresi kullanılamaz' });
     }
 

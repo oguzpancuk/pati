@@ -639,7 +639,10 @@ export default function UserProfileScreen({ navigation, route }: any) {
           {incoming.map((entry) => (
             <Card key={entry.friendship_id} variant="flat" padding="md" style={styles.block}>
               <Pressable onPress={() => navigation.navigate('PublicProfile', { userId: entry.id })}>
-                <Text variant="bodyStrong">{entry.name}</Text>
+                <View style={styles.nameWrap}>
+                  <Text variant="bodyStrong">{entry.name}</Text>
+                  <DemoChip visible={entry.is_demo === true} />
+                </View>
               </Pressable>
               <View style={styles.friendActions}>
                 <Button title="Kabul et" size="sm" onPress={() => handleAccept(entry)} />
@@ -672,6 +675,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
             <Text variant="bodyStrong" style={styles.friendName} numberOfLines={1}>
               {item.name}
             </Text>
+            <DemoChip visible={item.is_demo === true} />
             <Icon name="chevronRight" size={18} color={colors.textSubtle} />
           </Card>
         ))
@@ -993,6 +997,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   demoText: { flex: 1 },
   animalNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  nameWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   animalName: { flexShrink: 1 },
   logout: { marginTop: spacing.xxl, alignSelf: 'center' },
   legal: { marginTop: spacing.md, marginBottom: spacing.lg, alignSelf: 'center' },

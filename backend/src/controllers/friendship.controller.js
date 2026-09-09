@@ -84,7 +84,7 @@ async function listMyFriendships(req, res, next) {
     const userId = req.user.userId;
 
     const friends = await pool.query(
-      `SELECT f.id AS friendship_id, u.id, u.name, u.avatar_url
+      `SELECT f.id AS friendship_id, u.id, u.name, u.avatar_url, u.is_demo
        FROM friendships f
        JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
        WHERE f.status = 'accepted' AND (f.requester_id = $1 OR f.addressee_id = $1)
@@ -93,7 +93,7 @@ async function listMyFriendships(req, res, next) {
     );
 
     const incoming = await pool.query(
-      `SELECT f.id AS friendship_id, u.id, u.name, u.avatar_url, f.created_at
+      `SELECT f.id AS friendship_id, u.id, u.name, u.avatar_url, u.is_demo, f.created_at
        FROM friendships f
        JOIN users u ON u.id = f.requester_id
        WHERE f.status = 'pending' AND f.addressee_id = $1
@@ -102,7 +102,7 @@ async function listMyFriendships(req, res, next) {
     );
 
     const outgoing = await pool.query(
-      `SELECT f.id AS friendship_id, u.id, u.name, u.avatar_url, f.created_at
+      `SELECT f.id AS friendship_id, u.id, u.name, u.avatar_url, u.is_demo, f.created_at
        FROM friendships f
        JOIN users u ON u.id = f.addressee_id
        WHERE f.status = 'pending' AND f.requester_id = $1

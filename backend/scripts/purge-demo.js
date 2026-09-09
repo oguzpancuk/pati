@@ -32,6 +32,9 @@ const path = require('path');
 const pool = require('../src/config/db');
 const { UPLOADS_DIR } = require('../src/config/upload');
 
+// Registration refuses these domains outright (RESERVED_EMAIL_DOMAINS in
+// src/controllers/auth.controller.js): a real person must never be able to
+// hold an address this script deletes. Adding one here means adding it there.
 const DEMO_EMAIL_PATTERNS = ['%@stray.test', '%@pati.demo'];
 const APPLY = process.argv.includes('--apply');
 

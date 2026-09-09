@@ -147,6 +147,8 @@ export interface FriendshipEntry {
   id: number;
   name: string;
   avatar_url: string | null;
+  /** Showcase account: the clients mark it with a chip. */
+  is_demo?: boolean;
   created_at?: string;
 }
 
