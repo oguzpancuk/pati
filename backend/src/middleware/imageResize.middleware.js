@@ -43,25 +43,27 @@ function uploadedFiles(req) {
  * file). Returns false when the original was kept.
  */
 async function shrink(file, maxEdge) {
-  const source = sharp(file.path).rotate();
-
-  let meta;
+  // Only an image that is ACTUALLY see-through stays a PNG. JPEG has no
+  // alpha and sharp puts black behind it, which on an advertiser's logo or
+  // a user's avatar is a black tile — but `hasAlpha` is true for any RGBA
+  // file, opaque or not, and a phone screenshot is RGBA. Keeping those as
+  // PNG made a 2000x1500 upload 6,3 MB where JPEG gives 0,77 MB: eight
+  // times the storage and bandwidth this middleware exists to save (second
+  // review round). `stats()` reads every pixel, so it is only asked when
+  // there is an alpha channel to ask about.
+  let alpha = false;
   try {
-    meta = await source.metadata();
+    alpha = (await sharp(file.path).metadata()).hasAlpha === true;
+    if (alpha) alpha = !(await sharp(file.path).stats()).isOpaque;
   } catch (err) {
     console.warn(`[uploads] left ${file.filename} unresized: ${err?.message ?? err}`);
     return false;
   }
 
-  // A transparent image stays a PNG. JPEG has no alpha, and sharp puts
-  // BLACK behind it — which on an advertiser's logo (the one surface with a
-  // paying customer) or a user's avatar is a black tile where the
-  // background should show through (review finding).
-  const alpha = meta.hasAlpha === true;
-
   let body;
   try {
-    const fitted = source
+    const fitted = sharp(file.path)
+      .rotate()
       .resize({ width: maxEdge, height: maxEdge, fit: 'inside', withoutEnlargement: true })
       // iPhones shoot Display-P3. Dropping the profile leaves P3 numbers to
       // be read as sRGB, which is a duller, shifted photo — invisible in a

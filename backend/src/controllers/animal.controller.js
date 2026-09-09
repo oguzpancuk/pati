@@ -6,7 +6,12 @@ const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const storage = require('../config/storage');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
-const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
+const {
+  coordinate,
+  finiteNumber,
+  isPresent,
+  radiusMeters: radiusParam,
+} = require('../utils/numbers');
 const { demoFilter } = require('../utils/settings');
 const { syncAnimalBadgesSafe, getAnimalBadgesFor, animalBadgeLadder } = require('../utils/badges');
 const { notifyAnimalEventSafe } = require('./notification.controller');
@@ -149,11 +154,15 @@ async function listAnimals(req, res, next) {
     for (const [name, value] of [
       ['lat', lat],
       ['lng', lng],
-      ['radiusMeters', radiusMeters],
     ]) {
       if (isPresent(value) && finiteNumber(value) === null) {
         return res.status(400).json({ error: `${name} sayı olmalıdır` });
       }
+    }
+    if (isPresent(radiusMeters) && radiusParam(radiusMeters) === null) {
+      return res
+        .status(400)
+        .json({ error: 'radiusMeters 0 ile 200000 arasında bir sayı olmalıdır' });
     }
     const { limit, offset } = pageParams(req.query);
     const speciesFilter = species ? 'AND a.species = $SPECIES' : '';
@@ -170,13 +179,19 @@ async function listAnimals(req, res, next) {
     if ((centreLat === null) !== (centreLng === null)) {
       return res.status(400).json({ error: 'lat ve lng birlikte verilmelidir' });
     }
+    // A pair has to be a real point on the globe as well as two numbers:
+    // PostGIS coerces lat 999 into the southern ocean and answers 200 about
+    // a place the caller never asked about (review finding).
+    if (centreLat !== null && centreLng !== null && !coordinate(lat, lng)) {
+      return res.status(400).json({ error: 'lat ve lng geçerli koordinat olmalıdır' });
+    }
     if (centreLat !== null && centreLng !== null) {
       // With a radius (the map's viewport pull) the circle bounds the set;
       // without one (the animals list, owner decision 2026-09-07) the whole
       // table is walked nearest-first — `<->` on geography is a KNN index
       // scan on the GIST index, so page one costs the same in a city or a
       // village and the list never runs out before the animals do.
-      const radius = finiteNumber(radiusMeters);
+      const radius = radiusParam(radiusMeters);
       const bounded = radius !== null;
       const params = bounded
         ? [centreLng, centreLat, radius, limit, offset]
@@ -1023,14 +1038,31 @@ async function submitCarePhotos(req, res, next) {
       }
       throw err;
     }
-    for (const finalName of finalNames) {
-      const inserted = await pool.query(
-        'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
-        [animalId, `${base}${finalName}`, req.user.userId]
-      );
-      const row = inserted.rows[0];
-      await attachFaceThumb(row, finalName, animal.species, base);
-      photos.push({ ...row, like_count: 0, liked_by_me: false });
+    // `owned` grows as rows take ownership: a failure below must clean up
+    // the files NOBODY owns yet and leave the rest alone. Without it a
+    // database blip after the publish loop left both files under their
+    // final names — which the pending sweeper never looks at — plus their
+    // objects in the bucket, forever, per attempt (second review round).
+    let owned = 0;
+    try {
+      for (const finalName of finalNames) {
+        const inserted = await pool.query(
+          'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
+          [animalId, `${base}${finalName}`, req.user.userId]
+        );
+        owned += 1;
+        const row = inserted.rows[0];
+        await attachFaceThumb(row, finalName, animal.species, base);
+        photos.push({ ...row, like_count: 0, liked_by_me: false });
+      }
+    } catch (err) {
+      for (const name of finalNames.slice(owned)) {
+        await fs.promises
+          .rename(path.join(UPLOADS_DIR, name), path.join(UPLOADS_DIR, `${PENDING_PREFIX}${name}`))
+          .catch(() => {});
+        storage.remove(name);
+      }
+      throw err;
     }
     keepFiles = true;
 

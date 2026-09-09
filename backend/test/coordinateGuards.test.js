@@ -43,7 +43,7 @@ test('listCareActions refuses a non-numeric viewport corner', async () => {
     // message; anything else is the box guard's own.
     assert.match(
       res.body.error,
-      value.trim() === '' ? /zorunludur/ : /Harita sınırları sayı olmalıdır/,
+      value.trim() === '' ? /zorunludur/ : /Harita sınırları geçerli koordinat olmalıdır/,
       `corner ${JSON.stringify(value)}`
     );
   }
@@ -56,7 +56,7 @@ test('listCareActions and getCareStatus refuse a non-numeric radius centre', asy
       assert.fail(`passed to next(): ${err}`)
     );
     assert.strictEqual(res.code, 400);
-    assert.match(res.body.error, /lat ve lng sayı olmalıdır/);
+    assert.match(res.body.error, /lat ve lng geçerli koordinat olmalıdır/);
   }
 });
 
@@ -93,7 +93,7 @@ test('a junk radius is refused rather than falling back to the default', async (
       assert.fail(`passed to next(): ${err}`)
     );
     assert.strictEqual(res.code, 400);
-    assert.match(res.body.error, /radiusMeters sayı olmalıdır/);
+    assert.match(res.body.error, /radiusMeters 0 ile 200000/);
   }
 });
 
@@ -155,4 +155,62 @@ test('an empty coordinate never reaches the database', async () => {
     assert.strictEqual(res.code, 400);
     assert.match(res.body.error, /zorunludur/);
   }
+});
+
+test('the public read paths refuse a coordinate PostGIS would silently move', async () => {
+  // `lat=999` is a finite number and not a place. PostGIS coerces it to
+  // about −81 and answers 200 about the southern ocean, so the range has to
+  // be checked here — the write paths have done it since 2026-09-09, the
+  // read paths did not (roadmap follow-up, closed 2026-09-10).
+  const outOfRange = [
+    { lat: '999', lng: '29' },
+    { lat: '41', lng: '181' },
+    { lat: '-91', lng: '29' },
+  ];
+  for (const query of outOfRange) {
+    for (const handler of [care.listCareActions, care.getCareStatus, animals.listAnimals]) {
+      const res = fakeRes();
+      await handler({ query }, res, (err) => assert.fail(`passed to next(): ${err}`));
+      assert.strictEqual(res.code, 400, `${handler.name} ${JSON.stringify(query)}`);
+      assert.match(res.body.error, /geçerli koordinat olmalıdır/);
+    }
+  }
+});
+
+test('a viewport corner off the globe is refused too', async () => {
+  const res = fakeRes();
+  await care.listCareActions(
+    { query: { minLat: '-91', maxLat: '41', minLng: '28.9', maxLng: '29.1' } },
+    res,
+    (err) => assert.fail(`passed to next(): ${err}`)
+  );
+  assert.strictEqual(res.code, 400);
+  assert.match(res.body.error, /Harita sınırları geçerli koordinat olmalıdır/);
+});
+
+test('an absurd radius is refused rather than walking the whole table', async () => {
+  // `radiusMeters=1e300` was accepted, and ST_DWithin then compared every
+  // row in the table against it (roadmap follow-up).
+  for (const value of ['1e300', '900000', '0', '-5']) {
+    for (const handler of [care.listCareActions, care.getCareStatus, animals.listAnimals]) {
+      const res = fakeRes();
+      await handler({ query: { lat: '41', lng: '29', radiusMeters: value } }, res, (err) =>
+        assert.fail(`passed to next(): ${err}`)
+      );
+      assert.strictEqual(res.code, 400, `${handler.name} radius ${value}`);
+      assert.match(res.body.error, /radiusMeters 0 ile 200000/);
+    }
+  }
+});
+
+test('the radii the clients actually send are still accepted', async () => {
+  // 100 m is the care status circle, 500 m the map's animals, 3 km the
+  // care list's default: a guard that refused any of these would be worse
+  // than the hole it closes. They reach the database, so the assertion is
+  // that they are not refused by the guard.
+  const { radiusMeters, MAX_RADIUS_METERS } = require('../src/utils/numbers');
+  for (const value of [100, 500, 1000, 3000, MAX_RADIUS_METERS]) {
+    assert.strictEqual(radiusMeters(String(value)), value, `radius ${value}`);
+  }
+  assert.strictEqual(radiusMeters('200001'), null);
 });

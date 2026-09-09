@@ -95,6 +95,21 @@ check "…stayed a png" png "${LOGO##*.}"
 check "…and is in the bucket under that name" yes "$(has_key "$LOGO")"
 SECOND="$LOGO"
 
+echo "== the client does not get to choose the stored extension"
+# The part is named .html and declared image/png, which is what gets past
+# the mime filter. Stored as .html and served from our own origin, it would
+# have run script in the origin that holds the JWT (second review round).
+printf '<script>alert(1)</script>' > /tmp/pati-storage-xss.html
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/users/me/avatar" -H "Authorization: Bearer $JWT" -F "photo=@/tmp/pati-storage-xss.html;type=image/png")
+check "an .html part -> 200 (it is just a file)" 200 "$code"
+XSS=$(basename "$(j .avatar_url)")
+check "…stored as an inert .bin" bin "${XSS##*.}"
+XSS_URL="${API%/api}/uploads/$XSS"
+CT=$(curl -s -o /dev/null -w '%{content_type}' "$XSS_URL")
+check "…and never served as html" no "$(echo "$CT" | grep -qi html && echo yes || echo no)"
+check "…and never sniffable into html" yes \
+  "$(curl -s -D - -o /dev/null "$XSS_URL" | grep -qi 'x-content-type-options: nosniff' && echo yes || echo no)"
+
 echo "== a malformed url is a Turkish 404, not a 500"
 code=$(curl -s -o "$BODY" -w '%{http_code}' "${API%/api}/uploads/%zz")
 check "bad percent-escape -> 404" 404 "$code"

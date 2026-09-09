@@ -32,4 +32,26 @@ function coordinate(lat, lng) {
   return { lat: latN, lng: lngN };
 }
 
-module.exports = { finiteNumber, isPresent, coordinate };
+/**
+ * The widest radius a public route will search, in metres. The clients ask
+ * for 100 m to 3 km; a whole country is 1.500 km across. Anything past this
+ * is not a viewport, it is `radiusMeters=1e300` walking the whole table
+ * through ST_DWithin — accepted with a 200 until now (review finding).
+ * A world-scale view has its own path: the bounding-box branch, which the
+ * GIST index answers.
+ */
+const MAX_RADIUS_METERS = 200000;
+
+/**
+ * A search radius from the wire: a positive number no wider than
+ * MAX_RADIUS_METERS, or null. Refused rather than clamped, so a client
+ * asking for something impossible is told, the way every other bad
+ * parameter on these routes is.
+ */
+function radiusMeters(value) {
+  const n = finiteNumber(value);
+  if (n === null || n <= 0 || n > MAX_RADIUS_METERS) return null;
+  return n;
+}
+
+module.exports = { finiteNumber, isPresent, coordinate, radiusMeters, MAX_RADIUS_METERS };

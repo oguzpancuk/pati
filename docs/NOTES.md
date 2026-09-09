@@ -3113,3 +3113,55 @@ scoped and written down instead.
   PATH here. It lives in the Homebrew gem bin
   (`/opt/homebrew/lib/ruby/gems/4.0.0/bin`), which has to be exported
   before `pod install` will run.
+
+### Same night — the second review round, and the read paths' own guards
+
+The second round found two regressions the FIRST round's fixes had
+introduced, which is exactly the shape worth recording.
+
+- **"Has an alpha channel" is not "is transparent".** Round one made an
+  image with alpha stay a PNG, to stop sponsor logos coming out black. But
+  `hasAlpha` is true for any RGBA file, opaque or not, and a phone
+  screenshot is RGBA: those stopped going through JPEG and were stored as
+  level-9 PNG — 6,3 MB against 0,77 MB for the same 2000x1500 picture.
+  Eight times the storage and bandwidth the resizer exists to save, in the
+  name of fixing a black rectangle. The gate is `stats().isOpaque` now,
+  asked only when there is an alpha channel to ask about, and a test uploads
+  an opaque RGBA PNG and insists on a small JPEG.
+- **The rate limit round one put on the `/uploads` fallback would have
+  broken the case the fallback exists for.** It counted every cache miss,
+  per IP, in a codebase whose own limiter module is per-user precisely
+  because Turkish carriers put thousands of people behind one address. On a
+  restored volume every image is a miss, so one person paging through
+  galleries would have exhausted 300 in fifteen minutes and then seen
+  broken images everywhere — the 429 body is JSON, which an `<img>` just
+  renders as nothing. `skipSuccessfulRequests` leaves only the true 404s
+  counted, which is the loop over invented names that was the actual bill
+  vector.
+- **And a real hole neither round put there.** The stored file's extension
+  came from the client's own filename, and `/uploads` answers on the app
+  host AND the admin host. A part named `x.html` declared as `image/png`
+  passed the mime filter, was stored as `.html`, and `express.static`
+  served it as text/html — script running in the origin that holds the JWT.
+  The server picks the extension from an allowlist now (SVG deliberately
+  absent, since an SVG carries script too) and anything else becomes an
+  inert `.bin`; `X-Content-Type-Options: nosniff` is on both the static
+  mount and the bucket fallback. The harness uploads that exact payload.
+- Smaller from the same round: a failure in the insert loop left files
+  under their final names, which the pending sweeper never looks at (only
+  the ones no row owns are rolled back now); the `.part` temporaries were
+  swept by nobody; and `discardPreviousAvatar` can unlink a shared
+  `seed-N.png` on a seeded DEV database, which is written down rather than
+  fixed since production filenames are unique and the seed wipes what it
+  runs against.
+
+Alongside it, the read paths finally got the guard the write paths have had
+since 2026-09-09: `lat=999` is a finite number and not a place, and PostGIS
+coerces it to about −81 rather than refusing it, so `GET /animals`,
+`/care-actions` and `/care-actions/status` answered 200 about the southern
+ocean. All three take `coordinate()` now, both viewport corners included.
+`radiusMeters` has an upper bound at 200 km — the clients ask for 100 m to
+3 km, and `1e300` was accepted and walked the whole table through
+`ST_DWithin`. Refused rather than clamped, like every other bad parameter on
+these routes, with a test asserting that the radii the clients actually send
+still pass.

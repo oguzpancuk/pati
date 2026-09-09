@@ -95,6 +95,23 @@ test('a transparent png stays a png, and stays transparent', async () => {
   assert.equal(corner[3], 0, 'the corner should still be see-through, not black');
 });
 
+test('an opaque RGBA image becomes a jpg, not a six-megabyte png', async () => {
+  // `hasAlpha` is true for any RGBA file, and a phone screenshot is RGBA.
+  // Keeping those as PNG was eight times the bytes this middleware exists
+  // to save (second review round).
+  const opaque = await sharp({
+    create: { width: 2000, height: 1500, channels: 4, background: { r: 199, g: 132, b: 43, alpha: 1 } },
+  })
+    .png()
+    .toBuffer();
+  const file = await upload('screenshot.png', opaque);
+  await run({ file });
+
+  assert.equal(file.filename, 'screenshot.jpg');
+  assert.equal((await sharp(file.path).metadata()).format, 'jpeg');
+  assert.ok(file.size < 1_500_000, `expected a small jpeg, got ${file.size} bytes`);
+});
+
 test('an uppercase extension is not mistaken for a different file', async () => {
   // `IMG_4821.JPG` and `IMG_4821.jpg` are two strings and one file on a
   // case-insensitive filesystem — writing one and unlinking the "other"

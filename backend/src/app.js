@@ -47,37 +47,55 @@ app.use(express.json());
 // anything when a bucket is configured: it pulls the object into the cache
 // so a second machine (or a restored volume) can serve what it never
 // received itself (src/config/storage.js).
-// Only misses reach the bucket, so this only ever sees requests for names
-// this machine does not have: a normal reader is served by express.static
-// above and never counted. Uncapped, `GET /uploads/<random>.jpg` in a loop
-// was a free way to run up somebody's R2 bill (review finding).
+// Only misses reach here — a normal reader is served by express.static
+// above — and only misses that FAIL are counted. Uncapped,
+// `GET /uploads/<random>.jpg` in a loop was a free way to run up somebody's
+// R2 bill; counting successes too would have broken the one case the
+// fallback exists for, a cold cache after a volume restore, where every
+// image on every screen is a miss and one person browsing galleries behind
+// a carrier NAT would have hit the ceiling in a minute (second review
+// round). What is left counted is exactly the loop over names that are not
+// there.
 const uploadsMissLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 300,
+  limit: 600,
+  skipSuccessfulRequests: true,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Çok fazla istek. Lütfen biraz sonra tekrar dene.' },
 });
 
-app.use('/uploads', express.static(UPLOADS_DIR), uploadsMissLimit, async (req, res, next) => {
-  let name;
-  try {
-    name = decodeURIComponent(req.path.slice(1));
-  } catch {
-    // A malformed percent-escape (`/uploads/%zz`): serve-static answers 400
-    // and falls through, and an unguarded decode here turned that into an
-    // English "URI malformed" 500 (review finding). It is a 404 like any
-    // other name that does not exist.
-    return next();
+app.use(
+  '/uploads',
+  // The extension is chosen by the server (config/upload.js), but nosniff
+  // is the belt to that braces: this mount answers on the app AND the admin
+  // host, so anything a browser decided to treat as HTML here would run in
+  // the origin that holds the JWT (second review round).
+  express.static(UPLOADS_DIR, {
+    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+  }),
+  uploadsMissLimit,
+  async (req, res, next) => {
+    let name;
+    try {
+      name = decodeURIComponent(req.path.slice(1));
+    } catch {
+      // A malformed percent-escape (`/uploads/%zz`): serve-static answers
+      // 400 and falls through, and an unguarded decode here turned that
+      // into an English "URI malformed" 500 (review finding). It is a 404
+      // like any other name that does not exist.
+      return next();
+    }
+    try {
+      const file = await storage.localPath(name);
+      if (!file) return next();
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.sendFile(file);
+    } catch (err) {
+      next(err);
+    }
   }
-  try {
-    const file = await storage.localPath(name);
-    if (!file) return next();
-    res.sendFile(file);
-  } catch (err) {
-    next(err);
-  }
-});
+);
 // The showcase animals' photos ship inside the image, not on the uploads
 // volume: the seed can then run against any environment (and `--remove`
 // leaves no orphaned files behind). A day of caching, not more: the names

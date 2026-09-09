@@ -7,7 +7,12 @@ const { UPLOADS_DIR } = require('../config/upload');
 const storage = require('../config/storage');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
 const ai = require('../utils/ai');
-const { coordinate, finiteNumber, isPresent } = require('../utils/numbers');
+const {
+  coordinate,
+  finiteNumber,
+  isPresent,
+  radiusMeters: radiusParam,
+} = require('../utils/numbers');
 const { demoFilter } = require('../utils/settings');
 
 // A checked photo is handed back to the client as a signed claim over the
@@ -256,21 +261,29 @@ const WITHIN_WINDOW_SQL = `created_at > now() - (${WINDOW_HOURS_SQL} * interval 
 async function listCareActions(req, res, next) {
   try {
     const { lat, lng, minLat, maxLat, minLng, maxLng, actionType } = req.query;
-    // A junk radius must not fall back to the default silently.
-    if (isPresent(req.query.radiusMeters) && finiteNumber(req.query.radiusMeters) === null) {
-      return res.status(400).json({ error: 'radiusMeters sayı olmalıdır' });
+    // A junk radius must not fall back to the default silently, and an
+    // absurd one must not walk the whole table (review finding).
+    if (isPresent(req.query.radiusMeters) && radiusParam(req.query.radiusMeters) === null) {
+      return res.status(400).json({ error: 'radiusMeters 0 ile 200000 arasında bir sayı olmalıdır' });
     }
-    const radiusMeters = finiteNumber(req.query.radiusMeters) ?? DEFAULT_RADIUS_METERS;
+    const radiusMeters = radiusParam(req.query.radiusMeters) ?? DEFAULT_RADIUS_METERS;
 
     // "Present" means given and non-empty: an empty corner falls through to
     // the radius branch and its "zorunludur" 400, as it always did.
     if ([minLat, maxLat, minLng, maxLng].every(isPresent)) {
       // The viewport comes from a public route: a non-numeric corner must
       // be a 400, not a Postgres "invalid input syntax" 500.
-      const box = [minLng, minLat, maxLng, maxLat].map(finiteNumber);
-      if (box.some((n) => n === null)) {
-        return res.status(400).json({ error: 'Harita sınırları sayı olmalıdır' });
+      // Both corners as coordinates: PostGIS coerces an out-of-range value
+      // instead of refusing it, so `minLat=999` answered 200 about a
+      // rectangle somewhere in the southern ocean (review finding).
+      const min = coordinate(minLat, minLng);
+      const max = coordinate(maxLat, maxLng);
+      if (!min || !max) {
+        return res
+          .status(400)
+          .json({ error: 'Harita sınırları geçerli koordinat olmalıdır' });
       }
+      const box = [min.lng, min.lat, max.lng, max.lat];
       const params = box;
       const filter = actionTypeFilter(actionType, params.length + 1);
       if (filter.param) params.push(filter.param);
@@ -299,12 +312,12 @@ async function listCareActions(req, res, next) {
         .status(400)
         .json({ error: 'lat/lng ya da minLat/maxLat/minLng/maxLng zorunludur' });
     }
-    const centre = [finiteNumber(lng), finiteNumber(lat)];
-    if (centre.some((n) => n === null)) {
-      return res.status(400).json({ error: 'lat ve lng sayı olmalıdır' });
+    const centre = coordinate(lat, lng);
+    if (!centre) {
+      return res.status(400).json({ error: 'lat ve lng geçerli koordinat olmalıdır' });
     }
 
-    const params = [...centre, radiusMeters];
+    const params = [centre.lng, centre.lat, radiusMeters];
     const filter = actionTypeFilter(actionType, params.length + 1);
     if (filter.param) params.push(filter.param);
     const result = await pool.query(
@@ -330,20 +343,20 @@ async function listCareActions(req, res, next) {
 async function getCareStatus(req, res, next) {
   try {
     const { lat, lng, actionType } = req.query;
-    if (isPresent(req.query.radiusMeters) && finiteNumber(req.query.radiusMeters) === null) {
-      return res.status(400).json({ error: 'radiusMeters sayı olmalıdır' });
+    if (isPresent(req.query.radiusMeters) && radiusParam(req.query.radiusMeters) === null) {
+      return res.status(400).json({ error: 'radiusMeters 0 ile 200000 arasında bir sayı olmalıdır' });
     }
-    const radiusMeters = finiteNumber(req.query.radiusMeters) ?? DEFAULT_STATUS_RADIUS_METERS;
+    const radiusMeters = radiusParam(req.query.radiusMeters) ?? DEFAULT_STATUS_RADIUS_METERS;
 
     if (!isPresent(lat) || !isPresent(lng)) {
       return res.status(400).json({ error: 'lat ve lng zorunludur' });
     }
-    const centre = [finiteNumber(lng), finiteNumber(lat)];
-    if (centre.some((n) => n === null)) {
-      return res.status(400).json({ error: 'lat ve lng sayı olmalıdır' });
+    const centre = coordinate(lat, lng);
+    if (!centre) {
+      return res.status(400).json({ error: 'lat ve lng geçerli koordinat olmalıdır' });
     }
 
-    const params = [...centre, radiusMeters];
+    const params = [centre.lng, centre.lat, radiusMeters];
     const filter = actionTypeFilter(actionType, params.length + 1);
     if (filter.param) params.push(filter.param);
 

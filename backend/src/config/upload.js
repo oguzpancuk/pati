@@ -20,12 +20,29 @@ const PENDING_PREFIX = 'pending-';
 const PENDING_MAX_AGE_MS = 30 * 60 * 1000;
 const PENDING_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 
+// The extension is the only part of the client's filename that survives,
+// and /uploads is served from the app's own origin AND the admin host — so
+// a part named `x.html` used to become a stored `.html` file that
+// express.static served as text/html, running script in the origin that
+// holds the JWT (second review round). The server picks from this list or
+// stores the file as an inert `.bin`; note that SVG is deliberately absent,
+// since an SVG can carry script too.
+const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif']);
+
+function safeExtension(originalname) {
+  const ext = path.extname(originalname || '').toLowerCase();
+  if (!ext) return '.jpg';
+  return ALLOWED_EXTENSIONS.has(ext) ? ext : '.bin';
+}
+
 function makeStorage(prefix = '') {
   return multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_DIR),
     filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname) || '.jpg';
-      cb(null, `${prefix}${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`);
+      cb(
+        null,
+        `${prefix}${Date.now()}-${crypto.randomBytes(8).toString('hex')}${safeExtension(file.originalname)}`
+      );
     },
   });
 }
@@ -49,9 +66,10 @@ function pendingToFinal(name) {
 }
 
 /**
- * Deletes pending files older than PENDING_MAX_AGE_MS. Safe by construction:
- * a pending file is never referenced by a row (a redeem renames it first),
- * so age is the only question. Runs at boot — the machine autostops when
+ * Deletes pending files (and abandoned `.part` temporaries) older than
+ * PENDING_MAX_AGE_MS. Safe by construction: a pending file is never
+ * referenced by a row (a redeem renames it first), so age is the only
+ * question. Runs at boot — the machine autostops when
  * idle, so an interval alone would miss whatever was left when it went
  * down — and every few minutes after. Errors are logged, never thrown.
  */
@@ -66,7 +84,13 @@ async function sweepPendingUploads() {
   const cutoff = Date.now() - PENDING_MAX_AGE_MS;
   let removed = 0;
   for (const name of names) {
-    if (!name.startsWith(PENDING_PREFIX)) continue;
+    // `.<uuid>.part` is a half-written file: the resizer and the storage
+    // driver both write through one before renaming into place. A crash
+    // between the two leaves it behind forever, since nothing else looks at
+    // this directory (second review round). Unservable — `localPath`
+    // refuses a leading dot — but it still occupies the volume.
+    const temp = name.startsWith('.') && name.endsWith('.part');
+    if (!temp && !name.startsWith(PENDING_PREFIX)) continue;
     const full = path.join(UPLOADS_DIR, name);
     try {
       const stat = await fs.promises.stat(full);
@@ -78,7 +102,7 @@ async function sweepPendingUploads() {
       if (err?.code !== 'ENOENT') console.warn(`[uploads] sweep ${name}: ${err?.message ?? err}`);
     }
   }
-  if (removed > 0) console.log(`[uploads] swept ${removed} pending file(s) nobody redeemed`);
+  if (removed > 0) console.log(`[uploads] swept ${removed} unclaimed file(s)`);
   return removed;
 }
 
@@ -98,4 +122,6 @@ module.exports = {
   PENDING_PREFIX,
   PENDING_MAX_AGE_MS,
   UPLOADS_DIR,
+  safeExtension,
+  ALLOWED_EXTENSIONS,
 };

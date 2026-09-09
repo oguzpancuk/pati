@@ -158,6 +158,13 @@ async function setFeaturedBadges(req, res, next) {
  * at its `/uploads/…` URL forever — including after the account was deleted,
  * which deleteMyAccount only ever cleaned up for the LAST one (review
  * finding). A personal photo is exactly what the deletion promise is about.
+ *
+ * One caveat, and it is a development one: `seed-demo.js` hands the SAME
+ * `seed-N.png` to several rows, so a seeded account changing its avatar
+ * unlinks a file some animal or care row still points at. Every real upload
+ * has a unique name, and the seed wipes the database it runs against, so
+ * this cannot reach production — but a blank photo on a seeded dev database
+ * is explained by this and not by a bug (second review round).
  */
 function discardPreviousAvatar(previous, next) {
   if (typeof previous !== 'string' || previous === next) return;
