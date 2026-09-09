@@ -127,7 +127,7 @@ function serveSpa(distDir, match) {
   app.use((req, res, next) => (match(req) ? statics(req, res, next) : next()));
   // SPA fallback: client routes like /hayvanlar/12 fall through to
   // index.html; API and file paths matched earlier.
-  app.get(/^\/(?!api\/|uploads\/|demo\/).*/, (req, res, next) => {
+  app.get(/^\/(?!api\/|uploads\/|demo(\/|$)).*/, (req, res, next) => {
     if (!match(req) || (req.headers.accept ?? '').indexOf('text/html') === -1) return next();
     res.sendFile(path.join(distDir, 'index.html'));
   });

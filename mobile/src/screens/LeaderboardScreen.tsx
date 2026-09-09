@@ -5,7 +5,6 @@ import { fetchLeaderboard, LeaderboardEntry, LeaderboardResponse } from '../api/
 import { TIER_LABELS } from '../badges';
 import { Avatar, Card, EmptyState, Screen, Text } from '../components/ui';
 import { LevelMark } from '../components/badges';
-import DemoChip from '../components/DemoChip';
 import { makeStyles, radius, spacing } from '../theme';
 
 function medalFor(rank: number) {
@@ -56,12 +55,9 @@ export default function LeaderboardScreen({ navigation }: any) {
         </View>
         <Avatar uri={entry.avatar_url} name={entry.name} size={40} style={styles.avatar} />
         <View style={styles.info}>
-          <View style={styles.nameWrap}>
-            <Text variant="bodyStrong" numberOfLines={1} style={styles.name}>
-              {entry.name}
-            </Text>
-            <DemoChip visible={entry.is_demo === true} />
-          </View>
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {entry.name}
+          </Text>
           <Text variant="caption" numberOfLines={1}>
             {entry.level ? `Sv.${entry.level.level} ${entry.level.title} · ` : ''}
             {entry.badgeCount} rozet
@@ -151,7 +147,5 @@ const useStyles = makeStyles(({ colors: c }) => ({
   rankBox: { width: 34, alignItems: 'center' },
   avatar: { marginHorizontal: spacing.md },
   info: { flex: 1, marginRight: spacing.sm },
-  nameWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { flexShrink: 1 },
   pointsBox: { alignItems: 'flex-end' },
 }));

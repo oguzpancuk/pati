@@ -115,7 +115,14 @@ export default function UserProfilePage() {
           {profile.is_demo && <span className="demo-chip">demo</span>}
         </div>
         <div className="muted">{formatDate(profile.created_at)} tarihinde katıldı</div>
-        {profile.rank && (
+        {/* Showcase accounts do not compete (owner, 2026-09-09: "botlar
+            sıralamada gözükmesin"); the line names the account instead. */}
+        {profile.is_demo && (
+          <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: 13, marginTop: 4 }}>
+            demo hesabı · {profile.points.total} puan
+          </div>
+        )}
+        {!profile.is_demo && profile.rank && (
           <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: 13, marginTop: 4 }}>
             {profile.rank.rank}. / {profile.rank.totalUsers} · {profile.points.total} puan
           </div>

@@ -72,9 +72,19 @@ async function demoFilter(req, alias) {
   return (await showsDemo(req?.user?.userId)) ? '' : ` AND NOT ${alias}.is_demo`;
 }
 
+/**
+ * Whether this request's user has switched the showcase world OFF. For the
+ * read paths that answer with a single row instead of a filtered list — a
+ * profile, an animal opened by id — which must 404 rather than hand out a
+ * demo row (review finding).
+ */
+async function hidesDemo(req) {
+  return !(await showsDemo(req?.user?.userId));
+}
+
 /** Only for tests: forget what was read. */
 function clearSettingsCache() {
   cache.clear();
 }
 
-module.exports = { showsDemo, rememberShowsDemo, demoFilter, clearSettingsCache };
+module.exports = { showsDemo, hidesDemo, rememberShowsDemo, demoFilter, clearSettingsCache };

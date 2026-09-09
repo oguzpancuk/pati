@@ -266,8 +266,6 @@ export interface FriendshipsResponse {
 }
 
 export interface LeaderboardEntry extends UserSummary {
-  /** Showcase (demo) account or record: the clients mark it with a chip. */
-  is_demo?: boolean;
   points: number;
   badgePoints: number;
   commentPoints: number;

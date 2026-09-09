@@ -1,33 +1,25 @@
 const pool = require('../config/db');
 const { getBadgesForUsers } = require('../utils/badges');
-const { showsDemo } = require('../utils/settings');
+
 
 // The ranking is computed over all users. Badges are derived data and are
 // not stored; the badge computation runs as set-based queries, so the query
 // count doesn't grow with the user count. At much larger scale this table
 // will need periodic caching (unnecessary at the current size).
 /**
- * `viewerId` decides WHOSE board this is: the showcase world competes on
- * the board of everyone who keeps it on, and leaves the board of anyone who
- * switches it off in their profile (owner, 2026-09-09). Pass
- * `{ canonical: true }` for the one board that is the same for everyone —
- * see getUserRank.
+ * ONE board, the same for everyone: showcase (demo) accounts never compete
+ * on it (owner, 2026-09-09 — "botlar sıralamada gözükmesin"). That is also
+ * what keeps every rank honest: a rank is stored in `users.last_rank` and
+ * frozen into badge awards, so it must not move because a bot arrived or
+ * because somebody flipped their showcase switch. A demo account has no
+ * rank at all; the profiles say "demo hesabı" where the number would be.
  *
- * Suspended and self-deleted (anonymized) accounts are excluded either way:
- * a "Silinmiş Üye" holding a rank pushes living volunteers down the board.
+ * Suspended and self-deleted (anonymized) accounts are excluded too: a
+ * "Silinmiş Üye" holding a rank pushes living volunteers down the board.
  */
-async function computeLeaderboard(viewerId, { canonical = false } = {}) {
-  const hideDemo = !canonical && !(await showsDemo(viewerId));
-  // A demo account that has the showcase world switched off would otherwise
-  // filter itself off its own board and lose its "your rank" row — those are
-  // exactly the accounts used for demos and screenshots (review finding).
-  const params = hideDemo && viewerId ? [viewerId] : [];
-  const filter = hideDemo
-    ? ` AND (NOT users.is_demo${params.length ? ' OR users.id = $1' : ''})`
-    : '';
+async function computeLeaderboard() {
   const users = await pool.query(
-    `SELECT id, name, avatar_url, is_demo FROM users WHERE suspended_at IS NULL${filter}`,
-    params
+    'SELECT id, name, avatar_url FROM users WHERE suspended_at IS NULL AND NOT is_demo'
   );
   const userIds = users.rows.map((u) => u.id);
   const badgeMap = await getBadgesForUsers(userIds);
@@ -39,9 +31,6 @@ async function computeLeaderboard(viewerId, { canonical = false } = {}) {
       id: user.id,
       name: user.name,
       avatar_url: user.avatar_url,
-      // Showcase accounts wear a "demo" chip wherever they appear, so a
-      // newcomer can tell the tour from the neighbourhood (owner).
-      is_demo: user.is_demo,
       points: data.points.total,
       badgePoints: data.points.badges,
       commentPoints: data.points.comments,
@@ -73,7 +62,7 @@ async function computeLeaderboard(viewerId, { canonical = false } = {}) {
 async function getLeaderboard(req, res, next) {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
-    const rows = await computeLeaderboard(req.user.userId);
+    const rows = await computeLeaderboard();
     const me = rows.find((r) => r.id === req.user.userId) || null;
 
     res.json({
@@ -86,31 +75,15 @@ async function getLeaderboard(req, res, next) {
   }
 }
 
-function entryFor(rows, userId) {
+/**
+ * The rank shown on a profile, snapshotted into `users.last_rank` and frozen
+ * into badge awards — one number from one board. Null for a showcase
+ * account, which is not on the board at all.
+ */
+async function getUserRank(userId) {
+  const rows = await computeLeaderboard();
   const entry = rows.find((r) => r.id === userId);
   return entry ? { rank: entry.rank, points: entry.points, totalUsers: rows.length } : null;
 }
 
-/**
- * A rank to SHOW, always on the viewer's own board — the same one the
- * leaderboard screen just displayed, so a profile and the board never
- * disagree by two thirds of the field (review finding). The viewer defaults
- * to the subject, which is the "my own profile" case; null when the subject
- * is not on that board at all.
- */
-async function getUserRank(userId, viewerId = userId) {
-  return entryFor(await computeLeaderboard(viewerId), userId);
-}
-
-/**
- * The one board that is the same for everyone. Only for numbers that are
- * STORED or compared across time — `users.last_rank` and a badge award's
- * rank_before/rank_after — which must not move because somebody flipped a
- * switch: a viewer-relative rank froze "you dropped 4289 places" into an
- * award row (review finding).
- */
-async function getCanonicalRank(userId) {
-  return entryFor(await computeLeaderboard(userId, { canonical: true }), userId);
-}
-
-module.exports = { getLeaderboard, getUserRank, getCanonicalRank, computeLeaderboard };
+module.exports = { getLeaderboard, getUserRank, computeLeaderboard };

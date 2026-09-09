@@ -154,8 +154,6 @@ export interface LeaderboardEntry {
   id: number;
   name: string;
   avatar_url: string | null;
-  /** Showcase (demo) account or record: the clients mark it with a chip. */
-  is_demo?: boolean;
   points: number;
   badgePoints: number;
   commentPoints: number;

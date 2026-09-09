@@ -135,10 +135,15 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         style={styles.statStrip}
         stats={[
           { value: String(profile.points?.total ?? 0), label: 'puan' },
-          {
-            value: profile.rank ? `${profile.rank.rank}. / ${profile.rank.totalUsers}` : '—',
-            label: 'sıra',
-          },
+          // Showcase accounts do not compete (owner, 2026-09-09: "botlar
+          // sıralamada gözükmesin"), so the cell says what the account is
+          // instead of showing an empty rank.
+          profile.is_demo
+            ? { value: 'demo', label: 'hesabı' }
+            : {
+                value: profile.rank ? `${profile.rank.rank}. / ${profile.rank.totalUsers}` : '—',
+                label: 'sıra',
+              },
           { value: String(profile.level?.level ?? 1), label: 'seviye' },
         ]}
       />

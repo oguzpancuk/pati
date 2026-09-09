@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { demoFilter } = require('../utils/settings');
 const { REASONS } = require('./report.controller');
 
 /**
@@ -151,6 +152,7 @@ async function listConversations(req, res, next) {
               other.id AS other_id, other.name AS other_name, other.avatar_url AS other_avatar_url
        FROM conversation_members m
        JOIN conversations c ON c.id = m.conversation_id
+       ${await demoFilter(req, 'c')}
        LEFT JOIN LATERAL (
          SELECT id, body, deleted_at, sender_id, created_at FROM messages
          WHERE conversation_id = c.id AND created_at >= m.joined_at ORDER BY id DESC LIMIT 1

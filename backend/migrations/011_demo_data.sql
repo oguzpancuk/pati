@@ -5,9 +5,11 @@
 -- see half a demo world, so the flag lives on every table a read path
 -- touches.
 --
--- Re-runnable: ADD COLUMN IF NOT EXISTS on each table, partial indexes for
--- the "hide them" queries (a partial index on the demo rows is small and is
--- what the planner wants when the filter is `NOT is_demo`).
+-- Re-runnable: ADD COLUMN IF NOT EXISTS on each table. The partial indexes
+-- serve the SEED direction — `WHERE is_demo` is what the purge and the
+-- re-seed check ask for; they can never satisfy a `NOT is_demo` filter, and
+-- the read paths do not want them to (the demo rows are the minority, so
+-- those queries scan as they always did).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE animals ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE animal_photos ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false;

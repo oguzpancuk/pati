@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../config/db');
 const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
-const { demoFilter, rememberShowsDemo } = require('../utils/settings');
+const { demoFilter, hidesDemo, rememberShowsDemo } = require('../utils/settings');
 const { UPLOADS_DIR } = require('../config/upload');
 const { writeAuditLog } = require('../utils/auditLog');
 const { getUserBadges } = require('../utils/badges');
@@ -61,50 +61,57 @@ async function getStats(userId) {
   return { foodCount: row.food_count, waterCount: row.water_count, animalCount: row.animal_count };
 }
 
+/** Every column the profile response carries; one list, one meaning. */
+const ME_COLUMNS = `id, name, email, role, avatar_url, featured_badges, created_at,
+                    email_verification_pending, show_demo`;
+
+/**
+ * THE profile response. Both getMe and the avatar endpoints answer with it,
+ * because the clients swap the whole object in for the current profile: a
+ * field present in one and missing from the other disappears from the screen
+ * until a reload. Building it in two places lost `show_demo`, then
+ * `recentComments`/`commentCount`/`email_verification_pending`, in two
+ * consecutive review rounds — so there is only one builder now.
+ */
+async function buildMeResponse(user) {
+  const [stats, badgeData, rank, recentComments, commentCount, authMethods] = await Promise.all([
+    getStats(user.id),
+    getUserBadges(user.id),
+    getUserRank(user.id),
+    fetchRecentComments(user.id),
+    countComments(user.id),
+    getAuthMethods(user.id),
+  ]);
+
+  // The rank was already computed here; refresh the snapshot so the badge
+  // popup's "previous rank" means "where you stood when you last looked".
+  // There is only one board, so nobody's preference can make this number mean
+  // something different from the one an award row is compared with.
+  await refreshRankSnapshot(user.id, rank ? rank.rank : null, badgeData.points.total);
+
+  return {
+    ...user,
+    stats,
+    badges: badgeData.badges,
+    points: badgeData.points,
+    level: badgeData.level,
+    featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
+    rank,
+    recentComments,
+    commentCount,
+    ...authMethods,
+  };
+}
+
 async function getMe(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT id, name, email, role, avatar_url, featured_badges, created_at,
-              email_verification_pending, show_demo
-         FROM users WHERE id = $1`,
-      [req.user.userId]
-    );
+    const result = await pool.query(`SELECT ${ME_COLUMNS} FROM users WHERE id = $1`, [
+      req.user.userId,
+    ]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
-
-    const [stats, badgeData, rank, recentComments, commentCount, authMethods] = await Promise.all([
-      getStats(req.user.userId),
-      getUserBadges(req.user.userId),
-      getUserRank(req.user.userId),
-      fetchRecentComments(req.user.userId),
-      countComments(req.user.userId),
-      getAuthMethods(req.user.userId),
-    ]);
-
-    const user = result.rows[0];
-    // The rank was already computed here; refresh the snapshot so the badge
-    // popup's "previous rank" means "where you stood when you last looked".
-    // Only from the canonical board, though: `rank` is what THIS person sees,
-    // and someone with the showcase world switched off is looking at a
-    // smaller board than the one the snapshot is compared against (review
-    // finding). They keep their last canonical snapshot until they look with
-    // the showcase on.
-    if (user.show_demo !== false) {
-      await refreshRankSnapshot(req.user.userId, rank ? rank.rank : null, badgeData.points.total);
-    }
-    res.json({
-      ...user,
-      stats,
-      badges: badgeData.badges,
-      points: badgeData.points,
-      level: badgeData.level,
-      featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
-      rank,
-      recentComments,
-      commentCount,
-      ...authMethods,
-    });
+    res.json(await buildMeResponse(result.rows[0]));
   } catch (err) {
     next(err);
   }
@@ -140,45 +147,13 @@ async function setFeaturedBadges(req, res, next) {
   }
 }
 
-/**
- * Changes the profile image and responds in **exactly** the same shape as
- * getMe. The client swaps this response in for the current profile; if we
- * return missing fields, the profile screen tries to render half data and
- * crashes.
- */
+/** Changes the profile image and answers with the whole profile. */
 async function setAvatarAndRespond(userId, avatarValue, res) {
-  // Every column and every derived field getMe returns. Web swaps this
-  // response in for the whole profile, so anything missing here disappears
-  // from the screen until a reload — that is how show_demo, then the comment
-  // list, were lost in turn (review findings).
   const result = await pool.query(
-    `UPDATE users SET avatar_url = $1 WHERE id = $2
-     RETURNING id, name, email, role, avatar_url, featured_badges, created_at,
-               email_verification_pending, show_demo`,
+    `UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING ${ME_COLUMNS}`,
     [avatarValue, userId]
   );
-
-  const [stats, badgeData, rank, recentComments, commentCount, authMethods] = await Promise.all([
-    getStats(userId),
-    getUserBadges(userId),
-    getUserRank(userId),
-    fetchRecentComments(userId),
-    countComments(userId),
-    getAuthMethods(userId),
-  ]);
-  const user = result.rows[0];
-  res.json({
-    ...user,
-    stats,
-    badges: badgeData.badges,
-    points: badgeData.points,
-    level: badgeData.level,
-    featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
-    rank,
-    recentComments,
-    commentCount,
-    ...authMethods,
-  });
+  res.json(await buildMeResponse(result.rows[0]));
 }
 
 async function uploadAvatar(req, res, next) {
@@ -403,6 +378,14 @@ async function getPublicProfile(req, res, next) {
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
+    // Someone who switched the showcase world off must not reach it sideways
+    // either — through an old link, a friendship or a conversation. The
+    // profile carries the bot's animals, comments and points, so filtering
+    // the rank alone would have shown them "half a demo world" (review
+    // finding); it simply does not exist for them.
+    if (userResult.rows[0].is_demo && (await hidesDemo(req))) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
 
     const [
       stats,
@@ -423,9 +406,7 @@ async function getPublicProfile(req, res, next) {
            WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
         [targetId]
       ),
-      // On the VIEWER's board, so this number and the leaderboard they came
-      // from tell the same story (review finding).
-      getUserRank(targetId, req.user.userId),
+      getUserRank(targetId),
       fetchRecentComments(targetId),
       countComments(targetId),
     ]);

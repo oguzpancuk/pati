@@ -49,10 +49,7 @@ export default function LeaderboardPage() {
         </span>
         <UserAvatar avatarUrl={entry.avatar_url} name={entry.name} size={40} />
         <div className="grow">
-          <div className="name-with-chip">
-            <strong>{entry.name}</strong>
-            {entry.is_demo && <span className="demo-chip">demo</span>}
-          </div>
+          <strong style={{ display: 'block' }}>{entry.name}</strong>
           <span className="muted">
             {entry.level ? `Sv.${entry.level.level} ${entry.level.title} · ` : ''}
             {entry.badgeCount} rozet

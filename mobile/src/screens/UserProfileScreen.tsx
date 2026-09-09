@@ -286,8 +286,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
         fileName: asset.fileName,
       });
       // Merged into the current profile instead of swapped in wholesale:
-      // even with a missing field the screen stays renderable.
-      setMe((prev) => (prev ? { ...prev, ...updated } : updated));
+      // even with a missing field the screen stays renderable. The response
+      // carries show_demo, so a newer toggle wins over it (review finding).
+      setMe((prev) => (prev ? { ...prev, ...updated, ...pendingDemo() } : updated));
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
@@ -299,13 +300,18 @@ export default function UserProfileScreen({ navigation, route }: any) {
     setUploading(true);
     try {
       const updated = await setAvatarKey(key);
-      setMe((prev) => (prev ? { ...prev, ...updated } : updated));
+      setMe((prev) => (prev ? { ...prev, ...updated, ...pendingDemo() } : updated));
       setAvatarPickerVisible(false);
     } catch (err: any) {
       Alert.alert('Kaydedilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
       setUploading(false);
     }
+  }
+
+  /** The demo choice this screen made, when it is newer than a response. */
+  function pendingDemo() {
+    return demoWrite.current ? { show_demo: demoWrite.current.value } : {};
   }
 
   async function toggleShowDemo() {
@@ -322,6 +328,10 @@ export default function UserProfileScreen({ navigation, route }: any) {
       // this line and put the old value back (review finding).
       setMe((prev) => (prev ? { ...prev, show_demo: next } : prev));
     } catch (err: any) {
+      // The write did not happen, so nothing may replay it: a reload still in
+      // flight would otherwise apply the value the server refused (review
+      // finding).
+      demoWrite.current = null;
       setMe((prev) => (prev ? { ...prev, show_demo: !next } : prev));
       Alert.alert('Kaydedilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {

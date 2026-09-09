@@ -33,17 +33,14 @@ async function syncBadgeAwards(userId) {
 
   // Required here to avoid a circular dependency: the leaderboard controller
   // uses the badges util, and we use both.
-  const { getCanonicalRank } = require('../controllers/leaderboard.controller');
+  const { getUserRank } = require('../controllers/leaderboard.controller');
 
   const snapshot = await pool.query('SELECT last_rank, last_points FROM users WHERE id = $1', [
     userId,
   ]);
   const previous = snapshot.rows[0] || { last_rank: null, last_points: 0 };
 
-  // The canonical board: this number is frozen into the award row and read
-  // back next to an older snapshot, so it may not depend on anyone's demo
-  // preference (review finding).
-  const rank = await getCanonicalRank(userId);
+  const rank = await getUserRank(userId);
   const pointsAfter = badgeData.points.total;
   const pointsBefore = previous.last_points ?? 0;
 
