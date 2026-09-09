@@ -18,6 +18,11 @@ const CACHE_MS = 5000;
 const CACHE_MAX = 5000;
 const cache = new Map();
 
+// A failing preference read is invisible otherwise: every caller falls back
+// to "show the demo world" and nothing says why.
+const FAILURE_LOG_MS = 60000;
+let lastFailureLoggedAt = 0;
+
 function remember(userId, value) {
   cache.set(userId, { value, at: Date.now() });
   if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
@@ -32,9 +37,16 @@ async function showsDemo(userId) {
     const value = result.rows.length ? result.rows[0].show_demo !== false : true;
     remember(userId, value);
     return value;
-  } catch {
+  } catch (err) {
     // A preference read must never fail a request; the demo world is the
-    // default state.
+    // default state. It is not cached either — but a lasting failure (the
+    // column missing because a migration did not run, an exhausted pool)
+    // would then re-issue the same query forever in silence, so it is
+    // logged once a minute (review finding).
+    if (Date.now() - lastFailureLoggedAt > FAILURE_LOG_MS) {
+      lastFailureLoggedAt = Date.now();
+      console.warn(`[settings] show_demo read failed: ${err?.message ?? err}`);
+    }
     return hit ? hit.value : true;
   }
 }

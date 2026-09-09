@@ -86,18 +86,31 @@ async function getLeaderboard(req, res, next) {
   }
 }
 
-/**
- * The rank shown on a profile, snapshotted into `users.last_rank` and frozen
- * into badge awards. It must NOT depend on anyone's demo preference: the
- * number is stored, compared with an earlier snapshot and shown to other
- * people, so a viewer-relative rank produced "you dropped 4289 places" the
- * moment the switch was flipped (review finding). One canonical board — the
- * full one, which is also what the default (showcase on) view shows.
- */
-async function getUserRank(userId) {
-  const rows = await computeLeaderboard(userId, { canonical: true });
+function entryFor(rows, userId) {
   const entry = rows.find((r) => r.id === userId);
   return entry ? { rank: entry.rank, points: entry.points, totalUsers: rows.length } : null;
 }
 
-module.exports = { getLeaderboard, getUserRank, computeLeaderboard };
+/**
+ * A rank to SHOW, always on the viewer's own board — the same one the
+ * leaderboard screen just displayed, so a profile and the board never
+ * disagree by two thirds of the field (review finding). The viewer defaults
+ * to the subject, which is the "my own profile" case; null when the subject
+ * is not on that board at all.
+ */
+async function getUserRank(userId, viewerId = userId) {
+  return entryFor(await computeLeaderboard(viewerId), userId);
+}
+
+/**
+ * The one board that is the same for everyone. Only for numbers that are
+ * STORED or compared across time — `users.last_rank` and a badge award's
+ * rank_before/rank_after — which must not move because somebody flipped a
+ * switch: a viewer-relative rank froze "you dropped 4289 places" into an
+ * award row (review finding).
+ */
+async function getCanonicalRank(userId) {
+  return entryFor(await computeLeaderboard(userId, { canonical: true }), userId);
+}
+
+module.exports = { getLeaderboard, getUserRank, getCanonicalRank, computeLeaderboard };

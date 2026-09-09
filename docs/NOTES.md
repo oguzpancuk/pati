@@ -2667,3 +2667,35 @@ the next docs touch.
   animals with the switch off, 251 and 125 with it on; leaderboard total
   3.366 → 1.166. Screenshots: iOS profile açık/kapalı and the Ankara map
   full of rings, web profile switch, web animal and user chips.
+
+### Same day — the two review rounds on the demo switch
+
+- Round one found three user-visible wrong numbers, all created by making a
+  read path viewer-dependent: `getUserRank` was computed through the
+  subject's own preference and then **stored** (`users.last_rank`, and
+  frozen into badge awards), so flipping the switch could produce an award
+  popup reading "12 → 4301"; the notification page was filtered while
+  `total` and `unreadCount` were not, so the bell said 8 over an empty
+  inbox and "load earlier" never went away; and the avatar endpoints, whose
+  docstring promises "exactly the same shape as getMe", did not return
+  `show_demo`, which web swaps in wholesale.
+- Round two — on the fixes — found that the first correction had swapped a
+  transient contradiction for a permanent one: a canonical profile rank
+  beside a viewer-relative leaderboard means two screens showing the same
+  person two different numbers, on every switch, forever. The rule now is
+  **shown ranks follow the viewer's board, stored ranks are canonical**:
+  `getUserRank(subject, viewer)` for display (the public profile passes the
+  viewer, so a profile agrees with the board they came from) and
+  `getCanonicalRank` for `users.last_rank` and award rows. `getMe` only
+  refreshes the snapshot when the viewer is looking at the canonical board.
+  Verified: profile and board now read 2619/3367 together with the showcase
+  on and 419/1166 together with it off, while the stored snapshot stays
+  2619.
+- Round two also caught that the avatar response was still missing
+  `recentComments`, `commentCount` and `email_verification_pending` — the
+  same defect class one field over. Both responses now have identical key
+  sets (checked by diffing them live).
+- Two runtime gaps closed: notifications inherit `is_demo` from the actor or
+  the animal, so the filters are not inert once the seed lands; and the
+  mobile toggle now survives a profile reload that was issued before the
+  write (the reload honours the newer choice, matching web's refetch).

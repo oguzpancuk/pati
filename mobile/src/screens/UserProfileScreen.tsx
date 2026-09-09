@@ -115,6 +115,12 @@ export default function UserProfileScreen({ navigation, route }: any) {
   // default. `demoBusy` holds the row while the write is in flight.
   const [me, setMe] = useState<Me | null>(null);
   const [demoBusy, setDemoBusy] = useState(false);
+  // When the switch was last written, and to what. A profile reload issued
+  // BEFORE that write resolves afterwards carrying the old value and puts
+  // the chip back; the reload honours a newer choice instead of overwriting
+  // it (review finding — the earlier re-assert only covered a narrower
+  // window, and web already refetches after the write).
+  const demoWrite = useRef<{ at: number; value: boolean } | null>(null);
   const [myAnimals, setMyAnimals] = useState<ProfileAnimal[]>([]);
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
@@ -195,6 +201,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
 
   const load = useCallback(async () => {
+    const startedAt = Date.now();
     try {
       const [meData, animalPage, friendshipsData, carePage] = await Promise.all([
         fetchMe(),
@@ -204,7 +211,10 @@ export default function UserProfileScreen({ navigation, route }: any) {
         // heavy use and stays a single request.
         fetchMyCareActions(100, 0),
       ]);
-      setMe(meData);
+      // A demo-switch write that started after this request was issued is the
+      // newer truth, whatever the server said when this one left.
+      const pending = demoWrite.current;
+      setMe(pending && pending.at > startedAt ? { ...meData, show_demo: pending.value } : meData);
       setMyAnimals(animalPage.animals);
       setAnimalTotal(animalPage.total);
       setFriendships(friendshipsData);
@@ -301,6 +311,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
   async function toggleShowDemo() {
     if (!me || demoBusy) return;
     const next = me.show_demo === false;
+    demoWrite.current = { at: Date.now(), value: next };
     setDemoBusy(true);
     // Flipped locally first so the chip answers the tap; rolled back if the
     // server refuses.

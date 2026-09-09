@@ -31,20 +31,24 @@ const KINDS = new Set(['comment', 'sighting', 'health_record', 'vaccination', 'c
 async function notifyAnimalEvent({ animalId, kind, actorId, text }) {
   if (!KINDS.has(kind)) throw new Error(`unknown notification kind ${kind}`);
   const context = await pool.query(
-    `SELECT a.name, a.species, u.name AS actor_name
+    `SELECT a.name, a.species, u.name AS actor_name, (a.is_demo OR u.is_demo) AS is_demo
      FROM animals a, users u
      WHERE a.id = $1 AND u.id = $2`,
     [animalId, actorId]
   );
   if (context.rows.length === 0) return 0;
-  const { name, species, actor_name: actorName } = context.rows[0];
+  const { name, species, actor_name: actorName, is_demo: isDemo } = context.rows[0];
   const payload = { animalName: name, species, actorName, text: text ?? null };
+  // The flag is inherited from the event, not from the seed: a showcase bot
+  // acting, or anything happening to a showcase animal, produces a showcase
+  // notification, so the reader's switch keeps working after the seed run
+  // (review finding — the filters were otherwise inert at runtime).
   const result = await pool.query(
-    `INSERT INTO notifications (user_id, kind, animal_id, actor_id, payload)
-     SELECT r.user_id, $2, $1, $3, $4::jsonb
+    `INSERT INTO notifications (user_id, kind, animal_id, actor_id, payload, is_demo)
+     SELECT r.user_id, $2, $1, $3, $4::jsonb, $5
      FROM (${RECIPIENTS_SQL}) r
      WHERE r.user_id <> $3`,
-    [animalId, kind, actorId, JSON.stringify(payload)]
+    [animalId, kind, actorId, JSON.stringify(payload), isDemo === true]
   );
   return result.rowCount;
 }

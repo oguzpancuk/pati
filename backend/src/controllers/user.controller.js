@@ -82,11 +82,17 @@ async function getMe(req, res, next) {
       getAuthMethods(req.user.userId),
     ]);
 
+    const user = result.rows[0];
     // The rank was already computed here; refresh the snapshot so the badge
     // popup's "previous rank" means "where you stood when you last looked".
-    await refreshRankSnapshot(req.user.userId, rank ? rank.rank : null, badgeData.points.total);
-
-    const user = result.rows[0];
+    // Only from the canonical board, though: `rank` is what THIS person sees,
+    // and someone with the showcase world switched off is looking at a
+    // smaller board than the one the snapshot is compared against (review
+    // finding). They keep their last canonical snapshot until they look with
+    // the showcase on.
+    if (user.show_demo !== false) {
+      await refreshRankSnapshot(req.user.userId, rank ? rank.rank : null, badgeData.points.total);
+    }
     res.json({
       ...user,
       stats,
@@ -141,16 +147,23 @@ async function setFeaturedBadges(req, res, next) {
  * crashes.
  */
 async function setAvatarAndRespond(userId, avatarValue, res) {
+  // Every column and every derived field getMe returns. Web swaps this
+  // response in for the whole profile, so anything missing here disappears
+  // from the screen until a reload — that is how show_demo, then the comment
+  // list, were lost in turn (review findings).
   const result = await pool.query(
     `UPDATE users SET avatar_url = $1 WHERE id = $2
-     RETURNING id, name, email, role, avatar_url, featured_badges, created_at, show_demo`,
+     RETURNING id, name, email, role, avatar_url, featured_badges, created_at,
+               email_verification_pending, show_demo`,
     [avatarValue, userId]
   );
 
-  const [stats, badgeData, rank, authMethods] = await Promise.all([
+  const [stats, badgeData, rank, recentComments, commentCount, authMethods] = await Promise.all([
     getStats(userId),
     getUserBadges(userId),
     getUserRank(userId),
+    fetchRecentComments(userId),
+    countComments(userId),
     getAuthMethods(userId),
   ]);
   const user = result.rows[0];
@@ -162,6 +175,8 @@ async function setAvatarAndRespond(userId, avatarValue, res) {
     level: badgeData.level,
     featuredBadges: resolveFeatured(user.featured_badges, badgeData.badges),
     rank,
+    recentComments,
+    commentCount,
     ...authMethods,
   });
 }
@@ -408,7 +423,9 @@ async function getPublicProfile(req, res, next) {
            WHERE status = 'accepted' AND (requester_id = $1 OR addressee_id = $1)`,
         [targetId]
       ),
-      getUserRank(targetId),
+      // On the VIEWER's board, so this number and the leaderboard they came
+      // from tell the same story (review finding).
+      getUserRank(targetId, req.user.userId),
       fetchRecentComments(targetId),
       countComments(targetId),
     ]);

@@ -44,10 +44,12 @@ app.use(express.json());
 app.use('/uploads', express.static(UPLOADS_DIR));
 // The showcase animals' photos ship inside the image, not on the uploads
 // volume: the seed can then run against any environment (and `--remove`
-// leaves no orphaned files behind). Long cache — the files are immutable.
+// leaves no orphaned files behind). A day of caching, not more: the names
+// are stable (`cat-tekir.png`), so redrawn art has to reach returning
+// browsers within a deploy or two (review finding).
 app.use(
   '/demo',
-  express.static(path.join(__dirname, '..', 'demo-assets'), { maxAge: '30d', fallthrough: true })
+  express.static(path.join(__dirname, '..', 'demo-assets'), { maxAge: '1d', fallthrough: true })
 );
 
 // Brute-force brake for login/registration. Auth endpoints only: the rest
@@ -125,7 +127,7 @@ function serveSpa(distDir, match) {
   app.use((req, res, next) => (match(req) ? statics(req, res, next) : next()));
   // SPA fallback: client routes like /hayvanlar/12 fall through to
   // index.html; API and file paths matched earlier.
-  app.get(/^\/(?!api\/|uploads\/).*/, (req, res, next) => {
+  app.get(/^\/(?!api\/|uploads\/|demo\/).*/, (req, res, next) => {
     if (!match(req) || (req.headers.accept ?? '').indexOf('text/html') === -1) return next();
     res.sendFile(path.join(distDir, 'index.html'));
   });
