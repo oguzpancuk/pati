@@ -924,16 +924,21 @@ themselves.
   parsed token they could not honour a signed-in visitor's choice. Demo
   rows wear a chip on the animal profile, the public profile and the
   leaderboard.
-- **Track S — the data (worktree):** `backend/scripts/seed-showcase.js`
-  — additive and idempotent (deterministic `@pati.demo` accounts,
-  `ON CONFLICT DO NOTHING`), `--remove` deletes every demo row, `--districts`
-  and `--users` flags; Ankara's districts and neighbourhoods added to
-  `backend/scripts/data/neighborhoods.json`; a small library of species /
-  breed avatar PNGs served by the app image (no uploads volume) so every
-  animal has exactly one photo; a month of care actions with a fresh
-  slice inside the 4/6 h window so the map shows live rings; comments,
-  health and vaccination records; friendships, DMs and one group per
-  district; badge awards synced at the end so the leaderboard is real.
+- **Track S — the data (worktree): DONE** (merged as `e017616`).
+  `backend/scripts/seed-showcase.js` writes 106.453 rows across 44
+  districts in ~6 s: 2.200 bots, 6.600 animals with one generated photo
+  each, 42.620 drops (a live slice inside the ring window in all three
+  cities), comments, health and vaccination records, friendships, DMs and
+  a group per district, badges synced at the end. Proven additive (every
+  non-demo count identical before and after), idempotent (a second run
+  inserts nothing) and exactly reversible (`--remove` restored the
+  baseline per-table three times over). 16 tests. Ankara's nine districts
+  and 384 real quarters came from OpenStreetMap through a sibling of the
+  existing fetcher; the ten animal photos are generated files served by
+  the app image, and the script refuses to seed against an origin that
+  does not serve them (the URLs are stored, so a wrong origin would bake
+  dead links into production). `npm run seed-showcase`, and
+  `npm run seed-showcase:remove` to take it all back out.
 - **Open before the production seed run** (from the track A review):
   `npm run seed` writes its local demo world WITHOUT `is_demo`, so on a
   freshly seeded dev database the switch appears to do nothing — only

@@ -2699,3 +2699,26 @@ the next docs touch.
   the animal, so the filters are not inert once the seed lands; and the
   mobile toggle now survives a profile reload that was issued before the
   write (the reload honours the newer choice, matching web's refetch).
+
+### Same day — Track S merged: the showcase world exists
+
+- `e017616` merges `track/showcase-data`: `seed-showcase.js` writes 106.453
+  `is_demo` rows across 44 districts of İstanbul, İzmir and Ankara in about
+  six seconds — 2.200 bots, 6.600 animals each wearing one generated photo,
+  42.620 drops with a live slice inside the ring window in all three cities,
+  comments, health and vaccination records, friendships, DMs, a group per
+  district, badges synced at the end. Additive (every non-demo count
+  identical before and after), idempotent, and exactly reversible.
+- The photo URLs are STORED, so they depend on the `/demo` static mount
+  that landed with track A (`8827bc8`). The script fetches one photo before
+  it starts and refuses to run when the origin does not serve it —
+  otherwise a production run would bake ~49.000 dead URLs into the
+  database. Verified after the merge: `/demo/animals/cat-tekir.png` → 200.
+- **An owner decision waits before the production run.** Stored ranks are
+  canonical by design (they must not move with a viewer's preference), so
+  from the moment production is seeded, the next badge any real volunteer
+  earns freezes a rank computed over a board holding 2.200 bots into
+  `user_badge_awards` — and `--remove` cannot repair those rows. The
+  alternative is to keep bots off the ranking entirely, which contradicts
+  "girsinler" (they DO appear on the leaderboard). Not a code problem;
+  a choice.

@@ -33,6 +33,7 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
 | quick battery  | `bash .claude/hooks/verify.sh` (tsc ×3, jest, web css parse, backend load + node:test — what the push-gate runs)      |
 | full battery   | `bash .claude/hooks/verify.sh full` (+ RN release bundle, admin build, web build)                                      |
 | seed demo data | `cd backend && npm run seed` — **wipes every table**, ask first, never against production                              |
+| showcase world | `cd backend && npm run seed-showcase` — ADDITIVE `is_demo` rows (44 districts × 50 bots); `npm run seed-showcase:remove` deletes exactly those. Safe beside real data |
 | iOS screenshot | `mobile/scripts/simulator-login.sh <email> <pw>` once, then `mobile/scripts/simulator-goto.sh pati://<path> out.png 8` |
 | web screenshot | `cd web && node scripts/shot.mjs <url> out.png <email> <pw>` (playwright)                                              |
 | deep link      | `xcrun simctl openurl booted pati://add-animal` (paths: `mobile/src/navigation/index.tsx` → `linking`)                 |
