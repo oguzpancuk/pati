@@ -574,10 +574,12 @@ To close before production, in rough priority order:
    schema change means resetting the database. Move to a migration tool
    (node-pg-migrate, Knex…) before real user data.
 
-4. **Photo evidence isn't validated.** A user can photograph anything and
-   claim a food drop; only the location distance is checked. There's also no
-   rate limiting beyond auth — a user could post hundreds of records a
-   minute. Moderation (admin photo review) exists; rate limiting is needed.
+4. ~~**Photo evidence isn't validated.**~~ Largely closed: the photo AI
+   screens care photos (ADR-0005) and every content write has a per-user
+   ceiling. The last uncapped endpoint was the ad impression — the number
+   an advertiser is billed for, reported by the client — capped 2026-09-10
+   at 200/hour with clicks at 60 (`limits.adImpressions`,
+   `limits.adClicks`, `test/rateLimits.test.js`).
 
 5. **Automated test coverage is very low.** One mobile test (AuthContext), no
    backend tests — verification was manual, end to end, with curl. CI now
@@ -607,9 +609,15 @@ To close before production, in rough priority order:
     internet. Consider IP allowlisting or at least 2FA in production. Auth
     rate limiting (30/15 min) now covers the login endpoint.
 
-11. **The location-override code is in the repo.** Guarded by `__DEV__`, but
-    it must be removed entirely before production
-    (`mobile/src/location.ts`).
+11. ~~**The location-override code is in the repo.**~~ Removed 2026-09-10.
+    It was `__DEV__`-only, but it hard-coded two real e-mail addresses into
+    a repo meant as a portfolio piece and it meant those accounts never
+    exercised the permission flow the App Store reviewer will. The
+    simulator gets its fake location from the OS instead
+    (`simctl location`, wired into `mobile/scripts/simulator-login.sh`),
+    and testing on a real device no longer needs a fake at all: the
+    showcase seed covers 44 districts of Istanbul, Izmir and Ankara, so
+    real GPS in any of them has data around it.
 
 12. **CORS is wide open** (`app.use(cors())`). Restrict origins in production.
 
@@ -2963,3 +2971,59 @@ the next docs touch.
   about — a carer redeeming a token issued to somebody else is still a
   400. The harness does exit non-zero; it was a `| tail` in the earlier
   run that hid it, which is worth remembering when reading a harness.
+
+### Same night — the location override, and the last uncapped endpoint
+
+- The `__DEV__` location override is gone. Two things were wrong with it
+  beyond the checkbox: it hard-coded two real e-mail addresses into a repo
+  that is meant to be read, and the accounts that used it were exactly the
+  ones that never exercised the permission flow — the screenshot above the
+  removal is the app asking for location for the first time on an account
+  that had been silently overridden for months.
+- The screenshot loop keeps working because the OS can do what the app was
+  doing: `simulator-login.sh` now runs `simctl location set` (Kadıköy by
+  default, `SIM_LOCATION="lat,lng"` to move it, `none` to leave it alone)
+  and tries `simctl privacy grant location`. On iOS 26 the grant does not
+  always stick for a fresh install; one tap on the sheet does, and then it
+  stays. Verified end to end: seeded Kadıköy animals on the map, the user
+  dot at the set coordinates, no override in the binary.
+- Ad impressions were the last uncapped write, and the one that carries
+  money — the client reports them and the admin panel sells the total. 200
+  an hour, against an honest ceiling already bounded by the care-action
+  (40) and health-record (30) budgets that open the popups; clicks 60. The
+  refusal costs nothing, since a failed ad call never breaks a flow.
+- `test/rateLimits.test.js` is the first test of the limiter catalogue at
+  all: that a bucket bites exactly at its number, that it is keyed on the
+  USER and not the address (the CGNAT rule the module exists for), and that
+  the catalogue is all middleware — a typo like `limits.adImpresions`
+  mounts `undefined`, which express accepts as "no middleware", leaving the
+  route silently uncapped.
+
+### Same night — the lint that had never run
+
+- `npm run lint` is listed in CLAUDE.md as one of this project's commands.
+  It has never worked: there was no ESLint configuration file at all, so
+  every invocation exited 2 with "couldn't find a configuration file". The
+  first rung of the verification ladder was a step nobody had climbed.
+- With the React Native template's config in place it reported 297
+  problems, 115 of them errors from `prettier/prettier`. Those were not
+  findings about the code: prettier runs here through `npm run format` on
+  its own defaults, while `@react-native`'s config runs prettier as a lint
+  RULE with the template's settings, and the two disagree about nearly
+  every file. Two formatters arguing is a configuration bug, so the rule is
+  off — prettier formats, eslint lints. `curly` is off for the same kind of
+  reason: 172 warnings about one-line guard clauses is a house style, not a
+  defect.
+- What was left was three real errors, now fixed: an unused `Vaccination`
+  import, a `makeStyles` callback destructuring a theme it never read, and
+  a `useMemo` keyed deliberately on a joined signature rather than the array
+  (now an explicit disable carrying its reason, the project's `// why:`
+  idiom).
+- Seven warnings remain and are worth a look one day, not tonight: the two
+  `react/no-unstable-nested-components` are the ones with teeth — a
+  component defined during render is a new type on every render, so React
+  throws that subtree's state away.
+- **Open question for the owner:** whether `npm run lint` should join
+  `.claude/hooks/verify.sh`. It exits 0 today, so adding it would cost
+  nothing and would catch the next unused import — but it is a change to
+  the gate that blocks pushes, which is the owner's call.

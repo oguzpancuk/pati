@@ -91,6 +91,16 @@ const limits = {
   messageAdmin: userRateLimit({ windowMs: HOUR, limit: 40, action: 'sohbet işlemi' }),
   // Reports on messages: the same tight budget as /reports.
   messageReports: userRateLimit({ windowMs: HOUR, limit: 20, action: 'şikayet' }),
+  // Ad impressions are the billing metric, and the client reports them:
+  // uncapped, one account could sell an advertiser a number it invented.
+  // The honest ceiling is the popups a user can open, which their own
+  // care-action (40/h) and health-record (30/h) budgets already bound; 200
+  // leaves the flow room to spare and still makes inflation pointless. A
+  // refusal costs nothing — an unrecorded impression only skips a billing
+  // row, and ads never break a flow (NOTES section 1).
+  adImpressions: userRateLimit({ windowMs: HOUR, limit: 200, action: 'reklam gösterimi' }),
+  // A click is a deliberate tap on a banner; 60/hour is one a minute.
+  adClicks: userRateLimit({ windowMs: HOUR, limit: 60, action: 'reklam tıklaması' }),
 };
 
 module.exports = { userRateLimit, limits };

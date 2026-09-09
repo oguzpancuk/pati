@@ -30,7 +30,6 @@ import {
   markHealthRecordRecovered,
   reopenHealthRecord,
   unfollowAnimal,
-  Vaccination,
 } from '../api/animals';
 import { bumpLadderValue, headerBadges, setLadderValue } from '../animalBadges';
 import AdBanner from '../components/AdBanner';

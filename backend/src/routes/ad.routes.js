@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth.middleware');
+const { limits } = require('../middleware/rateLimit.middleware');
 const { getNextAd, recordImpression, recordClick } = require('../controllers/ad.controller');
 
 const router = express.Router();
@@ -8,7 +9,7 @@ const router = express.Router();
 // separately. An ad fetched but never rendered isn't billed, and rotation
 // advances by what was actually shown.
 router.get('/', requireAuth, getNextAd);
-router.post('/:id/impression', requireAuth, recordImpression);
-router.post('/:id/click', requireAuth, recordClick);
+router.post('/:id/impression', requireAuth, limits.adImpressions, recordImpression);
+router.post('/:id/click', requireAuth, limits.adClicks, recordClick);
 
 module.exports = router;

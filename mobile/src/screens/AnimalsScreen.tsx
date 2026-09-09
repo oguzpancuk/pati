@@ -201,7 +201,8 @@ export default function AnimalsScreen({ navigation }: any) {
   );
 }
 
-const useStyles = makeStyles(({ colors: c }) => ({
+// No colors in this sheet — spacing and radii only.
+const useStyles = makeStyles(() => ({
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,

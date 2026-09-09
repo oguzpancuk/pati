@@ -316,7 +316,9 @@ Full rationale in [NOTES.md](NOTES.md).
 
 **Remaining:**
 
-- [ ] Rate limiting on login/impression endpoints (against fake impressions)
+- [x] Rate limiting on login/impression endpoints (against fake
+      impressions) — login has had its per-IP brake since August;
+      impressions capped at 200/hour and clicks at 60 on 2026-09-10
 - [ ] Ad-free experience for donors (decided with item 2)
 - [ ] Whether the banner should be dismissible
 
@@ -484,7 +486,8 @@ Deliberately deferred, with reasons:
       `namespace` stays `com.patiapp` — it is only the generated R class's
       package, and it belongs to the internal rename below) and the simulator
       scripts. **Permanent once submitted to either store.**
-- [ ] Remove the location-override code (`mobile/src/location.ts`)
+- [x] Remove the location-override code (`mobile/src/location.ts`) —
+      done 2026-09-10; the simulator scripts set the OS location instead
 
 **Quality:**
 

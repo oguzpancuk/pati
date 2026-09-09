@@ -49,8 +49,13 @@ export default function BadgeCatalogModal({
   const [selection, setSelection] = useState<string[]>(featuredKeys);
   const [saving, setSaving] = useState(false);
 
-  // Start from the current selection every time the modal opens.
+  // Start from the current selection every time the modal opens. Keyed on
+  // the joined signature, not the array: a parent that rebuilds the same
+  // keys on every render would otherwise reset the user's in-progress
+  // selection under them.
   const featuredSignature = featuredKeys.join('|');
+  // why: the signature IS the dependency; adding the array back defeats it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialSelection = useMemo(() => featuredKeys, [featuredSignature]);
   React.useEffect(() => {
     setSelection(initialSelection);
