@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth.middleware');
 const { upload } = require('../config/upload');
+const { resizeUploads } = require('../middleware/imageResize.middleware');
 const {
   getStats,
   listUsers,
@@ -52,7 +53,7 @@ router.delete('/comments/:id', deleteComment);
 router.get('/advertisers', listAdvertisers);
 router.post('/advertisers', createAdvertiser);
 router.patch('/advertisers/:id', updateAdvertiser);
-router.post('/advertisers/:id/image', upload.single('image'), uploadAdvertiserImage);
+router.post('/advertisers/:id/image', upload.single('image'), resizeUploads(), uploadAdvertiserImage);
 router.delete('/advertisers/:id', deleteAdvertiser);
 
 router.get('/reports', listReports);

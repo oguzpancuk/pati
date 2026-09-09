@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth, requireAuthAllowPending } = require('../middleware/auth.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 const { upload } = require('../config/upload');
+const { resizeUploads, AVATAR_MAX_EDGE } = require('../middleware/imageResize.middleware');
 const {
   getMe,
   uploadAvatar,
@@ -25,7 +26,7 @@ const router = express.Router();
 // deletion must always work). Nothing else opens to it.
 router.get('/me', requireAuthAllowPending, getMe);
 router.delete('/me', requireAuthAllowPending, limits.accountDelete, deleteMyAccount);
-router.post('/me/avatar', requireAuth, limits.avatar, upload.single('photo'), uploadAvatar);
+router.post('/me/avatar', requireAuth, limits.avatar, upload.single('photo'), resizeUploads({ maxEdge: AVATAR_MAX_EDGE }), uploadAvatar);
 router.put('/me/avatar-key', requireAuth, limits.avatar, setAvatarKey);
 router.delete('/me/avatar', requireAuth, clearAvatar);
 router.put('/me/featured-badges', requireAuth, setFeaturedBadges);

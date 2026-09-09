@@ -973,3 +973,39 @@ Two owner decisions arrived mid-build and supersede the original plan:
   states, both clients),
   the script is rerunnable and `--remove` leaves no demo row, code-reviewer
   per track, then the production run through `fly ssh console`.
+
+---
+
+## 🌙 Pre-launch night run (2026-09-10)
+
+Owner handed the session an unattended stretch with one instruction: close
+everything that must be done before real users arrive. Authority for this
+run, decided up front: **commit + push free, no production deploy** — the
+deploy stays a morning decision through `/deploy-checklist`.
+
+Owner decisions taken at the start:
+
+- Photo storage: write the **S3-compatible adapter + upload resizing** now,
+  provider **Cloudflare R2**; without the env the current disk behaviour is
+  unchanged, so it ships dark and turns on with three secrets.
+- White-on-orange contrast: **leave it** for now (stays in NOTES §3.13).
+- iOS internal rename: **attempt it on a branch**, never on `main`.
+
+| #   | Item                                                                              | Closes                    |
+| --- | --------------------------------------------------------------------------------- | ------------------------- |
+| L1  | S3-compatible photo storage adapter + `sharp` resizing, disk fallback              | Launch "object storage", NOTES §3.2 |
+| L2  | Backend tests (jest + supertest): auth, care distance, badges, leaderboard         | Launch "Backend tests", NOTES §3.5  |
+| L3  | Read-path coordinate range checks + `radiusMeters` clamp + web location message    | P8 follow-ups             |
+| L4  | Remove the location override (`mobile/src/location.ts`)                            | Launch item, NOTES §3.11  |
+| L5  | Admin: delete a user / free a squatted address                                     | Launch "Admin: free a squatted address" |
+| L6  | Rate limit the ad impression endpoint                                              | Ads item                  |
+| L7  | iOS/Android internal rename to pati — **branch only**                              | Launch "Rename internals" |
+
+Already verified during planning, so struck from the owner's go/no-go list:
+**Fly volume snapshots are on** (`uploads`, scheduled, 14-day retention).
+
+**Done when:** each item lands as its own commit with the verify battery
+green on a clean HEAD, a code-reviewer pass over the range, and a screenshot
+for anything visual on BOTH clients. **Stop when:** the list is done, or an
+item fails its battery twice in a row (park it with a note and move on), or
+the owner's morning arrives.

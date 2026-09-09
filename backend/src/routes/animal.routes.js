@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth, identifyUser } = require('../middleware/auth.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 const { upload, pendingUpload } = require('../config/upload');
+const { resizeUploads } = require('../middleware/imageResize.middleware');
 const {
   MAX_MATCH_PHOTOS,
   listAnimals,
@@ -48,12 +49,13 @@ router.post(
     { name: 'photo', maxCount: 1 },
     { name: 'photos', maxCount: MAX_MATCH_PHOTOS },
   ]),
+  resizeUploads(),
   matchAnimals
 );
 router.get('/:id', requireAuth, getAnimal);
 router.post('/', requireAuth, limits.createAnimal, createAnimal);
 router.post('/:id/sightings', requireAuth, limits.animalTouch, reportSighting);
-router.post('/:id/photos', requireAuth, limits.animalTouch, upload.single('photo'), addPhoto);
+router.post('/:id/photos', requireAuth, limits.animalTouch, upload.single('photo'), resizeUploads(), addPhoto);
 router.post('/:id/health-records', requireAuth, limits.healthRecords, addHealthRecord);
 router.post(
   '/:id/health-records/:recordId/recover',
@@ -83,6 +85,7 @@ router.post(
   requireAuth,
   limits.matchAnimals,
   pendingUpload.fields([{ name: 'photos', maxCount: CARE_PHOTO_COUNT }]),
+  resizeUploads(),
   submitCarePhotos
 );
 
