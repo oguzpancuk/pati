@@ -37,11 +37,15 @@
  * 1. `--base` must already serve `demo-assets/` at `/demo` — the photo URLs
  *    are STORED, so a route added afterwards only helps if the path matches
  *    exactly. The preflight below refuses to write until it does.
- * 2. The admin demo filter must be live. `computeLeaderboard` has no
- *    is_demo filter of its own, so until the filter ships, 2200 demo
- *    accounts sit in the real ranking — and `syncBadgeAwards` freezes that
- *    contaminated rank into REAL users' award history, which `--remove`
- *    cannot repair.
+ * 2. The owner has to accept what the demo world does to stored ranks.
+ *    Hiding demo rows from the leaderboard VIEW is not enough: a stored
+ *    rank must not move with a viewer's preference, so `getUserRank` reads
+ *    the canonical board — demo accounts included. From the moment this
+ *    seed lands, the next badge any REAL volunteer earns freezes a rank
+ *    computed over a board holding 2200 bots into `user_badge_awards`, and
+ *    `--remove` cannot repair it. Nothing in this script can prevent that;
+ *    it is a product decision about what a rank means once a demo world
+ *    exists.
  *
  * ## Re-running is safe
  * A district is seeded inside one transaction, so it is either wholly there
@@ -166,6 +170,10 @@ function parseArgs(argv) {
         throw new Error(`unknown flag: ${arg}`);
     }
   }
+  // --force only ever means "delete real rows too". Accepting it silently
+  // on a seeding run would teach the habit of typing it.
+  if (flags.force && !flags.remove) throw new Error('--force only applies with --remove');
+  if (flags.badgesOnly && flags.remove) throw new Error('--badges-only and --remove are exclusive');
   return flags;
 }
 
@@ -263,6 +271,13 @@ function assignIds(label, items, rows, expect, field) {
       throw new Error(
         `${label}: RETURNING came back out of order (row ${i}: ${field} ${String(got)} != ${String(want)})`
       );
+    }
+    // The correlating column alone is not enough: two rows can share a
+    // second-resolution timestamp, and a permutation confined to such a
+    // group would slip through. Serial ids are handed out in VALUES order,
+    // so requiring them to increase closes that gap.
+    if (i > 0 && !(rows[i].id > rows[i - 1].id)) {
+      throw new Error(`${label}: RETURNING ids are not in insert order at row ${i}`);
     }
     item.id = rows[i].id;
   });
@@ -1191,9 +1206,17 @@ async function realCollateral(client) {
       'messages',
       'SELECT count(*)::int AS n FROM messages m JOIN conversations c ON c.id = m.conversation_id WHERE c.is_demo AND NOT m.is_demo',
     ],
-    // These do not hang off a demo animal but off a demo USER, and every
-    // one of them is ON DELETE CASCADE — so they disappear with the demo
-    // account without any is_demo flag of their own ever being consulted.
+    [
+      'animal_photo_likes',
+      `SELECT count(*)::int AS n FROM animal_photo_likes l
+         JOIN animal_photos p ON p.id = l.photo_id
+         JOIN users u ON u.id = l.user_id
+        WHERE p.is_demo AND NOT u.is_demo`,
+    ],
+    // These hang off a demo USER rather than a demo animal, and they carry
+    // no is_demo flag of their own, so nothing else would ever count them.
+    // notifications.actor_id is ON DELETE SET NULL (the row survives with a
+    // blank actor); the rest cascade away entirely.
     [
       'friendships (real <-> demo)',
       `SELECT count(*)::int AS n FROM friendships f
@@ -1220,12 +1243,18 @@ async function realCollateral(client) {
       `SELECT count(*)::int AS n FROM animal_match_attempts m
          JOIN animals a ON a.id = m.animal_id WHERE a.is_demo`,
     ],
+    // content_reports has no foreign key by design (001_init.sql: the trail
+    // must survive its target), so these are not deleted — they are left in
+    // the moderation queue pointing at a row that no longer exists. Counted
+    // so whoever runs --remove knows to close them.
     [
-      'content_reports (would orphan)',
+      'content_reports (left orphaned)',
       `SELECT count(*)::int AS n FROM content_reports r
         WHERE r.status = 'open'
           AND ((r.target_type = 'animal' AND r.target_id IN (SELECT id FROM animals WHERE is_demo))
-            OR (r.target_type = 'user' AND r.target_id IN (SELECT id FROM users WHERE is_demo)))`,
+            OR (r.target_type = 'user' AND r.target_id IN (SELECT id FROM users WHERE is_demo))
+            OR (r.target_type = 'comment' AND r.target_id IN (SELECT id FROM animal_comments WHERE is_demo))
+            OR (r.target_type = 'care_action' AND r.target_id IN (SELECT id FROM care_actions WHERE is_demo)))`,
     ],
   ];
   const found = [];
@@ -1243,18 +1272,22 @@ async function realCollateral(client) {
  * comments and friendships get destroyed by a one-word command. `--force`
  * is the deliberate override, and it has to be typed.
  */
-async function removeDemo(client, { force }) {
+async function removeDemo(client, { force, dryRun }) {
   const collateral = await realCollateral(client);
   if (collateral.length > 0) {
     console.log('\n  real rows attached to the demo world (they cascade with it):');
     for (const c of collateral) console.log(`    ${c.table.padEnd(32)} ${c.n}`);
-    if (!force) {
+    if (!force && !dryRun) {
       throw new Error(
         `refusing to delete: ${collateral.reduce((a, c) => a + c.n, 0)} real rows would go with` +
           ' the demo world. Re-run with --force once that is what you want.'
       );
     }
-    console.log('  --force given: deleting them too.');
+    console.log(
+      dryRun
+        ? '  --dry-run: counting them, deleting nothing. A real run needs --force.'
+        : '  --force given: deleting them too.'
+    );
   }
   const counts = {};
   // user_badge_awards has no is_demo of its own — a badge belongs to the
@@ -1320,12 +1353,20 @@ async function checkPhotosAreServed(base) {
  * leaves some demo users without their badges — and a plain rerun skips
  * every district as "already seeded" and so never reaches the badge code.
  */
-async function badgesOnly() {
+async function badgesOnly({ dryRun }) {
   const ids = (await pool.query('SELECT id FROM users WHERE is_demo ORDER BY id')).rows.map(
     (r) => r.id
   );
   if (ids.length === 0) {
     console.log('no demo users — nothing to sync');
+    return;
+  }
+  // syncBadgeAwards writes through the app's own pool, one small transaction
+  // per user; there is no single transaction to roll back here. Rather than
+  // let --dry-run quietly perform the one thing it promises not to do, this
+  // combination reports and stops.
+  if (dryRun) {
+    console.log(`would sync badges for ${ids.length} demo users (--dry-run: nothing written)`);
     return;
   }
   const startedAt = Date.now();
@@ -1348,7 +1389,7 @@ async function main() {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const counts = await removeDemo(client, { force: flags.force });
+      const counts = await removeDemo(client, { force: flags.force, dryRun: flags.dryRun });
       await client.query(flags.dryRun ? 'ROLLBACK' : 'COMMIT');
       report(flags.dryRun ? 'would delete (rolled back)' : 'deleted', counts);
     } catch (err) {
@@ -1362,7 +1403,7 @@ async function main() {
   }
 
   if (flags.badgesOnly) {
-    await badgesOnly();
+    await badgesOnly({ dryRun: flags.dryRun });
     console.log(`\ndone in ${((Date.now() - startedAt) / 1000).toFixed(1)} s`);
     return;
   }

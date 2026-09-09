@@ -428,3 +428,31 @@ test('--remove flags are parsed and --force is opt-in', () => {
   assert.strictEqual(seed.parseArgs(['--badges-only']).badgesOnly, true);
   assert.strictEqual(seed.parseArgs(['--skip-photo-check']).skipPhotoCheck, true);
 });
+
+test('flag combinations that would mean the opposite of what they say are refused', () => {
+  // --force alone would teach the habit of typing it on ordinary runs.
+  assert.throws(() => seed.parseArgs(['--force']), /only applies with --remove/);
+  assert.throws(() => seed.parseArgs(['--badges-only', '--remove']), /exclusive/);
+  assert.strictEqual(seed.parseArgs(['--remove', '--force']).force, true);
+});
+
+test('assignIds also catches a permutation that keeps the correlating value', () => {
+  // Two rows sharing a second-resolution timestamp: the column check alone
+  // cannot tell them apart, so the id order has to.
+  const same = new Date('2026-09-09T10:00:00Z');
+  const items = [{ createdAt: same }, { createdAt: same }];
+  assert.throws(
+    () =>
+      seed.assignIds(
+        'animals',
+        items,
+        [
+          { id: 9, created_at: same },
+          { id: 8, created_at: same },
+        ],
+        (i) => i.createdAt,
+        'created_at'
+      ),
+    /not in insert order/
+  );
+});
