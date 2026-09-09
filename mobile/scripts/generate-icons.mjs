@@ -8,8 +8,8 @@
  *   node scripts/generate-icons.mjs
  *
  * Üretilenler:
- *   ios/StrayMobile/Images.xcassets/AppIcon.appiconset/*.png
- *   ios/StrayMobile/Images.xcassets/LaunchLogo.imageset/*.png
+ *   ios/PatiMobile/Images.xcassets/AppIcon.appiconset/*.png
+ *   ios/PatiMobile/Images.xcassets/LaunchLogo.imageset/*.png
  *   android/app/src/main/res/mipmap-*\/ic_launcher.png
  *   android/app/src/main/res/mipmap-*\/ic_launcher_round.png
  *   android/app/src/main/res/mipmap-*\/ic_launcher_foreground.png
@@ -110,7 +110,7 @@ async function main() {
       browser,
       size,
       { bg: WHITE, scale: 0.66 },
-      join(ROOT, `ios/StrayMobile/Images.xcassets/AppIcon.appiconset/icon-${size}.png`)
+      join(ROOT, `ios/PatiMobile/Images.xcassets/AppIcon.appiconset/icon-${size}.png`)
     );
   }
 
@@ -126,7 +126,7 @@ async function main() {
       // The launch screen is white; the heart shows the ground through the
       // "hole". The storyboard's background color must match (white).
       { bg: null, scale: 0.92, paw: GRAD, heart: WHITE },
-      join(ROOT, `ios/StrayMobile/Images.xcassets/LaunchLogo.imageset/launch-logo${suffix}.png`)
+      join(ROOT, `ios/PatiMobile/Images.xcassets/LaunchLogo.imageset/launch-logo${suffix}.png`)
     );
   }
 

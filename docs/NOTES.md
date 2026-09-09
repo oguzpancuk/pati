@@ -3086,3 +3086,30 @@ scoped and written down instead.
   telling the user to re-shoot a photo that was fine. The docs say "keep
   the machine count at 1" now, and the roadmap carries what closing it
   would take.
+
+### Same night — StrayMobile becomes PatiMobile
+
+- The iOS project carried the app's first name everywhere a build touches:
+  project, workspace, target, scheme, entitlements, test target, Podfile.
+  The store-facing identifiers were already right (`com.oguzpancuk.pati`,
+  `CFBundleDisplayName` "pati"), but the internal name is visible in enough
+  places — crash reports, the archive, the build products — that the
+  roadmap listed it as required before submitting.
+- Done as `git mv` for every path plus a literal rewrite of the name inside
+  the pbxproj, scheme, workspace, Podfile, Info.plist and the two scripts
+  that address files by path (`generate-icons.mjs`, the googleClientId
+  test), then `pod install`. It builds and launches: `PatiMobile.app`,
+  bundle id unchanged, and the map and profile screenshots are unchanged
+  from before the rename.
+- Android needed nothing. `namespace` is already `com.patiapp` and
+  `app_name` is `pati`; there is no "stray" anywhere under
+  `mobile/android`. The backend already logs as pati too, so the only
+  survivor is the LOCAL Docker container `stray-db` with its `stray`
+  db/role — invisible outside this machine, and renaming it costs a
+  database reset plus edits to `contracts/init.sh`, the README and all four
+  curl harnesses. Left for a morning when the owner is looking at their own
+  data.
+- Worth knowing for the next native change: `pod` is not on the default
+  PATH here. It lives in the Homebrew gem bin
+  (`/opt/homebrew/lib/ruby/gems/4.0.0/bin`), which has to be exported
+  before `pod install` will run.

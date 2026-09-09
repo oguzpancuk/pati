@@ -444,8 +444,7 @@ Ops/owner side, still open — the actual go/no-go gates:
 - [ ] TestFlight/internal-testing build from current main (fonts changed:
       needs `npx react-native-asset` + a native build)
 - [ ] Store metadata when going past TestFlight: screenshots, privacy
-      declaration, and the StrayMobile→PatiMobile internal rename (needs
-      Xcode on the Mac — exact steps below under "Rename internals")
+      declaration (the internal rename is done)
 
 Deliberately deferred, with reasons:
 
@@ -468,12 +467,18 @@ Deliberately deferred, with reasons:
       friendships/follows/badge history/avatar file; "hesabı sil" in both
       web and mobile profiles (Aug 19)
 - [ ] Store prep: icon, screenshots, privacy declaration
-- [ ] **Rename internals to pati (REQUIRED before stores):** iOS
-      project/target `StrayMobile` → `PatiMobile` (Xcode rename, xcworkspace,
-      scheme, Podfile), Android `namespace` + app name, backend log text,
-      Docker container `stray-db` and db/role name `stray`, `.env.example`.
-      Needs a native build + database reset. (The store-facing bundle id is
-      already settled — see below.)
+- [x] **Rename internals to pati (REQUIRED before stores)** — done
+      2026-09-10 for everything a store can see: the iOS project, target,
+      workspace, scheme, entitlements, test target and Podfile are
+      `PatiMobile`, verified by a native build and simulator screenshots
+      (map and profile). Android needed nothing — `namespace` is
+      `com.patiapp`, `app_name` is `pati`, and no "stray" appears anywhere
+      under `mobile/android`; the backend already logs as pati. **Left
+      deliberately:** the LOCAL Docker container `stray-db` and its
+      db/role `stray`. Nothing outside this machine sees them, and renaming
+      forces a database reset plus edits to `contracts/init.sh`, the README
+      and all four curl harnesses — a morning job with the owner's data in
+      front of them, not a night one.
 - [x] **Bundle id: `com.oguzpancuk.pati`** (September 2, 2026). `com.patiapp`
       is owned by another team and Apple refuses to register it; the device
       test had already proved this one registers. A domain-derived

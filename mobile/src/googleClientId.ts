@@ -5,7 +5,7 @@
  * It exists because two halves of the same setting live in different places:
  * the client id the SDK is configured with arrives from the server at
  * runtime, while the reversed form of the same id must sit in
- * `ios/StrayMobile/Info.plist` as a URL scheme at BUILD time. If the two ever
+ * `ios/PatiMobile/Info.plist` as a URL scheme at BUILD time. If the two ever
  * disagree, Google's SDK raises an Objective-C exception that release builds
  * do not catch — the app terminates on the first tap, and a Fly secret alone
  * could cause that on an already-shipped binary.
