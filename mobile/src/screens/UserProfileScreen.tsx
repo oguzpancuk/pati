@@ -640,7 +640,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
             <Card key={entry.friendship_id} variant="flat" padding="md" style={styles.block}>
               <Pressable onPress={() => navigation.navigate('PublicProfile', { userId: entry.id })}>
                 <View style={styles.nameWrap}>
-                  <Text variant="bodyStrong">{entry.name}</Text>
+                  <Text variant="bodyStrong" numberOfLines={1} style={styles.nameShrink}>
+                    {entry.name}
+                  </Text>
                   <DemoChip visible={entry.is_demo === true} />
                 </View>
               </Pressable>
@@ -997,7 +999,10 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   demoText: { flex: 1 },
   animalNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  // The name shrinks, the chip does not: a long free-text name would push
+  // the chip past the card's right edge otherwise (review finding).
   nameWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  nameShrink: { flexShrink: 1 },
   animalName: { flexShrink: 1 },
   logout: { marginTop: spacing.xxl, alignSelf: 'center' },
   legal: { marginTop: spacing.md, marginBottom: spacing.lg, alignSelf: 'center' },

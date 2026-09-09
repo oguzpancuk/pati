@@ -77,11 +77,11 @@ code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/auth/login" -H 'Conten
 check "login test1 -> 200" 200 "$code"; T1=$(j .token)
 code=$(get "notifications" "$T1"); T1_TOTAL=$(j .total)
 STAMP=$(date +%s)
-read -r A A_ID < <(register "Bakıcı A" "bakicia-$STAMP@stray.test")
-read -r D D_ID < <(register "Sahip Test" "sahip-$STAMP@stray.test")
-read -r B B_ID < <(register "Takipçi Test" "takipci-$STAMP@stray.test")
-read -r C C_ID < <(register "Bakıcı Test" "bakici-$STAMP@stray.test")
-read -r E E_ID < <(register "İkinci Test" "ikinci-$STAMP@stray.test")
+read -r A A_ID < <(register "Bakıcı A" "bakicia-$STAMP@example.com")
+read -r D D_ID < <(register "Sahip Test" "sahip-$STAMP@example.com")
+read -r B B_ID < <(register "Takipçi Test" "takipci-$STAMP@example.com")
+read -r C C_ID < <(register "Bakıcı Test" "bakici-$STAMP@example.com")
+read -r E E_ID < <(register "İkinci Test" "ikinci-$STAMP@example.com")
 code=$(get users/me "$B"); check "B registered and verified" "200 false" "$code $(j .email_verification_pending)"
 code=$(post animals "$D" "{\"species\":\"cat\",\"name\":\"Harness Kedisi\",\"breed\":\"Tekir\",\"color\":\"gri\",\"lat\":$LAT,\"lng\":$LNG}")
 check "D registers the animal -> 201" 201 "$code"; ANIMAL=$(j .id)
@@ -170,7 +170,7 @@ check "care attempts logged: A unchecked, C same" "|same" "$(psql_db "SELECT str
 # The concurrent path: two submissions from one fresh account at once
 # both pass the isCarer read; addCarer's ON CONFLICT lets exactly one
 # insert the row, and only that one announces `care` (becameCarer).
-read -r H H_ID < <(register "Eşzamanlı Test" "esanli-$STAMP@stray.test")
+read -r H H_ID < <(register "Eşzamanlı Test" "esanli-$STAMP@example.com")
 control '{"mode":"match","verdicts":["same","same","same","same","same","same","same","same"]}'
 curl -s -o /tmp/pati-animal-social-h1.json -w '%{http_code}\n' -X POST "$API/animals/$ANIMAL/care-photos" -H "Authorization: Bearer $H" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg" > /tmp/pati-animal-social-h1.code &
 curl -s -o /tmp/pati-animal-social-h2.json -w '%{http_code}\n' -X POST "$API/animals/$ANIMAL/care-photos" -H "Authorization: Bearer $H" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg" > /tmp/pati-animal-social-h2.code &
@@ -202,7 +202,7 @@ echo "== follow timing (P7 finding 1): a follow brings nothing from before it"
 # Three events are on record now. Someone who follows afterwards must see
 # none of them — rows are written at event time to the recipients of that
 # moment, never backfilled — and hears only what comes later.
-read -r G G_ID < <(register "Sonradan Test" "sonradan-$STAMP@stray.test")
+read -r G G_ID < <(register "Sonradan Test" "sonradan-$STAMP@example.com")
 code=$(post "animals/$ANIMAL/follow" "$G" '{}'); check "G follows after the events -> 201" 201 "$code"
 code=$(get "notifications" "$G"); check "G's inbox is empty: nothing unread, nothing at all" "0 0 0" "$(j .unreadCount) $(j .total) $(j '.notifications | length')"
 code=$(post "animals/$ANIMAL/comments" "$A" '{"body":"Akşam yine buradaydı."}'); check "A comments after the follow -> 201" 201 "$code"
@@ -249,7 +249,7 @@ check "'matched' counts distinct users with a same/unchecked hit" "2" "$(psql_db
 echo "== one-shot: one photo confirms one animal"
 # A second throwaway animal at the same spot; one 'same' answer for both
 # gives F two fresh hits. Confirming one spends the other.
-read -r F F_ID < <(register "Tek Atış Test" "tekatis-$STAMP@stray.test")
+read -r F F_ID < <(register "Tek Atış Test" "tekatis-$STAMP@example.com")
 code=$(post animals "$D" "{\"species\":\"cat\",\"name\":\"Harness Kedisi 2\",\"breed\":\"$BREED\",\"color\":\"$COLOR\",\"lat\":$LAT,\"lng\":$LNG}")
 check "D registers a second animal -> 201" 201 "$code"; ANIMAL2=$(j .id)
 # A cover the model can look at (a candidate without one is never judged,

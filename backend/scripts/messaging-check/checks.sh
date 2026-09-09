@@ -4,7 +4,7 @@
 # deletes, reports. Run through run.sh, which boots a throwaway backend;
 # or point API/LOG at a running one. Exits non-zero when a check fails.
 #
-# Accounts: test1@stray.test (seeded) plus trackb2/trackb3@stray.test,
+# Accounts: test1@stray.test (seeded) plus trackb2/trackb3@example.com,
 # registered here when missing and verified from the backend log (the
 # dev mailer prints the code).
 set -uo pipefail
@@ -31,20 +31,20 @@ login() { curl -s -X POST "$API/auth/login" -H 'Content-Type: application/json' 
 # --- accounts: test1 (seeded), trackb2/trackb3 (registered by this track; verified once)
 T1=$(login test1@stray.test)
 for n in 2 3; do
-  tok=$(login trackb$n@stray.test)
+  tok=$(login trackb$n@example.com)
   if [ "$tok" = "undefined" ] || [ -z "$tok" ]; then
     curl -s -o /dev/null -X POST "$API/auth/register" -H 'Content-Type: application/json' \
-      -d "{\"name\":\"Track B $n\",\"email\":\"trackb$n@stray.test\",\"password\":\"password123\"}"
-    tok=$(login trackb$n@stray.test)
+      -d "{\"name\":\"Track B $n\",\"email\":\"trackb$n@example.com\",\"password\":\"password123\"}"
+    tok=$(login trackb$n@example.com)
   fi
   req "$tok" GET /users/me
   if [ "$(echo "$BODY" | j '.email_verification_pending')" = "true" ]; then
-    code=$(grep "to=trackb$n@stray.test" "$LOG" | tail -1 | sed -E 's/.*kodun: ([0-9]{6}).*/\1/')
+    code=$(grep "to=trackb$n@example.com" "$LOG" | tail -1 | sed -E 's/.*kodun: ([0-9]{6}).*/\1/')
     req "$tok" POST /auth/verify-email "{\"code\":\"$code\"}"
     echo "verify trackb$n: $STATUS"
   fi
 done
-T2=$(login trackb2@stray.test); T3=$(login trackb3@stray.test)
+T2=$(login trackb2@example.com); T3=$(login trackb3@example.com)
 req "$T1" GET /users/me; U1=$(echo "$BODY" | j '.id')
 req "$T2" GET /users/me; U2=$(echo "$BODY" | j '.id'); N2=$(echo "$BODY" | j '.name')
 req "$T3" GET /users/me; U3=$(echo "$BODY" | j '.id')
