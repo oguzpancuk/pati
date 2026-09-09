@@ -456,3 +456,8 @@ test('assignIds also catches a permutation that keeps the correlating value', ()
     /not in insert order/
   );
 });
+
+test('--help answers even alongside flags that conflict', () => {
+  assert.strictEqual(seed.parseArgs(['--force', '--help']).help, true);
+  assert.strictEqual(seed.parseArgs(['--help']).help, true);
+});

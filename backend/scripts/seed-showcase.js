@@ -8,8 +8,10 @@
  * `seed-demo.js` TRUNCATEs every table; this one must never be confused with
  * it. It is meant to run against production, alongside real users, and it
  * only ever INSERTs. Every row it writes carries `is_demo = true`
- * (migration 011), which is what the admin panel's one switch hides
- * everywhere and what `--remove` deletes.
+ * (migration 011), which is what the demo-visibility switch hides
+ * everywhere and what `--remove` deletes. That switch lives on each
+ * profile (`users.show_demo`), not in the admin panel — it began as one
+ * global toggle and moved.
  *
  *   node scripts/seed-showcase.js [flags]
  *
@@ -170,6 +172,9 @@ function parseArgs(argv) {
         throw new Error(`unknown flag: ${arg}`);
     }
   }
+  // Asking what the flags mean is the one input that must never be
+  // refused for using them wrongly.
+  if (flags.help) return flags;
   // --force only ever means "delete real rows too". Accepting it silently
   // on a seeding run would teach the habit of typing it.
   if (flags.force && !flags.remove) throw new Error('--force only applies with --remove');
@@ -1254,7 +1259,8 @@ async function realCollateral(client) {
           AND ((r.target_type = 'animal' AND r.target_id IN (SELECT id FROM animals WHERE is_demo))
             OR (r.target_type = 'user' AND r.target_id IN (SELECT id FROM users WHERE is_demo))
             OR (r.target_type = 'comment' AND r.target_id IN (SELECT id FROM animal_comments WHERE is_demo))
-            OR (r.target_type = 'care_action' AND r.target_id IN (SELECT id FROM care_actions WHERE is_demo)))`,
+            OR (r.target_type = 'care_action' AND r.target_id IN (SELECT id FROM care_actions WHERE is_demo))
+            OR (r.target_type = 'message' AND r.target_id IN (SELECT id FROM messages WHERE is_demo)))`,
     ],
   ];
   const found = [];
