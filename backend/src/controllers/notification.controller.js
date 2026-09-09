@@ -65,10 +65,13 @@ async function notifyAnimalEventSafe(event) {
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
 
-async function unreadCountFor(userId) {
+// Counted through the same demo filter as the list: a bell saying 8 over an
+// inbox showing none is worse than no bell at all (review finding).
+async function unreadCountFor(req) {
   const result = await pool.query(
-    'SELECT count(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL',
-    [userId]
+    `SELECT count(*)::int AS count FROM notifications n
+     WHERE n.user_id = $1 AND n.read_at IS NULL${await demoFilter(req, 'n')}`,
+    [req.user.userId]
   );
   return result.rows[0].count;
 }
@@ -92,10 +95,12 @@ async function listNotifications(req, res, next) {
          LIMIT $2::int OFFSET $3::int`,
         [req.user.userId, limit, offset]
       ),
-      pool.query('SELECT count(*)::int AS count FROM notifications WHERE user_id = $1', [
-        req.user.userId,
-      ]),
-      unreadCountFor(req.user.userId),
+      pool.query(
+        `SELECT count(*)::int AS count FROM notifications n
+         WHERE n.user_id = $1${await demoFilter(req, 'n')}`,
+        [req.user.userId]
+      ),
+      unreadCountFor(req),
     ]);
     res.json({ notifications: page.rows, total: total.rows[0].count, unreadCount: unread });
   } catch (err) {
@@ -106,7 +111,7 @@ async function listNotifications(req, res, next) {
 // The poll: one integer, cheap enough for a minute's interval.
 async function getUnreadCount(req, res, next) {
   try {
-    res.json({ unreadCount: await unreadCountFor(req.user.userId) });
+    res.json({ unreadCount: await unreadCountFor(req) });
   } catch (err) {
     next(err);
   }
@@ -120,14 +125,18 @@ async function markRead(req, res, next) {
       ? req.body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0)
       : null;
     if (ids && ids.length === 0) {
-      return res.json({ unreadCount: await unreadCountFor(req.user.userId) });
+      return res.json({ unreadCount: await unreadCountFor(req) });
     }
+    // The demo filter applies here too: opening the inbox must not silently
+    // consume notifications the reader cannot see, which would come back
+    // already-read the day they switch the showcase world on.
     await pool.query(
-      `UPDATE notifications SET read_at = now()
-       WHERE user_id = $1 AND read_at IS NULL ${ids ? 'AND id = ANY($2)' : ''}`,
+      `UPDATE notifications n SET read_at = now()
+       WHERE n.user_id = $1 AND n.read_at IS NULL ${ids ? 'AND n.id = ANY($2)' : ''}
+       ${await demoFilter(req, 'n')}`,
       ids ? [req.user.userId, ids] : [req.user.userId]
     );
-    res.json({ unreadCount: await unreadCountFor(req.user.userId) });
+    res.json({ unreadCount: await unreadCountFor(req) });
   } catch (err) {
     next(err);
   }

@@ -934,6 +934,16 @@ themselves.
   slice inside the 4/6 h window so the map shows live rings; comments,
   health and vaccination records; friendships, DMs and one group per
   district; badge awards synced at the end so the leaderboard is real.
+- **Open before the production seed run** (from the track A review):
+  `npm run seed` writes its local demo world WITHOUT `is_demo`, so on a
+  freshly seeded dev database the switch appears to do nothing — only
+  `seed-showcase.js` sets the flag. And ten of the fourteen flagged tables
+  have no read-path filter yet (friendships, conversations, members,
+  messages, comments, health records, vaccinations, followers, care links,
+  photos): harmless as long as the bots only ever touch each other, a leak
+  the moment they touch a real user's animal. Confirm against what track
+  S's seed actually writes, then either filter those paths or drop the
+  unused columns.
 - **Done when:** both clients show the demo world (screenshots), the
   profile toggle hides and restores it in one tap (screenshots of both
   states),

@@ -110,9 +110,10 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const { mode, setMode } = useThemeMode();
   const { logout } = useAuth();
   const { checkPending } = useBadgeAwards();
+  // `show_demo` on the profile is each person's own switch for the showcase
+  // world (owner, 2026-09-09); an absent field means on, matching the column
+  // default. `demoBusy` holds the row while the write is in flight.
   const [me, setMe] = useState<Me | null>(null);
-  // The showcase (demo) world is each person's own switch (owner,
-  // 2026-09-09). Absent field means on, matching the column default.
   const [demoBusy, setDemoBusy] = useState(false);
   const [myAnimals, setMyAnimals] = useState<ProfileAnimal[]>([]);
   const [animalTotal, setAnimalTotal] = useState(0);
@@ -306,6 +307,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
     setMe((prev) => (prev ? { ...prev, show_demo: next } : prev));
     try {
       await saveShowDemo(next);
+      // Re-asserted: a focus reload can land between the optimistic flip and
+      // this line and put the old value back (review finding).
+      setMe((prev) => (prev ? { ...prev, show_demo: next } : prev));
     } catch (err: any) {
       setMe((prev) => (prev ? { ...prev, show_demo: !next } : prev));
       Alert.alert('Kaydedilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');

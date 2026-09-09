@@ -12,7 +12,16 @@ const pool = require('../config/db');
  * next screen already reflects the choice.
  */
 const CACHE_MS = 5000;
+// Bounded on purpose: entries are only ever overwritten, so without a cap the
+// map would hold one entry per user id for the process lifetime (review
+// finding). Insertion order is Map order, so the oldest key goes first.
+const CACHE_MAX = 5000;
 const cache = new Map();
+
+function remember(userId, value) {
+  cache.set(userId, { value, at: Date.now() });
+  if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
+}
 
 async function showsDemo(userId) {
   if (!userId) return true;
@@ -21,7 +30,7 @@ async function showsDemo(userId) {
   try {
     const result = await pool.query('SELECT show_demo FROM users WHERE id = $1', [userId]);
     const value = result.rows.length ? result.rows[0].show_demo !== false : true;
-    cache.set(userId, { value, at: Date.now() });
+    remember(userId, value);
     return value;
   } catch {
     // A preference read must never fail a request; the demo world is the
@@ -30,9 +39,16 @@ async function showsDemo(userId) {
   }
 }
 
-/** Remember a fresh choice without waiting for the cache to expire. */
+/**
+ * Remember a fresh choice without waiting for the cache to expire. This
+ * reaches only the process that served the write; pati runs one Fly machine
+ * (see rateLimit.middleware.js), so today that is every process. The day a
+ * second machine appears, the other one keeps the old answer for up to
+ * CACHE_MS — visible as a screen that still shows the demo world for a few
+ * seconds after the switch.
+ */
 function rememberShowsDemo(userId, value) {
-  cache.set(userId, { value, at: Date.now() });
+  remember(userId, value);
 }
 
 /**

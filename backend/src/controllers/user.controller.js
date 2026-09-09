@@ -143,7 +143,7 @@ async function setFeaturedBadges(req, res, next) {
 async function setAvatarAndRespond(userId, avatarValue, res) {
   const result = await pool.query(
     `UPDATE users SET avatar_url = $1 WHERE id = $2
-     RETURNING id, name, email, role, avatar_url, featured_badges, created_at`,
+     RETURNING id, name, email, role, avatar_url, featured_badges, created_at, show_demo`,
     [avatarValue, userId]
   );
 
