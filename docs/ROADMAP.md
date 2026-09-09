@@ -896,3 +896,38 @@ Same three tracks as P6, same claims; the owner asked to talk first.
 - Web's initial location catch throws away the reason: on an http origin
   the sheet says "Konumunu açınca…" although no permission can help.
   `describeLocationError` already has the accurate sentence.
+
+### P9 — Showcase (demo) data on production (owner, 2026-09-09)
+
+Owner decisions: every district of İstanbul, İzmir and Ankara gets 50
+active demo users, each with 3 animals; the animals carry a generated
+species/breed avatar as their single photo; the bots comment, drop food
+and water regularly, are friends, chat one-to-one and in groups, and look
+like a month of use. Demo rows are marked with a **chip only** (names stay
+ordinary). They DO appear in the leaderboard — and one admin-panel switch
+hides every demo row everywhere: map records, animals, leaderboard, chat
+and notifications ("mama ve suları da silinsin, bildirim işleri
+karışmasın").
+
+- **Track A — visibility (main session):** migration `011_demo_data.sql`
+  (`is_demo` on users, animals, care_actions, animal_comments,
+  health_records, vaccinations, conversations, messages, friendships,
+  notifications, animal_photos + partial indexes; `app_settings` with
+  `demo_visible`), a cached settings reader, the demo filter applied to
+  every read path that feeds a client (care-actions list/status, animals
+  list/detail/match, leaderboard, friendships, messages, notifications),
+  `GET/PUT /admin/settings/demo`, and the toggle in the admin panel.
+- **Track S — the data (worktree):** `backend/scripts/seed-showcase.js`
+  — additive and idempotent (deterministic `@pati.demo` accounts,
+  `ON CONFLICT DO NOTHING`), `--remove` deletes every demo row, `--districts`
+  and `--users` flags; Ankara's districts and neighbourhoods added to
+  `backend/scripts/data/neighborhoods.json`; a small library of species /
+  breed avatar PNGs served by the app image (no uploads volume) so every
+  animal has exactly one photo; a month of care actions with a fresh
+  slice inside the 4/6 h window so the map shows live rings; comments,
+  health and vaccination records; friendships, DMs and one group per
+  district; badge awards synced at the end so the leaderboard is real.
+- **Done when:** both clients show the demo world (screenshots), the admin
+  toggle hides and restores it in one click (screenshots of both states),
+  the script is rerunnable and `--remove` leaves no demo row, code-reviewer
+  per track, then the production run through `fly ssh console`.
