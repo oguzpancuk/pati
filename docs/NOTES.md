@@ -3165,3 +3165,30 @@ ocean. All three take `coordinate()` now, both viewport corners included.
 `ST_DWithin`. Refused rather than clamped, like every other bad parameter on
 these routes, with a test asserting that the radii the clients actually send
 still pass.
+
+### Same night — an admin can finally free an address
+
+- The panel could suspend an account and delete its content, but not the
+  account, so an address somebody registered and abandoned was held
+  forever. `DELETE /api/admin/users/:id` closes it.
+- The important decision was to have exactly ONE way an account gets
+  deleted. The anonymization moved to `utils/accountDeletion.js` and both
+  callers use it: the row survives (the community's care records, comments
+  and animals are its history, and a foreign key would either refuse the
+  delete or take that history with it), everything personal leaves it, and
+  the address is freed. Two copies of that logic would have drifted the
+  first time a column was added.
+- What differs is who may ask. An admin does not re-authenticate the way
+  the account's owner does, so three refusals stand in for it: not
+  yourself (it would anonymize the account the panel is open in — the rule
+  `updateUser` already applies to roles), not another admin (demote first;
+  the panel is the wrong place for that decision), and not a row already
+  anonymized.
+- The audit entry deliberately carries no address. An audit trail that
+  recorded the freed e-mail would undo the deletion it is recording — the
+  same rule the user's own deletion follows.
+- Verified end to end by `scripts/admin-check/run.sh` (18 assertions),
+  which ends on the point of the whole feature: after the deletion the
+  address registers again, and gets a NEW account rather than walking back
+  into the tombstone. Also driven through the panel itself — the row turns
+  into "Silinmiş Üye · Askıda: Hesap yönetici tarafından silindi".

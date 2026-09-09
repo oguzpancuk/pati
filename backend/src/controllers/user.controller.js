@@ -1,12 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../config/db');
 const { coverPhotoJoin, COVER_COLUMNS } = require('../utils/coverPhoto');
 const { demoFilter, rememberShowsDemo } = require('../utils/settings');
 const { UPLOADS_DIR } = require('../config/upload');
 const storage = require('../config/storage');
+const { anonymizeAccount } = require('../utils/accountDeletion');
 const { writeAuditLog } = require('../utils/auditLog');
 const { getUserBadges } = require('../utils/badges');
 const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../utils/badgeAwards');
@@ -501,7 +501,7 @@ async function deleteMyAccount(req, res, next) {
   try {
     const { password, provider, identityToken } = req.body || {};
 
-    const result = await pool.query('SELECT password_hash, avatar_url FROM users WHERE id = $1', [
+    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [
       req.user.userId,
     ]);
     if (result.rows.length === 0) {
@@ -555,52 +555,23 @@ async function deleteMyAccount(req, res, next) {
         .json({ error: passwordHash ? 'Şifre zorunludur' : 'Hesabınızı doğrulamanız gerekiyor' });
     }
 
-    // A locally uploaded avatar is a personal photo; remove the file itself,
-    // not just the reference.
-    const avatarUrl = result.rows[0].avatar_url || '';
-    const uploadsMatch = avatarUrl.match(/\/uploads\/([\w.-]+)$/);
-
-    const anonymizedHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
-
-    // Checked out only now: the validation and bcrypt work above must not
-    // hold a pool connection hostage.
+    // Checked out only now: the validation above must not hold a pool
+    // connection hostage. The anonymization itself is shared with the
+    // admin panel's deletion (utils/accountDeletion.js).
     client = await pool.connect();
     await client.query('BEGIN');
-    await client.query(
-      `UPDATE users SET
-         name = 'Silinmiş Üye',
-         email = 'silinmis-' || id || '@deleted.pati-app.com',
-         password_hash = $2,
-         avatar_url = NULL,
-         -- The anonymized address is a placeholder nobody proved; leaving
-         -- this true would let a tombstone look like a linkable account.
-         email_verified = false,
-         -- A tombstone is not waiting for a code either; the code row itself
-         -- is dropped below.
-         email_verification_pending = false,
-         featured_badges = '[]'::jsonb,
-         last_rank = NULL,
-         last_points = 0,
-         suspended_at = now(),
-         suspended_reason = 'Hesap silindi'
-       WHERE id = $1`,
-      [req.user.userId, anonymizedHash]
-    );
-    await client.query('DELETE FROM friendships WHERE requester_id = $1 OR addressee_id = $1', [
-      req.user.userId,
-    ]);
-    await client.query('DELETE FROM user_animal_care WHERE user_id = $1', [req.user.userId]);
-    await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [req.user.userId]);
-    await client.query('DELETE FROM email_verifications WHERE user_id = $1', [req.user.userId]);
-    // Without this the deleted account keeps its Apple/Google links, and the
-    // next "Apple ile giriş" would walk straight back into the anonymized,
-    // suspended row instead of creating a fresh account.
-    await client.query('DELETE FROM user_identities WHERE user_id = $1', [req.user.userId]);
+    const avatarFile = await anonymizeAccount(client, req.user.userId, {
+      reason: 'Hesap silindi',
+    });
     await client.query('COMMIT');
 
-    if (uploadsMatch) {
-      fs.unlink(path.join(UPLOADS_DIR, uploadsMatch[1]), () => {});
-      storage.remove(uploadsMatch[1]);
+    // After the commit, never inside it: a rolled-back transaction that had
+    // already deleted the photo would be the worse of the two failures.
+    // A locally uploaded avatar is a personal photo; remove the file itself,
+    // not just the reference.
+    if (avatarFile) {
+      fs.unlink(path.join(UPLOADS_DIR, avatarFile), () => {});
+      storage.remove(avatarFile);
     }
 
     // No PII in the details on purpose — the audit trail must not undo the

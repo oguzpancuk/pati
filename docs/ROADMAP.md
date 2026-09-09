@@ -515,10 +515,15 @@ Deliberately deferred, with reasons:
       e-mail" from the profile for grandfathered accounts, "set a password"
       for social accounts, password reset — all three share the mail
       transport this added.
-- [ ] **Admin: free a squatted address.** The admin panel can suspend a user
-      and delete content, but not delete a user. Less pressing now that an
-      unverified registration releases its address after a day; still the
-      only way to remove a _verified_ account for support.
+- [x] **Admin: free a squatted address** — done 2026-09-10.
+      `DELETE /api/admin/users/:id` runs exactly the anonymization the
+      user's own deletion runs (extracted to `utils/accountDeletion.js` so
+      the two cannot drift), refuses the admin's own account, another
+      admin, and a row already anonymized, and writes an audit entry
+      without the freed address in it. "Sil" on every row of the panel's
+      user list, with a dialog that says what actually happens. Evidence:
+      `backend/scripts/admin-check/run.sh`, 18 assertions ending in the one
+      that matters — the address registers again, as a new account.
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
 **Distribution:**

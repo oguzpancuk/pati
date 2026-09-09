@@ -6,6 +6,7 @@ const {
   getStats,
   listUsers,
   updateUser,
+  deleteUser,
   listAnimals,
   updateAnimal,
   deleteAnimal,
@@ -35,6 +36,7 @@ router.get('/stats', getStats);
 
 router.get('/users', listUsers);
 router.patch('/users/:id', updateUser);
+router.delete('/users/:id', deleteUser);
 
 router.get('/animals', listAnimals);
 router.patch('/animals/:id', updateAnimal);

@@ -16,6 +16,7 @@ export default function Users() {
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [deleting, setDeleting] = useState<AdminUser | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const list = useList<AdminUser>(
@@ -28,7 +29,10 @@ export default function Users() {
     <>
       <h1>Kullanıcılar</h1>
       <p className="page-hint">
-        Rol değiştirme ve askıya alma. Askıya alınan hesap token'ı elinde olsa bile API'ye erişemez.
+        Rol değiştirme, askıya alma ve hesap silme. Askıya alınan hesap token'ı elinde olsa
+        bile API'ye erişemez; silinen hesabın kişisel bilgileri kaldırılır, bıraktığı mama,
+        su ve yorumlar "Silinmiş Üye" adıyla kalır ve e-posta adresi yeniden kullanılabilir
+        hale gelir.
       </p>
 
       <form
@@ -104,6 +108,9 @@ export default function Users() {
                 <td className="actions">
                   <button className="small" onClick={() => setEditing(user)}>
                     Düzenle
+                  </button>{' '}
+                  <button className="small danger" onClick={() => setDeleting(user)}>
+                    Sil
                   </button>
                 </td>
               </tr>
@@ -128,7 +135,84 @@ export default function Users() {
           onError={setActionError}
         />
       )}
+
+      {deleting && (
+        <DeleteUserModal
+          user={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => {
+            setDeleting(null);
+            setActionError(null);
+            list.reload();
+          }}
+          onError={(message) => {
+            setActionError(message);
+            setDeleting(null);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * Deleting a user is the support tool for an address somebody registered
+ * and abandoned. It is not reversible and it is not a suspension, so the
+ * dialog says what actually happens rather than asking "emin misiniz?".
+ */
+function DeleteUserModal({
+  user,
+  onClose,
+  onDeleted,
+  onError,
+}: {
+  user: AdminUser;
+  onClose: () => void;
+  onDeleted: () => void;
+  onError: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <Modal
+      title="Hesabı sil"
+      hint={user.email}
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} disabled={busy}>
+            Vazgeç
+          </button>
+          <button
+            className="danger"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await api.del(`/admin/users/${user.id}`);
+                onDeleted();
+              } catch (err) {
+                onError(err instanceof Error ? err.message : 'Silinemedi');
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? 'Siliniyor…' : 'Hesabı sil'}
+          </button>
+        </>
+      }
+    >
+      <p>
+        <strong>{user.name}</strong> hesabının adı, e-postası, şifresi, fotoğrafı ve
+        arkadaşlıkları kaldırılacak. Bıraktığı mama, su, hayvan kayıtları ve yorumlar
+        topluluğun geçmişi olduğu için <strong>Silinmiş Üye</strong> adıyla duracak.
+      </p>
+      <p className="muted">
+        E-posta adresi böylece yeniden kaydolmak için serbest kalır. Bu işlem geri alınamaz —
+        geçici bir yaptırım için "Düzenle" içindeki askıya almayı kullanın.
+      </p>
+    </Modal>
   );
 }
 

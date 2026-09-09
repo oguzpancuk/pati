@@ -6,6 +6,7 @@ const storage = require('../config/storage');
 const pool = require('../config/db');
 const { coverPhotoJoin } = require('../utils/coverPhoto');
 const { writeAuditLog } = require('../utils/auditLog');
+const { anonymizeAccount } = require('../utils/accountDeletion');
 const { SLOTS } = require('./ad.controller');
 
 const MAX_PAGE_SIZE = 100;
@@ -470,6 +471,74 @@ async function deleteCareAction(req, res, next) {
   }
 }
 
+/**
+ * Deletes a user from the panel — the support case the roadmap called
+ * "free a squatted address": somebody registers with an address that is not
+ * theirs, or an account has to go and its owner cannot ask for it. Suspending
+ * was the only tool, and a suspended row still holds the address forever.
+ *
+ * Exactly the same anonymization the user's own deletion performs
+ * (utils/accountDeletion.js): the row survives so the community's history
+ * does, everything personal leaves it, and the address is freed. What is
+ * different is who may ask — and an admin, unlike the account's owner, does
+ * not have to re-authenticate, so the two refusals below are what stands
+ * between this endpoint and a locked-out panel.
+ */
+async function deleteUser(req, res, next) {
+  let client;
+  try {
+    const targetId = Number(req.params.id);
+    if (!Number.isInteger(targetId)) {
+      return res.status(400).json({ error: 'Geçersiz kullanıcı' });
+    }
+    // Deleting yourself here would anonymize the account the panel is open
+    // in — the same rule updateUser already applies to role and suspension.
+    if (targetId === req.user.userId) {
+      return res.status(400).json({ error: 'Kendi hesabınızı buradan silemezsiniz' });
+    }
+    const existing = await pool.query('SELECT id, role, email FROM users WHERE id = $1', [targetId]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    // An admin removing another admin is a bigger decision than a support
+    // ticket, and the panel is the wrong place to take it: demote first.
+    if (existing.rows[0].role === 'admin') {
+      return res
+        .status(400)
+        .json({ error: 'Bir yöneticiyi silmeden önce yetkisini kaldırın' });
+    }
+    // A row already anonymized has nothing left to free.
+    if (/@deleted\.pati-app\.com$/.test(existing.rows[0].email || '')) {
+      return res.status(409).json({ error: 'Bu hesap zaten silinmiş' });
+    }
+
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const avatarFile = await anonymizeAccount(client, targetId, {
+      reason: 'Hesap yönetici tarafından silindi',
+    });
+    await client.query('COMMIT');
+
+    if (avatarFile) {
+      fs.unlink(path.join(UPLOADS_DIR, avatarFile), () => {});
+      storage.remove(avatarFile);
+    }
+
+    // No address in the details: an audit trail that recorded the freed
+    // e-mail would undo the deletion it is recording (the same rule the
+    // user's own deletion follows). Who did it, to which id, and when is
+    // what an audit needs.
+    await writeAuditLog(req.user.userId, 'user.delete', 'user', targetId, {});
+
+    res.json({ deleted: true, userId: targetId });
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    if (client) client.release();
+  }
+}
+
 // -------------------------------------------------------------------------
 // Comments
 // -------------------------------------------------------------------------
@@ -886,6 +955,7 @@ async function listAuditLog(req, res, next) {
 }
 
 module.exports = {
+  deleteUser,
   getStats,
   listUsers,
   updateUser,
