@@ -56,6 +56,10 @@ psql_db "UPDATE users SET role='user' WHERE id=$OTHER_ID" >/dev/null
 code=$(del_auth "admin/users/999999999" "$ADMIN_JWT")
 check "an unknown id -> 404" 404 "$code"
 
+# A push token first, so the assertion after the deletion is not vacuous.
+code=$(post_auth notifications/device-tokens "$VICTIM_JWT" '{"platform":"ios","token":"gece-kosusu-token"}')
+check "the victim registered a device token" 201 "$code"
+
 echo "== the deletion itself"
 code=$(del_auth "admin/users/$VICTIM_ID" "$ADMIN_JWT")
 check "delete -> 200" 200 "$code"
@@ -65,6 +69,10 @@ check "…suspended, with the admin's reason" "Hesap yönetici tarafından silin
   "$(psql_db "SELECT suspended_reason FROM users WHERE id=$VICTIM_ID")"
 check "…not verified any more" f "$(psql_db "SELECT email_verified FROM users WHERE id=$VICTIM_ID")"
 check "…and its old token is refused" 403 "$(get_auth users/me "$VICTIM_JWT")"
+
+echo "== the device's push token goes with the account"
+check "no device token survives" 0 \
+  "$(psql_db "SELECT count(*) FROM device_tokens WHERE user_id=$VICTIM_ID")"
 
 echo "== the address is free again — the point of the whole thing"
 code=$(post auth/register "{\"name\":\"Yeni Sahip\",\"email\":\"$VICTIM_MAIL\",\"password\":\"$PASS_WORD\"}")

@@ -27,7 +27,22 @@ const PENDING_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 // holds the JWT (second review round). The server picks from this list or
 // stores the file as an inert `.bin`; note that SVG is deliberately absent,
 // since an SVG can carry script too.
-const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.heif']);
+// BMP and TIFF are here because a browser's `accept="image/*"` picker
+// offers them and they are not scriptable: dropping them to `.bin` turned a
+// picture a browser renders fine into a permanently broken photo, since the
+// resizer cannot normalise a BMP either and fails open (third review round).
+const ALLOWED_EXTENSIONS = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.heic',
+  '.heif',
+  '.bmp',
+  '.tif',
+  '.tiff',
+]);
 
 function safeExtension(originalname) {
   const ext = path.extname(originalname || '').toLowerCase();

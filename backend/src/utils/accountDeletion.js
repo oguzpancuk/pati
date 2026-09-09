@@ -56,6 +56,11 @@ async function anonymizeAccount(client, userId, { reason }) {
   await client.query('DELETE FROM user_animal_care WHERE user_id = $1', [userId]);
   await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [userId]);
   await client.query('DELETE FROM email_verifications WHERE user_id = $1', [userId]);
+  // A push token is a device identifier. Nothing sends push yet, so these
+  // rows do nothing today — but a deletion that leaves them behind would
+  // start meaning something the day APNs/FCM ships, and by then nobody
+  // would think to look here (third review round).
+  await client.query('DELETE FROM device_tokens WHERE user_id = $1', [userId]);
   // Without this the deleted account keeps its Apple/Google links, and the
   // next "Apple ile giriş" would walk straight back into the anonymized,
   // suspended row instead of creating a fresh account.

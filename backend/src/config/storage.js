@@ -77,6 +77,10 @@ const CONTENT_TYPES = {
   '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.heic': 'image/heic',
+  '.heif': 'image/heif',
+  '.bmp': 'image/bmp',
+  '.tif': 'image/tiff',
+  '.tiff': 'image/tiff',
 };
 
 function contentTypeOf(filename) {

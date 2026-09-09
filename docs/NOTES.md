@@ -3192,3 +3192,50 @@ still pass.
   address registers again, and gets a NEW account rather than walking back
   into the tombstone. Also driven through the panel itself — the row turns
   into "Silinmiş Üye · Askıda: Hesap yönetici tarafından silindi".
+
+### Same night — round three, and where it stopped
+
+The third review round came back APPROVE, and its own summary is the useful
+record: it verified by execution rather than reading that the `/uploads`
+limiter no longer counts successful bucket fetches (so a cold cache cannot
+lock a user out of every image), that `nosniff` really lands on both the
+static response and the fallback's `sendFile`, and that the `owned`
+accounting in `submitCarePhotos` is exact at every failure point. It also
+confirmed the new coordinate and radius guards cannot refuse a call either
+client actually makes: no client sends `radiusMeters` to the care routes at
+all, the only radius on the wire is the map's 500 m, and `map/viewport.ts`
+already clamps to ±85/±180 before the request, including both halves of an
+antimeridian split.
+
+Three one-line things came out of it and are done:
+
+- **BMP and TIFF are back in the upload allowlist.** Dropping them to `.bin`
+  was over-tightening: a browser's `accept="image/*"` picker offers them,
+  sharp cannot normalise a BMP so the resizer fails open and leaves it, and
+  the user ended up with a permanently broken photo and no error. Neither
+  format is scriptable, so the rule the allowlist exists for — the SERVER
+  picks the extension, and SVG never gets one — is untouched.
+- `.heif`, `.bmp` and `.tiff` joined the bucket's content-type table, which
+  had `.heic` but not its twin.
+- **A deleted account's push tokens now go with it.** Nothing sends push
+  yet, so `device_tokens` rows do nothing today — but a device identifier
+  surviving a deletion would start meaning something the day APNs ships,
+  and nobody would think to look there by then.
+
+Left standing, deliberately, and worth knowing rather than fixing at four in
+the morning: the photo rows in `submitCarePhotos` are still non-transactional.
+The FILES are accounted for exactly now, but if the second INSERT fails, the
+first photo's row, the carer row and the match attempt survive the 500 and a
+client retry adds a second copy. The fix is a `BEGIN/COMMIT` around the loop,
+not more cleanup code, and a mid-loop database failure is rare enough that it
+did not justify a fourth round.
+
+**On the round count.** Three rounds on one night's work is at the edge of
+what the standing rule tolerates, and the second round was the expensive one:
+two of its three important findings were regressions the FIRST round's own
+fixes had introduced. That is the pattern worth naming — "make the logo not
+black" produced "store every screenshot at eight times the size", and "stop
+the bucket bill" produced "break every image on a cold cache". Both were
+narrow, local fixes to a named defect, made without asking what else the
+change touched. The third round narrowed rather than widened, which is what a
+converging review looks like, so this stopped where it should have.
