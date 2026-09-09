@@ -933,8 +933,11 @@ Two owner decisions arrived mid-build and supersede the original plan:
   rows wear a chip on the animal profile, the public profile and the
   leaderboard.
 - **Track S — the data (worktree): DONE** (merged as `e017616`).
-  `backend/scripts/seed-showcase.js` writes 106.453 rows across 44
-  districts in ~6 s: 2.200 bots, 6.600 animals with one generated photo
+  `backend/scripts/seed-showcase.js` writes ~106.000 rows across 44
+  districts: the rows land in about 2 s, then the badge sync runs over
+  2.200 accounts — 4 s on a warm local database, 56 s in the QA pass on a
+  clone, so budget for the slow end on a `fly ssh console` run. 2.200
+  bots, 6.600 animals with one generated photo
   each, 42.620 drops (a live slice inside the ring window in all three
   cities), comments, health and vaccination records, friendships, DMs and
   a group per district, badges synced at the end. Proven additive (every
@@ -959,7 +962,10 @@ Two owner decisions arrived mid-build and supersede the original plan:
   the animal, so the filter keeps working for rows created at runtime.
 - **Still open, and deliberately:** `npm run seed` writes its local demo
   world WITHOUT `is_demo`, so on a freshly seeded dev database the switch
-  appears to do nothing — only `seed-showcase.js` sets the flag.
+  appears to do nothing — only `seed-showcase.js` sets the flag. And a
+  newcomer can send a friend request to a bot and wait forever: 2.200
+  accounts that never answer. Auto-accepting would need a job that runs
+  after the seed; the request simply sits in "gönderilen istekler".
 - **Done when:** both clients show the demo world (screenshots), the
   profile toggle hides and restores it in one tap (screenshots of both
   states, both clients),

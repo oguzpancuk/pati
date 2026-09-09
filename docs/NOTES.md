@@ -2755,3 +2755,25 @@ the next docs touch.
 - Two labels a fingertip apart both said "açık" on the profile — the demo
   switch and the light theme. The demo switch reads "görünüyor / gizli"
   now.
+
+### Same day — what the QA pass changed in the showcase content
+
+- The drops' `photo_url` pointed at an animal's face. A real drop carries a
+  photo of the BOWL — that is what the AI check reads and what the admin
+  panel's care list renders — so the seed now stores
+  `/demo/care/{food,water}.png`, rendered from the map marker art by
+  `generate-demo-care-photos.mjs`. The preflight checks one URL from each
+  family, since the two live in different directories.
+- Four of 44 inboxes previewed a month-old group whose newest message was
+  "gruba yeni katıldım": the greeting was one of the shuffled pool. It is
+  the group's opening line now, from the creator, at the creation time.
+- 140 messages talked about the cold under August timestamps. Cold-weather
+  lines (and one whole DM script about winter shelters) join their pools
+  only from November to March, decided once at module load.
+- The live-ring slice roughly doubled after the QA screenshot of a
+  street-level viewport with a single ring: 1.441 drops now sit inside the
+  window against ~540 before.
+- Left as it is, deliberately: a newcomer can send a friend request to a
+  bot and never hear back. Auto-accepting would need a job that runs after
+  the seed, and the request sitting in "gönderilen istekler" is at least
+  honest about what it is.

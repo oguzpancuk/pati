@@ -82,6 +82,7 @@ const {
   MARKINGS,
   DM_TOPICS,
   GROUP_LINES,
+  GROUP_OPENING,
   GROUP_SUFFIXES,
   VACCINE_NOTES,
   pick,
@@ -103,6 +104,14 @@ const HISTORY_DAYS = 30;
 // comfortably inside both so the map still shows rings a while after the
 // seed runs.
 const FRESH_HOURS = { food: 3.5, water: 5.5 };
+
+/**
+ * A drop's photo shows the BOWL, not an animal: that is what a real drop
+ * carries and what the AI check looks at, and the admin panel's care list
+ * renders the field (QA finding, 2026-09-09). The two files come from
+ * generate-demo-care-photos.mjs.
+ */
+const carePhoto = (base, type) => `${base}/demo/care/${type}.png`;
 const EMAIL_DOMAIN = 'pati.demo';
 const MS_DAY = 86_400_000;
 const MS_HOUR = 3_600_000;
@@ -455,28 +464,32 @@ function planDistrict(district, { users: userCount, base }, now) {
       const drops = user.profile === 'devoted' ? int(rng, 1, 3) : int(rng, 1, 2);
       for (let d = 0; d < drops; d += 1) {
         const anchor = mine.length > 0 && chance(rng, 0.7) ? pick(rng, mine).spot : null;
+        const type = chance(rng, 0.6) ? 'food' : 'water';
         care.push({
           user,
-          type: chance(rng, 0.6) ? 'food' : 'water',
+          type,
           at: momentDaysAgo(rng, day, now),
           point: anchor ? jitter(rng, anchor, 70) : nearby(rng, district, 220),
-          photo: pick(rng, animals).photoUrl,
+          photo: carePhoto(base, type),
         });
       }
     }
   }
 
   // --- the fresh slice: rings the map can still draw when someone looks
-  for (const user of pickMany(rng, users, Math.min(users.length, int(rng, 10, 16)))) {
+  // Roughly doubled after the QA pass found a street-level viewport with a
+  // single ring: a newcomer who opens the map on a seeded neighbourhood
+  // should find the feature, not hunt for it.
+  for (const user of pickMany(rng, users, Math.min(users.length, int(rng, 14, 22)))) {
     const mine = animals.filter((a) => a.owner === user);
-    for (let k = 0; k < int(rng, 1, 2); k += 1) {
+    for (let k = 0; k < int(rng, 1, 3); k += 1) {
       const type = chance(rng, 0.55) ? 'food' : 'water';
       care.push({
         user,
         type,
         at: new Date(now.getTime() - rng() * FRESH_HOURS[type] * MS_HOUR),
         point: mine.length > 0 ? jitter(rng, pick(rng, mine).spot, 60) : nearby(rng, district, 150),
-        photo: pick(rng, animals).photoUrl,
+        photo: carePhoto(base, type),
         fresh: true,
       });
     }
@@ -596,10 +609,15 @@ function planDistrict(district, { users: userCount, base }, now) {
   const groupMembers = pickMany(rng, users, Math.min(users.length, int(rng, 14, 26)));
   const groupCreatedAt = momentDaysAgo(rng, int(rng, 20, HISTORY_DAYS), now);
   let groupAt = groupCreatedAt;
-  const groupMessages = pickMany(rng, GROUP_LINES, int(rng, 12, 20)).map((body) => {
-    groupAt = noLaterThan(new Date(groupAt.getTime() + int(rng, 30, 40 * 60) * 60_000), now);
-    return { body, sender: pick(rng, groupMembers), at: groupAt };
-  });
+  // The creator opens the group; the rest is the shuffled pool, so the
+  // inbox preview is never a month-old "gruba yeni katıldım" (QA finding).
+  const groupMessages = [
+    { body: GROUP_OPENING, sender: groupMembers[0], at: groupCreatedAt },
+    ...pickMany(rng, GROUP_LINES, int(rng, 12, 20)).map((body) => {
+      groupAt = noLaterThan(new Date(groupAt.getTime() + int(rng, 30, 40 * 60) * 60_000), now);
+      return { body, sender: pick(rng, groupMembers), at: groupAt };
+    }),
+  ];
   const group = {
     name: `${district.district} ${pick(rng, GROUP_SUFFIXES)}`,
     createdBy: groupMembers[0],
@@ -1330,27 +1348,36 @@ function report(title, counts) {
  * character. One request is a cheap way to find that out first.
  */
 async function checkPhotosAreServed(base) {
-  const url = `${base}/demo/animals/${demoPhotoFile('cat', CAT_PATTERNS[0])}`;
-  let res;
-  try {
-    res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  } catch (err) {
-    throw new Error(
-      `${url} is unreachable (${err.message}).\n` +
-        '  The demo photos must be served before their URLs are stored. Start the\n' +
-        '  backend, or pass --skip-photo-check if you know what you are doing.'
-    );
+  // One URL from each family: the animal faces and the two bowls live in
+  // different directories, so a mount that serves one may still miss the
+  // other.
+  const urls = [
+    `${base}/demo/animals/${demoPhotoFile('cat', CAT_PATTERNS[0])}`,
+    carePhoto(base, 'food'),
+    carePhoto(base, 'water'),
+  ];
+  for (const url of urls) {
+    let res;
+    try {
+      res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    } catch (err) {
+      throw new Error(
+        `${url} is unreachable (${err.message}).\n` +
+          '  The demo photos must be served before their URLs are stored. Start the\n' +
+          '  backend, or pass --skip-photo-check if you know what you are doing.'
+      );
+    }
+    const type = res.headers.get('content-type') || '';
+    if (!res.ok || !type.startsWith('image/')) {
+      throw new Error(
+        `${url} answered ${res.status} ${type}`.trim() +
+          '\n  demo-assets/ is not served at /demo on this origin, so every photo URL\n' +
+          '  this run would store is dead. Land the static mount first, or pass\n' +
+          '  --skip-photo-check.'
+      );
+    }
   }
-  const type = res.headers.get('content-type') || '';
-  if (!res.ok || !type.startsWith('image/')) {
-    throw new Error(
-      `${url} answered ${res.status} ${type}`.trim() +
-        '\n  demo-assets/ is not served at /demo on this origin, so every photo URL\n' +
-        '  this run would store is dead. Land the static mount first, or pass\n' +
-        '  --skip-photo-check.'
-    );
-  }
-  console.log(`  photos verified: ${url}`);
+  console.log(`  photos verified: ${urls.length} URLs under ${base}/demo/`);
 }
 
 /**

@@ -347,15 +347,28 @@ const RELIEF = [
   'Bu hafta gözle görülür şekilde toparladı',
   'Artık normale döndü, teşekkürler herkese',
 ];
+/**
+ * Seeded content carries real timestamps, so a line about the cold under an
+ * August date reads as filler and gives the showcase away for the wrong
+ * reason (QA finding, 2026-09-09). November to March the cold lines join
+ * their pool; the rest of the year they stay out. Decided once, at load:
+ * a seed run is a single process of a few minutes.
+ */
+const COLD_MONTHS = new Set([10, 11, 0, 1, 2]);
+const isCold = (now = new Date()) => COLD_MONTHS.has(now.getMonth());
+const whenCold = (lines) => (isCold() ? lines : []);
+
 const COORDINATION = [
   'Yarın sabah ben mama bırakacağım, akşamı biri alabilir mi',
-  'Kışlık kulübeyi bu hafta sonu yerleştirelim diyorum',
   'Su kabını devirmiş, daha ağır bir kap koydum',
   'Mahalledeki esnaf da düzenli mama veriyor, iyi durumda',
   'Bu köşeye kalıcı bir su kabı koysak çok iyi olur',
   'Kısırlaştırma için belediyeye başvurdum, sıraya aldılar',
   'Akşamları burada oluyor, arayanlara duyurulur',
-  'Kulübeye battaniye koydum, hava soğudu',
+  ...whenCold([
+    'Kışlık kulübeyi bu hafta sonu yerleştirelim diyorum',
+    'Kulübeye battaniye koydum, hava soğudu',
+  ]),
 ];
 const THANKS = [
   'Emeğinize sağlık',
@@ -424,14 +437,7 @@ const DM_TOPICS = [
     'Bugün siyah kediyi göremedim, sen gördün mü',
     'Sabah gördüm, otoparktaydı, bir şeyi yok',
     'Çok rahatladım, akşam yoktu da',
-    'Havalar soğuyunca kulübeye giriyor, merak etme',
-  ],
-  [
-    'Kışlık kulübe yapmayı düşünüyorum, malzeme önerin var mı',
-    'Strafor kutu ve kalın naylon yeterli, çok işe yarıyor',
-    'Su geçirmiyor değil mi',
-    'Üstünü eğimli kapatırsan hiç sorun olmuyor',
-    'Deneyeceğim, teşekkürler',
+    'Otoparkın arkası onun sabah köşesi, merak etme',
   ],
   [
     'Yavruları gördün mü, üç tane olmuşlar',
@@ -458,13 +464,16 @@ const DM_TOPICS = [
 
 // -------------------------------------------------------------- group messages
 
+// The line a group opens with. Kept out of the shuffled pool: as one of them
+// it could land last, and four of 44 inboxes previewed a month-old group with
+// "gruba yeni katıldım" as its newest message (QA finding).
+const GROUP_OPENING = 'Merhaba herkese, gruba yeni katıldım';
+
 const GROUP_LINES = [
-  'Merhaba herkese, gruba yeni katıldım',
   'Bu akşam park tarafına mama bırakacağım',
   'Su kapları boşalmış, dolduran olursa sevinirim',
   'Yeni bir kedi gördüm, kaydını açtım profilden bakabilirsiniz',
   'Kısırlaştırma listesine iki hayvan daha ekledik',
-  'Hava çok soğuk, kulübelere battaniye koyalım',
   'Bugün mama bağışı geldi, paylaşalım',
   'Yarın sabah gönüllü lazım, müsait olan yazsın',
   'Veteriner önerisi olan var mı',
@@ -479,9 +488,21 @@ const GROUP_LINES = [
   'Herkese kolay gelsin, emeğinize sağlık',
   'Kapları biraz daha içeri çektim, yağmurdan korunsun',
   'Grup çok kalabalık oldu, ne güzel',
+  ...whenCold(['Hava çok soğuk, kulübelere battaniye koyalım']),
 ];
 
 /** Group names read like a real neighbourhood group: "<İlçe> Patileri". */
+const COLD_DM_TOPICS = [
+  [
+    'Kışlık kulübe yapmayı düşünüyorum, malzeme önerin var mı',
+    'Strafor kutu ve kalın naylon yeterli, çok işe yarıyor',
+    'Su geçirmiyor değil mi',
+    'Üstünü eğimli kapatırsan hiç sorun olmuyor',
+    'Deneyeceğim, teşekkürler',
+  ],
+];
+DM_TOPICS.push(...whenCold(COLD_DM_TOPICS));
+
 const GROUP_SUFFIXES = [
   'Patileri',
   'Sokak Dostları',
@@ -511,6 +532,7 @@ module.exports = {
   MARKINGS,
   DM_TOPICS,
   GROUP_LINES,
+  GROUP_OPENING,
   GROUP_SUFFIXES,
   VACCINE_NOTES,
   pick,
