@@ -904,19 +904,26 @@ active demo users, each with 3 animals; the animals carry a generated
 species/breed avatar as their single photo; the bots comment, drop food
 and water regularly, are friends, chat one-to-one and in groups, and look
 like a month of use. Demo rows are marked with a **chip only** (names stay
-ordinary). They DO appear in the leaderboard — and one admin-panel switch
-hides every demo row everywhere: map records, animals, leaderboard, chat
-and notifications ("mama ve suları da silinsin, bildirim işleri
-karışmasın").
+ordinary). They DO appear in the leaderboard — and one switch hides every
+demo row everywhere: map records, animals, leaderboard, chat and
+notifications ("mama ve suları da silinsin, bildirim işleri karışmasın").
+The switch moved mid-build: the owner replaced the single admin-panel
+button with **a button on every user's profile** ("fikrimi değiştirdim,
+her kullanıcının profilinde demo verisini gösterme butonu olsun"), so the
+preference is `users.show_demo`, default true, and each person decides for
+themselves.
 
-- **Track A — visibility (main session):** migration `011_demo_data.sql`
-  (`is_demo` on users, animals, care_actions, animal_comments,
-  health_records, vaccinations, conversations, messages, friendships,
-  notifications, animal_photos + partial indexes; `app_settings` with
-  `demo_visible`), a cached settings reader, the demo filter applied to
-  every read path that feeds a client (care-actions list/status, animals
-  list/detail/match, leaderboard, friendships, messages, notifications),
-  `GET/PUT /admin/settings/demo`, and the toggle in the admin panel.
+- **Track A — visibility (main session): DONE** (`bd86e3d`). Migration
+  `011_demo_data.sql` (`is_demo` on every table a read path touches +
+  partial indexes; `users.show_demo`, mirrored into 001 without the
+  indexes), `utils/settings.js` (cached preference, `demoFilter(req,
+  alias)`), the filter applied to the care list/status, the animal
+  list/near/match, the leaderboard, user search and notifications,
+  `PUT /users/me/show-demo`, and the toggle on BOTH profiles. The public
+  map and drop routes took a new `identifyUser` middleware: without a
+  parsed token they could not honour a signed-in visitor's choice. Demo
+  rows wear a chip on the animal profile, the public profile and the
+  leaderboard.
 - **Track S — the data (worktree):** `backend/scripts/seed-showcase.js`
   — additive and idempotent (deterministic `@pati.demo` accounts,
   `ON CONFLICT DO NOTHING`), `--remove` deletes every demo row, `--districts`
@@ -927,7 +934,8 @@ karışmasın").
   slice inside the 4/6 h window so the map shows live rings; comments,
   health and vaccination records; friendships, DMs and one group per
   district; badge awards synced at the end so the leaderboard is real.
-- **Done when:** both clients show the demo world (screenshots), the admin
-  toggle hides and restores it in one click (screenshots of both states),
+- **Done when:** both clients show the demo world (screenshots), the
+  profile toggle hides and restores it in one tap (screenshots of both
+  states),
   the script is rerunnable and `--remove` leaves no demo row, code-reviewer
   per track, then the production run through `fly ssh console`.

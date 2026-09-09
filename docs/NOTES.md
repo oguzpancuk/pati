@@ -2632,3 +2632,38 @@ the next docs touch.
   found" because the shell was still in `backend/` from the rehearsal;
   rerun from the repo root with `--config`. Worth remembering: fly reads
   the Dockerfile relative to the working directory.
+
+## 2026-09-09 — P9 track A: the demo world is each person's own switch
+
+- The owner first asked for one admin-panel button ("demo verilerini
+  göster/gösterme"), then changed their mind mid-build: **"her kullanıcının
+  profilinde demo verisini gösterme butonu olsun"**. The global switch
+  (admin controller, routes, dashboard card) was reverted in full and
+  replaced by `users.show_demo`, default true, flipped from the profile of
+  both clients with `PUT /users/me/show-demo`.
+- Migration `011_demo_data.sql` puts `is_demo` on every table a read path
+  touches (users, animals, photos, care actions, comments, health records,
+  vaccinations, friendships, conversations, members, messages,
+  notifications, care links, followers) with a small partial index on the
+  demo rows, plus `users.show_demo`. The columns are mirrored into
+  `001_init.sql`; the indexes are not, per the load-bearing rule (001 runs
+  first against production's older schema). Rehearsed twice from scratch
+  and twice onto a database built from the deployed commit's own files —
+  both idempotent, both ending on the same 29-table schema.
+- `backend/src/utils/settings.js` holds the preference behind a five-second
+  per-user cache, with `demoFilter(req, alias)` returning either `''` or
+  ` AND NOT <alias>.is_demo`. The profile write goes through the cache, so
+  the next screen already reflects the choice.
+- **The map and the drop list are public routes**, so they never parsed a
+  token and could not honour a signed-in visitor's choice — the first
+  end-to-end run showed the filter doing nothing there. New `identifyUser`
+  middleware names the caller and never refuses; it sets only `userId` and
+  no role, so nothing downstream can mistake it for a privileged session.
+- Marking is a chip and nothing else (owner: "sadece çip"): `is_demo`
+  travels on the animal, public-profile and leaderboard payloads and both
+  clients render a quiet "demo" pill beside the name. Names stay ordinary.
+- Verified: quick battery green; curl round trip (preference persists, 400
+  on a non-boolean, 401 anonymous); Ankara viewport 0 demo drops and 0 demo
+  animals with the switch off, 251 and 125 with it on; leaderboard total
+  3.366 → 1.166. Screenshots: iOS profile açık/kapalı and the Ankara map
+  full of rings, web profile switch, web animal and user chips.
