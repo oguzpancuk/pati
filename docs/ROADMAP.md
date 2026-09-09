@@ -1016,3 +1016,15 @@ green on a clean HEAD, a code-reviewer pass over the range, and a screenshot
 for anything visual on BOTH clients. **Stop when:** the list is done, or an
 item fails its battery twice in a row (park it with a note and move on), or
 the owner's morning arrives.
+
+**Left open by the review, deliberately — the multi-machine gap.** The
+storage driver makes photos durable and serveable from anywhere, but it does
+not yet make the app horizontally scalable, and the deploy notes now say so.
+Two paths still assume one shared volume: `redeemPhotoToken` (in both
+`care.controller.js` and `animal.controller.js`) hands a file from the check
+request to the confirm request by name on disk, and `ai.uploadPathFromUrl`
+reads the gallery's files for the photo comparison, failing open when they
+are missing. Closing it means publishing pending files at upload time,
+sweeping them out of the bucket too, and making both readers async through
+`storage.localPath`. Worth doing before a second machine, not before the
+pilot.

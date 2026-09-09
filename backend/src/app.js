@@ -47,9 +47,31 @@ app.use(express.json());
 // anything when a bucket is configured: it pulls the object into the cache
 // so a second machine (or a restored volume) can serve what it never
 // received itself (src/config/storage.js).
-app.use('/uploads', express.static(UPLOADS_DIR), async (req, res, next) => {
+// Only misses reach the bucket, so this only ever sees requests for names
+// this machine does not have: a normal reader is served by express.static
+// above and never counted. Uncapped, `GET /uploads/<random>.jpg` in a loop
+// was a free way to run up somebody's R2 bill (review finding).
+const uploadsMissLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Çok fazla istek. Lütfen biraz sonra tekrar dene.' },
+});
+
+app.use('/uploads', express.static(UPLOADS_DIR), uploadsMissLimit, async (req, res, next) => {
+  let name;
   try {
-    const file = await storage.localPath(decodeURIComponent(req.path.slice(1)));
+    name = decodeURIComponent(req.path.slice(1));
+  } catch {
+    // A malformed percent-escape (`/uploads/%zz`): serve-static answers 400
+    // and falls through, and an unguarded decode here turned that into an
+    // English "URI malformed" 500 (review finding). It is a 404 like any
+    // other name that does not exist.
+    return next();
+  }
+  try {
+    const file = await storage.localPath(name);
     if (!file) return next();
     res.sendFile(file);
   } catch (err) {

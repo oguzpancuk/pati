@@ -148,12 +148,36 @@ async function setFeaturedBadges(req, res, next) {
   }
 }
 
+/**
+ * Drops the file behind a previous avatar, on disk and in the bucket, when
+ * it was an uploaded photo. Built-in avatars (`pati-avatar:f3`) are keys,
+ * not files, and any other host's URL is not ours to delete. Best-effort
+ * and never thrown: the row already points somewhere else.
+ *
+ * Without this, replacing an avatar left the old photo publicly fetchable
+ * at its `/uploads/…` URL forever — including after the account was deleted,
+ * which deleteMyAccount only ever cleaned up for the LAST one (review
+ * finding). A personal photo is exactly what the deletion promise is about.
+ */
+function discardPreviousAvatar(previous, next) {
+  if (typeof previous !== 'string' || previous === next) return;
+  const match = previous.match(/\/uploads\/([\w.-]+)$/);
+  if (!match) return;
+  fs.unlink(path.join(UPLOADS_DIR, match[1]), () => {});
+  storage.remove(match[1]);
+}
+
 /** Changes the profile image and answers with the whole profile. */
 async function setAvatarAndRespond(userId, avatarValue, res) {
+  // Read before write, in its own statement: a subquery in RETURNING would
+  // be reasoning about which snapshot Postgres shows it, and the answer
+  // would end up in the response body next to the columns the clients read.
+  const before = await pool.query('SELECT avatar_url FROM users WHERE id = $1', [userId]);
   const result = await pool.query(
     `UPDATE users SET avatar_url = $1 WHERE id = $2 RETURNING ${ME_COLUMNS}`,
     [avatarValue, userId]
   );
+  discardPreviousAvatar(before.rows[0]?.avatar_url, avatarValue);
   res.json(await buildMeResponse(result.rows[0]));
 }
 

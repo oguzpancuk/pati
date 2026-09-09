@@ -31,6 +31,7 @@ const fs = require('fs');
 const path = require('path');
 const pool = require('../src/config/db');
 const { UPLOADS_DIR } = require('../src/config/upload');
+const storage = require('../src/config/storage');
 
 // Registration refuses these domains outright (RESERVED_EMAIL_DOMAINS in
 // src/controllers/auth.controller.js): a real person must never be able to
@@ -171,6 +172,10 @@ async function main() {
       } catch {
         // Already gone or never on this volume; nothing to recover.
       }
+      // And out of the bucket, when there is one: unlinking the cached copy
+      // alone would leave the object to be served straight back by the
+      // /uploads fallback (review finding).
+      await storage.remove(path.basename(file));
     }
     console.log(`Upload files removed: ${removed}/${files.size}`);
   } catch (err) {

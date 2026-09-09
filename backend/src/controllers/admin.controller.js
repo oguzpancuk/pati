@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const ai = require('../utils/ai');
 const { UPLOADS_DIR } = require('../config/upload');
 const storage = require('../config/storage');
@@ -450,6 +451,15 @@ async function deleteCareAction(req, res, next) {
       return res.status(404).json({ error: 'Bakım kaydı bulunamadı' });
     }
 
+    // The photo goes with the row. A moderator deleting an abusive care
+    // photo left it fetchable at its /uploads URL — the user-facing delete
+    // has always removed the file, this one never did (review finding).
+    const photo = /\/uploads\/([^/?#]+)/.exec(result.rows[0].photo_url ?? '');
+    if (photo) {
+      fs.unlink(path.join(UPLOADS_DIR, path.basename(photo[1])), () => {});
+      storage.remove(photo[1]);
+    }
+
     await writeAuditLog(req.user.userId, 'careAction.delete', 'careAction', targetId, {
       ...result.rows[0],
       reason: reason || null,
@@ -734,6 +744,8 @@ async function uploadAdvertiserImage(req, res, next) {
     );
     if (result.rows.length === 0) {
       fs.unlink(req.file.path, () => {});
+      // Published a moment ago, for a row that turned out not to exist.
+      storage.remove(req.file.filename);
       return res.status(404).json({ error: 'Reklam bulunamadı' });
     }
 

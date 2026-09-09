@@ -868,6 +868,11 @@ async function addPhoto(req, res, next) {
     if (req.file) discardUpload();
     else if (err.code === '23503') {
       fs.rename(filePath, path.join(UPLOADS_DIR, `${PENDING_PREFIX}${file}`), () => {});
+      // The object went up before the row was attempted; this is the one
+      // branch that has decided nobody can own the file, so it leaves the
+      // bucket too — otherwise the /uploads fallback would keep serving a
+      // photo the code deliberately disowned (review finding).
+      storage.remove(file);
     }
     return next(err);
   }
@@ -994,10 +999,31 @@ async function submitCarePhotos(req, res, next) {
     // plain ones the moment a row is about to own them (see redeemPhotoToken).
     const base = `${req.protocol}://${req.get('host')}/uploads/`;
     const photos = [];
-    for (const file of files) {
-      const finalName = pendingToFinal(file.filename);
-      await fs.promises.rename(file.path, path.join(UPLOADS_DIR, finalName));
-      await storage.publish(finalName);
+    // Both files are renamed and published BEFORE the first row is written.
+    // Doing it inside the insert loop meant a bucket that refused the
+    // SECOND photo left the user a carer looking at an error, with photo
+    // one already in the gallery and its file stranded under a final name
+    // the pending sweeper never looks at — and the obvious client retry
+    // then added photo one twice (review finding).
+    const finalNames = files.map((f) => pendingToFinal(f.filename));
+    try {
+      for (let i = 0; i < files.length; i += 1) {
+        await fs.promises.rename(files[i].path, path.join(UPLOADS_DIR, finalNames[i]));
+        await storage.publish(finalNames[i]);
+      }
+    } catch (err) {
+      // Back under the pending prefix — which is exactly where `finally`
+      // expects them, so they are unlinked on the way out — and out of the
+      // bucket, since nothing will ever reference them.
+      for (const name of finalNames) {
+        await fs.promises
+          .rename(path.join(UPLOADS_DIR, name), path.join(UPLOADS_DIR, `${PENDING_PREFIX}${name}`))
+          .catch(() => {});
+        storage.remove(name);
+      }
+      throw err;
+    }
+    for (const finalName of finalNames) {
       const inserted = await pool.query(
         'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
         [animalId, `${base}${finalName}`, req.user.userId]

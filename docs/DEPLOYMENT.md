@@ -244,6 +244,17 @@ volume, and the fallback fetch only runs when the volume does not have the
 file. Copying the backlog is a one-off `rclone`/`aws s3 sync` of
 `/data/uploads` into the bucket, safe to run at any time.
 
+**A bucket does NOT yet let you run two machines.** What it gives is
+durability and the ability to serve a photo this machine never received.
+Two flows still hand a file between requests through the local volume: the
+care-photo check and the add-animal match write a file in one request and
+redeem it by name in the next (`redeemPhotoToken`), and the AI's comparison
+reads the gallery's files from disk (`uploadPathFromUrl`), quietly
+accepting a match unchecked when they are not there. On two machines the
+second request lands on the other one about half the time, and the user is
+told to re-shoot a photo that was fine. Keep `min_machines_running`/scale at
+1 until those two paths go through the driver as well (roadmap).
+
 ## Custom domains
 
 ```bash
@@ -260,9 +271,10 @@ as well as `001_init.sql` (see CLAUDE.md).
 
 ## Known limits (pilot)
 
-- Photos sit on a single machine's disk **until an R2/S3 bucket is
-  configured** (see "Photo storage" above): without one, keep machine count
-  at 1.
+- Keep the machine count at 1. Without a bucket the photos exist only on
+  that machine's volume; with one they are durable, but two upload flows
+  still pass a file between requests through the local volume (see "Photo
+  storage" above).
 - `auto_stop_machines`: the machine sleeps without traffic; the first request
   takes ~1-2 s.
 - The admin panel is served from the same app: requests arriving at

@@ -102,7 +102,9 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   home: the machine's disk by default, an S3-compatible bucket (Cloudflare
   R2) when the four `S3_*` variables are set, with the disk as its cache.
   Stored URLs stay `/uploads/<file>` either way — never build a bucket URL
-  into a row. Unlike the photo AI this does **not** fail open: a bucket
+  into a row. A bucket buys durability and serving, **not** a second
+  machine: the two-request photo-token flows and the AI's gallery reads
+  still go through the local volume. Unlike the photo AI this does **not** fail open: a bucket
   that refuses the object fails the upload (Turkish 503) rather than
   recording a photo nobody kept. Evidence:
   `backend/scripts/storage-check/run.sh` (fake bucket); setup in

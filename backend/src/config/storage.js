@@ -24,6 +24,7 @@
  *   S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY
  * Optional: S3_REGION (default `auto`, which is R2's), S3_PREFIX.
  */
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { UPLOADS_DIR } = require('./upload');
@@ -65,6 +66,23 @@ function keyFor(filename) {
   return `${prefix}${path.basename(filename)}`;
 }
 
+// Almost everything is a JPEG after the resizer, but a transparent image
+// stays a PNG and a file sharp could not decode keeps whatever it was.
+// Stored wrong, the object would be served with the wrong type the day a
+// public bucket domain is put in front of it.
+const CONTENT_TYPES = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.heic': 'image/heic',
+};
+
+function contentTypeOf(filename) {
+  return CONTENT_TYPES[path.extname(filename).toLowerCase()] || 'application/octet-stream';
+}
+
 /**
  * Makes the bucket own `filename`, whose bytes are on disk right now.
  * Throws on failure — every caller does this before writing the row that
@@ -74,14 +92,16 @@ function keyFor(filename) {
 async function publish(filename) {
   if (!remote) return;
   const file = path.basename(filename);
-  const body = await fs.promises.readFile(path.join(UPLOADS_DIR, file));
   try {
+    // Inside the try: a missing local file would otherwise surface as a raw
+    // English ENOENT 500, which is exactly what this catch exists to avoid.
+    const body = await fs.promises.readFile(path.join(UPLOADS_DIR, file));
     await s3().send(
       new commands.PutObjectCommand({
         Bucket: bucket,
         Key: keyFor(file),
         Body: body,
-        ContentType: 'image/jpeg',
+        ContentType: contentTypeOf(file),
       })
     );
   } catch (err) {
@@ -138,8 +158,10 @@ async function localPath(filename) {
     return null;
   }
   // Written under a temp name first: two requests for the same cold file
-  // must never let one serve the other's half-written bytes.
-  const temp = `${full}.${process.pid}.part`;
+  // must never let one serve the other's half-written bytes. The name has
+  // to be unique per REQUEST, not per process — two concurrent misses in
+  // one process share a pid (review finding).
+  const temp = path.join(UPLOADS_DIR, `.${crypto.randomUUID()}.part`);
   await fs.promises.writeFile(temp, body);
   await fs.promises.rename(temp, full);
   return full;

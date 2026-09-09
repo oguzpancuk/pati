@@ -63,7 +63,7 @@ test('a small photo is never enlarged', async () => {
   assert.equal(meta.height, 240);
 });
 
-test('a png becomes a jpg and leaves nothing behind', async () => {
+test('an opaque png becomes a jpg and leaves nothing behind', async () => {
   const file = await upload('shot.png', await photo(2000, 2000, 'png'));
   await run({ file });
 
@@ -72,6 +72,62 @@ test('a png becomes a jpg and leaves nothing behind', async () => {
   assert.equal(path.basename(file.path), 'shot.jpg');
   assert.equal(fs.existsSync(path.join(dir, 'shot.png')), false);
   assert.equal((await sharp(file.path).metadata()).format, 'jpeg');
+});
+
+test('a transparent png stays a png, and stays transparent', async () => {
+  // JPEG has no alpha and sharp puts black behind it: an advertiser's logo
+  // on a light card, or a user's avatar, would come out a black tile.
+  const transparent = await sharp({
+    create: { width: 900, height: 900, channels: 4, background: { r: 199, g: 132, b: 43, alpha: 0 } },
+  })
+    .png()
+    .toBuffer();
+  const file = await upload('logo.png', transparent);
+  await run({ file });
+
+  assert.equal(file.filename, 'logo.png');
+  assert.equal(file.mimetype, 'image/png');
+  const meta = await sharp(file.path).metadata();
+  assert.equal(meta.format, 'png');
+  assert.equal(meta.hasAlpha, true);
+
+  const corner = await sharp(file.path).extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
+  assert.equal(corner[3], 0, 'the corner should still be see-through, not black');
+});
+
+test('an uppercase extension is not mistaken for a different file', async () => {
+  // `IMG_4821.JPG` and `IMG_4821.jpg` are two strings and one file on a
+  // case-insensitive filesystem — writing one and unlinking the "other"
+  // deleted the photo that had just been written (review finding).
+  const file = await upload('IMG_4821.JPG', await photo(2400, 1800));
+  await run({ file });
+
+  assert.equal(file.filename, 'IMG_4821.jpg');
+  assert.equal(fs.existsSync(file.path), true, 'the resized photo must still exist');
+  assert.equal((await sharp(file.path).metadata()).width, MAX_EDGE);
+});
+
+test('the colour profile survives the re-encode', async () => {
+  // iPhones shoot Display-P3. Dropping the profile leaves P3 numbers to be
+  // read as sRGB — a duller, shifted photo, invisible to every other
+  // assertion here and obvious to whoever took it (review finding).
+  const wide = await sharp({
+    create: { width: 2200, height: 1400, channels: 3, background: '#c8842a' },
+  })
+    .withIccProfile('p3')
+    .jpeg()
+    .toBuffer();
+  const file = await upload('wide-gamut.jpg', wide);
+  await run({ file });
+
+  assert.ok((await sharp(file.path).metadata()).icc, 'the ICC profile should still be attached');
+});
+
+test('no temp file survives a run', async () => {
+  const file = await upload('leftovers.jpg', await photo(2000, 2000));
+  await run({ file });
+
+  assert.deepEqual(fs.readdirSync(dir).filter((n) => n.endsWith('.part')), []);
 });
 
 test('the pending prefix survives the rename', async () => {

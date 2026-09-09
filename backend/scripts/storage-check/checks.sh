@@ -78,6 +78,26 @@ code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/users/me/avatar" -H "A
 check "second upload -> 200" 200 "$code"
 SECOND=$(basename "$(j .avatar_url)")
 check "the new object is in the bucket" yes "$(has_key "$SECOND")"
+# The old photo has to go, on disk and in the bucket: it stayed publicly
+# fetchable at its /uploads URL forever, and account deletion only ever
+# cleaned up the LAST avatar (review finding).
+check "the replaced object left the bucket" no "$(has_key "$FILE")"
+check "…and its cached copy is gone" no "$([ -f "$UPLOADS/$FILE" ] && echo yes || echo no)"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$AVATAR")
+check "…so the old url is a 404" 404 "$code"
+
+echo "== a transparent logo is not flattened onto black"
+node -e "require('sharp')({create:{width:600,height:600,channels:4,background:{r:200,g:130,b:40,alpha:0}}}).png().toFile(process.argv[1]).then(()=>{})" /tmp/pati-storage-logo.png
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/users/me/avatar" -H "Authorization: Bearer $JWT" -F "photo=@/tmp/pati-storage-logo.png;type=image/png")
+check "a png avatar -> 200" 200 "$code"
+LOGO=$(basename "$(j .avatar_url)")
+check "…stayed a png" png "${LOGO##*.}"
+check "…and is in the bucket under that name" yes "$(has_key "$LOGO")"
+SECOND="$LOGO"
+
+echo "== a malformed url is a Turkish 404, not a 500"
+code=$(curl -s -o "$BODY" -w '%{http_code}' "${API%/api}/uploads/%zz")
+check "bad percent-escape -> 404" 404 "$code"
 
 echo "== cleanup"
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X DELETE "$API/users/me" -H "Authorization: Bearer $JWT" -H 'Content-Type: application/json' -d '{"password":"parola1234"}')

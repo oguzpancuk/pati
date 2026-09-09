@@ -3027,3 +3027,62 @@ the next docs touch.
   `.claude/hooks/verify.sh`. It exits 0 today, so adding it would cost
   nothing and would catch the next unused import — but it is a change to
   the gate that blocks pushes, which is the owner's call.
+
+### Same night — what the review found in the photo work
+
+Thirteen findings on the two photo commits; twelve are fixed, one is
+scoped and written down instead.
+
+- **The resizer deleted uppercase-extension uploads.** `IMG_4821.JPG` and
+  `IMG_4821.jpg` are two different strings and the *same file* on a
+  case-insensitive filesystem: the code wrote the resized bytes to the
+  lowercase name and then unlinked "the original", which was the same
+  inode. Silent data loss on macOS — where this project's screenshot
+  verification runs. It writes through a temp file now and unlinks before
+  renaming, and a test uploads `IMG_4821.JPG` on purpose.
+- **A transparent PNG came out black.** JPEG has no alpha and sharp fills
+  it with black, so a sponsor's logo — the one surface with a paying
+  customer — and any avatar uploaded as a transparent PNG would have gone
+  from correct to a black tile. An image with alpha stays a PNG now.
+- **The colour profile was being stripped.** iPhones shoot Display-P3;
+  without the profile those numbers get read as sRGB and the photo comes
+  out duller and shifted than the one the user took. `.keepIccProfile()`,
+  pinned by a test.
+- **Publish moved ahead of the first row in the care-photo flow.** It used
+  to run inside the insert loop, so a bucket that refused the SECOND photo
+  left the user a carer, looking at an error, with photo one already in the
+  gallery and its file stranded under a final name the pending sweeper
+  never looks at — and the obvious retry added photo one twice. Both files
+  are renamed and published first, and a failure puts them back under the
+  pending prefix and out of the bucket.
+- **Replacing an avatar never dropped the old photo.** It stayed fetchable
+  at its `/uploads/…` URL forever, and account deletion only ever cleaned
+  up the last one — against the sentence two lines above it in the same
+  function. Any previous uploaded avatar now goes, on disk and in the
+  bucket, whether it is replaced by another photo or by a built-in face.
+  The harness section that claimed to test this asserted only that the NEW
+  object existed: a green check for behaviour that did not exist.
+- Smaller ones: `/uploads/%zz` was a 500 with an English "URI malformed"
+  (the decode is guarded, and it is a 404 like any other missing name);
+  `publish` read the local file outside its own try, so a missing file
+  surfaced as a raw ENOENT instead of the Turkish 503 the catch exists for;
+  the object's `Content-Type` was hardcoded to JPEG; the cache-fill temp
+  file was named after the pid, which two concurrent requests in one
+  process share; the admin's care-action delete removed the row and left
+  the photo (the user-facing delete has always removed both), and
+  `purge-demo` unlinked locally without touching the bucket; failed inserts
+  left published objects the `/uploads` fallback would happily keep
+  serving.
+- The `/uploads` fallback also got a per-IP brake. Only a cache MISS
+  reaches it — a normal reader is served by `express.static` before it — so
+  it never sees honest traffic, but uncapped it was a way for anyone to run
+  up an R2 bill with a loop over random names.
+- **Scoped rather than fixed: a bucket does not yet buy a second machine.**
+  The deploy notes said it lifted the one-machine limit. It does not: the
+  care-photo check and the add-animal match hand a file from one request to
+  the next by name on the local volume (`redeemPhotoToken`), and the AI's
+  comparison reads gallery files from disk, failing open when they are
+  absent. On two machines about half of all photo confirmations would fail,
+  telling the user to re-shoot a photo that was fine. The docs say "keep
+  the machine count at 1" now, and the roadmap carries what closing it
+  would take.
