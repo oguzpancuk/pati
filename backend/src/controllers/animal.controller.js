@@ -156,8 +156,9 @@ async function listAnimals(req, res, next) {
     }
     const { limit, offset } = pageParams(req.query);
     const speciesFilter = species ? 'AND a.species = $SPECIES' : '';
-    // The showcase world is one switch: when it is off, no demo animal is
-    // listed anywhere (owner, 2026-09-09).
+    // Discovery only: a demo animal is not LISTED for someone who switched
+    // the showcase off, but one they navigate to still opens (the rule is in
+    // utils/settings.js).
     const hideDemo = await demoFilter(req, 'a');
 
     // The parsed numbers decide the branch, not the raw strings: a blank
@@ -1206,7 +1207,7 @@ async function addVaccination(req, res, next) {
 
 const COMMENT_SELECT_SQL = `
   SELECT c.id, c.body, c.created_at, c.health_record_id,
-         u.id AS user_id, u.name AS user_name, u.avatar_url,
+         u.id AS user_id, u.name AS user_name, u.avatar_url, u.is_demo AS user_is_demo,
          h.record_type AS health_record_type, h.description AS health_record_description
   FROM animal_comments c
   JOIN users u ON u.id = c.user_id
@@ -1241,11 +1242,7 @@ async function listComments(req, res, next) {
         params
       ),
       pool.query(
-        // Counted through the same filter as the page, or "daha fazla" would
-        // promise comments the reader can never be shown.
-        `SELECT count(*)::int AS count FROM animal_comments c
-         JOIN users u ON u.id = c.user_id
-         WHERE c.animal_id = $1 ${filter}`,
+        `SELECT count(*)::int AS count FROM animal_comments c WHERE c.animal_id = $1 ${filter}`,
         countParams
       ),
     ]);

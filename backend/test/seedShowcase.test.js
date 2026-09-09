@@ -191,23 +191,42 @@ function datedRows(plan) {
   ];
 }
 
-test('nothing talks about the cold outside the cold months', () => {
-  // A January `now`: history reaches back to December, so both cold and warm
-  // dates are in play and the assertion has something to bite on.
-  const { plan } = samplePlan(new Date('2027-01-20T12:00:00Z'));
-  const rows = datedRows(plan);
-  assert.ok(
-    rows.some((r) => COLD_WORDS.test(r.body)),
-    'a winter plan should produce at least one cold-weather line'
-  );
-  for (const row of rows) {
-    if (COLD_WORDS.test(row.body)) {
-      assert.ok(
-        isColdAt(row.at),
-        `"${row.body}" is dated ${row.at.toISOString()}, which is not a cold month`
-      );
+// EARLY APRIL is the date that bites, and the only one that does: history
+// then reaches back into March, so a cold line is available and a plan that
+// asks the season of the wrong thing — the group's creation date, the
+// friendship's date, the machine clock — stamps it onto an April row. A
+// January `now` cannot fail (everything is cold) and an August one produces
+// no cold line at all; a test at either date passes against the very code it
+// exists to catch (review finding).
+// A cold line on a warm date is rare — the reviewer's probe found 18 rows in
+// 66.492 — so a single district on a single date proves nothing: the earlier
+// version of this test passed against the very code it was written to catch.
+// The sweep is what bites: every district, across the two week-long windows
+// where a 30-day history straddles the season boundary. It costs ~0.3 s and
+// found 18 violations against the pre-fix planner, 0 against this one.
+test('no district plans a cold-weather line onto a warm date', () => {
+  const districts = seed.selectDistricts(seed.loadDistricts(), 'all');
+  const dates = [];
+  for (let d = 1; d <= 12; d += 1) {
+    dates.push(new Date(`2027-04-${String(d).padStart(2, '0')}T12:00:00Z`));
+    dates.push(new Date(`2026-11-${String(d).padStart(2, '0')}T12:00:00Z`));
+  }
+  let coldSeen = 0;
+  for (const now of dates) {
+    for (const district of districts) {
+      const plan = seed.planDistrict(district, { users: 12, base: 'https://x.test' }, now);
+      for (const row of datedRows(plan)) {
+        if (!COLD_WORDS.test(row.body)) continue;
+        coldSeen += 1;
+        assert.ok(
+          isColdAt(row.at),
+          `${district.key} planned "${row.body}" onto ${row.at.toISOString()}`
+        );
+      }
     }
   }
+  // Without this the sweep would pass by producing no cold line at all.
+  assert.ok(coldSeen > 0, 'the sweep should produce cold-weather lines on cold dates');
 });
 
 test('an August plan mentions the cold nowhere', () => {
@@ -218,11 +237,30 @@ test('an August plan mentions the cold nowhere', () => {
 });
 
 // A plan must be a function of (seed, now) — not of the seeding machine's
-// time zone, which `getMonth()` would have made it (review finding).
-test('the season is decided in UTC', () => {
-  const boundary = new Date('2026-11-01T02:00:00Z');
-  assert.strictEqual(isColdAt(boundary), true);
-  assert.strictEqual(isColdAt(new Date('2026-10-31T22:00:00Z')), false);
+// time zone. Asserting that from inside this process proves nothing: it
+// passes trivially wherever the ambient zone is already UTC, which is CI and
+// the Fly machine (review finding). Two child processes with opposite zones
+// are the only honest form.
+test('a plan does not depend on the seeding machine time zone', () => {
+  const { execFileSync } = require('node:child_process');
+  const script = `
+    const seed = require(${JSON.stringify(require.resolve('../scripts/seed-showcase'))});
+    const district = seed.selectDistricts(seed.loadDistricts(), 'all')
+      .find((d) => d.key === 'Ankara/Çankaya');
+    const plan = seed.planDistrict(district, { users: 12, base: 'https://x.test' },
+      new Date('2027-04-05T12:00:00Z'));
+    const bodies = [
+      ...plan.comments.map((c) => c.body),
+      ...plan.group.messages.map((m) => m.body),
+      ...plan.directs.flatMap((d) => d.messages.map((m) => m.body)),
+    ];
+    process.stdout.write(require('node:crypto').createHash('sha1')
+      .update(bodies.join('|')).digest('hex'));
+  `;
+  const run = (TZ) =>
+    execFileSync(process.execPath, ['-e', script], { env: { ...process.env, TZ } }).toString();
+  assert.strictEqual(run('UTC'), run('Pacific/Kiritimati'));
+  assert.strictEqual(run('UTC'), run('America/Anchorage'));
 });
 
 test('a group opens with its creator, and never with a joiner greeting', () => {

@@ -253,9 +253,12 @@ export default function PublicProfileScreen({ route, navigation }: any) {
           >
             <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={44} />
             <View style={styles.animalText}>
-              <Text variant="subheading" numberOfLines={1}>
-                {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
-              </Text>
+              <View style={styles.nameWrap}>
+                <Text variant="subheading" numberOfLines={1} style={styles.name}>
+                  {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
+                </Text>
+                <DemoChip visible={animal.is_demo === true} />
+              </View>
               <Text variant="caption" numberOfLines={1}>
                 {animal.breed ?? 'Türü belirtilmemiş'}
               </Text>

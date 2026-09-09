@@ -115,6 +115,9 @@ const FRESH_HOURS = { food: 3.5, water: 5.5 };
  * generate-demo-care-photos.mjs.
  */
 const carePhoto = (base, type) => `${base}/demo/care/${type}.png`;
+
+/** The longest a seeded one-to-one chat can run: 5 lines, 220 minutes apart. */
+const DM_MAX_SPAN_MS = 5 * 220 * 60_000;
 const EMAIL_DOMAIN = 'pati.demo';
 const MS_DAY = 86_400_000;
 const MS_HOUR = 3_600_000;
@@ -605,10 +608,11 @@ function planDistrict(district, { users: userCount, base }, now) {
   for (const friendship of friendships) {
     if (friendship.status !== 'accepted' || !chance(rng, 0.15)) continue;
     let at = noLaterThan(new Date(friendship.at.getTime() + int(rng, 1, 10) * MS_HOUR), now);
-    // A winter script only when the conversation ITSELF happens in winter —
-    // its messages run days after the friendship, so the start of the chat is
-    // what decides, not the friendship's date (review finding).
-    const topics = isColdAt(at) ? [...DM_TOPICS, ...COLD_DM_TOPICS] : DM_TOPICS;
+    // A winter script only when the WHOLE chat is in winter: its lines run up
+    // to 18 h past the first, so asking only the start put cold lines on 1
+    // April (review finding). DM_MAX_SPAN_MS bounds that: 5 lines × 220 min.
+    const cold = isColdAt(at) && isColdAt(new Date(at.getTime() + DM_MAX_SPAN_MS));
+    const topics = cold ? [...DM_TOPICS, ...COLD_DM_TOPICS] : DM_TOPICS;
     const script = pick(rng, topics);
     const lines = script.slice(0, int(rng, 3, script.length));
     const messages = lines.map((body, i) => {
@@ -638,7 +642,8 @@ function planDistrict(district, { users: userCount, base }, now) {
       groupAt = noLaterThan(new Date(groupAt.getTime() + int(rng, 30, 40 * 60) * 60_000), now);
       // A cold line takes a slot only when its own moment is cold.
       const cold = isColdAt(groupAt) && coldPool.length > 0 && chance(rng, 0.15);
-      return { body: cold ? coldPool.pop() : body, sender: pick(rng, groupMembers), at: groupAt };
+      const line = cold ? coldPool.splice(int(rng, 0, coldPool.length - 1), 1)[0] : body;
+      return { body: line, sender: pick(rng, groupMembers), at: groupAt };
     }),
   ];
   const group = {

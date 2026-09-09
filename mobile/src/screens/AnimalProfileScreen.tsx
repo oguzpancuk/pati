@@ -733,6 +733,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                   <Text variant="bodyStrong" numberOfLines={1} style={styles.commentAuthor}>
                     {comment.user_name}
                   </Text>
+                  <DemoChip visible={comment.user_is_demo === true} />
                   <Text variant="micro">{formatDate(comment.created_at)}</Text>
                   <ReportLink targetType="comment" targetId={comment.id} />
                 </View>
@@ -946,6 +947,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                       <Text variant="bodyStrong" numberOfLines={1} style={styles.commentAuthor}>
                         {comment.user_name}
                       </Text>
+                      <DemoChip visible={comment.user_is_demo === true} />
                       <Text variant="micro">{formatDate(comment.created_at)}</Text>
                     </View>
                     <Text variant="body">{comment.body}</Text>

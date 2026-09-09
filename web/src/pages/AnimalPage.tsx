@@ -729,6 +729,7 @@ export default function AnimalPage() {
           <div className="grow">
             <div className="row" style={{ gap: 6 }}>
               <strong style={{ fontSize: 14 }}>{c.user_name}</strong>
+              {c.user_is_demo && <span className="demo-chip">demo</span>}
               <span className="subtle">{formatDate(c.created_at)}</span>
               <span className="grow" />
               <ReportLink targetType="comment" targetId={c.id} />
@@ -1078,7 +1079,10 @@ export default function AnimalPage() {
                   <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={30} />
                   <div className="grow">
                     <div className="row" style={{ justifyContent: 'space-between' }}>
-                      <strong style={{ fontSize: 14 }}>{c.user_name}</strong>
+                      <div className="name-with-chip">
+                        <strong style={{ fontSize: 14 }}>{c.user_name}</strong>
+                        {c.user_is_demo && <span className="demo-chip">demo</span>}
+                      </div>
                       <span className="subtle">{formatDate(c.created_at)}</span>
                     </div>
                     <div style={{ fontSize: 14 }}>{c.body}</div>

@@ -926,8 +926,9 @@ Two owner decisions arrived mid-build and supersede the original plan:
   partial indexes; `users.show_demo`, mirrored into 001 without the
   indexes), `utils/settings.js` (cached preference, `demoFilter(req,
   alias)`), the filter applied to the care list/status, the animal
-  list/near/match, the leaderboard, user search and notifications,
-  `PUT /users/me/show-demo`, and the toggle on BOTH profiles. The public
+  list/near/match, user search and notifications (the leaderboard needs no
+  filter — see the next bullet), `PUT /users/me/show-demo`, and the toggle
+  on BOTH profiles. The public
   map and drop routes took a new `identifyUser` middleware: without a
   parsed token they could not honour a signed-in visitor's choice. Demo
   rows wear a chip on the animal profile, the public profile and the

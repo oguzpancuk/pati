@@ -27,6 +27,7 @@ import { mapStyles } from '../map/styles';
 import { badgeProgressText, badgeTitle } from '../badges';
 import { mergeById } from '../paging';
 import AnimalAvatar from '../components/AnimalAvatar';
+import DemoChip from '../components/DemoChip';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { AvatarPickerModal } from '../components/avatars';
 import { BadgeSymbol } from '../components/badges';
@@ -533,9 +534,12 @@ export default function UserProfileScreen({ navigation, route }: any) {
               size={44}
             />
             <View style={styles.animalText}>
-              <Text variant="subheading" numberOfLines={1}>
-                {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
-              </Text>
+              <View style={styles.animalNameRow}>
+                <Text variant="subheading" numberOfLines={1} style={styles.animalName}>
+                  {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
+                </Text>
+                <DemoChip visible={animal.is_demo === true} />
+              </View>
               <Text variant="caption" numberOfLines={1}>
                 {animal.breed ?? 'Türü belirtilmemiş'}
               </Text>
@@ -988,6 +992,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginTop: spacing.lg,
   },
   demoText: { flex: 1 },
+  animalNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  animalName: { flexShrink: 1 },
   logout: { marginTop: spacing.xxl, alignSelf: 'center' },
   legal: { marginTop: spacing.md, marginBottom: spacing.lg, alignSelf: 'center' },
 }));

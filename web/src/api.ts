@@ -226,6 +226,8 @@ export interface ProfileAnimal {
   breed: string | null;
   created_at: string;
   cover_photo_url: string | null;
+  /** Showcase (demo) row: the clients mark it with a chip. */
+  is_demo?: boolean;
 }
 
 export interface PublicProfile {
@@ -376,6 +378,8 @@ export interface AnimalComment {
   user_id: number;
   user_name: string;
   avatar_url: string | null;
+  /** The comment's author is a showcase account. */
+  user_is_demo?: boolean;
   health_record_type: 'illness' | 'injury' | null;
   health_record_description: string | null;
 }

@@ -207,7 +207,7 @@ async function clearAvatar(req, res, next) {
 // yorum" next to a gold comment badge (review finding). See
 // utils/settings.js for where the filter does belong.
 const CARED_ANIMALS_SQL = `
-  SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at,
+  SELECT a.id, a.species, a.name, a.color, a.breed, a.markings, a.created_at, a.is_demo,
          ST_AsGeoJSON(a.location)::json AS location,
          ${COVER_COLUMNS}
   FROM animals a

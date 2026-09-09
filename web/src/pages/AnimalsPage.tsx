@@ -158,7 +158,10 @@ export default function AnimalsPage() {
             size={48}
           />
           <div className="grow">
-            <strong>{animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
+            <div className="name-with-chip">
+              <strong>{animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
+              {animal.is_demo && <span className="demo-chip">demo</span>}
+            </div>
             <div className="muted">
               {animal.breed ?? 'Türü belirtilmemiş'}
               {formatDistance(animal.distance_meters)}

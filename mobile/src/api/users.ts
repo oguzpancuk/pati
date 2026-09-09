@@ -108,6 +108,8 @@ export interface ProfileAnimal {
   breed: string | null;
   created_at: string;
   cover_photo_url: string | null;
+  /** Showcase (demo) row: the clients mark it with a chip. */
+  is_demo?: boolean;
 }
 
 export interface PublicProfile {

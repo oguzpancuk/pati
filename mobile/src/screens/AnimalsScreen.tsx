@@ -8,6 +8,7 @@ import { mergeById } from '../paging';
 import { Button, Card, Chip, EmptyState, Screen, Text } from '../components/ui';
 import AnimalAvatar from '../components/AnimalAvatar';
 import { BadgeSymbol } from '../components/badges';
+import DemoChip from '../components/DemoChip';
 import { Icon } from '../components/brand';
 import { makeStyles, spacing, useTheme } from '../theme';
 
@@ -157,9 +158,12 @@ export default function AnimalsScreen({ navigation }: any) {
               size={52}
             />
             <View style={styles.rowText}>
-              <Text variant="subheading" numberOfLines={1}>
-                {item.name ?? (item.species === 'cat' ? 'Kedi' : 'Köpek')}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text variant="subheading" numberOfLines={1} style={styles.name}>
+                  {item.name ?? (item.species === 'cat' ? 'Kedi' : 'Köpek')}
+                </Text>
+                <DemoChip visible={item.is_demo === true} />
+              </View>
               <Text variant="caption" numberOfLines={1}>
                 {item.breed ?? 'Türü belirtilmemiş'} · {formatDistance(item.distance_meters)}
               </Text>
@@ -213,6 +217,8 @@ const useStyles = makeStyles(({ colors: c }) => ({
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
   rowText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  name: { flexShrink: 1 },
   badgeRow: { flexDirection: 'row', gap: 4, marginTop: 4 },
   footer: { paddingVertical: spacing.lg, alignItems: 'center' },
 }));

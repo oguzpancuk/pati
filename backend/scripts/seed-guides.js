@@ -649,6 +649,43 @@ async function demoUserIds() {
   return res.rows.map((r) => r.id);
 }
 
+/**
+ * Marks everything this seed made as part of a bot world.
+ *
+ * The guides ARE bots — the names say so ("… · pati rehberi") — and since
+ * 2026-09-09 every bot row carries `is_demo`: that is what keeps them off the
+ * leaderboard for everyone ("botlar sıralamada gözükmesin") and out of the
+ * map, the lists and the search of anyone who switched the showcase world off
+ * in their profile. Run at the end of a seed and of every hourly refresh, and
+ * scoped by the same `@pati.demo` domain the accounts are created under, so a
+ * row this script did not write is never touched. Idempotent by shape: the
+ * `NOT is_demo` guard makes a second run a no-op.
+ */
+async function flagGuideWorld(db = pool) {
+  const like = `%@${DEMO_EMAIL_DOMAIN}`;
+  await db.query('UPDATE users SET is_demo = true WHERE email LIKE $1 AND NOT is_demo', [like]);
+  for (const sql of [
+    `UPDATE animals a SET is_demo = true FROM users u
+      WHERE u.id = a.created_by AND u.is_demo AND NOT a.is_demo`,
+    `UPDATE animal_photos p SET is_demo = true FROM animals a
+      WHERE a.id = p.animal_id AND a.is_demo AND NOT p.is_demo`,
+    `UPDATE care_actions c SET is_demo = true FROM users u
+      WHERE u.id = c.user_id AND u.is_demo AND NOT c.is_demo`,
+    `UPDATE animal_comments c SET is_demo = true FROM users u
+      WHERE u.id = c.user_id AND u.is_demo AND NOT c.is_demo`,
+    `UPDATE health_records h SET is_demo = true FROM animals a
+      WHERE a.id = h.animal_id AND a.is_demo AND NOT h.is_demo`,
+    `UPDATE vaccinations v SET is_demo = true FROM animals a
+      WHERE a.id = v.animal_id AND a.is_demo AND NOT v.is_demo`,
+    `UPDATE user_animal_care uac SET is_demo = true FROM users u
+      WHERE u.id = uac.user_id AND u.is_demo AND NOT uac.is_demo`,
+    `UPDATE animal_followers af SET is_demo = true FROM users u
+      WHERE u.id = af.user_id AND u.is_demo AND NOT af.is_demo`,
+  ]) {
+    await db.query(sql);
+  }
+}
+
 // ---------------------------------------------------------------- --refresh
 // The map green fades in 4/6 hours (food/water), so a month of history does
 // NOT keep the map green. This mode drops fresh food/water, dated within the
@@ -690,6 +727,8 @@ async function refreshGuides({ quiet = false } = {}) {
      VALUES __VALUES__`,
     rows
   );
+  // The hourly refresh writes new rows, so they need the flag too.
+  await flagGuideWorld();
   if (!quiet) console.log(`Added ${rows.length} fresh food/water actions.`);
   return rows.length;
 }

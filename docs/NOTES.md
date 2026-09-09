@@ -2832,3 +2832,37 @@ the next docs touch.
   time zone, which contradicts its own determinism test). The seasonal test
   now plans a JANUARY world, so it asserts that cold lines appear at all —
   at the old September date the loop body never ran.
+
+### Same day — the guide world was a bot world nobody had flagged
+
+- The seventh review round found the real production hole. `seed-guides.js`
+  has been putting "… · pati rehberi" accounts, their animals and their
+  food/water on production since long before `is_demo` existed, and
+  `DEMO_GUIDE_REFRESH=1` adds fresh drops **every hour**. Nothing marked
+  them, so the switch never hid them — and they held real leaderboard
+  ranks, which is exactly what the owner ruled out. Both bot worlds sign
+  their accounts with an `@pati.demo` address, so that is the handle:
+  `flagGuideWorld()` runs at the end of every seed and every hourly
+  refresh, and `012_guide_world_is_demo.sql` backfills what production
+  already has (claimed through `schema_backfills`, since re-running it
+  would undo a deliberate un-flagging). Locally: 370 guide accounts and
+  7.586 of their drops flagged, the board 1.166 → 796, no "rehberi" in the
+  top 200.
+- The seasonal tests were passing against the code they were written to
+  catch — twice in a row. A cold line on a warm date is rare (18 rows in
+  66.492), so one district on one date proves nothing. The test is a sweep
+  now: every district across the two week-long windows where a 30-day
+  history straddles the season boundary, ~0.3 s, and it fails against the
+  previous commit's planner. The DM path had the same bug the group path
+  did — a chat runs up to 18 h past its first message, so both ends have to
+  be in winter for a winter script.
+- `demoFilter`'s call sites are pinned by a source scan
+  (`demoVisibility.test.js`). Six rounds moved that filter around; the rule
+  is a statement about which call sites exist, so that is what the test
+  asserts.
+- The chip the rule leans on now exists where a demo row can actually be
+  met: the animal list, the profile animal cards (own and public) and
+  comment authors, on both clients — next to the animal and user profiles
+  that already had it. Drops are deliberately unmarked: the owner asked for
+  users and animals to be recognisable, and a map marker cannot carry a
+  chip.

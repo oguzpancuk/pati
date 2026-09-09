@@ -215,7 +215,10 @@ export default function UserProfilePage() {
           >
             <AnimalAvatar species={a.species} breed={a.breed} photoUrl={a.cover_thumb_url} size={44} />
             <div className="grow">
-              <strong>{a.name ?? (a.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
+              <div className="name-with-chip">
+                <strong>{a.name ?? (a.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
+                {a.is_demo && <span className="demo-chip">demo</span>}
+              </div>
               <div className="muted">{a.breed ?? 'Türü belirtilmemiş'}</div>
             </div>
             <span className="subtle">›</span>

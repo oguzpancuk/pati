@@ -92,6 +92,8 @@ export interface AnimalComment {
   user_id: number;
   user_name: string;
   avatar_url: string | null;
+  /** The comment's author is a showcase account. */
+  user_is_demo?: boolean;
   health_record_type: HealthRecordType | null;
   health_record_description: string | null;
 }
