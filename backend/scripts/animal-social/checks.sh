@@ -70,7 +70,7 @@ echo "== accounts and the throwaway animal"
 # by the address pattern and the name at this spot).
 LEFT=$(psql_db "SELECT count(*) FROM animals WHERE name LIKE 'Harness Kedisi%'")
 if [ "$LEFT" != 0 ]; then
-  psql_db "DELETE FROM animals WHERE name LIKE 'Harness Kedisi%'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|bakicia|ikinci|tekatis|sonradan|esanli)-[0-9]+@stray\.test$';" >/dev/null
+  psql_db "DELETE FROM animals WHERE name LIKE 'Harness Kedisi%'; DELETE FROM users WHERE email ~ '^(sahip|takipci|bakici|bakicia|ikinci|tekatis|sonradan|esanli)-[0-9]+@example\.com$';" >/dev/null
   echo "        (swept $LEFT leftover animal(s) of an earlier aborted run)"
 fi
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/auth/login" -H 'Content-Type: application/json' -d '{"email":"test1@stray.test","password":"password123"}')

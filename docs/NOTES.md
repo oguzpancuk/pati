@@ -2894,3 +2894,27 @@ the next docs touch.
   by the next seed and deleted by `purge-demo`.
 - Chips reached the last two surfaces a bot can be met on: user search and
   the friend finder.
+
+### Same day — the push gate earned its keep twice
+
+- Reserving `@stray.test` at registration broke the two backend e2e
+  harnesses: they create their accounts through `POST /auth/register` at
+  that domain, so every run would have died on a 400 with its assertions
+  failing under the wrong names. The addresses they CREATE moved to
+  `example.com`; the seeded `test1@stray.test` they only log in as stays,
+  since `seed-demo.js` writes it directly. Both harnesses then passed with
+  the guard live: animal-social 124/124, messaging-check 99/99.
+- The second gate round caught what the first fix missed: the sweep that
+  cleans up after an ABORTED run still matched `@stray.test`, so leftover
+  accounts would have been unreachable by it AND by `purge-demo` (which
+  only knows the two bot domains). It matches `@example.com` now.
+- Corrections to the two entries above, which the record should carry
+  rather than quietly outgrow: **both** bot domains are reserved at
+  registration, not only `@pati.demo`; the chip reached four surfaces, not
+  "the last two" — search, the friend finder, the friend list and incoming
+  requests, the last two of which no seeded state can produce today (the
+  seed writes only bot-to-bot friendships and a bot never answers a
+  request), so they are defensive and unverified. Migration 012 claims the
+  sentinel `012_guide_world_is_demo_v2`: its first version keyed three
+  tables on the animal instead of the author, and a database that claimed
+  the old name has to be able to run the corrected one.

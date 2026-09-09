@@ -919,6 +919,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   friendRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    // Without it the demo chip renders flush against the chevron (review
+    // finding); the name's own marginRight only spaces what precedes it.
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   careMapWrapper: {
