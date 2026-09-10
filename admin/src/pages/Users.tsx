@@ -28,6 +28,16 @@ function canDelete(user: AdminUser, meId: number | undefined) {
   return !isDeleted(user) && user.role !== 'admin' && user.id !== meId;
 }
 
+/**
+ * `updateUser` refuses a tombstone outright, and refuses BOTH fields this
+ * modal can send — role and suspension — on your own row ("Kendi rolünüzü
+ * veya durumunuzu değiştiremezsiniz"). Offering the button in either case
+ * is the same dead button as before, one file later.
+ */
+function canEdit(user: AdminUser, meId: number | undefined) {
+  return !isDeleted(user) && user.id !== meId;
+}
+
 const ROLE_LABELS: Record<AdminUser['role'], string> = {
   admin: 'Yönetici',
   vet: 'Veteriner',
@@ -129,12 +139,10 @@ export default function Users() {
                 <td className="num">{user.last_points}</td>
                 <td className="num muted">{formatDate(user.created_at)}</td>
                 <td className="actions">
-                  {!isDeleted(user) && (
-                    <>
-                      <button className="small" onClick={() => setEditing(user)}>
-                        Düzenle
-                      </button>{' '}
-                    </>
+                  {canEdit(user, me?.id) && (
+                    <button className="small" onClick={() => setEditing(user)}>
+                      Düzenle
+                    </button>
                   )}
                   {canDelete(user, me?.id) && (
                     <button className="small danger" onClick={() => setDeleting(user)}>

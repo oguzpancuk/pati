@@ -3325,3 +3325,30 @@ made the NOTES citation for the web location message wrong. It does touch
 `web/src/pages/MapPage.tsx` — the reviewer's own diffstat had been
 truncated by a `head`, and the second review caught its mistake. The
 citation stands.
+
+### Same day — the dead button, one file later
+
+The third review of the tombstone work found the same defect the previous
+round had just fixed, one row over: "Düzenle" was still offered on the
+admin's OWN row, where `updateUser` refuses both fields the modal can send
+("Kendi rolünüzü veya durumunuzu değiştiremezsiniz"). Same dialog, same
+banner error, same class of button that cannot do anything.
+
+The lesson is in the shape rather than the fix. Twice now the rule was
+written as "hide the button in the case I was told about" instead of "offer
+the button exactly where the server accepts it". The panel has two
+predicates now, `canEdit` and `canDelete`, and each names the server checks
+it mirrors — so the next person who adds a refusal in `admin.controller.js`
+has somewhere obvious to add its twin.
+
+Also dropped the `{' '}` separator between the two buttons. The first
+version of this note claimed the text node "only mattered on rows where
+exactly one button rendered" — that was wrong, and the review caught it:
+`td.actions` is an ordinary table cell, not a flex container, so the
+whitespace rendered between two inline-block buttons as well. The gap on a
+two-button row was the 6 px margin from `td.actions button + button` PLUS
+a word space; it is 6 px alone now. Measured in the panel afterwards: every
+row's last button sits exactly 12 px from the cell's right edge, one button
+or two, so the column no longer drifts by row kind. Small — but visual
+drift is this project's named escape class, which is why it was worth
+measuring instead of asserting.
