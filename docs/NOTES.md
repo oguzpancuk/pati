@@ -3499,3 +3499,29 @@ having done nothing, that its report could be truncated away entirely, and
 that it copied content the database had forgotten. For a tool that runs
 once against production with no second chance, the report IS the product,
 and that is what each round was about.
+
+### 2026-09-10 — the privacy notice had to move before R2 did
+
+Section 4 of the KVKK notice ("Aktarım") names the third parties personal
+data reaches, and it named exactly two: Fly.io for hosting and Google LLC
+for the photo AI. Configuring an R2 bucket makes Cloudflare a third one —
+photos, including profile photos, are personal data — so the moment the
+`S3_*` secrets are set, the notice's own list stops being true.
+
+Written in the same shape as the two beside it, plus one sentence the
+architecture earns: photos are always served through `pati-app.com`, never
+from a bucket URL, so a reader's browser never contacts Cloudflare and no
+IP address of theirs reaches it. That is a real consequence of keeping the
+stored URLs at `/uploads/<file>`, and it is worth a reader knowing.
+
+Ordering matters here and the owner was told: **the text goes live before
+the secrets are set**, not after. A notice that names a processor slightly
+before data starts flowing there is over-disclosure and harmless; the
+reverse is the thing to avoid.
+
+Two smaller points: the mobile app has no copy of this text — it links to
+`pati-app.com/gizlilik` (`theme/brand.ts`), so `web/src/legal.ts` really is
+the single source and there is no parity work. And section 5's promise
+("hesabını sildiğinde profil fotoğrafın silinir") already holds against a
+bucket: `anonymizeAccount` returns the avatar's filename and the caller
+calls `storage.remove` on it after the commit.
