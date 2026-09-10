@@ -53,6 +53,18 @@ function randomAvatarValue() {
 // domain, so there is one rule and it sits where addresses are accepted.
 const RESERVED_EMAIL_DOMAINS = ['@pati.demo', '@stray.test', '@deleted.pati-app.com'];
 
+/**
+ * There are TWO doors that create a user: `register` and `socialLogin`.
+ * Reserving a domain at only one of them leaves the invariant — no LIVE
+ * account in a reserved domain — half enforced, which is what the first
+ * version of this guard did (second review of the fix). Takes a raw
+ * address and normalises it itself, so neither caller has to remember to.
+ */
+function isReservedEmail(value) {
+  const normalized = normalizeEmail(value);
+  return RESERVED_EMAIL_DOMAINS.some((domain) => normalized.endsWith(domain));
+}
+
 async function register(req, res, next) {
   try {
     const { name, email, password } = req.body;
@@ -69,7 +81,7 @@ async function register(req, res, next) {
     }
 
     const normalizedEmail = normalizeEmail(email);
-    if (RESERVED_EMAIL_DOMAINS.some((domain) => normalizedEmail.endsWith(domain))) {
+    if (isReservedEmail(normalizedEmail)) {
       return res.status(400).json({ error: 'Bu e-posta adresi kullanılamaz' });
     }
 
@@ -535,6 +547,14 @@ async function socialLogin(provider, req, res, next) {
           error: `${PROVIDER_LABELS[provider]} hesabınızın e-posta adresi doğrulanmamış; doğruladıktan sonra tekrar deneyin`,
         });
       }
+      // The other door. A provider can hand back a verified address in a
+      // reserved domain — it only needs a mailbox at a subdomain the owner
+      // controls — and it would create exactly the account the password
+      // path refuses: one the seed treats as a bot, or one the panel
+      // treats as already deleted and cannot remove.
+      if (isReservedEmail(identity.email)) {
+        return res.status(400).json({ error: 'Bu e-posta adresi kullanılamaz' });
+      }
 
       const existing = await findByEmail(identity.email);
       // Three kinds of row can hold the address. Proven → link (below).
@@ -659,6 +679,10 @@ function providers(req, res) {
 
 module.exports = {
   register,
+  // Exported for the test that pins the rule both account-creating doors
+  // share; nothing else calls it from outside.
+  isReservedEmail,
+  RESERVED_EMAIL_DOMAINS,
   login,
   verifyEmail,
   resendCooldown,

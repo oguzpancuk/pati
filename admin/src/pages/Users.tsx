@@ -1,22 +1,31 @@
 import { useState } from 'react';
 import { patiAvatarSvg } from '../patiAvatar';
 import { AdminUser, api } from '../api';
+import { useAuth } from '../auth';
 import Modal from '../components/Modal';
 import Pager from '../components/Pager';
 import { formatDate } from '../format';
 import { useList } from '../useList';
 
 /**
- * A deleted account is a tombstone, not a row: the backend anonymized it in
- * place and gave it an address in this domain, and asking to delete it
- * again can only answer 409. The list showed "Sil" on those rows anyway,
- * which put an error in the banner for a button that had nothing to do
- * (QA finding, 2026-09-10). Same rule as the server's own refusal.
+ * The three rows `deleteUser` refuses (backend/src/controllers/
+ * admin.controller.js — `isTombstone`, the own-account check and the
+ * other-admin check). Offering the button on any of them only put an error
+ * in the banner after a dialog that promised an irreversible deletion, so
+ * the list offers it exactly where the server would accept it.
+ *
+ * The domain literal is the one `backend/src/utils/accountDeletion.js`
+ * writes and `backend/scripts/purge-demo.js` reads; a change there is a
+ * change here, the way the taxonomy and the avatar art are paired.
  */
 const DELETED_DOMAIN = '@deleted.pati-app.com';
 
 function isDeleted(user: AdminUser) {
   return user.email.endsWith(DELETED_DOMAIN);
+}
+
+function canDelete(user: AdminUser, meId: number | undefined) {
+  return !isDeleted(user) && user.role !== 'admin' && user.id !== meId;
 }
 
 const ROLE_LABELS: Record<AdminUser['role'], string> = {
@@ -26,6 +35,7 @@ const ROLE_LABELS: Record<AdminUser['role'], string> = {
 };
 
 export default function Users() {
+  const { user: me } = useAuth();
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<AdminUser | null>(null);
@@ -119,10 +129,14 @@ export default function Users() {
                 <td className="num">{user.last_points}</td>
                 <td className="num muted">{formatDate(user.created_at)}</td>
                 <td className="actions">
-                  <button className="small" onClick={() => setEditing(user)}>
-                    Düzenle
-                  </button>{' '}
                   {!isDeleted(user) && (
+                    <>
+                      <button className="small" onClick={() => setEditing(user)}>
+                        Düzenle
+                      </button>{' '}
+                    </>
+                  )}
+                  {canDelete(user, me?.id) && (
                     <button className="small danger" onClick={() => setDeleting(user)}>
                       Sil
                     </button>

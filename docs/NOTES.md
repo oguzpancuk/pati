@@ -3288,3 +3288,40 @@ the two bot domains in `auth.controller.js`. `admin-check` now asserts it
 Worth noticing about the shape of this one: the UI tidy-up was cosmetic,
 and the thing it exposed was not. A rule that two layers already agreed on
 turned out to have no guard at the door they both trusted.
+
+### Same day — closing the rest of what the two reviews left
+
+The tombstone work drew two independent reviews, and between them they
+left four residuals. All are closed now, and the shape they share is worth
+naming: **each was the same rule enforced in one place out of two.**
+
+- **Both doors that create a user now check the reserved domains.**
+  `register` did; `socialLogin` inserted the provider's address verbatim,
+  with neither normalisation nor the check. A provider can only hand back a
+  verified address at a subdomain the owner controls, so nobody could reach
+  it — but the comment claiming "one rule, at the door where addresses are
+  accepted" was true of one door of two. `isReservedEmail` normalises the
+  address itself so neither caller has to remember to, and
+  `test/reservedEmails.test.js` pins it.
+- **`updateUser` refuses a tombstone the way `deleteUser` does.** Lifting
+  the suspension on an anonymized row put it back into the leaderboard's
+  candidate set as "Silinmiş Üye", and with the delete button hidden,
+  re-suspending was the only way back. Both controllers share one
+  `isTombstone` now instead of an inline regex each.
+- **The panel offers an action exactly where the server accepts one.**
+  Hiding "Sil" on tombstones fixed one of the three rows `deleteUser`
+  refuses; the other two — another admin, and your own account — still
+  showed a button whose only outcome was a banner error after a dialog
+  promising an irreversible deletion. A tombstone row now offers nothing at
+  all, which is honest: neither action is available on it.
+- **The harness cleans up the row it should never create.** The assertion
+  that registration into the tombstone domain is refused would, if the
+  guard ever regressed, leave behind exactly the account nobody can remove
+  through the panel. It is in the cleanup list now.
+
+One finding was a false alarm and the record should say so: the first
+review reported that `b38e63c` touches no `web/` file, which would have
+made the NOTES citation for the web location message wrong. It does touch
+`web/src/pages/MapPage.tsx` — the reviewer's own diffstat had been
+truncated by a `head`, and the second review caught its mistake. The
+citation stands.

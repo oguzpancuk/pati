@@ -151,6 +151,17 @@ async function listUsers(req, res, next) {
   }
 }
 
+/**
+ * The address a deleted account is renamed into (utils/accountDeletion.js
+ * writes it; scripts/purge-demo.js and the panel's `isDeleted` read it).
+ * The domain is reserved at registration, so nothing LIVE can wear it.
+ */
+const DELETED_EMAIL = /@deleted\.pati-app\.com$/;
+
+function isTombstone(email) {
+  return DELETED_EMAIL.test(email || '');
+}
+
 async function updateUser(req, res, next) {
   try {
     const targetId = Number(req.params.id);
@@ -165,11 +176,21 @@ async function updateUser(req, res, next) {
       return res.status(400).json({ error: 'Kendi rolünüzü veya durumunuzu değiştiremezsiniz' });
     }
 
-    const existing = await pool.query('SELECT id, role, suspended_at FROM users WHERE id = $1', [
-      targetId,
-    ]);
+    const existing = await pool.query(
+      'SELECT id, role, email, suspended_at FROM users WHERE id = $1',
+      [targetId]
+    );
     if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    // A tombstone is suspended BECAUSE it was deleted. Lifting that put an
+    // anonymized row back into the leaderboard's candidate set as "Silinmiş
+    // Üye" — and with the delete button hidden on those rows, re-suspending
+    // was the only way back (second review of the fix).
+    if (isTombstone(existing.rows[0].email) && (role !== undefined || suspended !== undefined)) {
+      return res
+        .status(409)
+        .json({ error: 'Silinmiş bir hesabın rolü veya durumu değiştirilemez' });
     }
 
     const updates = [];
@@ -508,7 +529,7 @@ async function deleteUser(req, res, next) {
         .json({ error: 'Bir yöneticiyi silmeden önce yetkisini kaldırın' });
     }
     // A row already anonymized has nothing left to free.
-    if (/@deleted\.pati-app\.com$/.test(existing.rows[0].email || '')) {
+    if (isTombstone(existing.rows[0].email)) {
       return res.status(409).json({ error: 'Bu hesap zaten silinmiş' });
     }
 

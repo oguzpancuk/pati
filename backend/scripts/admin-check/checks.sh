@@ -22,6 +22,7 @@ check() {
   else FAILED=1; echo "  FAIL  $1 — expected [$2] got [$3]"; echo "        body: $(head -c 300 $BODY)"; fi; }
 post() { curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$1" -H 'Content-Type: application/json' -d "$2"; }
 post_auth() { curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$1" -H "Authorization: Bearer $2" -H 'Content-Type: application/json' -d "$3"; }
+patch_auth() { curl -s -o "$BODY" -w '%{http_code}' -X PATCH "$API/$1" -H "Authorization: Bearer $2" -H 'Content-Type: application/json' -d "$3"; }
 del_auth() { curl -s -o "$BODY" -w '%{http_code}' -X DELETE "$API/$1" -H "Authorization: Bearer $2" -H 'Content-Type: application/json' -d '{}'; }
 get_auth() { curl -s -o "$BODY" -w '%{http_code}' "$API/$1" -H "Authorization: Bearer $2"; }
 j() { jq -r "$1" "$BODY"; }
@@ -87,6 +88,18 @@ echo "== nobody can register INTO the tombstone domain"
 code=$(post auth/register "{\"name\":\"Mezar Taşı\",\"email\":\"birisi@deleted.pati-app.com\",\"password\":\"$PASS_WORD\"}")
 check "registering at the tombstone domain -> 400" 400 "$code"
 check "…in Turkish" yes "$(grep -q "kullanılamaz" "$BODY" && echo yes || echo no)"
+# If the guard ever regresses this answers 201, and the row it creates is
+# one nobody can remove through the panel — so the cleanup has to know
+# about it even though it should never exist (second review of the fix).
+TOMB_ID=$(jq -r '.user.id // empty' "$BODY")
+
+echo "== a tombstone cannot be edited back to life"
+code=$(patch_auth "admin/users/$VICTIM_ID" "$ADMIN_JWT" '{"suspended":false}')
+check "un-suspending a deleted account -> 409" 409 "$code"
+check "…and it is still suspended" "Hesap yönetici tarafından silindi" \
+  "$(psql_db "SELECT suspended_reason FROM users WHERE id=$VICTIM_ID")"
+code=$(patch_auth "admin/users/$VICTIM_ID" "$ADMIN_JWT" '{"role":"vet"}')
+check "changing a deleted account's role -> 409" 409 "$code"
 
 echo "== a second deletion has nothing left to free"
 code=$(del_auth "admin/users/$VICTIM_ID" "$ADMIN_JWT")
@@ -99,9 +112,9 @@ check "…without the freed address in it" 0 \
   "$(psql_db "SELECT count(*) FROM audit_log WHERE action='user.delete' AND target_id=$VICTIM_ID AND details::text LIKE '%$VICTIM_MAIL%'")"
 
 echo "== cleanup"
-psql_db "DELETE FROM users WHERE id IN ($ADMIN_ID, $VICTIM_ID, $OTHER_ID, ${NEW_ID:-0})" >/dev/null
+psql_db "DELETE FROM users WHERE id IN ($ADMIN_ID, $VICTIM_ID, $OTHER_ID, ${NEW_ID:-0}, ${TOMB_ID:-0})" >/dev/null
 check "the throwaway accounts are gone" 0 \
-  "$(psql_db "SELECT count(*) FROM users WHERE id IN ($ADMIN_ID, $VICTIM_ID, $OTHER_ID, ${NEW_ID:-0})")"
+  "$(psql_db "SELECT count(*) FROM users WHERE id IN ($ADMIN_ID, $VICTIM_ID, $OTHER_ID, ${NEW_ID:-0}, ${TOMB_ID:-0})")"
 
 echo
 if [ "$FAILED" = 0 ]; then echo "passed $PASS checks; failed=0"; else echo "passed $PASS checks; SOME FAILED"; fi

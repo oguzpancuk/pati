@@ -520,10 +520,13 @@ Deliberately deferred, with reasons:
       user's own deletion runs (extracted to `utils/accountDeletion.js` so
       the two cannot drift), refuses the admin's own account, another
       admin, and a row already anonymized, and writes an audit entry
-      without the freed address in it. "Sil" on every row of the panel's
-      user list, with a dialog that says what actually happens. Evidence:
-      `backend/scripts/admin-check/run.sh`, 22 assertions ending in the one
-      that matters — the address registers again, as a new account.
+      without the freed address in it. The panel offers "Sil" exactly where
+      the server would accept it, with a dialog that says what actually
+      happens; a tombstone row offers nothing, since `updateUser` refuses to
+      edit one back to life too. Evidence:
+      `backend/scripts/admin-check/run.sh`, 25 assertions, the one that
+      matters being that the freed address registers again as a NEW
+      account.
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
 **Distribution:**
