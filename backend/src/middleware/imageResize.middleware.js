@@ -125,6 +125,17 @@ function resizeUploads({ maxEdge = MAX_EDGE } = {}) {
       for (const file of uploadedFiles(req)) await shrink(file, maxEdge);
       next();
     } catch (err) {
+      // Multer has already written every part to the volume, and this
+      // throws BEFORE any controller runs — so the controllers' own
+      // discard paths never get the chance, and the sweeper only knows
+      // `pending-` and `.part`. Without this each refusal parks a file
+      // nothing references and nothing reclaims: at the avatar route's
+      // 15/hour that is 150 MB an hour from one account, and the very
+      // bytes this middleware refuses in order not to publish would sit
+      // on the disk anyway (review finding).
+      for (const file of uploadedFiles(req)) {
+        await fs.promises.unlink(file.path).catch(() => {});
+      }
       next(err);
     }
   };

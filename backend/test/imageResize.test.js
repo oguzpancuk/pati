@@ -177,6 +177,16 @@ test('a file sharp cannot decode is refused, not stored as it arrived', async ()
   );
 });
 
+test('a refused upload leaves nothing on the volume', async () => {
+  // The middleware throws before any controller runs, so the controllers'
+  // own discard paths never fire and the sweeper does not know this name.
+  const file = await upload('refused.jpg', Buffer.from('not an image at all'));
+
+  await assert.rejects(() => run({ file }));
+
+  assert.equal(fs.existsSync(file.path), false, 'the rejected file must be gone');
+});
+
 test('a metadata-laden photo comes out with none of it', async () => {
   // The positive half of the same rule: what IS re-encoded carries no EXIF,
   // because sharp copies none unless asked. Only the colour profile is kept.

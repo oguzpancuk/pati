@@ -3570,3 +3570,52 @@ The storage harness gained from this rather than lost: the `.html` payload
 it used to check was stored as an inert `.bin` is now refused outright, and
 a second case was added for a REAL image with a hostile name — which does
 decode, is stored, and still cannot be served as HTML. 34 assertions.
+
+### Same day — measuring the claim instead of asserting it
+
+The review of the EXIF fix called its blocker on a sentence I had written
+into the commit message: "mobile is unaffected, react-native-image-picker
+hands us JPEG". The reviewer read the library's own Objective-C and found
+the opposite — `launchImageLibrary` asks PHPicker for the asset's NATIVE
+type, the default quality/size settings skip the re-encode branch, and
+`getFileType` sniffs one byte and falls through to `"jpg"` for anything it
+does not recognise. On that reading a HEIC arrives named `.jpg`, fails to
+decode, and my change breaks add-animal and avatar upload on every iPhone
+shooting in High Efficiency.
+
+They were right that I had asserted it rather than checked it, so I
+checked it. `sips -s format heic` on a generated JPEG, `xcrun simctl
+addmedia` into the simulator's library, then the app's own avatar flow:
+tap the avatar, "Kendi fotoğrafımı yükle", pick the HEIC. What reached the
+server was **a decodable image** — stored as a 512×384 JPEG (the avatar
+cap), no EXIF, no refusal in the log. The upload succeeded end to end on
+iOS 26.5.
+
+So the regression does not reproduce: something between PHPicker and the
+picker library hands over transcoded bytes for this asset. The honest
+limits of that measurement, which is why it is written down rather than
+declared: one asset, one iOS version, the simulator rather than a device,
+and a library import rather than a photo the camera wrote. If an iPhone
+user ever reports "bu fotoğraf biçimini okuyamadık" on a library photo,
+this is the entry to come back to — the fix would be a mobile-side
+conversion, not a server-side one.
+
+Two of the round's other findings were plainly right and are fixed:
+
+- **A refused upload used to stay on the volume forever.** The middleware
+  throws before any controller runs, so the controllers' own discard paths
+  never fired and the sweeper knows only `pending-` and `.part`. Every
+  refusal parked a file nothing referenced — and the GPS-bearing bytes the
+  change exists to not publish would have sat on the disk anyway, which is
+  a weaker property than the commit claimed. The middleware unlinks
+  everything multer wrote before rethrowing, with a test.
+- **§2 of the notice said location never reaches the server, and that was
+  false.** The care-alert job asks `GET /care-actions/status?lat&lng` every
+  thirty minutes with the session's own token while the client is open. The
+  server does not store it — the route is a read — but "gönderilmez" is a
+  statement about transmission. It now describes what actually happens,
+  says the query is not recorded, and says turning the alerts off stops it.
+  This was pre-existing text; the change is what made it load-bearing.
+- **§7's list was the web client's.** Mobile caches the profile (ad soyad,
+  e-posta, avatar) in AsyncStorage and that was missing, while three of the
+  listed items exist only in the browser. Both sides are now labelled.
