@@ -23,12 +23,13 @@
  * finding). A successful re-encode is metadata-free because sharp copies
  * none of it; the only way to be sure is to have re-encoded.
  *
- * The clients this affects: the app pins its picker to PHPicker's
+ * The clients this affects: on iOS the app pins its picker to PHPicker's
  * compatibility representation (`mobile/src/photoPicker.ts`), so what it
- * sends is a JPEG by contract rather than by Apple's discretion — camera
- * captures are JPEG regardless. The web PWA's `accept="image/*"` can still
- * produce a HEIC on Safari, and that upload gets a Turkish 400 asking for
- * a different format instead of silently publishing the photo's GPS.
+ * sends is a JPEG by contract rather than by Apple's discretion, and camera
+ * captures are JPEG regardless. Android ignores that option, so a library
+ * HEIF from an Android phone lands here — as does a HEIC from the web PWA's
+ * `accept="image/*"` on Safari. Both get a Turkish 400 asking for a
+ * different format instead of silently publishing the photo's GPS.
  */
 const crypto = require('crypto');
 const fs = require('fs');

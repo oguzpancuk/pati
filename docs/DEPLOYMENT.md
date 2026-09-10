@@ -215,8 +215,14 @@ volume becomes a cache. **Stored URLs do not change**: photos are served by
 us at `/uploads/<file>` either way, so every row already in the database
 keeps working and no migration is needed.
 
-1. Cloudflare dashboard → R2 → *Create bucket* (`pati-uploads`, region
-   Automatic). The free tier is 10 GB of storage, and R2 charges nothing
+1. Cloudflare dashboard → R2 → *Create bucket*. The live bucket is
+   `pati-upload` with **jurisdiction EU**, which is what lets the KVKK
+   notice say the photos stay in the European Union. A
+   jurisdiction-restricted bucket is reached at a DIFFERENT host —
+   `https://<account-id>.eu.r2.cloudflarestorage.com`, with the `.eu.`
+   — and addressing it at the standard host answers **Access Denied**,
+   which reads exactly like a token permission problem and cost an
+   hour on 2026-09-10. The free tier is 10 GB of storage, and R2 charges nothing
    for egress.
 2. R2 → *Manage API tokens* → *Create API token*, permission **Object Read
    & Write**, scoped to that bucket. Note the access key id, the secret and

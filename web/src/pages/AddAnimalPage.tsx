@@ -425,10 +425,16 @@ export default function AddAnimalPage() {
         setStep('results');
       }
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'photoRejected') {
-        // The model saw no cat/dog (or the other species) in one photo:
-        // that photo leaves the strip, the reason stays above the form,
-        // and the user picks another — no "add anyway" (ADR-0005).
+      if (
+        err instanceof ApiError &&
+        (err.code === 'photoRejected' || err.code === 'photoUnreadable')
+      ) {
+        // Two different reasons, one remedy. `photoRejected`: the model saw
+        // no cat/dog in a photo (ADR-0005). `photoUnreadable`: the server
+        // could not decode the file at all, so it refused the batch rather
+        // than store something whose EXIF it cannot strip. Either way the
+        // offending photo leaves the strip, the reason stays above the form,
+        // and the user picks another — no "add anyway".
         const listed = err.data.photoIndexes;
         const refused = new Set<number>(
           Array.isArray(listed) && listed.length > 0
@@ -437,10 +443,17 @@ export default function AddAnimalPage() {
         );
         setPhotos((prev) => prev.filter((_, i) => !refused.has(i)));
         setPhotoTokens([]);
+        // The advice differs even though the remedy does not: an unreadable
+        // file is a FORMAT problem, and telling the user to photograph the
+        // animal again would be wrong — the photo was fine.
+        const many = refused.size > 1;
+        const removed = `${many ? 'Bu fotoğrafları' : 'Bu fotoğrafı'} listeden kaldırdık;`;
         setError(
-          `${err.message} ${refused.size > 1 ? 'Bu fotoğrafları' : 'Bu fotoğrafı'} listeden kaldırdık; ${
-            species === 'dog' ? 'köpeğin' : 'kedinin'
-          } göründüğü ${refused.size > 1 ? 'yeni fotoğraflar' : 'bir fotoğraf'} ekle.`
+          err.code === 'photoUnreadable'
+            ? `${err.message} ${removed} ${many ? 'başka biçimde yenilerini' : 'başka biçimde bir tane'} ekle.`
+            : `${err.message} ${removed} ${species === 'dog' ? 'köpeğin' : 'kedinin'} göründüğü ${
+                many ? 'yeni fotoğraflar' : 'bir fotoğraf'
+              } ekle.`
         );
       } else {
         setError(err instanceof Error ? err.message : 'Eşleştirme yapılamadı');

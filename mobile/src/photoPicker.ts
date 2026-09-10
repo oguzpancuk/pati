@@ -16,6 +16,15 @@ import type { ImageLibraryOptions } from 'react-native-image-picker';
  * This turns the measured behaviour into a contract. The camera path needs
  * nothing: react-native-image-picker writes camera captures through
  * `CGImageDestinationCreateWithData(..., kUTTypeJPEG, ...)` regardless.
+ *
+ * **iOS only.** The option maps to a PHPicker setting and Android ignores
+ * it: there, `Utils.shouldResizeImage` is false without `maxWidth` or
+ * `quality`, so a library HEIF is forwarded untouched and meets the
+ * server's 400. That is a clear, actionable error rather than a silent
+ * leak, and Android cameras default to JPEG, so it is a known limit rather
+ * than a hole — closing it means forcing a device-side re-encode, which is
+ * a change to what every Android upload sends and deserves its own look
+ * (review finding, 2026-09-10).
  */
 export const LIBRARY_PICKER: ImageLibraryOptions = {
   mediaType: 'photo',

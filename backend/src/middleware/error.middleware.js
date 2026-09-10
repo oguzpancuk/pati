@@ -21,7 +21,16 @@ function errorHandler(err, req, res, next) {
   }
   console.error(err);
   const status = err.status || 500;
-  res.status(status).json({ error: err.message || 'Sunucu hatası' });
+  // A thrown error can carry a machine-readable reason the clients branch
+  // on, the way the controllers' own `res.json` answers do. Forwarding it
+  // is what makes a code set on a throw mean anything at all: the upload
+  // resizer's `photoUnreadable` and its `photoIndex` were being dropped
+  // here, so the batch refusal it added could not prune the strip that the
+  // client already knows how to prune (review finding).
+  const body = { error: err.message || 'Sunucu hatası' };
+  if (err.code && status < 500) body.code = err.code;
+  if (Number.isInteger(err.photoIndex)) body.photoIndex = err.photoIndex;
+  res.status(status).json(body);
 }
 
 module.exports = { notFoundHandler, errorHandler };

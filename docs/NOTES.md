@@ -3685,3 +3685,75 @@ the fix is not retroactive for files already on the volume. That last one is
 a **measurement to take before the R2 backlog is copied**, not a fix: count
 how many files on production still decode as HEIF or carry EXIF GPS. Zero
 means there is nothing to do.
+
+### 2026-09-10 — R2 is live, and what the hour it cost was actually about
+
+The bucket is on: `photos: s3 (…eu.r2.cloudflarestorage.com/pati-upload)`,
+69 of 74 files copied up, a second run reporting `already there 69`, and a
+photo still serving 200 from its unchanged `/uploads` URL. The volume is no
+longer the only copy.
+
+Getting there cost an hour to a misdiagnosis worth writing down. Every
+request answered **Access Denied**, which reads as a token permission
+problem, and the first two attempts chased that: a corrected bucket name,
+then a regenerated key. Neither helped. What settled it was asking a
+different question — not "can it write" but "can it read":
+
+    ListObjectsV2 → AccessDenied
+
+A read-only token would have listed fine. Both verbs failing means the token
+cannot see the bucket **at all**, which is not a permission shape; it is a
+scope or an address problem. The bucket had been created with **jurisdiction
+EU**, and those are reached at `<account>.eu.r2.cloudflarestorage.com` — the
+`.eu.` in the middle. R2 answers the standard host with Access Denied rather
+than "no such bucket", so the error names the wrong cause. The same probe
+against the `.eu.` host listed immediately.
+
+The lesson is the shape of the probe, not the fact: when a permission error
+resists two permission fixes, stop fixing permissions and find a question
+whose answer distinguishes the hypotheses. `docs/DEPLOYMENT.md` now names
+the `.eu.` host and this failure mode, so the next person loses minutes
+instead of an hour.
+
+One good consequence: because the bucket really is EU-locked, the KVKK
+notice no longer has to hedge. "Yurt dışındaki sunucularda" was the honest
+wording while the location was unmeasured; it now says the photos stay in
+the European Union, which is a stronger commitment and a true one.
+
+Two things behaved exactly as designed under their first real use. The
+backlog script refused to report success it had not earned — 69 failures,
+`INCOMPLETE — 69 failed`, exit 1, nothing half-copied — which is what three
+review rounds of arguing about its report were for. And the fail-closed
+upload path meant a misconfigured bucket produced a loud 503 rather than
+photos silently landing nowhere; the cost was that production uploads were
+broken for the twenty minutes it took to find the `.eu.`, which is the
+trade that design makes on purpose.
+
+### Same day — the batch refusal reaches the client now
+
+`photoIndex` and `code: 'photoUnreadable'` were being set on a thrown error
+and then dropped: `error.middleware.js` answered non-Multer errors with
+`{ error: err.message }` alone. So the feature added to tell the user WHICH
+photo failed did nothing end to end — and the test could not see it, because
+it asserted the thrown Error's own properties rather than the HTTP body. The
+same shape this project has hit before: a test that passes against the code
+it was written to catch.
+
+The handler forwards `code` (on 4xx only — a 500's internals are not the
+client's business) and `photoIndex`. Both clients branch on
+`photoUnreadable` alongside `photoRejected`, since the remedy is identical:
+drop that photo from the strip. The ADVICE is not identical, and that was
+worth separating — an unreadable file is a format problem, so telling the
+user to photograph the animal again would be wrong. "Başka biçimde bir tane
+ekle", not "kedinin göründüğü bir fotoğraf ekle".
+
+The assertion moved to where it can fail: `storage-check` now posts a
+three-photo `/animals/match` with the middle one unreadable and checks the
+response body carries `photoUnreadable` and `photoIndex: 1`. 37 assertions.
+
+Also written down rather than fixed: `assetRepresentationMode` is an iOS
+option. Android ignores it, so a library HEIF from an Android phone still
+meets the 400. That is an actionable error rather than a silent leak, and
+Android cameras default to JPEG — closing it means forcing a device-side
+re-encode, which changes what every Android upload sends and deserves its
+own look rather than a quiet addition here.

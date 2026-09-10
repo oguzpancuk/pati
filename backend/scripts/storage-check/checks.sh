@@ -107,6 +107,21 @@ check "an unreadable part -> 400" 400 "$code"
 check "…in Turkish" yes "$(grep -q "okuyamadık" "$BODY" && echo yes || echo no)"
 check "…and nothing reached the bucket" "$before_keys" "$(keys | grep -c .)"
 
+echo "== a batch refusal tells the client WHICH photo"
+# The unit test asserts the thrown Error's properties, which cannot see
+# whether the error handler forwards them — it did not, so the index was
+# inert end to end (review finding). This asserts the HTTP body.
+node -e "require('sharp')({create:{width:400,height:300,channels:3,background:'#7dc83a'}}).jpeg().toFile(process.argv[1]).then(()=>{})" /tmp/pati-storage-ok.jpg
+printf 'not an image at all' > /tmp/pati-storage-bad.jpg
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/match" -H "Authorization: Bearer $JWT" \
+  -F "lat=40.99" -F "lng=29.03" -F "species=cat" -F "breed=Tekir" -F "color=gri" \
+  -F "photos=@/tmp/pati-storage-ok.jpg;type=image/jpeg" \
+  -F "photos=@/tmp/pati-storage-bad.jpg;type=image/jpeg" \
+  -F "photos=@/tmp/pati-storage-ok.jpg;type=image/jpeg")
+check "one unreadable photo refuses the batch -> 400" 400 "$code"
+check "…with a code the client branches on" photoUnreadable "$(j .code)"
+check "…and the index of the bad one" 1 "$(j .photoIndex)"
+
 echo "== a real image with a hostile name still cannot be served as html"
 # The other half of the defence: this one DOES decode, so it is stored —
 # and the server, not the client, picks what it is called.
