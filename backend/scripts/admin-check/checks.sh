@@ -80,6 +80,14 @@ check "re-registering the freed address -> 201" 201 "$code"
 NEW_ID=$(j .user.id)
 check "…as a NEW account, not the tombstone" no "$([ "$NEW_ID" = "$VICTIM_ID" ] && echo yes || echo no)"
 
+echo "== nobody can register INTO the tombstone domain"
+# Without this, an account could exist that the panel treats as already
+# deleted: the server answers 409 and the list hides the button, so support
+# could never remove it at all.
+code=$(post auth/register "{\"name\":\"Mezar Taşı\",\"email\":\"birisi@deleted.pati-app.com\",\"password\":\"$PASS_WORD\"}")
+check "registering at the tombstone domain -> 400" 400 "$code"
+check "…in Turkish" yes "$(grep -q "kullanılamaz" "$BODY" && echo yes || echo no)"
+
 echo "== a second deletion has nothing left to free"
 code=$(del_auth "admin/users/$VICTIM_ID" "$ADMIN_JWT")
 check "already deleted -> 409" 409 "$code"

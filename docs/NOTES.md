@@ -3268,3 +3268,23 @@ fiction if it is left.
 One cosmetic thing left alone: the panel shows "Sil" on rows that are
 already tombstones, where it can only answer 409 "Bu hesap zaten silinmiş"
 into the error banner. Honest, just untidy.
+
+### Same day — the tombstone domain had to be reserved too
+
+Hiding "Sil" on an already-deleted row turned up a hole underneath it. The
+panel and the server both decide "this account is a tombstone" by the
+address ending in `@deleted.pati-app.com` — the domain
+`utils/accountDeletion.js` renames a deleted account into. But that domain
+was not on `RESERVED_EMAIL_DOMAINS`, so somebody could have registered
+there: the server would have refused to delete them with 409 "Bu hesap
+zaten silinmiş", and with the button now hidden, support could never have
+removed the account at all.
+
+Fixed where addresses are accepted rather than special-cased in the two
+places that read the domain, so there is one rule: the third entry joins
+the two bot domains in `auth.controller.js`. `admin-check` now asserts it
+(22 assertions).
+
+Worth noticing about the shape of this one: the UI tidy-up was cosmetic,
+and the thing it exposed was not. A rule that two layers already agreed on
+turned out to have no guard at the door they both trusted.

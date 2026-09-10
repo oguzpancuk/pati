@@ -43,7 +43,15 @@ function randomAvatarValue() {
 // findings), so both are reserved. Kept next to purge-demo's own list —
 // scripts/purge-demo.js DEMO_EMAIL_PATTERNS — which must not grow without
 // this one growing too.
-const RESERVED_EMAIL_DOMAINS = ['@pati.demo', '@stray.test'];
+//
+// The third is the tombstone domain a deleted account is renamed into
+// (utils/accountDeletion.js). Registering there would have produced an
+// account the admin panel treats as already deleted: the server refuses to
+// delete it with 409 "Bu hesap zaten silinmiş" and the panel now hides the
+// button entirely, so it could never be removed through support at all.
+// Reserved here rather than special-cased in the two places that read the
+// domain, so there is one rule and it sits where addresses are accepted.
+const RESERVED_EMAIL_DOMAINS = ['@pati.demo', '@stray.test', '@deleted.pati-app.com'];
 
 async function register(req, res, next) {
   try {

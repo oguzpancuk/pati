@@ -522,7 +522,7 @@ Deliberately deferred, with reasons:
       admin, and a row already anonymized, and writes an audit entry
       without the freed address in it. "Sil" on every row of the panel's
       user list, with a dialog that says what actually happens. Evidence:
-      `backend/scripts/admin-check/run.sh`, 20 assertions ending in the one
+      `backend/scripts/admin-check/run.sh`, 22 assertions ending in the one
       that matters — the address registers again, as a new account.
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
