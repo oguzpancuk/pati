@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Image, Pressable, View } from 'react-native';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { LIBRARY_PICKER } from '../photoPicker';
 import {
   addAnimalPhoto,
   AnimalMatch,
@@ -167,7 +168,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
 
   async function handleAddPhotos() {
     const result = await launchImageLibrary({
-      mediaType: 'photo',
+      ...LIBRARY_PICKER,
       selectionLimit: MAX_PHOTOS - photos.length,
     });
     if (result.didCancel || !result.assets) return;

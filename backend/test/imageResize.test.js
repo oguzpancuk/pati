@@ -1,7 +1,8 @@
 /**
  * The upload resizer (NOTES §3.2): every photo the server stores must be a
- * fitted, EXIF-baked JPEG, and a file sharp cannot read must survive
- * untouched rather than failing the upload. These tests drive the
+ * fitted, EXIF-baked JPEG, and a file sharp cannot read must be REFUSED
+ * rather than stored — an undecodable file is one whose metadata cannot be
+ * stripped, and every upload is served publicly. These tests drive the
  * middleware directly against files in a temp directory — no server, no
  * multer, no database.
  */
@@ -175,6 +176,27 @@ test('a file sharp cannot decode is refused, not stored as it arrived', async ()
       return true;
     }
   );
+});
+
+test('the refusal says which photo, on a multi-photo request', async () => {
+  // One bad file refuses the batch; without the index the user re-picks
+  // and bisects by hand. The clients already prune a strip from photoIndex.
+  const req = {
+    files: {
+      photos: [
+        await upload('m1.jpg', await photo(800, 600)),
+        await upload('m2.jpg', Buffer.from('not an image at all')),
+        await upload('m3.jpg', await photo(800, 600)),
+      ],
+    },
+  };
+
+  await assert.rejects(() => run(req), (err) => {
+    assert.equal(err.status, 400);
+    assert.equal(err.code, 'photoUnreadable');
+    assert.equal(err.photoIndex, 1, 'the middle photo is the bad one');
+    return true;
+  });
 });
 
 test('a refused upload leaves nothing on the volume', async () => {

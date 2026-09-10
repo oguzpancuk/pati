@@ -23,10 +23,12 @@
  * finding). A successful re-encode is metadata-free because sharp copies
  * none of it; the only way to be sure is to have re-encoded.
  *
- * The clients this affects: `react-native-image-picker` hands us JPEG, so
- * the app is unaffected; the web PWA's `accept="image/*"` can produce a
- * HEIC on Safari, and that upload now gets a Turkish 400 asking for a
- * different format instead of silently publishing the photo's GPS.
+ * The clients this affects: the app pins its picker to PHPicker's
+ * compatibility representation (`mobile/src/photoPicker.ts`), so what it
+ * sends is a JPEG by contract rather than by Apple's discretion — camera
+ * captures are JPEG regardless. The web PWA's `accept="image/*"` can still
+ * produce a HEIC on Safari, and that upload gets a Turkish 400 asking for
+ * a different format instead of silently publishing the photo's GPS.
  */
 const crypto = require('crypto');
 const fs = require('fs');
@@ -44,11 +46,16 @@ const QUALITY = 82;
  * ("Input file contains unsupported image format") is English and tells
  * them nothing.
  */
-function undecodable(file, err) {
+function undecodable(file, err, photoIndex) {
   console.warn(`[uploads] refused ${file.filename}: ${err?.message ?? err}`);
   return Object.assign(
     new Error('Bu fotoğraf biçimini okuyamadık. JPEG veya PNG olarak dener misin?'),
-    { status: 400 }
+    // `/animals/match` and `/animals/:id/care-photos` take several photos in
+    // one request, and one bad file refuses the batch. Without the index the
+    // user re-picks and bisects by hand; the clients already know how to
+    // prune a strip from `photoIndex`, because `photoRejected` carries one
+    // (fourth review round).
+    { status: 400, code: 'photoUnreadable', photoIndex }
   );
 }
 
@@ -66,7 +73,7 @@ function uploadedFiles(req) {
  * (`filename` is what ends up in the database, so it must change with the
  * file). Throws a Turkish 400 for anything sharp cannot read.
  */
-async function shrink(file, maxEdge) {
+async function shrink(file, maxEdge, index) {
   // Only an image that is ACTUALLY see-through stays a PNG. JPEG has no
   // alpha and sharp puts black behind it, which on an advertiser's logo or
   // a user's avatar is a black tile — but `hasAlpha` is true for any RGBA
@@ -80,7 +87,7 @@ async function shrink(file, maxEdge) {
     alpha = (await sharp(file.path).metadata()).hasAlpha === true;
     if (alpha) alpha = !(await sharp(file.path).stats()).isOpaque;
   } catch (err) {
-    throw undecodable(file, err);
+    throw undecodable(file, err, index);
   }
 
   let body;
@@ -95,7 +102,7 @@ async function shrink(file, maxEdge) {
     body = await (alpha ? fitted.png({ compressionLevel: 9 }) : fitted.jpeg({ quality: QUALITY }))
       .toBuffer();
   } catch (err) {
-    throw undecodable(file, err);
+    throw undecodable(file, err, index);
   }
 
   const dir = path.dirname(file.path);
@@ -122,7 +129,8 @@ async function shrink(file, maxEdge) {
 function resizeUploads({ maxEdge = MAX_EDGE } = {}) {
   return async function resizeUploadsMiddleware(req, res, next) {
     try {
-      for (const file of uploadedFiles(req)) await shrink(file, maxEdge);
+      const files = uploadedFiles(req);
+      for (const [i, file] of files.entries()) await shrink(file, maxEdge, i);
       next();
     } catch (err) {
       // Multer has already written every part to the volume, and this

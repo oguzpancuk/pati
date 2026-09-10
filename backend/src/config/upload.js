@@ -27,10 +27,14 @@ const PENDING_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 // holds the JWT (second review round). The server picks from this list or
 // stores the file as an inert `.bin`; note that SVG is deliberately absent,
 // since an SVG can carry script too.
-// BMP and TIFF are here because a browser's `accept="image/*"` picker
-// offers them and they are not scriptable: dropping them to `.bin` turned a
-// picture a browser renders fine into a permanently broken photo, since the
-// resizer cannot normalise a BMP either and fails open (third review round).
+// TIFF and GIF are here because a browser's `accept="image/*"` picker offers
+// them, they are not scriptable, and sharp re-encodes both — so they reach
+// the resizer and come out as ordinary JPEGs. BMP and HEIC stay on the list
+// for a weaker reason: sharp cannot decode either, so the resizer refuses
+// them and the extension never matters. They are kept so the list reads as
+// "image formats a browser may hand us" rather than as a claim about what
+// survives (fourth review round; the earlier note here described the
+// fail-open behaviour that no longer exists).
 const ALLOWED_EXTENSIONS = new Set([
   '.jpg',
   '.jpeg',

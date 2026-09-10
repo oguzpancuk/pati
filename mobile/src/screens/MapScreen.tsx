@@ -16,6 +16,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import type { Feature, Point } from 'geojson';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { LIBRARY_PICKER } from '../photoPicker';
 import {
   addCareAction,
   Bounds,
@@ -404,7 +405,7 @@ export default function MapScreen({ navigation }: any) {
       // allowed during development so the rest of the flow can be tested;
       // this branch never triggers on a real device.
       if (__DEV__ && photoResult.errorCode === 'camera_unavailable') {
-        photoResult = await launchImageLibrary({ mediaType: 'photo' });
+        photoResult = await launchImageLibrary(LIBRARY_PICKER);
       }
 
       if (photoResult.didCancel) {

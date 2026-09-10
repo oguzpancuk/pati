@@ -3619,3 +3619,69 @@ Two of the round's other findings were plainly right and are fixed:
 - **§7's list was the web client's.** Mobile caches the profile (ad soyad,
   e-posta, avatar) in AsyncStorage and that was missing, while three of the
   listed items exist only in the browser. Both sides are now labelled.
+
+### Same day — the fourth round, and what it settled
+
+The owner authorised a fourth round on the condition that it confirm or
+refute the earlier ones rather than open new ground. It did both, and the
+part worth keeping is how it settled the HEIC question.
+
+Rather than accept my measurement, the reviewer went and found the asset:
+`.../Devices/D667658A-…/data/Media/DCIM/100APPLE/IMG_0007.HEIC`, still
+genuine HEIC after `simctl addmedia` (`ftypheic`, `public.heic`), and then
+confirmed that this sharp build cannot decode that exact file — so had HEIC
+bytes reached the server, the upload WOULD have 400'd. It didn't. The
+mechanism turned out not to be the picker library at all: the app passes no
+`assetRepresentationMode`, PHPicker defaults to `automatic`, and automatic
+hands over a compatibility JPEG. The previous round's reading of
+`getFileType` was correct — it is simply only reachable under `current`.
+
+That is the difference between "I ran it and it worked" and knowing why.
+And it exposed the real risk: `automatic` is Apple's discretion, not a
+contract, while the server now fails closed. So `mobile/src/photoPicker.ts`
+pins every library pick to `compatible`, and the four call sites share it.
+The camera path needed nothing — react-native-image-picker writes captures
+through `kUTTypeJPEG` regardless.
+
+The two false sentences it found in the notice are fixed, and they are the
+same defect class chasing each other down the document:
+
+- §2's fresh "uyarıları kapatırsan bu sorgu da yapılmaz" was false on
+  MOBILE. Web returns early when the notification permission is missing;
+  mobile's `checkCareAndNotify` did not, and while `start()` bails out on a
+  refused permission, the AppState listener it registers does not — so every
+  foreground transition sent coordinates for an alert that could never be
+  shown. One `if`, and now the sentence is true on both clients. This was
+  also a silent web/mobile divergence.
+- §7's "hiçbiri sunucuya gönderilmez" contradicted §2 in the same document,
+  because the list it applied to begins with the session token — which
+  travels with every request by definition. Scoped to what is genuinely
+  device-only, and it now says plainly that the token goes with each request
+  and that the cached profile came from the server in the first place.
+
+Also from that round: the poll is not only half-hourly (both clients check
+on foreground too), the landing page's "yakınımda mama var mı" button is a
+third location surface with no session at all, and the cached profile has no
+avatar in it. All three are in the text now.
+
+Three stale comments were the round's smallest findings and the most
+characteristic: the allowlist's rationale still described fail-open, the
+test file's header still stated the inverted contract, and the middleware
+claimed a property of react-native-image-picker when what had been measured
+was narrower. A comment stating a false *why* is a trap for the next
+reader, which is this project's own rule.
+
+Last, the multi-photo refusal now carries `photoIndex` and `code:
+'photoUnreadable'`. `/animals/match` takes several photos in one request and
+one bad file refuses the batch; without the index the user re-picks and
+bisects by hand, while both clients already know how to prune a strip from
+`photoIndex`, because `photoRejected` carries one.
+
+**Deferred deliberately, with the reviewer agreeing none is a blocker:** the
+second catch still reports our own failures (a 268-megapixel input, an OOM)
+as "we could not read this format" — misleading, but that case got safer
+rather than more dangerous with this change; each refusal logs twice; and
+the fix is not retroactive for files already on the volume. That last one is
+a **measurement to take before the R2 backlog is copied**, not a fix: count
+how many files on production still decode as HEIF or carry EXIF GPS. Zero
+means there is nothing to do.

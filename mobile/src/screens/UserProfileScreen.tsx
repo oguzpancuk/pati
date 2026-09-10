@@ -3,6 +3,7 @@ import { Alert, Linking, Modal, Platform, Pressable, ScrollView, View } from 're
 import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { LIBRARY_PICKER } from '../photoPicker';
 import { useAuth } from '../context/AuthContext';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
@@ -275,7 +276,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
 
   async function handlePickPhoto() {
     setAvatarPickerVisible(false);
-    const result = await launchImageLibrary({ mediaType: 'photo' });
+    const result = await launchImageLibrary(LIBRARY_PICKER);
     const asset = result.assets?.[0];
     if (result.didCancel || !asset?.uri) return;
 

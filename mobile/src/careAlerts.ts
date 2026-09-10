@@ -49,13 +49,27 @@ async function writeCooldown(map: Record<string, number>) {
  * the green circle on the map: outside the green circle you get the alert,
  * inside you don't.
  *
- * The device checks its own location instead of the server deciding "notify
- * this user" because the location is never streamed to the server — it has
- * no idea who is where. This approach keeps location data on the device.
+ * The device decides instead of the server deciding "notify this user":
+ * the server is asked "is there food/water around THIS point", answers,
+ * and keeps nothing — it never builds a picture of who is where, and it
+ * is not asked at all unless the user has agreed to be notified.
  */
 export async function checkCareAndNotify(): Promise<boolean> {
   const token = await AsyncStorage.getItem('token');
   if (!token) return false;
+
+  // Without the notification permission there is nobody to tell, so there
+  // is nothing to ask. `start()` already bails out when the permission is
+  // refused, but the AppState listener it registers does not — so every
+  // foreground transition used to send this user's coordinates for an
+  // alert that could never be shown. Web has had this guard; mobile did
+  // not, which made the privacy notice's "turning alerts off stops the
+  // query" false on the primary client (review finding).
+  const settings = await notifee.getNotificationSettings();
+  if (settings.authorizationStatus !== AuthorizationStatus.AUTHORIZED &&
+      settings.authorizationStatus !== AuthorizationStatus.PROVISIONAL) {
+    return false;
+  }
 
   // A background job never shows the permission sheet (owner rule,
   // 2026-09-07): without the permission there is simply nothing to check.

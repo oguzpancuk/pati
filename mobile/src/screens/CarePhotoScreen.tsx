@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Image, Pressable, View } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
+import { LIBRARY_PICKER } from '../photoPicker';
 import { submitCarePhotos } from '../api/animals';
 import type { PhotoAsset } from '../api/care';
 import { Icon } from '../components/brand';
@@ -35,7 +36,7 @@ export default function CarePhotoScreen({ route, navigation }: any) {
       // Simulators have no camera; the gallery stands in during development
       // (the same fallback the map's drop flow uses). Never on a device.
       if (__DEV__ && result.errorCode === 'camera_unavailable') {
-        result = await launchImageLibrary({ mediaType: 'photo' });
+        result = await launchImageLibrary(LIBRARY_PICKER);
       }
       if (result.didCancel) return;
       const asset = result.assets?.[0];
