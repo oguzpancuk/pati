@@ -396,8 +396,10 @@ These are not features; they are "become shippable" work. Rationale lives in
       and `config/storage.js` puts them in an S3-compatible bucket when the
       four `S3_*` secrets are set, disk otherwise, with the stored URLs
       unchanged either way. **Owner side still open:** create the R2 bucket
-      and set the secrets (docs/DEPLOYMENT.md), and sync the existing
-      `/data/uploads` backlog into it once
+      and set the secrets (docs/DEPLOYMENT.md), then run
+      `backend/scripts/publish-backlog.js` to copy the existing
+      `/data/uploads` backlog into it — and again after anything that writes
+      to the volume directly (`seed-guides.js`, `backfill-face-thumbs.js`)
 - [ ] Move to incremental migrations (node-pg-migrate / Knex) — today a
       schema change resets the database
 - [x] Database backups — automatic with managed Fly Postgres

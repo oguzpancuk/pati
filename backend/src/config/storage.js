@@ -175,4 +175,26 @@ function describe() {
   return remote ? `s3 (${endpoint}/${bucket})` : `disk (${UPLOADS_DIR})`;
 }
 
-module.exports = { isRemote, publish, remove, localPath, describe, keyFor };
+/**
+ * Whether the bucket already holds this object. Only the backlog script
+ * uses it, to skip what it has already copied up: without it a second run
+ * would re-upload every photo, which is slow and pointlessly billable.
+ * A HEAD is a Class-B operation, the cheap kind.
+ *
+ * `false` on any error that is not a plain 404 as well, on purpose — the
+ * caller's next step is to publish, which is the safe thing to do when we
+ * cannot tell.
+ */
+async function exists(filename) {
+  if (!remote) return false;
+  try {
+    await s3().send(
+      new commands.HeadObjectCommand({ Bucket: bucket, Key: keyFor(filename) })
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+module.exports = { isRemote, publish, remove, localPath, exists, describe, keyFor };

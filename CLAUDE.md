@@ -108,7 +108,9 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   that refuses the object fails the upload (Turkish 503) rather than
   recording a photo nobody kept. Evidence:
   `backend/scripts/storage-check/run.sh` (fake bucket); setup in
-  docs/DEPLOYMENT.md.
+  docs/DEPLOYMENT.md. Turning a bucket on does not move what is already on
+  the volume — `backend/scripts/publish-backlog.js` is the one-off that
+  does, and it is re-runnable.
 
 - **`users.avatar_url` holds two kinds of values**: an uploaded photo URL or a
   built-in key like `pati-avatar:f3` (`backend/src/utils/avatars.js`). Never

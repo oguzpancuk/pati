@@ -3403,3 +3403,99 @@ and was later deleted would have been renamed by `anonymizeAccount` into
 exactly the shape the test calls legitimate, so the query cannot speak to
 history. It does not need to — the operational question was whether this
 deploy strands anybody, and it does not.
+
+### 2026-09-10 — the backlog script
+
+Configuring a bucket protects photos uploaded from that moment on, and the
+deploy notes said to copy the existing ones with `rclone`/`aws s3 sync`.
+That advice was written without looking at what it would take: neither tool
+is on the Fly machine, and getting one there for a one-off copy of 72 files
+(115,6 MB on production today) is more work than the copy itself.
+
+`backend/scripts/publish-backlog.js` does it with the driver that is already
+there — walk `UPLOADS_DIR`, ask the bucket what it holds, publish the rest.
+Three decisions worth keeping:
+
+- **It refuses to run without a bucket.** The failure this script exists to
+  prevent is silent — a volume dying with photos that were never copied up
+  — so the script must not have a silent failure of its own. Reporting
+  "0 files copied, done" when `S3_BUCKET` was mistyped is exactly that.
+- **It asks before it writes.** A HEAD per file is the cheap kind of R2
+  operation, and it makes a second run free. That matters because the
+  natural way to use this is to run it, see one failure, fix it, and run it
+  again.
+- **One bad file does not abandon the other seventy-one.** Failures are
+  collected and the exit code is non-zero, so a partial copy cannot be read
+  as a finished one.
+
+`pending-` files and `.part` temporaries are skipped: no row references
+either, and the sweeper reclaims them within the half hour.
+
+Tested against a fake bucket (`test/publishBacklog.test.js`)
+rather than trusted, because this is a script that runs once, by hand, on
+production — the kind that is wrong exactly when it matters.
+
+### Same day — what the review of the backlog script changed
+
+The copy logic and the file selection were right; what was wrong was the
+part that matters most for a script that runs **once, by hand, on
+production**: its account of whether it worked.
+
+- **Zero files read as success.** `config/upload.js` calls `mkdirSync` on
+  import, so a wrong or unmounted `UPLOADS_DIR` is silently CREATED empty —
+  the script would have printed "0 file(s), copied 0" and exited 0, and the
+  operator would have concluded the backlog was already safe while 115,6 MB
+  sat one volume-loss from gone. An empty directory is now a refusal.
+- **`process.exit()` can eat the summary.** `fly ssh console -C` gives the
+  remote process a pipe, not a pty, and Node's writes to a pipe are
+  asynchronous — `process.exit()` drops what has not flushed. So the exit
+  code is set with `process.exitCode` and the loop drains, and the run ends
+  with an explicit `DONE` / `INCOMPLETE — n failed` line whose ABSENCE is
+  the signal. The old note claimed the exit code made a partial run
+  unmistakable; whether flyctl even propagates a remote exit status through
+  `-C` was never verified, so the honest signal is the line, not the code.
+- **It copied files no row references.** An approved-but-never-confirmed
+  care photo (`POST /care-actions/check` uses the plain upload, so it keeps
+  a plain name and no sweeper reclaims it) and any file whose best-effort
+  `fs.unlink` failed on delete both sat on the volume. Publishing them would
+  have made content the database has forgotten — including content a user
+  deleted — permanently fetchable at its old URL, since the `/uploads`
+  fallback serves whatever the bucket holds. The script asks the five URL
+  columns what is referenced and copies only that, listing the rest.
+- **It is not a one-off, and the docs said it was.** `seed-guides.js` —
+  which DEPLOYMENT.md tells you to run on production — and
+  `backfill-face-thumbs.js` both write into `UPLOADS_DIR` without
+  publishing. Re-running the backlog script after either is now part of
+  their instructions.
+- A mistyped `--dryrun` used to perform the real run. Unknown arguments are
+  refused.
+
+### Same day — the third round, and where this one stops
+
+The review of the corrected backlog script approved it and then found the
+residual member of the very class the second round was about: an empty
+`UPLOADS_DIR` was a refusal, but a volume full of files where **none** is
+referenced by a row was still a `DONE`. A `DATABASE_URL` pointing at an
+empty or unmigrated database produces exactly that, and the operator would
+read "nothing to copy" and stop worrying. Closed the same way, with a test.
+
+Three of its remaining findings were mine to fix and are: the notes said
+"four URL columns" where the query asks five, said "6 assertions" where the
+file now has nine, and the ROADMAP still said to sync the backlog "once" —
+the headline of this change being that it is not a once thing.
+
+Three were left, deliberately, and the reviewer agreed they are "would be
+nicer" rather than "would be wrong": rows pointing at files the volume no
+longer has are neither copied nor counted (they are photos already lost,
+and surfacing them is a separate job); `console.error(err.message)` prints
+`undefined` for a non-Error throw; and an unbounded `unreferenced` list
+could in principle push the terminal `DONE` line off screen, though at 72
+files it is one short line.
+
+**Three rounds on a 165-line ops script is the edge of what the rule
+tolerates.** What made them worth it is that none of the three found a
+copying bug — they found, in order, that the script could report success
+having done nothing, that its report could be truncated away entirely, and
+that it copied content the database had forgotten. For a tool that runs
+once against production with no second chance, the report IS the product,
+and that is what each round was about.

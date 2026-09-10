@@ -238,11 +238,38 @@ fly secrets set --app pati-app \
 `S3_REGION` defaults to `auto` (R2's); AWS S3 needs the real region.
 `S3_PREFIX` puts every object under a folder, if a bucket is shared.
 
-**Photos already on the volume are not copied up.** The bucket owns what is
-uploaded after it is configured; older photos keep being served from the
-volume, and the fallback fetch only runs when the volume does not have the
-file. Copying the backlog is a one-off `rclone`/`aws s3 sync` of
-`/data/uploads` into the bucket, safe to run at any time.
+**Photos already on the volume are not copied up automatically.** The bucket
+owns what is uploaded after it is configured; older photos keep being served
+from the volume, and the fallback fetch only runs when the volume does not
+have the file. So until the backlog is copied, a volume loss still takes
+every pre-bucket photo with it — which is the thing configuring a bucket was
+meant to prevent. Copy it with `publish-backlog.js`, **after a deploy that
+contains that script** (`fly secrets set` alone does not put it in the
+image):
+
+```bash
+fly ssh console -a pati-app -C "node scripts/publish-backlog.js --dry-run" 2>&1   # what it would copy
+fly ssh console -a pati-app -C "node scripts/publish-backlog.js" 2>&1
+```
+
+Keep `2>&1`: a per-file failure prints the user-facing Turkish message on
+stdout and the real cause on stderr. The run ends with `DONE` or
+`INCOMPLETE — n failed`; **if you see neither, it did not finish**, whatever
+else it printed.
+
+It asks the bucket what it already holds and skips those, so it is safe to
+re-run — a second pass costs one HEAD per file and uploads nothing. It
+copies only files a database row points at, and lists the rest without
+touching them: the volume also carries care photos that passed the AI check
+and were never confirmed, and files whose best-effort delete failed, and
+publishing those would make content the database has forgotten fetchable
+forever at its old `/uploads/<name>` URL. It refuses to run when no bucket
+is configured, and when it finds no files at all — an empty `UPLOADS_DIR`
+usually means a wrong path or an unmounted volume, not a safe backlog.
+
+**Re-run it after anything that writes into the volume directly**, because
+those recreate a backlog: `seed-guides.js` (step "Guide (demo) data" above)
+and `backfill-face-thumbs.js` both write files without publishing them.
 
 **A bucket does NOT yet let you run two machines.** What it gives is
 durability and the ability to serve a photo this machine never received.
