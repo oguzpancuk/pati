@@ -359,10 +359,20 @@ export default function AnimalPage() {
       );
       await load();
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'photoRejected') {
-        // The refused slots empty so the retake is obvious; the reason is
-        // the model's own Turkish sentence.
-        const refused = new Set((err.data.photoIndexes as number[] | undefined) ?? [0, 1]);
+      // Two codes, one remedy: `photoRejected` is the model saying it sees
+      // no animal, `photoUnreadable` is the server saying it cannot decode
+      // the file at all. Either way the offending slot empties so the
+      // retake is obvious — without this the slot stayed filled and the
+      // next send reproduced the same error (review finding).
+      if (
+        err instanceof ApiError &&
+        (err.code === 'photoRejected' || err.code === 'photoUnreadable')
+      ) {
+        const listed = err.data.photoIndexes as number[] | undefined;
+        const refused = new Set(
+          listed ??
+            (Number.isInteger(err.data.photoIndex) ? [err.data.photoIndex as number] : [0, 1])
+        );
         setCarePhotos((prev) => prev.map((p, i) => (refused.has(i) ? null : p)));
       }
       setCareError(err instanceof Error ? err.message : 'Gönderilemedi');

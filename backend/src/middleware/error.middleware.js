@@ -28,8 +28,10 @@ function errorHandler(err, req, res, next) {
   // here, so the batch refusal it added could not prune the strip that the
   // client already knows how to prune (review finding).
   const body = { error: err.message || 'Sunucu hatası' };
-  if (err.code && status < 500) body.code = err.code;
-  if (Number.isInteger(err.photoIndex)) body.photoIndex = err.photoIndex;
+  if (status < 500) {
+    if (err.code) body.code = err.code;
+    if (Number.isInteger(err.photoIndex)) body.photoIndex = err.photoIndex;
+  }
   res.status(status).json(body);
 }
 

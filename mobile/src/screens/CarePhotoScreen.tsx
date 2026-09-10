@@ -77,12 +77,23 @@ export default function CarePhotoScreen({ route, navigation }: any) {
       );
     } catch (err: any) {
       const data = err?.response?.data;
-      if (data?.code === 'photoRejected' && Array.isArray(data.photoIndexes)) {
-        // The refused slots empty so the retake is obvious; the reason is
-        // the model's own Turkish sentence.
-        const refused = new Set<number>(data.photoIndexes);
+      // Two codes, one remedy: `photoRejected` is the model saying it sees
+      // no animal, `photoUnreadable` is the server saying it cannot decode
+      // the file at all. Either way the offending slot empties so the
+      // retake is obvious — without this the slot stayed filled and the
+      // next send reproduced the same error (review finding).
+      const refusedSlots: number[] | null = Array.isArray(data?.photoIndexes)
+        ? data.photoIndexes
+        : data?.code === 'photoUnreadable' && Number.isInteger(data.photoIndex)
+          ? [data.photoIndex]
+          : null;
+      if ((data?.code === 'photoRejected' || data?.code === 'photoUnreadable') && refusedSlots) {
+        const refused = new Set<number>(refusedSlots);
         setPhotos((prev) => prev.map((p, i) => (refused.has(i) ? null : p)));
-        Alert.alert('Fotoğraf uygun görünmüyor', data.error);
+        Alert.alert(
+          data.code === 'photoUnreadable' ? 'Fotoğraf okunamadı' : 'Fotoğraf uygun görünmüyor',
+          data.error
+        );
       } else {
         Alert.alert(
           data?.code === 'carePhotoMismatch' ? 'Eşleşmedi' : 'Gönderilemedi',

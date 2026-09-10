@@ -241,6 +241,13 @@ fly secrets set --app pati-app \
    (...)` when any of the four is missing. Then upload one photo and check
    it appears in the bucket.
 
+**`S3_ENDPOINT` is load-bearing for a legal statement.** The KVKK notice
+says the photos are stored in the European Union, and the only thing
+that makes that true is the bucket's EU jurisdiction — which is what the
+`.eu.` host addresses. Pointing `S3_ENDPOINT` at a non-EU bucket silently
+turns a public commitment false, so a change here is a change to
+`web/src/legal.ts` as well.
+
 `S3_REGION` defaults to `auto` (R2's); AWS S3 needs the real region.
 `S3_PREFIX` puts every object under a folder, if a bucket is shared.
 

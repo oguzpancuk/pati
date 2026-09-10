@@ -3757,3 +3757,82 @@ meets the 400. That is an actionable error rather than a silent leak, and
 Android cameras default to JPEG — closing it means forcing a device-side
 re-encode, which changes what every Android upload sends and deserves its
 own look rather than a quiet addition here.
+
+### Same day — the same fix, one route over
+
+The review of the batch-refusal fix found it had been applied where it was
+asked for and nowhere else. `/animals/:id/care-photos` runs the same
+`resizeUploads()`, but `CarePhotoScreen` and `AnimalPage` both gated on
+`photoRejected` alone — so an unreadable file there produced a generic
+"Gönderilemedi", **both slots stayed filled**, and pressing send again
+reproduced the identical error with no hint which one to replace. A
+resubmit loop.
+
+This is the third time today the same shape has come back: fixing the
+instance named in the finding rather than every place the rule holds. The
+first two were mine to notice and I did not; this one a reviewer caught.
+The rule that composes, and the one to check against next time: **when a
+server starts sending a new code, every client branch that already handles
+its sibling needs the same arm** — not just the one in the report.
+
+Both care-photo clients now empty the offending slot for `photoUnreadable`
+the way they do for `photoRejected`, and `storage-check` asserts the route
+carries the code and the index (40 assertions). Also folded in: the error
+handler was applying the `status < 500` guard to `code` but not to
+`photoIndex` — unreachable today, and exactly the asymmetry that makes a
+future 500 leak an index while correctly hiding its code.
+
+And one line in DEPLOYMENT.md that is really a warning: `S3_ENDPOINT` now
+carries a legal statement. The notice says the photos stay in the European
+Union, and the only thing making that true is the bucket's EU jurisdiction,
+reached through the `.eu.` host. Repointing that variable at a non-EU
+bucket silently turns a public commitment false — so a change there is a
+change to `web/src/legal.ts` too.
+### 2026-09-10 → 11 — where this leaves things
+
+For whoever picks this up next, because the day covered a lot.
+
+**Live:** production release v38 (v35 was the last code deploy; v36–v38 are
+the R2 secret changes). Photos are on Cloudflare R2, EU jurisdiction,
+addressed through the `.eu.` host; the 69 files that were on the volume are
+copied up and the volume is a cache. Mail, the photo AI and Google sign-in
+are configured. The KVKK notice names Cloudflare as a third processor.
+
+**`main` is one commit ahead of production.** `114645e` went to the remote
+but was never deployed, so the notice's stronger "Avrupa Birliği bölgesinde"
+wording is not live yet — production still shows the conservative "yurt
+dışındaki sunucularda", which is true, just weaker. A deploy publishes it
+along with the `photoUnreadable` plumbing.
+
+**Decided and deliberately not done:**
+
+- **Apple Developer enrollment is deferred.** The account is a free Personal
+  Team, so Sign in with Apple, TestFlight and the App Store are all behind a
+  $99/year membership. The pilot — ten to twenty people in one neighbourhood
+  — can run on the web PWA, which is a full client and already live. The
+  owner decided to spend that money after the pilot, not before, so App
+  Store 4.8 (offering Google sign-in obliges offering Apple) is not yet in
+  play. `APPLE_CLIENT_IDS` stays unset and both clients keep hiding the
+  button on their own.
+- Android library HEIF still meets the upload 400, because
+  `assetRepresentationMode` is an iOS option. Closing it means a device-side
+  re-encode on every Android upload.
+- The `stray-db` container and its `stray` db/role keep their names: local
+  only, and renaming forces a database reset plus edits to four harnesses.
+
+**Still owed by the owner:** the `iletisim@` mailbox is done and the
+production smoke tests are done; what is left is Apple enrollment whenever
+they want iOS, and two decisions — whether `npm run lint` joins
+`.claude/hooks/verify.sh` (it exits 0 today, so adding it is free), and the
+brand-contrast question, which they asked to leave alone for now.
+
+**A tooling note worth acting on before the next long session.** The
+code-reviewer gate stalled nine times: an agent that reports "running" but
+never completes. Every review that DID finish earned its place — between
+them they found an EXIF leak on public URLs, a client-chosen file extension,
+an unreserved tombstone domain, a location query firing with notifications
+off, and two false sentences in a live legal document. The rule is right;
+what failed is completion. `push-gate.sh` currently gives the same answer to
+"not reviewed" and "the reviewer never answered", which turns a tool outage
+into a blocked release with no signal. A timeout that says so would separate
+them without weakening the rule.

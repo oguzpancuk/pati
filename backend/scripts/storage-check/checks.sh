@@ -122,6 +122,15 @@ check "one unreadable photo refuses the batch -> 400" 400 "$code"
 check "…with a code the client branches on" photoUnreadable "$(j .code)"
 check "…and the index of the bad one" 1 "$(j .photoIndex)"
 
+# The other multi-photo route runs the same middleware, and its clients
+# were left unable to act on the code (review finding).
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/999999999/care-photos" -H "Authorization: Bearer $JWT" \
+  -F "photos=@/tmp/pati-storage-ok.jpg;type=image/jpeg" \
+  -F "photos=@/tmp/pati-storage-bad.jpg;type=image/jpeg")
+check "care-photos refuses the batch too -> 400" 400 "$code"
+check "…with the same code" photoUnreadable "$(j .code)"
+check "…and the slot to empty" 1 "$(j .photoIndex)"
+
 echo "== a real image with a hostile name still cannot be served as html"
 # The other half of the defence: this one DOES decode, so it is stored —
 # and the server, not the client, picks what it is called.
