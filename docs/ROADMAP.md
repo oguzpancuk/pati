@@ -436,8 +436,14 @@ Developer side, done and verified in this repo:
 
 Ops/owner side, still open — the actual go/no-go gates:
 
-- [ ] `git pull` + `/deploy-checklist` (ships everything above), then smoke-test
-      /gizlilik, a report, and an account deletion against production
+- [x] `/deploy-checklist` run 2026-09-10: **v34 is live** (`1ad564c`), all
+      gates green, schema-neutral. `/health` ok, both hosts 200, boot log
+      `photos: disk (/data/uploads)`, `/gizlilik` and `/kosullar` open
+- [ ] Smoke-test a report and an account deletion against production. They
+      write real rows, so they are the owner's to run; `/gizlilik` is
+      already checked. Split out of the deploy line above, which was
+      checked off while two of its three gates had not run (review
+      finding)
 - [ ] iletisim@pati-app.com mailbox or forward (KVKK requests must land)
 - [x] Fly volume snapshots are enabled — checked 2026-09-10: the
       `uploads` volume has scheduled snapshots, 14-day retention

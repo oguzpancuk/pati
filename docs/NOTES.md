@@ -3352,3 +3352,54 @@ row's last button sits exactly 12 px from the cell's right edge, one button
 or two, so the column no longer drifts by row kind. Small — but visual
 drift is this project's named escape class, which is why it was worth
 measuring instead of asserting.
+
+### 2026-09-10 — deployed: v34
+
+`1ad564c` is live. The whole night run plus the morning's follow-ups went
+out in one release; the checklist's gates all passed on that exact commit
+(full battery 10/10, no migration touched so the deploy is schema-neutral,
+the secret scan's only hit was a fixture token string in a harness).
+
+Verified against production afterwards:
+
+- `/health` → `{"status":"ok"}`, `pati-app.com` and `admin.pati-app.com`
+  both 200, release `v34 complete`.
+- The boot log says **`photos: disk (/data/uploads)`** — which is the whole
+  point of the storage work shipping dark. Note what that does and does not
+  claim, because the first version of this entry got it wrong and a review
+  caught it: the STORAGE DRIVER is on the volume, so where a photo's bytes
+  land and how they are served is byte-for-byte what v33 did. **Photo
+  handling as a whole is not** — this very release is the one that started
+  re-encoding every upload (1600 px, 512 for avatars, EXIF baked in) and
+  choosing the stored extension from a server-side allow-list. A responder
+  reading "nothing changed about photos" and looking past the resizer would
+  be looking in the wrong place.
+  The boot line on its own is also weaker evidence than it looks:
+  `describe()` prints `disk (…)` whenever ANY of the four `S3_*` variables
+  is missing, not only when all are. What settles it is `fly secrets list
+  -a pati-app`, which shows none of the four (and `fly.toml`'s `[env]` has
+  no `S3_*` either).
+  Mail (Resend) and the photo AI (Gemini) report configured, as before.
+- `/gizlilik` and `/kosullar` open, no console errors.
+
+One thing worth writing down because it will confuse the next person:
+`curl https://pati-app.com/gizlilik` answers **404 JSON**, and that is
+correct. The SPA fallback in `app.js` only serves `index.html` to a request
+whose `Accept` contains `text/html`; curl sends `*/*` and falls through to
+the API's Turkish 404. With a browser's Accept header every client route
+answers 200. A smoke test that curls a client route and reads 404 is
+testing the header, not the deploy.
+
+The preflight the review asked for came back clean, once the query was
+right. The first version excluded only the ADMIN deletion reason, so the
+three rows it returned were people who had deleted their own accounts
+(`suspended_reason = 'Hesap silindi'`) — the two paths write different
+reasons, which the query's author (me) had not checked. The precise test is
+whether the address is exactly `silinmis-<own id>@deleted.pati-app.com`;
+all three were, so **no live account sits in the tombstone domain today**
+and the finding closed with nothing to fix. That is the honest limit of a
+SELECT over current rows: a squatter who registered there before the guard
+and was later deleted would have been renamed by `anonymizeAccount` into
+exactly the shape the test calls legitimate, so the query cannot speak to
+history. It does not need to — the operational question was whether this
+deploy strands anybody, and it does not.
