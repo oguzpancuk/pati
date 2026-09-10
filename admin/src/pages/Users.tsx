@@ -6,6 +6,19 @@ import Pager from '../components/Pager';
 import { formatDate } from '../format';
 import { useList } from '../useList';
 
+/**
+ * A deleted account is a tombstone, not a row: the backend anonymized it in
+ * place and gave it an address in this domain, and asking to delete it
+ * again can only answer 409. The list showed "Sil" on those rows anyway,
+ * which put an error in the banner for a button that had nothing to do
+ * (QA finding, 2026-09-10). Same rule as the server's own refusal.
+ */
+const DELETED_DOMAIN = '@deleted.pati-app.com';
+
+function isDeleted(user: AdminUser) {
+  return user.email.endsWith(DELETED_DOMAIN);
+}
+
 const ROLE_LABELS: Record<AdminUser['role'], string> = {
   admin: 'Yönetici',
   vet: 'Veteriner',
@@ -109,9 +122,11 @@ export default function Users() {
                   <button className="small" onClick={() => setEditing(user)}>
                     Düzenle
                   </button>{' '}
-                  <button className="small danger" onClick={() => setDeleting(user)}>
-                    Sil
-                  </button>
+                  {!isDeleted(user) && (
+                    <button className="small danger" onClick={() => setDeleting(user)}>
+                      Sil
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
