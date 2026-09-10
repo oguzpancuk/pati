@@ -12,11 +12,21 @@
  * anything older. A transparent image stays a PNG — JPEG has no alpha, and
  * flattening a sponsor's logo onto black is a visible defect.
  *
- * **Fails open.** A file sharp cannot decode (HEIC on the prebuilt binaries,
- * a corrupt upload) is left exactly as it arrived — the same bytes the
- * server would have stored before this middleware existed. Rejecting it
- * here would turn a photo the AI screening already handles gracefully into
- * a failed upload.
+ * **A file sharp cannot decode is refused**, not stored. This used to fail
+ * open — the original bytes were kept, on the reasoning that a failed
+ * upload is worse than an unresized one. It is not, and the reason is
+ * privacy rather than size: an undecodable file is one whose metadata we
+ * cannot strip, and every upload is served publicly at `/uploads/<name>`.
+ * A HEIC straight off a phone carries the GPS coordinates, capture time
+ * and device model of wherever it was taken, and the privacy notice tells
+ * the reader location is only ever taken at the moment they act (review
+ * finding). A successful re-encode is metadata-free because sharp copies
+ * none of it; the only way to be sure is to have re-encoded.
+ *
+ * The clients this affects: `react-native-image-picker` hands us JPEG, so
+ * the app is unaffected; the web PWA's `accept="image/*"` can produce a
+ * HEIC on Safari, and that upload now gets a Turkish 400 asking for a
+ * different format instead of silently publishing the photo's GPS.
  */
 const crypto = require('crypto');
 const fs = require('fs');
@@ -27,6 +37,20 @@ const MAX_EDGE = 1600;
 // Avatars are rendered at 40–120 pt; a full-size portrait is pure waste.
 const AVATAR_MAX_EDGE = 512;
 const QUALITY = 82;
+
+/**
+ * The refusal for a file we cannot read. The user's half says what to do
+ * about it; the real reason goes to the log, since sharp's own message
+ * ("Input file contains unsupported image format") is English and tells
+ * them nothing.
+ */
+function undecodable(file, err) {
+  console.warn(`[uploads] refused ${file.filename}: ${err?.message ?? err}`);
+  return Object.assign(
+    new Error('Bu fotoğraf biçimini okuyamadık. JPEG veya PNG olarak dener misin?'),
+    { status: 400 }
+  );
+}
 
 /** Every file multer may have attached, whichever shape the route used. */
 function uploadedFiles(req) {
@@ -40,7 +64,7 @@ function uploadedFiles(req) {
  * Rewrites one upload as a fitted image and gives it the extension of what
  * it actually is, updating the multer file object the controllers read
  * (`filename` is what ends up in the database, so it must change with the
- * file). Returns false when the original was kept.
+ * file). Throws a Turkish 400 for anything sharp cannot read.
  */
 async function shrink(file, maxEdge) {
   // Only an image that is ACTUALLY see-through stays a PNG. JPEG has no
@@ -56,8 +80,7 @@ async function shrink(file, maxEdge) {
     alpha = (await sharp(file.path).metadata()).hasAlpha === true;
     if (alpha) alpha = !(await sharp(file.path).stats()).isOpaque;
   } catch (err) {
-    console.warn(`[uploads] left ${file.filename} unresized: ${err?.message ?? err}`);
-    return false;
+    throw undecodable(file, err);
   }
 
   let body;
@@ -72,8 +95,7 @@ async function shrink(file, maxEdge) {
     body = await (alpha ? fitted.png({ compressionLevel: 9 }) : fitted.jpeg({ quality: QUALITY }))
       .toBuffer();
   } catch (err) {
-    console.warn(`[uploads] left ${file.filename} unresized: ${err?.message ?? err}`);
-    return false;
+    throw undecodable(file, err);
   }
 
   const dir = path.dirname(file.path);

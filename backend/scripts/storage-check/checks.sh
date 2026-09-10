@@ -95,20 +95,31 @@ check "…stayed a png" png "${LOGO##*.}"
 check "…and is in the bucket under that name" yes "$(has_key "$LOGO")"
 SECOND="$LOGO"
 
-echo "== the client does not get to choose the stored extension"
+echo "== a file we cannot read is refused, not stored"
 # The part is named .html and declared image/png, which is what gets past
-# the mime filter. Stored as .html and served from our own origin, it would
-# have run script in the origin that holds the JWT (second review round).
+# the mime filter. It used to be stored under an inert .bin name; it is
+# refused outright now, because a file sharp cannot decode is one whose
+# metadata we cannot strip and every upload is served publicly.
 printf '<script>alert(1)</script>' > /tmp/pati-storage-xss.html
+before_keys=$(keys | grep -c .)
 code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/users/me/avatar" -H "Authorization: Bearer $JWT" -F "photo=@/tmp/pati-storage-xss.html;type=image/png")
-check "an .html part -> 200 (it is just a file)" 200 "$code"
-XSS=$(basename "$(j .avatar_url)")
-check "…stored as an inert .bin" bin "${XSS##*.}"
-XSS_URL="${API%/api}/uploads/$XSS"
-CT=$(curl -s -o /dev/null -w '%{content_type}' "$XSS_URL")
-check "…and never served as html" no "$(echo "$CT" | grep -qi html && echo yes || echo no)"
+check "an unreadable part -> 400" 400 "$code"
+check "…in Turkish" yes "$(grep -q "okuyamadık" "$BODY" && echo yes || echo no)"
+check "…and nothing reached the bucket" "$before_keys" "$(keys | grep -c .)"
+
+echo "== a real image with a hostile name still cannot be served as html"
+# The other half of the defence: this one DOES decode, so it is stored —
+# and the server, not the client, picks what it is called.
+node -e "require('sharp')({create:{width:400,height:300,channels:3,background:'#3a7dc8'}}).png().toFile(process.argv[1]).then(()=>{})" /tmp/pati-storage-evil.html
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/users/me/avatar" -H "Authorization: Bearer $JWT" -F "photo=@/tmp/pati-storage-evil.html;type=image/png")
+check "a png named .html -> 200" 200 "$code"
+EVIL_URL=$(j .avatar_url)
+EVIL=$(basename "$EVIL_URL")
+check "…stored as a jpg, the server's choice" jpg "${EVIL##*.}"
+CT=$(curl -s -o /dev/null -w '%{content_type}' "$EVIL_URL")
+check "…never served as html" no "$(echo "$CT" | grep -qi html && echo yes || echo no)"
 check "…and never sniffable into html" yes \
-  "$(curl -s -D - -o /dev/null "$XSS_URL" | grep -qi 'x-content-type-options: nosniff' && echo yes || echo no)"
+  "$(curl -s -D - -o /dev/null "$EVIL_URL" | grep -qi 'x-content-type-options: nosniff' && echo yes || echo no)"
 
 echo "== a malformed url is a Turkish 404, not a 500"
 code=$(curl -s -o "$BODY" -w '%{http_code}' "${API%/api}/uploads/%zz")

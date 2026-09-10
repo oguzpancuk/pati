@@ -161,14 +161,37 @@ test('avatars are fitted to their own, smaller edge', async () => {
   assert.equal((await sharp(file.path).metadata()).width, AVATAR_MAX_EDGE);
 });
 
-test('a file sharp cannot decode is kept exactly as it arrived', async () => {
-  const bytes = Buffer.from('not an image at all');
-  const file = await upload('broken.jpg', bytes);
+test('a file sharp cannot decode is refused, not stored as it arrived', async () => {
+  // It used to be kept. An undecodable file is one whose metadata cannot
+  // be stripped, and every upload is served publicly — a HEIC off a phone
+  // would have published its GPS coordinates (review finding).
+  const file = await upload('broken.jpg', Buffer.from('not an image at all'));
+
+  await assert.rejects(
+    () => run({ file }),
+    (err) => {
+      assert.equal(err.status, 400);
+      assert.match(err.message, /JPEG veya PNG/);
+      return true;
+    }
+  );
+});
+
+test('a metadata-laden photo comes out with none of it', async () => {
+  // The positive half of the same rule: what IS re-encoded carries no EXIF,
+  // because sharp copies none unless asked. Only the colour profile is kept.
+  const withExif = await sharp({
+    create: { width: 900, height: 600, channels: 3, background: '#c8842a' },
+  })
+    .withExif({ IFD0: { Copyright: 'pati', Model: 'Test Camera' } })
+    .jpeg()
+    .toBuffer();
+  assert.ok((await sharp(withExif).metadata()).exif, 'the fixture should have EXIF');
+
+  const file = await upload('tagged.jpg', withExif);
   await run({ file });
 
-  assert.equal(file.filename, 'broken.jpg');
-  assert.equal(file.size, bytes.length);
-  assert.deepEqual(await fs.promises.readFile(file.path), bytes);
+  assert.equal((await sharp(file.path).metadata()).exif, undefined);
 });
 
 test('the fields shape (several named sets) is resized too', async () => {

@@ -3525,3 +3525,48 @@ the single source and there is no parity work. And section 5's promise
 ("hesabını sildiğinde profil fotoğrafın silinir") already holds against a
 bucket: `anonymizeAccount` returns the avatar's filename and the caller
 calls `storage.remove` on it after the commit.
+
+### Same day — the review of the privacy paragraph found a leak in the code
+
+Writing a legal paragraph turned into fixing the thing it would have had to
+disclose. The review checked each sentence against the code, and one of them
+could not be made true by editing:
+
+- **The resizer failed open, and a fail-open upload kept its EXIF.** A file
+  sharp cannot decode — HEIC on the prebuilt binaries, which the web PWA's
+  `accept="image/*"` can produce on Safari — was stored byte for byte and
+  served at `/uploads/<name>` carrying the GPS coordinates, capture time and
+  device model of wherever the photo was taken. Meanwhile the notice tells
+  the reader location is only ever taken at the moment they act. The fix is
+  in code, not text: an undecodable file is refused with a Turkish 400. The
+  reasoning that made fail-open right ("a failed upload is worse than an
+  unresized one") is false once the file is public and unstrippable. A
+  successful re-encode carries no metadata at all, because sharp copies none
+  unless asked — now pinned by a test that feeds it a photo with EXIF and
+  asserts none survives. Mobile is unaffected: `react-native-image-picker`
+  hands us JPEG.
+- **The location promise was one the deploy instructions do not produce.**
+  The paragraph said photos live on "Avrupa'daki sunucular", while
+  DEPLOYMENT.md tells the operator to create the bucket with region
+  Automatic — a hint, not a guarantee, and no jurisdictional restriction.
+  Asserting a storage location publicly under a KVKK heading and being
+  wrong errs against the reader, which is the opposite of the
+  over-disclosure the earlier entry deliberately accepted. It says "yurt
+  dışındaki sunucularda" now; m.9 attaches to the recipient, and the
+  paragraph already names Cloudflare, Inc.
+- **Section 7 was undercounting.** It said the app stores two things on the
+  device; the web client writes at least six, including a log of the last
+  fifty care alerts with their titles and times. Re-dating the document
+  would have carried that forward as current. It now lists them and says
+  plainly that none of it reaches the server — which is true, and is the
+  part that actually matters.
+- The terms had been re-dated with no text change, which tells returning
+  readers to look for a change that does not exist. Put back to 7 Eylül.
+- Face thumbnails are published too, so they are named in the list; the
+  advertiser image is correctly absent, since that list is the reader's own
+  data rather than an inventory of the bucket.
+
+The storage harness gained from this rather than lost: the `.html` payload
+it used to check was stored as an inert `.bin` is now refused outright, and
+a second case was added for a REAL image with a hostile name — which does
+decode, is stored, and still cannot be served as HTML. 34 assertions.
