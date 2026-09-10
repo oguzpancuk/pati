@@ -3239,3 +3239,32 @@ the bucket bill" produced "break every image on a cold cache". Both were
 narrow, local fixes to a named defect, made without asking what else the
 change touched. The third round narrowed rather than widened, which is what a
 converging review looks like, so this stopped where it should have.
+
+### 2026-09-10 — the QA gate on the night run
+
+`evaluator-qa` returned PASS before the deploy, and the way it got there is
+worth keeping: rather than re-running the same batteries, it built a
+worktree at `2faf1c4`, booted the OLD and the NEW backend side by side on
+one uploads directory with no `S3_*` set, and diffed ten request paths —
+including files named the way the old code named them (`.JPG`, `.heic`,
+`.svg`, which the new allowlist would never produce). Zero differences in
+bytes, status, content-type, ETag, Cache-Control, Range or conditional
+requests; the only delta was the added `nosniff`. That is a much stronger
+statement than "the tests pass" about the claim the deploy rests on: with
+no bucket configured, nothing about photo handling changes. It also proved
+the bucket-mode case that would have been easy to get wrong — three legacy
+photos on the volume that were never in the bucket all served byte-identical
+and the bucket stayed empty, because the fallback only fires on a miss.
+
+Two pieces of bookkeeping it caught in my own notes, now corrected: the L3
+row of the night plan listed "web location message" as part of the item,
+but no `web/` file changed — that message had already been added on
+2026-08-31 (`b38e63c`) and I had copied a stale line out of the P8
+follow-ups; and the admin harness was described as 18 assertions when it is
+20 (a device-token pair joined it in the third review round). Neither is
+functional, and both are the kind of drift that turns a roadmap into
+fiction if it is left.
+
+One cosmetic thing left alone: the panel shows "Sil" on rows that are
+already tombstones, where it can only answer 409 "Bu hesap zaten silinmiş"
+into the error banner. Honest, just untidy.

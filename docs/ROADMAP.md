@@ -522,7 +522,7 @@ Deliberately deferred, with reasons:
       admin, and a row already anonymized, and writes an audit entry
       without the freed address in it. "Sil" on every row of the panel's
       user list, with a dialog that says what actually happens. Evidence:
-      `backend/scripts/admin-check/run.sh`, 18 assertions ending in the one
+      `backend/scripts/admin-check/run.sh`, 20 assertions ending in the one
       that matters — the address registers again, as a new account.
 - [ ] Real background notifications (APNs/FCM) or geofencing
 
@@ -1012,7 +1012,7 @@ Owner decisions taken at the start:
 | --- | --------------------------------------------------------------------------------- | ------------------------- |
 | L1  | S3-compatible photo storage adapter + `sharp` resizing, disk fallback              | Launch "object storage", NOTES §3.2 |
 | L2  | Backend tests (jest + supertest): auth, care distance, badges, leaderboard         | Launch "Backend tests", NOTES §3.5  |
-| L3  | Read-path coordinate range checks + `radiusMeters` clamp + web location message    | P8 follow-ups             |
+| L3  | Read-path coordinate range checks + `radiusMeters` clamp                           | P8 follow-ups             |
 | L4  | Remove the location override (`mobile/src/location.ts`)                            | Launch item, NOTES §3.11  |
 | L5  | Admin: delete a user / free a squatted address                                     | Launch "Admin: free a squatted address" |
 | L6  | Rate limit the ad impression endpoint                                              | Ads item                  |
