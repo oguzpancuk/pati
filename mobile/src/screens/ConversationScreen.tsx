@@ -335,7 +335,7 @@ export default function ConversationScreen({ route, navigation }: any) {
             if (item.kind === 'system') {
               return (
                 <View style={styles.systemLine}>
-                  <Text variant="caption" color="textMuted" center style={styles.systemText}>
+                  <Text variant="caption" color="textMuted" center>
                     {item.body}
                   </Text>
                 </View>
@@ -599,13 +599,18 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   avatarTheirs: { marginRight: spacing.sm, marginTop: 2 },
   avatarMine: { marginLeft: spacing.sm, marginTop: 2 },
   avatarGap: { width: AVATAR + spacing.sm },
-  systemLine: { alignSelf: 'center', maxWidth: '86%', marginVertical: spacing.sm },
-  systemText: {
+  // The pill lives on the wrapping View, never on the Text: a pill radius
+  // plus `overflow: 'hidden'` on an iOS <Text> clips the line away entirely,
+  // which is how the group system message shipped invisible on mobile while
+  // rendering fine on web (QA, 2026-09-12).
+  systemLine: {
+    alignSelf: 'center',
+    maxWidth: '86%',
+    marginVertical: spacing.sm,
     backgroundColor: c.surfaceAlt,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    overflow: 'hidden',
   },
   sender: { marginBottom: 2, marginLeft: spacing.sm },
   bubble: {

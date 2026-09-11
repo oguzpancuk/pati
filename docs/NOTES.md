@@ -4059,3 +4059,47 @@ already on a phone renders `care:` badges with the wrong symbol and the wrong
 ladder, because its `symbolForKey` and `thresholdsFor` only know `streak:`.
 Nothing is installed outside this machine today; it stops being true the
 moment a build is.
+
+## 2026-09-12 · the QA pass before the deploy
+
+`evaluator-qa` ran against `0c52a7f` with the whole release in scope and came
+back **NEEDS_WORK** on one thing, which is exactly what that gate is for: the
+group system message — the entire visible half of demo note 12 — rendered on
+web and rendered nothing at all on iOS. The line was there in the list, in the
+payload, in the unread count; it was simply invisible.
+
+The cause was one property. The pill (background, `radius.pill`, padding) was
+styled onto the `<Text>` itself, and a pill radius on an iOS `<Text>` needs
+`overflow: 'hidden'` to clip — which clips the whole line away. Moving the
+pill onto the wrapping `<View>` and leaving the `<Text>` unstyled fixes it and
+drops the `overflow` entirely. Every other `overflow: 'hidden'` in
+`mobile/src` sits on a `View` (each one has a `flexDirection`), so this was a
+one-off, not a class.
+
+Worth remembering for its shape rather than its size: the battery was green
+with the defect present and always would have been, because nothing here is
+wrong in TypeScript, in jest, or on the wire. A backend curl round trip
+confirmed the message; only a screenshot could see that nobody would read it.
+CLAUDE.md already says a change that can produce a screenshot produces one,
+and the screenshot taken during the original work was of the inbox, not of the
+group.
+
+Two lesser findings from the same pass, both recorded rather than fixed:
+
+- `015_badge_counts.sql` rebuilds `users.featured_badges` element by element
+  with no dedupe, so a user holding both `streak:water` and `care:water` would
+  come out with `care:water` twice. Not reachable in production: `1ad564c` —
+  the deployed commit — only ever writes `streak:` keys, so no pre-deploy row
+  can hold a `care:` one. If the file is ever touched again, make the rebuild
+  distinct.
+- If an old machine writes a `streak:` award between the release command and
+  cutover, `recompute-badges.js` aborts on its guard rather than corrupting
+  anything — but 015 will not run again until the next deploy, so those rows
+  keep the old key until someone re-applies it by hand.
+
+What QA could not verify, and so is still unproven: anything needing a tap on
+iOS (`idb` and Appium are not installed, and `simctl` has no tap primitive) —
+the settings sheet scrolling to the OSM credit, the care callout's stacking,
+add-animal through to a candidate, picking a friend in "yeni sohbet", the
+password screens. Cold-start deep links, which were the riskiest part of the
+navigation change, were driven and do pass.
