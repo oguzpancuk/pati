@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Icon } from '../brand';
 import Text from '../ui/Text';
 import { hitSlop, makeStyles, radius, spacing, useTheme } from '../../theme';
@@ -62,34 +62,43 @@ export default function Sheet({
       onRequestClose={onClose}
       onDismiss={onDismiss}
     >
-      {/* Not labelled: it wraps the whole card, and a label here would
-          make a screen reader announce the sheet itself as one button. */}
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        {/* Swallows the press so a tap inside the card doesn't close it. */}
-        <Pressable style={[styles.card, fill && styles.cardFill]} onPress={() => {}}>
-          <View style={styles.grabber} />
-          <View style={styles.header}>
-            <Text variant="heading" numberOfLines={1} style={styles.title}>
-              {title}
-            </Text>
-            {action}
-            <Pressable
-              onPress={onClose}
-              hitSlop={hitSlop}
-              accessibilityRole="button"
-              accessibilityLabel="Kapat"
-            >
-              <Icon name="close" size={20} color={colors.textMuted} />
-            </Pressable>
-          </View>
-          {body}
+      {/* The sheet is bottom-anchored and RN's Modal does not move for the
+          keyboard, so a text field in the body (the settings sheet's
+          change-password form) would type from behind it. */}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Not labelled: it wraps the whole card, and a label here would
+            make a screen reader announce the sheet itself as one button. */}
+        <Pressable style={styles.backdrop} onPress={onClose}>
+          {/* Swallows the press so a tap inside the card doesn't close it. */}
+          <Pressable style={[styles.card, fill && styles.cardFill]} onPress={() => {}}>
+            <View style={styles.grabber} />
+            <View style={styles.header}>
+              <Text variant="heading" numberOfLines={1} style={styles.title}>
+                {title}
+              </Text>
+              {action}
+              <Pressable
+                onPress={onClose}
+                hitSlop={hitSlop}
+                accessibilityRole="button"
+                accessibilityLabel="Kapat"
+              >
+                <Icon name="close" size={20} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            {body}
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const useStyles = makeStyles(({ colors: c }) => ({
+  flex: { flex: 1 },
   backdrop: { flex: 1, backgroundColor: c.overlay, justifyContent: 'flex-end' },
   card: {
     maxHeight: '88%',
