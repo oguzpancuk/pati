@@ -89,8 +89,9 @@ export function MiniMap({
         // North stays up: a rotated basemap is disorienting at this size.
         dragRotate: false,
         pitchWithRotate: false,
-        // The on-map control covered half the thumbnail; the required OSM
-        // attribution renders as a caption below the map instead.
+        // No credit on the map: it lives in the settings sheet now (owner,
+        // demo note 15 — @mobile/map/attribution), which is also what keeps
+        // this thumbnail from being half control.
         attributionControl: false,
       });
       mapRef.current = map;
@@ -113,39 +114,32 @@ export function MiniMap({
   }, []);
 
   return (
-    <div>
-      <div style={{ position: 'relative', height, borderRadius: 16, overflow: 'hidden' }}>
-        <div ref={el} style={{ position: 'absolute', inset: 0 }} />
-        {markerHost
-          ? createPortal(children, markerHost)
-          : children && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  pointerEvents: 'none',
-                }}
-              >
-                {children}
-              </div>
-            )}
-        {/* The opener covers the map rather than wrapping it: a <button>
-            takes phrasing content, and this is also what mobile does — a
-            map swallows touches even when it cannot move. The pill inside
-            is the visible half of the button's own aria-label. */}
-        {onOpen && (
-          <button type="button" className="minimap-open" aria-label={openLabel} onClick={onOpen}>
-            {openHint && <span className="minimap-hint">{openHint}</span>}
-          </button>
-        )}
-      </div>
-      {/* Kept outside the button on purpose: the attribution is a credit,
-          not part of the control. */}
-      <div className="subtle" style={{ fontSize: 10.5, marginTop: 4, textAlign: 'right' }}>
-        © OpenStreetMap katkıda bulunanları · OpenFreeMap
-      </div>
+    <div style={{ position: 'relative', height, borderRadius: 16, overflow: 'hidden' }}>
+      <div ref={el} style={{ position: 'absolute', inset: 0 }} />
+      {markerHost
+        ? createPortal(children, markerHost)
+        : children && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none',
+              }}
+            >
+              {children}
+            </div>
+          )}
+      {/* The opener covers the map rather than wrapping it: a <button>
+          takes phrasing content, and this is also what mobile does — a
+          map swallows touches even when it cannot move. The pill inside
+          is the visible half of the button's own aria-label. */}
+      {onOpen && (
+        <button type="button" className="minimap-open" aria-label={openLabel} onClick={onOpen}>
+          {openHint && <span className="minimap-hint">{openHint}</span>}
+        </button>
+      )}
     </div>
   );
 }

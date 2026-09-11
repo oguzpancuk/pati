@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { MAP_ATTRIBUTION, MAP_ATTRIBUTION_LABEL } from '@mobile/map/attribution';
 import type { ThemeMode } from '../../theme';
 import { Sheet, useSheetExit } from './Sheet';
 
@@ -101,8 +102,15 @@ export function SettingsSheet({
 
       {deleteAccount}
 
-      {/* TODO(main): mount the map attribution line here — item 15 takes the
-          OpenStreetMap credit off the map and into this sheet. */}
+      {/* The basemap credit, off every map and into one always-visible line
+          here (owner, demo note 15). ODbL wants it discoverable, so one level
+          deeper is as far as it goes — never behind a further tap. Both
+          clients read the same two strings from @mobile/map/attribution. */}
+      <div className="hairline" />
+      <div className="label" style={{ marginTop: 0 }}>
+        {MAP_ATTRIBUTION_LABEL}
+      </div>
+      <div className="subtle">{MAP_ATTRIBUTION}</div>
     </Sheet>
   );
 }

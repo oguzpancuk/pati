@@ -49,7 +49,8 @@ export function CareHistoryMap({
         zoom: 12,
         pitchWithRotate: false,
         dragRotate: false,
-        // Attribution renders as the caption below, like MiniMap.
+        // The basemap credit is in the settings sheet, not on any map
+        // (owner, demo note 15 — @mobile/map/attribution).
         attributionControl: false,
       });
       mapRef.current = map;
@@ -125,13 +126,8 @@ export function CareHistoryMap({
   }, [actions]);
 
   return (
-    <div>
-      <div style={{ position: 'relative', height, borderRadius: 16, overflow: 'hidden' }}>
-        <div ref={el} style={{ position: 'absolute', inset: 0 }} />
-      </div>
-      <div className="subtle" style={{ fontSize: 10.5, marginTop: 4, textAlign: 'right' }}>
-        © OpenStreetMap katkıda bulunanları · OpenFreeMap
-      </div>
+    <div style={{ position: 'relative', height, borderRadius: 16, overflow: 'hidden' }}>
+      <div ref={el} style={{ position: 'absolute', inset: 0 }} />
     </div>
   );
 }
