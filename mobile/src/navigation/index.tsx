@@ -211,8 +211,11 @@ function MainTabs() {
             backgroundColor: theme.colors.brand,
             color: theme.colors.textOnBrand,
             fontFamily: fonts.semibold,
-            fontSize: 10,
-            lineHeight: 14,
+            // The badge is an 18 pt pill whose own lineHeight centres the
+            // text in it; keep that number when shrinking the digits, or
+            // "99+" rides the top edge.
+            fontSize: 11,
+            lineHeight: 17,
           },
         }}
       />
