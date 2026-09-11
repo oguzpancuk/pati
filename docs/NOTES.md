@@ -3997,3 +3997,65 @@ refusal produced — but they are trades, not absences.
 - **A report the user never filed.** `ReportDialog` and `ReportSheet` have the
   same late-answer shape and no token: "Gönder", Back, reopen, choose another
   reason, and the first answer sets "Şikayetin alındı" on the reopened sheet.
+
+## 2026-09-12 — the owner's second pass, and a navigation restructure that needed a second look
+
+Fifteen more notes after walking the simulator and the web app. Most were
+layout; two were not.
+
+**The tab bar must never disappear, and three flows became modals.** The
+mobile root was a stack with the tabs as its bottom screen, so anything
+pushed covered the bar. The root is the tab navigator now and every
+destination lives inside each tab's own stack.
+
+The first version of that put the three modal flows (yeni hayvan, bakım ver,
+yeni sohbet) on a root stack ABOVE the tabs, and the review caught what that
+costs — by reading `@react-navigation` 6.4.17's own router rather than
+guessing. Worth remembering, because nothing about it is obvious:
+
+- `StackRouter`'s REPLACE returns null for a route it does not own, and an
+  unhandled action is offered to **children, last-registered first**. So
+  `replace('AnimalProfile')` from a root modal was handled by whichever tab
+  mounted last, replacing THAT tab's home screen while the modal stayed on
+  screen. `BaseRouter.shouldActionChangeFocus` is true only for NAVIGATE, so
+  the root never came back into focus to correct it.
+- NAVIGATE from a root screen into a tab focuses `Tabs`, and
+  `getStateForRouteFocus` truncates the stack above it — which unmounted the
+  add-animal modal and threw away the draft on the way to a match candidate.
+
+Both disappear once the modals live in the tab stacks too: the action
+resolves where the reader is standing, and a candidate is pushed ABOVE the
+modal instead of replacing it. Nothing sits above the tabs any more.
+
+**A nested linking config needs `initialRouteName` per tab.** Without it a
+cold-start `pati://animal/12` builds that tab's stack with the linked screen
+as its only route: no back chevron, and the tab's own home unreachable for
+the session. The warning about this trap existed one level up in the old
+config and did not follow the nesting down. It is now on every tab.
+
+**Badges count records, not consecutive days** (owner): food/water
+1/10/50/250, animal registration 1/5/20/100, keys `streak:` → `care:`, and
+the "Süreklilik" group is gone from both catalogues because nothing is a
+streak. `015_badge_counts.sql` renames the keys;
+`backend/scripts/recompute-badges.js` rewrites the awards.
+
+Three things about that script, for whoever runs it next:
+
+- It refuses to run before 015 (it counts surviving `streak:` keys and
+  aborts), because in the wrong order its DELETE matches nothing and it
+  writes `care:` rows beside the old ones.
+- It plans outside its transaction and deletes inside it, so a badge awarded
+  by live traffic in that window is deleted and not rewritten;
+  `syncBadgeAwards` re-inserts it later unseen, which is the celebration the
+  "mark seen" choice exists to avoid. **Run it with the app quiet.**
+- A streak of N days implies at least N records, so a tier survives when the
+  new threshold is no higher than the old streak length. Registration is safe
+  everywhere and so is diamond; food and water are not — 7-9 records drop
+  from silver to bronze, 30-49 from gold to silver. `--dry-run` names those
+  people by id before anything is written.
+
+**Also true after this deploy, and not fixable from here:** any mobile build
+already on a phone renders `care:` badges with the wrong symbol and the wrong
+ladder, because its `symbolForKey` and `thresholdsFor` only know `streak:`.
+Nothing is installed outside this machine today; it stops being true the
+moment a build is.

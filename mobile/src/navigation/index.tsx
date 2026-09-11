@@ -6,6 +6,7 @@ import {
   NavigationContainer,
   useFocusEffect,
   type LinkingOptions,
+  type NavigatorScreenParams,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -60,24 +61,14 @@ export type AuthStackParamList = {
  * flows live here (owner, 2026-09-11: the bar must never disappear, and these
  * three should open as popups). Everywhere you can *go* is a tab stack screen.
  */
-export type RootStackParamList = {
-  Tabs: undefined;
-  // confirmedAnimalId: set when returning from the match review via "that's the one".
-  // confirmedMatchHit: whether the confirm may report a sighting (the
-  // server's matchHit for that candidate); without it the profile opens.
-  AddAnimal: { confirmedAnimalId?: number; confirmedMatchHit?: boolean } | undefined;
-  // The swipeable full-screen viewer over the profile's photos (P6 item 7).
-  AnimalPhotos: { animalId: number; photos: AnimalPhoto[]; index?: number };
-  // "Bakım ver": the two-photo step that makes the user a carer (P6 item 8).
-  CarePhotos: { animalId: number; species: 'cat' | 'dog'; name?: string | null };
-  NewConversation: undefined;
-};
-
 /**
- * Every tab's stack carries the same set of destinations on top of its own
- * home screen. Registering them per tab is the whole point: a screen pushed
- * inside a tab keeps the tab bar, and back pops within that tab — which is
- * also what DESIGN §8 asks for.
+ * Everything lives in a tab's own stack — destinations AND the modal flows.
+ * Nothing sits on a stack above the tabs any more, and that is not tidiness:
+ * a root screen cannot resolve `replace('AnimalProfile')`, because that route
+ * only exists inside the tab stacks. React Navigation then offers the action
+ * to the children, last-registered first, and some unrelated tab replaced ITS
+ * home screen while the modal stayed on screen (review, 2026-09-12). Inside
+ * the tab, every call resolves where the reader actually is.
  */
 export type TabStackParamList = {
   MapHome: undefined;
@@ -106,13 +97,24 @@ export type TabStackParamList = {
   // title: shown in the header until the conversation itself loads.
   Conversation: { conversationId: number; title?: string };
   GroupSettings: { conversationId: number };
+  // The modal flows. Presented over the tab they were opened from, so the
+  // add-animal draft survives a trip to a match candidate: the candidate is
+  // pushed ABOVE the modal in the same stack rather than replacing it.
+  // confirmedAnimalId: set when returning from the match review via "that's
+  // the one". confirmedMatchHit: whether the confirm may report a sighting.
+  AddAnimal: { confirmedAnimalId?: number; confirmedMatchHit?: boolean } | undefined;
+  CarePhotos: { animalId: number; species: 'cat' | 'dog'; name?: string | null };
+  NewConversation: undefined;
+  // The swipeable full-screen viewer over the profile's photos (P6 item 7).
+  AnimalPhotos: { animalId: number; photos: AnimalPhoto[]; index?: number };
 };
 
+/** Each tab holds a stack, so its params are that stack's. */
 export type MainTabParamList = {
-  Map: undefined;
-  Animals: undefined;
-  Messages: undefined;
-  Profile: undefined;
+  Map: NavigatorScreenParams<TabStackParamList>;
+  Animals: NavigatorScreenParams<TabStackParamList>;
+  Messages: NavigatorScreenParams<TabStackParamList>;
+  Profile: NavigatorScreenParams<TabStackParamList>;
 };
 
 /**
@@ -125,7 +127,7 @@ export type MainTabParamList = {
  */
 const DEV_INITIAL_URL_KEY = 'devInitialUrl';
 
-const linking: LinkingOptions<RootStackParamList> = {
+const linking: LinkingOptions<MainTabParamList> = {
   prefixes: ['pati://'],
   // Development only: `xcrun simctl openurl` on iOS asks "open with pati?"
   // every time and can't be confirmed from the command line. Instead, a
@@ -143,57 +145,55 @@ const linking: LinkingOptions<RootStackParamList> = {
     return Linking.getInitialURL();
   },
   config: {
-    initialRouteName: 'Tabs',
     screens: {
-      // A destination is registered in EVERY tab's stack so it can be pushed
-      // from wherever the reader is; a link has to pick one, so each path
-      // names the tab it belongs to. Opening pati://animal/12 therefore lands
-      // in the animals tab with the tab bar on screen.
-      Tabs: {
+      // `initialRouteName` per tab is load-bearing, not decoration: without
+      // it a link builds that tab's stack with the linked screen as its ONLY
+      // route — no back chevron, and the tab's own home unreachable for the
+      // session (review, 2026-09-12). A destination exists in every tab's
+      // stack so it can be pushed from wherever the reader is; a link has to
+      // pick one, so each path names the tab it belongs to.
+      Map: { initialRouteName: 'MapHome', screens: { MapHome: 'map' } },
+      Animals: {
+        initialRouteName: 'AnimalsHome',
         screens: {
-          Map: { screens: { MapHome: 'map' } },
-          Animals: {
-            screens: {
-              AnimalsHome: 'animals',
-              // ?matchReview=1 / ?report=1
-              AnimalProfile: { path: 'animal/:animalId', parse: { animalId: Number } },
-            },
+          AnimalsHome: 'animals',
+          // ?matchReview=1 / ?report=1
+          AnimalProfile: { path: 'animal/:animalId', parse: { animalId: Number } },
+          AddAnimal: 'add-animal',
+          CarePhotos: { path: 'animal/:animalId/care', parse: { animalId: Number } }, // ?species=cat
+        },
+      },
+      Messages: {
+        initialRouteName: 'MessagesHome',
+        screens: {
+          MessagesHome: 'messages',
+          NewConversation: 'messages/new',
+          Conversation: {
+            path: 'conversation/:conversationId',
+            parse: { conversationId: Number },
           },
-          Messages: {
-            screens: {
-              MessagesHome: 'messages',
-              Conversation: {
-                path: 'conversation/:conversationId',
-                parse: { conversationId: Number },
-              },
-              GroupSettings: {
-                path: 'conversation/:conversationId/settings',
-                parse: { conversationId: Number },
-              },
-            },
-          },
-          Profile: {
-            screens: {
-              ProfileHome: 'profile',
-              Notifications: 'notifications',
-              PublicProfile: { path: 'user/:userId', parse: { userId: Number } },
-              FindFriends: 'friends',
-              Leaderboard: 'leaderboard',
-              UserComments: 'comments',
-            },
+          GroupSettings: {
+            path: 'conversation/:conversationId/settings',
+            parse: { conversationId: Number },
           },
         },
       },
-      // The modals, which are root screens on purpose.
-      AddAnimal: 'add-animal',
-      CarePhotos: { path: 'animal/:animalId/care', parse: { animalId: Number } }, // ?species=cat
-      NewConversation: 'messages/new',
+      Profile: {
+        initialRouteName: 'ProfileHome',
+        screens: {
+          ProfileHome: 'profile',
+          Notifications: 'notifications',
+          PublicProfile: { path: 'user/:userId', parse: { userId: Number } },
+          FindFriends: 'friends',
+          Leaderboard: 'leaderboard',
+          UserComments: 'comments',
+        },
+      },
     },
   },
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
-const RootStack = createNativeStackNavigator<RootStackParamList>();
 const TabStack = createNativeStackNavigator<TabStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -204,6 +204,34 @@ function AuthNavigator() {
       <AuthStack.Screen name="Register" component={RegisterScreen} />
     </AuthStack.Navigator>
   );
+}
+
+/**
+ * The way out of a modal. iOS gives it a swipe-down, which is invisible to
+ * anyone who does not already know it, and a modal has no back arrow of its
+ * own because it is the bottom of its stack.
+ */
+function ModalCloseButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={hitSlop}
+      accessibilityRole="button"
+      accessibilityLabel="Kapat"
+    >
+      <Icon name="close" size={22} color={colors.text} />
+    </Pressable>
+  );
+}
+
+/** Header options shared by the three modal flows. */
+function modalOptions(title: string) {
+  return ({ navigation }: { navigation: { goBack: () => void } }) => ({
+    title,
+    presentation: 'modal' as const,
+    headerLeft: () => <ModalCloseButton onPress={() => navigation.goBack()} />,
+  });
 }
 
 /**
@@ -264,6 +292,35 @@ function sharedScreens() {
       name="GroupSettings"
       component={GroupSettingsScreen}
       options={{ title: 'grup ayarları' }}
+    />,
+    // The modal flows, in the tab stack rather than above it. Presented as
+    // sheets they still cover the tab bar, which is right for a task — but
+    // they can now reach the routes they navigate to, and the add-animal
+    // draft survives a trip to a candidate because the candidate is pushed
+    // above the modal instead of unmounting it.
+    <TabStack.Screen
+      key="AddAnimal"
+      name="AddAnimal"
+      component={AddAnimalScreen}
+      options={modalOptions('yeni hayvan')}
+    />,
+    <TabStack.Screen
+      key="CarePhotos"
+      name="CarePhotos"
+      component={CarePhotoScreen}
+      options={modalOptions('bakım ver')}
+    />,
+    <TabStack.Screen
+      key="NewConversation"
+      name="NewConversation"
+      component={NewConversationScreen}
+      options={modalOptions('yeni sohbet')}
+    />,
+    <TabStack.Screen
+      key="AnimalPhotos"
+      name="AnimalPhotos"
+      component={AnimalPhotoViewerScreen}
+      options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }}
     />,
   ];
 }
@@ -386,67 +443,15 @@ function badgeLabel(count: number) {
   return count > 99 ? '99+' : String(count);
 }
 
+
 /**
- * The way out of a modal. iOS gives it a swipe-down, which is invisible to
- * anyone who does not already know it, and a modal has no back arrow of its
- * own because it is the bottom of its stack.
+ * The tabs ARE the root. Nothing sits above them: every destination and every
+ * modal is registered inside each tab's stack, so an action dispatched from a
+ * modal resolves in the stack the reader is standing in rather than bubbling
+ * sideways into another tab.
  */
-function ModalCloseButton({ onPress }: { onPress: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={hitSlop}
-      accessibilityRole="button"
-      accessibilityLabel="Kapat"
-    >
-      <Icon name="close" size={22} color={colors.text} />
-    </Pressable>
-  );
-}
-
-/** Header options shared by the three modal flows. */
-function modalOptions(title: string) {
-  return ({ navigation }: { navigation: { goBack: () => void } }) => ({
-    title,
-    presentation: 'modal' as const,
-    headerLeft: () => <ModalCloseButton onPress={() => navigation.goBack()} />,
-  });
-}
-
 function MainNavigator() {
-  const theme = useTheme();
-  return (
-    <RootStack.Navigator screenOptions={screenOptions(theme)}>
-      <RootStack.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
-      {/* Modals, not destinations (owner, 2026-09-11): each is one task you
-          finish and come back from, so it rises over the app as a sheet
-          rather than becoming a place. `modal` brings iOS's swipe-down, and
-          the header keeps an explicit close for everyone who does not know
-          that gesture. These are also the only screens allowed to cover the
-          tab bar — everywhere you can GO lives in a tab stack. */}
-      <RootStack.Screen
-        name="AddAnimal"
-        component={AddAnimalScreen}
-        options={modalOptions('yeni hayvan')}
-      />
-      <RootStack.Screen
-        name="CarePhotos"
-        component={CarePhotoScreen}
-        options={modalOptions('bakım ver')}
-      />
-      <RootStack.Screen
-        name="NewConversation"
-        component={NewConversationScreen}
-        options={modalOptions('yeni sohbet')}
-      />
-      <RootStack.Screen
-        name="AnimalPhotos"
-        component={AnimalPhotoViewerScreen}
-        options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }}
-      />
-    </RootStack.Navigator>
-  );
+  return <MainTabs />;
 }
 
 export default function RootNavigator() {

@@ -23,8 +23,11 @@ UPDATE users
                    THEN to_jsonb('care:' || split_part(element #>> '{}', ':', 2))
                    ELSE element
               END
+              -- The reader chose this order; jsonb_agg keeps input order in
+              -- practice but only ORDER BY makes that a guarantee.
+              ORDER BY ordinality
             )
-       FROM jsonb_array_elements(users.featured_badges) AS element
+       FROM jsonb_array_elements(users.featured_badges) WITH ORDINALITY AS a(element, ordinality)
    )
  WHERE featured_badges IS NOT NULL
    AND featured_badges::text LIKE '%streak:%';

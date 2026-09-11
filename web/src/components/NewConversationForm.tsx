@@ -103,7 +103,12 @@ export function NewConversationForm() {
       <div className="card flat msg-empty">
         <strong>Henüz arkadaşın yok</strong>
         <div className="muted">Mesajlaşmak için önce arkadaş ekle.</div>
-        <Link to="/arkadas-bul" className="btn" style={{ marginTop: 12 }}>
+        {/* `replace`, because this form is also rendered inside a Sheet: the sheet
+              added one history entry and a push would leave it standing, so Back
+              would land on a phantom copy of the inbox and the counter behind
+              PageHeader's fallback would never return to zero (review,
+              2026-09-12). */}
+          <Link to="/arkadas-bul" replace className="btn" style={{ marginTop: 12 }}>
           Arkadaş bul
         </Link>
       </div>

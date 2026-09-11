@@ -39,6 +39,18 @@ const BATCH = 200;
 const dryRun = process.argv.includes('--dry-run');
 
 async function main() {
+  // 015 renames the keys; run before it and CARE_KEYS matches nothing, so the
+  // DELETE is a no-op, the streak rows survive and care rows are written
+  // beside them. Enforce the order rather than remembering it.
+  const stale = await pool.query(
+    "SELECT count(*)::int AS n FROM user_badge_awards WHERE badge_key LIKE 'streak:%'"
+  );
+  if (stale.rows[0].n > 0) {
+    throw new Error(
+      `${stale.rows[0].n} awards still carry a streak: key — apply 015_badge_counts.sql first`
+    );
+  }
+
   const { rows: users } = await pool.query('SELECT id FROM users ORDER BY id');
   const before = await pool.query(
     'SELECT badge_key, tier, count(*)::int AS n FROM user_badge_awards WHERE badge_key = ANY($1) GROUP BY badge_key, tier ORDER BY badge_key, tier',
@@ -124,12 +136,16 @@ async function main() {
     return;
   }
 
+  const totals = new Map();
+  for (const p of planned) totals.set(p.userId, p.points);
+
+  let written = 0;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('DELETE FROM user_badge_awards WHERE badge_key = ANY($1)', [CARE_KEYS]);
     for (const { userId, badge, tier, points } of planned) {
-      await client.query(
+      const result = await client.query(
         `INSERT INTO user_badge_awards
            (user_id, badge_key, tier, label, points_awarded,
             points_before, points_after, rank_before, rank_after,
@@ -138,6 +154,16 @@ async function main() {
          ON CONFLICT (user_id, badge_key, tier) DO NOTHING`,
         [userId, badge.key, tier, badge.label, TIER_POINTS[tier], points, levelFor(points).level]
       );
+      written += result.rowCount;
+    }
+
+    // finding 8: points are derived, but the SNAPSHOT is not. A reader whose
+    // tier moved keeps a stale last_points, and the next real badge popup
+    // would render "points before" above "points after" — a celebration
+    // showing the number going down. last_rank is left to refreshRankSnapshot
+    // on the next profile view; it is a moment in time we cannot reconstruct.
+    for (const [userId, points] of totals) {
+      await client.query('UPDATE users SET last_points = $1 WHERE id = $2', [points, userId]);
     }
     await client.query('COMMIT');
   } catch (err) {
@@ -146,7 +172,7 @@ async function main() {
   } finally {
     client.release();
   }
-  console.log(`written: ${planned.length} care awards`);
+  console.log(`written: ${written} care awards (planned ${planned.length})`);
 }
 
 main()

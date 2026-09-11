@@ -8,8 +8,6 @@
   margin-bottom: 18px;
 }
 
-/* The header's controls sit right-aligned on their own line, so the name
-   keeps the full width on your own profile and on someone else's. */
 /* On the identity row, right-aligned and centred against the avatar. */
 .profile-actions {
   display: flex;
