@@ -12,7 +12,6 @@ import {
   HealthRecord,
   markHealthRecordRecovered,
   reopenHealthRecord,
-  Vaccination,
 } from '../api';
 import {
   AnimalSocialDetail,
@@ -52,31 +51,6 @@ const COMMENT_PREVIEW = 3;
 const COMMENT_PAGE = 20;
 const RECORD_PREVIEW = 2;
 const CARER_PREVIEW = 5;
-
-/**
- * Fields GET /animals/:id already returns that web's shared `api.ts` types
- * do not name yet: the carers and the author ids that make every person on
- * the page a link (demo item 7). Declared here because `api.ts` is the file
- * the parallel tracks share; the shapes match mobile's `AnimalDetail`
- * (`carers: Carer[]`, `HealthRecord.recorded_by` / `.recovered_by`,
- * `Vaccination.recorded_by`) and the main session can fold them in later.
- */
-interface Carer {
-  id: number;
-  name: string;
-  avatar_url: string | null;
-}
-interface RecordAuthors {
-  recorded_by?: number | null;
-  recovered_by?: number | null;
-}
-// Omit, not intersect: `A[] & B[]` keeps resolving `.map` through the first
-// signature, so the extra fields never reach the callback's parameter.
-type AnimalPageDetail = Omit<AnimalSocialDetail, 'healthRecords' | 'vaccinations'> & {
-  carers?: Carer[];
-  healthRecords: (HealthRecord & RecordAuthors)[];
-  vaccinations: (Vaccination & RecordAuthors)[];
-};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -200,7 +174,7 @@ export default function AnimalPage() {
   const photoChecked = searchParams.get('kontrol') !== '0';
   const animalId = Number(id);
   const { me } = useAuth();
-  const [animal, setAnimal] = useState<AnimalPageDetail | null>(null);
+  const [animal, setAnimal] = useState<AnimalSocialDetail | null>(null);
   // The full-screen viewer (P6 item 7): the index of the open photo, or null.
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const likeBusy = useRef<Set<number>>(new Set());
@@ -249,10 +223,7 @@ export default function AnimalPage() {
         // Only the last few comments at open: first paint must not grow with the chat.
         fetchComments(animalId, { limit: COMMENT_PREVIEW }),
       ]);
-      // why: the one place the response is widened to the fields api.ts does
-      // not name yet (see AnimalPageDetail). Every read of them below is
-      // optional-chained, so an older server simply shows no links.
-      setAnimal(detail as AnimalPageDetail);
+      setAnimal(detail);
       setComments(commentPage.comments);
       setCommentTotal(commentPage.total);
     } catch (err) {
@@ -524,7 +495,7 @@ export default function AnimalPage() {
 
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
-  const carers = animal.carers ?? [];
+  const carers = animal.carers;
   const selfId = me?.id;
 
   // The grid always fills to a multiple of 3: real tiles + dashed "photo"
@@ -662,6 +633,9 @@ export default function AnimalPage() {
           <Link key={carer.id} className="animal-carer-row" to={profilePath(carer.id, selfId)}>
             <UserAvatar avatarUrl={carer.avatar_url} name={carer.name} size={34} />
             <strong className="grow">{carer.name}</strong>
+            {/* Same chip the comment authors below wear: the showcase world
+                writes carer rows too, so a bot can be met here. */}
+            {carer.is_demo && <span className="demo-chip">demo</span>}
             <span className="subtle chevron">›</span>
           </Link>
         ))

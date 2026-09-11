@@ -202,11 +202,17 @@ async function addCareAction(req, res, next) {
     let result;
     try {
       await storage.publish(file);
+      // weight and expires_at come back with the new row, so the created
+      // record is the same shape the list returns: both clients type this
+      // response as a CareAction, and one appended straight to the map's
+      // list would otherwise carry an undefined window (review finding).
       result = await pool.query(
         `INSERT INTO care_actions (location, user_id, action_type, photo_url, ai_check, photo_token_jti)
          VALUES (ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3, $4, $5, $6, $7)
          RETURNING id, action_type, photo_url, created_at,
-                   ST_AsGeoJSON(location)::json AS location`,
+                   ST_AsGeoJSON(location)::json AS location,
+                   ${WEIGHT_SQL} AS weight,
+                   ${EXPIRES_AT_SQL} AS expires_at`,
         [
           pinLng,
           pinLat,

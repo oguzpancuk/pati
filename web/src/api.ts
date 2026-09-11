@@ -317,6 +317,13 @@ export interface CareAction {
   created_at: string;
   location: { type: 'Point'; coordinates: [number, number] };
   weight: string;
+  /**
+   * When this record's window runs out, computed on the server from its own
+   * action type (food 4 h, water 6 h). The map callout says how much is left
+   * from this, so no client carries a copy of those hours. Mobile's
+   * `api/care.ts` declares the same field.
+   */
+  expires_at: string;
 }
 
 export interface CareStatus {
@@ -348,10 +355,13 @@ export interface HealthRecord {
   record_type: 'illness' | 'injury';
   description: string;
   vet_verified: boolean;
+  /** The author's id, so the name is a link to their profile (demo item 7). */
+  recorded_by: number;
   recorded_by_name?: string;
   recorded_at: string;
   comment_count: number;
   status: 'not_started' | 'in_treatment' | 'recovered';
+  recovered_by: number | null;
   recovered_by_name: string | null;
 }
 
@@ -362,6 +372,8 @@ export interface Vaccination {
   vet_verified: boolean;
   administered_at: string;
   next_due_at: string | null;
+  /** The author's id, so the name is a link to their profile (demo item 7). */
+  recorded_by: number;
   recorded_by_name?: string;
 }
 
@@ -395,11 +407,22 @@ export interface AnimalMatch extends Animal {
   similarity_reasons: SimilarityReason[];
 }
 
+/** A person on the animal's carer list; the row links to their profile. */
+export interface Carer {
+  id: number;
+  name: string;
+  avatar_url: string | null;
+  /** The carer is a showcase account; the row wears the same chip a comment does. */
+  is_demo?: boolean;
+}
+
 export interface AnimalDetail extends Animal {
   location_updated_at: string;
   photos: AnimalPhoto[];
   healthRecords: HealthRecord[];
   vaccinations: Vaccination[];
+  /** Always present on GET /animals/:id; mobile's `AnimalDetail` names it too. */
+  carers: Carer[];
   isCarer: boolean;
 }
 
