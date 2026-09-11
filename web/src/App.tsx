@@ -76,8 +76,11 @@ function Shell() {
     };
     document.addEventListener('visibilitychange', onVisibility);
     // A read that finishes after the user has already left the conversation
-    // still moves the badge; nothing depends on the poll landing after it.
-    const unsubscribe = onConversationRead(poll);
+    // still moves the badge, and it moves it to the number the server computed
+    // in the same request that did the stamping — no second read to race.
+    const unsubscribe = onConversationRead((count) => {
+      if (alive) setUnreadMessages(count);
+    });
     return () => {
       alive = false;
       window.clearInterval(timer);

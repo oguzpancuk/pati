@@ -25,17 +25,13 @@ export default function LeaderboardPage() {
 
   function row(entry: LeaderboardEntry, highlight: boolean) {
     const medal = medalFor(entry.rank);
-    return (
-      <Link
-        key={entry.id}
-        to={`/kullanici/${entry.id}`}
-        className="card flat row"
-        style={{
-          textDecoration: 'none',
-          color: 'inherit',
-          ...(highlight ? { borderColor: 'var(--brand)', background: 'var(--brand-tint)' } : {}),
-        }}
-      >
+    const style = {
+      textDecoration: 'none',
+      color: 'inherit',
+      ...(highlight ? { borderColor: 'var(--brand)', background: 'var(--brand-tint)' } : {}),
+    };
+    const body = (
+      <>
         <span
           style={{
             width: 34,
@@ -62,6 +58,22 @@ export default function LeaderboardPage() {
             puan
           </div>
         </div>
+      </>
+    );
+    // `highlight` IS "this row is you", and your own row is not a door — the
+    // same rule the animal profile follows for your own name. It used to link
+    // to /kullanici/<me>, which redirects to /profil: a tab root, so a reader
+    // who tapped it landed somewhere with no way back to the board.
+    if (highlight) {
+      return (
+        <div key={entry.id} className="card flat row" style={style}>
+          {body}
+        </div>
+      );
+    }
+    return (
+      <Link key={entry.id} to={`/kullanici/${entry.id}`} className="card flat row" style={style}>
+        {body}
       </Link>
     );
   }

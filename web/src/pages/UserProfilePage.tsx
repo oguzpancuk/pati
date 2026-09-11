@@ -95,6 +95,8 @@ export default function UserProfilePage() {
   if (!profile) {
     return (
       <div className="page">
+        {/* See AnimalPage: a failed load is when the way back matters most. */}
+        <PageHeader title="profil" fallback="/profil" />
         {error ? <div className="error">{error}</div> : <p className="muted">Profil yükleniyor…</p>}
       </div>
     );

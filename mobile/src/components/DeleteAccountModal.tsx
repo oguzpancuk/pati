@@ -105,7 +105,13 @@ export default function DeleteAccountLink({
         visible={open}
         transparent
         animationType="fade"
-        onRequestClose={() => !busy && reset()}
+        // Unlike the backdrop, hardware back does NOT wait for `busy`: the
+        // backdrop and "Vazgeç" are both disabled while the request is in
+        // flight, so gating this one too would leave an Android user with no
+        // way out of the sheet at all if the request hung. Closing does not
+        // cancel the request — it resolves into a dismissed sheet, which is
+        // the same thing that happens when the screen is backgrounded.
+        onRequestClose={reset}
       >
         <Pressable style={styles.backdrop} onPress={() => !busy && reset()}>
           <Pressable style={styles.card} onPress={() => {}}>

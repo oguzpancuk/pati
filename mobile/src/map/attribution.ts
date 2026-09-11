@@ -16,5 +16,12 @@
  */
 export const MAP_ATTRIBUTION = '© OpenStreetMap katkıda bulunanları · OpenFreeMap';
 
-/** The label the credit sits under in the settings sheet. */
-export const MAP_ATTRIBUTION_LABEL = 'Harita verisi';
+/**
+ * The label the credit sits under in the settings sheet.
+ *
+ * Lower case in the string itself, not in a stylesheet: web's `.label` rule
+ * carries `text-transform: lowercase` and mobile's has no equivalent, so a
+ * capitalised constant is the one thing this file exists to prevent — the two
+ * clients disagreeing about a sentence they both import.
+ */
+export const MAP_ATTRIBUTION_LABEL = 'harita verisi';

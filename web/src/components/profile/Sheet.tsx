@@ -18,6 +18,18 @@ type SheetEntry = {
 const openSheets: SheetEntry[] = [];
 let nextSheetId = 0;
 
+/**
+ * How many history entries this document has pushed on its own behalf — see
+ * the push below. Read by PageHeader's `hasAppHistory`; module state, so it
+ * resets on reload, which is the safe direction: the fallback root is a small
+ * surprise, a back button that does nothing is the dead end DESIGN §8 is about.
+ */
+let entriesPushed = 0;
+
+export function sheetEntriesPushed(): number {
+  return entriesPushed;
+}
+
 function closeDownTo(index: number) {
   // Top first, so a popup over a sheet disappears before the sheet does.
   const removed = openSheets.splice(index);
@@ -65,6 +77,14 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       // its history index in `state.idx`, and dropping it confuses its
       // back/forward bookkeeping.
       window.history.pushState({ ...window.history.state, patiSheet: id }, '');
+      // Counted because react-router's own `state.idx` is NOT incremented by
+      // this push (it is carried over so the router's bookkeeping survives),
+      // and a link inside a sheet then navigates with `replace`, which does
+      // not increment it either. Without this counter a page opened through a
+      // sheet from the entry the app loaded on looks to PageHeader like a page
+      // with nothing behind it, and its back button goes to the fallback root
+      // instead of to the profile the sheet was standing on.
+      entriesPushed += 1;
     }
 
     const onKey = (event: KeyboardEvent) => {

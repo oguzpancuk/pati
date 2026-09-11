@@ -112,26 +112,26 @@ export const fetchConversations = () =>
     .then((r) => r.conversations);
 
 /**
- * Marking a conversation read and re-reading the tab badge are two requests
- * about the same fact, and the server answers whichever arrives first. Two
- * things keep them in order:
+ * Marking a conversation read and re-reading the tab badge used to be two
+ * requests about the same fact, racing each other. They are one request now:
+ * POST .../read answers with the total the server computed in the same
+ * statement that did the stamping, and `markConversationRead` publishes it,
+ * so there is no second number to disagree with and no ordering to keep.
  *
- * - the count waits for any read still in flight, so a count that overtakes
- *   a read does not report messages the user has already read;
- * - a finished read tells the badge to look again (`onConversationRead`), so
- *   the badge no longer depends on being polled at the right moment. That is
- *   what lets ConversationPage mark read AFTER its messages land, which is
- *   the order the server's `last_read_at = now()` requires: marking first
- *   would stamp over a message that arrives before the page renders, and it
- *   would be shown and still counted unread.
+ * That is what lets ConversationPage mark read AFTER its messages land, which
+ * is the order `last_read_at = now()` requires — marking first would stamp
+ * over a message that arrives before the page renders, leaving it shown and
+ * still counted unread. Leaving a slow conversation early is harmless too:
+ * the read resolves after the page is gone and the badge still hears it.
  *
- * Mobile's api/messages.ts does the same.
+ * The minute poll stays, for messages that arrive from elsewhere. Mobile's
+ * api/messages.ts discharges this the same way, from the same answer.
  */
-const readsInFlight = new Set<Promise<unknown>>();
-const readListeners = new Set<() => void>();
+type UnreadListener = (count: number) => void;
+const readListeners = new Set<UnreadListener>();
 
-/** Subscribe to "a conversation was just marked read"; returns the unsubscribe. */
-export function onConversationRead(listener: () => void): () => void {
+/** Subscribe to the count a finished mark-read reported; returns the unsubscribe. */
+export function onConversationRead(listener: UnreadListener): () => void {
   readListeners.add(listener);
   return () => {
     readListeners.delete(listener);
@@ -140,8 +140,6 @@ export function onConversationRead(listener: () => void): () => void {
 
 /** Every conversation's unread counts added up server-side, for the tab badge. */
 export const fetchUnreadMessageCount = async () => {
-  // allSettled: a read that failed must not take the count down with it.
-  if (readsInFlight.size > 0) await Promise.allSettled([...readsInFlight]);
   const { unreadCount } = await api.get<{ unreadCount: number }>('/messages/unread-count');
   return unreadCount;
 };
@@ -191,17 +189,16 @@ export function fetchMessages(
 export const sendMessage = (id: number, body: string, replyToId?: number) =>
   api.post<Message>(`/messages/conversations/${id}/messages`, { body, replyToId });
 
-export const markConversationRead = async (id: number) => {
-  const call = api.post<void>(`/messages/conversations/${id}/read`);
-  readsInFlight.add(call);
-  try {
-    await call;
-    // Copied first: a listener that unsubscribes itself must not change the
-    // set we are walking.
-    for (const listener of [...readListeners]) listener();
-  } finally {
-    readsInFlight.delete(call);
-  }
+export const markConversationRead = async (id: number): Promise<number | null> => {
+  const answer = await api.post<{ read: boolean; unreadCount?: number }>(
+    `/messages/conversations/${id}/read`
+  );
+  const count = typeof answer?.unreadCount === 'number' ? answer.unreadCount : null;
+  if (count === null) return null;
+  // Copied first: a listener that unsubscribes itself must not change the set
+  // we are walking.
+  for (const listener of [...readListeners]) listener(count);
+  return count;
 };
 
 export const deleteMessage = (messageId: number) => api.del<void>(`/messages/${messageId}`);

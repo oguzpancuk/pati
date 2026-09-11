@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
+import { sheetEntriesPushed } from './profile/Sheet';
 
 /**
  * Is there an entry of OUR OWN behind the one the browser is standing on?
@@ -19,7 +20,12 @@ import { useNavigate, type NavigateFunction } from 'react-router-dom';
  */
 function hasAppHistory(): boolean {
   const idx = (window.history.state as { idx?: number | null } | null)?.idx;
-  return typeof idx === 'number' && idx > 0;
+  if (typeof idx === 'number' && idx > 0) return true;
+  // `idx` undercounts by design: a sheet pushes its entry with the router's
+  // state carried over unchanged, and a link inside a sheet then navigates
+  // with `replace`. Both leave `idx` where it was while the browser really
+  // does have our profile behind us, so the sheets keep their own tally.
+  return sheetEntriesPushed() > 0;
 }
 
 /**

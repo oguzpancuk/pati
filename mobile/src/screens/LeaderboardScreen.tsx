@@ -43,7 +43,14 @@ export default function LeaderboardScreen({ navigation }: any) {
         variant="flat"
         padding="md"
         style={[styles.row, highlight && styles.rowHighlight]}
-        onPress={() => navigation.navigate('PublicProfile', { userId: entry.id })}
+        // `highlight` IS "this row is you", and your own row is not a door —
+        // the same rule the animal profile follows for your own name, and the
+        // same one web's leaderboard follows.
+        onPress={
+          highlight
+            ? undefined
+            : () => navigation.navigate('PublicProfile', { userId: entry.id })
+        }
       >
         <View style={styles.rankBox}>
           <Text

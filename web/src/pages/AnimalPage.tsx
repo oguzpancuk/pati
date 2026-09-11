@@ -542,6 +542,10 @@ export default function AnimalPage() {
   if (!animal) {
     return (
       <div className="page">
+        {/* The header belongs here too: these are the two pages a shared link
+            lands on, and a load that fails is exactly when the reader most
+            needs the way back (DESIGN §8). */}
+        <PageHeader title="hayvan profili" fallback="/hayvanlar" />
         {error ? <div className="error">{error}</div> : <p className="muted">Yükleniyor…</p>}
       </div>
     );
