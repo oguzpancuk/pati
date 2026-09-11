@@ -202,6 +202,33 @@ async function listConversations(req, res, next) {
   }
 }
 
+/**
+ * The unread total across every conversation, for the messages tab badge
+ * (owner, 2026-09-11 demo note 10). Same arithmetic as listConversations'
+ * per-conversation count, summed in SQL: a badge must not cost the client
+ * the whole inbox.
+ */
+async function unreadCount(req, res, next) {
+  try {
+    const userId = req.user.userId;
+    const r = await pool.query(
+      `SELECT COALESCE(SUM(
+                (SELECT count(*) FROM messages x
+                  WHERE x.conversation_id = m.conversation_id AND x.deleted_at IS NULL
+                    AND x.created_at >= m.joined_at
+                    AND x.sender_id IS DISTINCT FROM $1
+                    AND (m.last_read_at IS NULL OR x.created_at > m.last_read_at))
+              ), 0)::int AS count
+       FROM conversation_members m
+       WHERE m.user_id = $1`,
+      [userId]
+    );
+    res.json({ unreadCount: r.rows[0].count });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ---------------------------------------------------------------- direct
 
 // Find-or-create: both sides land on the same row through direct_key, so
@@ -601,8 +628,10 @@ async function sendMessage(req, res, next) {
             [replyToId, id, conv.joined_at]
           )
         ).rows[0];
-      if (!source) return res.status(400).json({ error: 'Yanıtlanan mesaj bu sohbette bulunamadı' });
-      if (source.deleted_at) return res.status(400).json({ error: 'Silinmiş bir mesaj yanıtlanamaz' });
+      if (!source)
+        return res.status(400).json({ error: 'Yanıtlanan mesaj bu sohbette bulunamadı' });
+      if (source.deleted_at)
+        return res.status(400).json({ error: 'Silinmiş bir mesaj yanıtlanamaz' });
     }
     if (conv.kind === 'direct') {
       // The friendship is the permission, not the conversation: after an
@@ -737,6 +766,7 @@ async function reportMessage(req, res, next) {
 
 module.exports = {
   listConversations,
+  unreadCount,
   openDirect,
   createGroup,
   getConversation,

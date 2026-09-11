@@ -8,6 +8,12 @@ import type { ReportReason } from '@mobile/reportReasons';
 
 export const POLL_INTERVAL_MS = 5000;
 
+/**
+ * The tab badge's own cadence (demo note 10): the count is a glance, not a
+ * conversation, so it polls once a minute — mobile uses the same number.
+ */
+export const UNREAD_POLL_INTERVAL_MS = 60 * 1000;
+
 export type ConversationKind = 'direct' | 'group';
 export type MemberRole = 'admin' | 'member';
 
@@ -93,6 +99,10 @@ export const fetchConversations = () =>
     .get<{ conversations: ConversationSummary[] }>('/messages/conversations')
     .then((r) => r.conversations);
 
+/** Every conversation's unread counts added up server-side, for the tab badge. */
+export const fetchUnreadMessageCount = () =>
+  api.get<{ unreadCount: number }>('/messages/unread-count').then((r) => r.unreadCount);
+
 export const openDirectConversation = (userId: number) =>
   api.post<{ id: number; created: boolean }>('/messages/direct', { userId });
 
@@ -157,8 +167,8 @@ export function quoteOf(m: Message): Quote {
     excerpt: m.deleted
       ? null
       : flat.length > QUOTE_EXCERPT
-        ? `${flat.slice(0, QUOTE_EXCERPT).trimEnd()}…`
-        : flat,
+      ? `${flat.slice(0, QUOTE_EXCERPT).trimEnd()}…`
+      : flat,
     deleted: m.deleted,
   };
 }

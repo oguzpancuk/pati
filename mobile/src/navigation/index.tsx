@@ -1,11 +1,18 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Linking, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NavigationContainer, type LinkingOptions } from '@react-navigation/native';
+import { NavigationContainer, useFocusEffect, type LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
-import { makeStyles, navigationTheme, screenOptions, tabBarOptions, useTheme } from '../theme';
+import {
+  fonts,
+  makeStyles,
+  navigationTheme,
+  screenOptions,
+  tabBarOptions,
+  useTheme,
+} from '../theme';
 import { Icon, Logo } from '../components/brand';
 import type { IconName } from '../components/brand';
 import LoginScreen from '../screens/LoginScreen';
@@ -29,6 +36,7 @@ import NewConversationScreen from '../screens/NewConversationScreen';
 import ConversationScreen from '../screens/ConversationScreen';
 import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import { BadgeAwardProvider } from '../context/BadgeAwardContext';
+import { fetchUnreadMessageCount, UNREAD_POLL_INTERVAL_MS } from '../api/messages';
 import { useCareAlerts } from '../useCareAlerts';
 
 export type AuthStackParamList = {
@@ -155,6 +163,31 @@ const TAB_ICONS: Record<keyof MainTabParamList, IconName> = {
 function MainTabs() {
   const theme = useTheme();
   const tabOptions = tabBarOptions(theme);
+  // The unread total on the messages tab (owner, 2026-09-11 demo note 10),
+  // polled the way the profile bell is: once a minute while the tabs are in
+  // front. A pushed screen (a conversation) blurs the tabs, so the timer
+  // stops there and the count is re-read the moment the user comes back —
+  // which is exactly when a conversation has just been marked read.
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      async function poll() {
+        try {
+          const count = await fetchUnreadMessageCount();
+          if (alive) setUnreadMessages(count);
+        } catch {
+          // A background count; the badge keeps its last number.
+        }
+      }
+      poll();
+      const timer = setInterval(poll, UNREAD_POLL_INTERVAL_MS);
+      return () => {
+        alive = false;
+        clearInterval(timer);
+      };
+    }, [])
+  );
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -166,10 +199,31 @@ function MainTabs() {
     >
       <Tab.Screen name="Map" component={MapScreen} options={{ title: 'harita' }} />
       <Tab.Screen name="Animals" component={AnimalsScreen} options={{ title: 'hayvanlar' }} />
-      <Tab.Screen name="Messages" component={MessagesScreen} options={{ title: 'mesajlar' }} />
+      <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{
+          title: 'mesajlar',
+          // Brand orange, like every other count in the app — not the
+          // navigation theme's red `notification` colour.
+          tabBarBadge: unreadMessages > 0 ? badgeLabel(unreadMessages) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: theme.colors.brand,
+            color: theme.colors.textOnBrand,
+            fontFamily: fonts.semibold,
+            fontSize: 10,
+            lineHeight: 14,
+          },
+        }}
+      />
       <Tab.Screen name="Profile" component={UserProfileScreen} options={{ title: 'profilim' }} />
     </Tab.Navigator>
   );
+}
+
+/** Counts above 99 read "99+", like the inbox rows and the profile bell. */
+function badgeLabel(count: number) {
+  return count > 99 ? '99+' : String(count);
 }
 
 function MainNavigator() {

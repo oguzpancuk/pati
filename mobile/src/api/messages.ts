@@ -11,6 +11,13 @@ import type { ReportReason } from '../reportReasons';
 
 export const POLL_INTERVAL_MS = 5000;
 
+/**
+ * The tab badge's own cadence (demo note 10): the count is a glance, not a
+ * conversation, so it polls once a minute while the tabs are in front — the
+ * same rhythm the profile bell uses.
+ */
+export const UNREAD_POLL_INTERVAL_MS = 60 * 1000;
+
 export type ConversationKind = 'direct' | 'group';
 export type MemberRole = 'admin' | 'member';
 
@@ -98,6 +105,12 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
     '/messages/conversations'
   );
   return data.conversations;
+}
+
+/** Every conversation's unread counts added up server-side, for the tab badge. */
+export async function fetchUnreadMessageCount(): Promise<number> {
+  const { data } = await apiClient.get<{ unreadCount: number }>('/messages/unread-count');
+  return data.unreadCount;
 }
 
 export async function openDirectConversation(

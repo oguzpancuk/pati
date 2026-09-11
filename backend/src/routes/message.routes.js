@@ -6,6 +6,8 @@ const c = require('../controllers/message.controller');
 const router = express.Router();
 
 router.get('/conversations', requireAuth, c.listConversations);
+// The tab badge's number; a fixed path, so it can never shadow /:id below.
+router.get('/unread-count', requireAuth, c.unreadCount);
 router.post('/direct', requireAuth, limits.messageAdmin, c.openDirect);
 router.post('/groups', requireAuth, limits.messageAdmin, c.createGroup);
 
