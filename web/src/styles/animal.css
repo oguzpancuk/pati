@@ -1,5 +1,5 @@
 /*
- * Track H — the animal profile's own styles (demo item 7). Kept out
+ * Track H — the animal profile's own styles (demo items 7 and 8). Kept out
  * of theme.css, which is hand-merged and has swallowed a parallel track
  * before; imported from the components that use it.
  */
@@ -49,4 +49,71 @@
 
 .person-link:hover {
   text-decoration: underline;
+}
+
+/* -------------------------------------- the last-seen map sheet (item 8) */
+
+/* The thumbnail is the affordance: the whole map box is the button. */
+.minimap-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.animal-map-hint {
+  color: var(--text-subtle);
+}
+
+/* A real maplibre marker (the sheet's map moves under it). */
+.minimap-marker {
+  border: none;
+  background: none;
+  padding: 0;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.animal-location-sheet .sheet-handle {
+  margin-bottom: 12px;
+}
+
+.animal-location-lead {
+  margin: 4px 0 12px;
+}
+
+.animal-location-close {
+  margin-top: 14px;
+}
+
+/*
+ * The avatar is the marker's box; the date rides above it without changing
+ * that box, so revealing the date never slides the avatar off the spot.
+ */
+.animal-location-marker {
+  position: relative;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.animal-location-callout {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: var(--overlay);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
 }

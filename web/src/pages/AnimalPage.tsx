@@ -29,6 +29,7 @@ import { useAuth } from '../auth';
 import { bumpLadderValue, headerBadges, setLadderValue } from '@mobile/animalBadges';
 import { BadgeSymbol } from '../badges';
 import { AnimalBadgeLadder } from '../components/AnimalBadgeLadder';
+import { AnimalLocationDialog } from '../components/AnimalLocationDialog';
 import { MiniMap } from '../components/MiniMap';
 import { ReportLink } from '../components/ReportDialog';
 import { useBadgeAwards } from '../badgeAwards';
@@ -186,6 +187,8 @@ export default function AnimalPage() {
   const [visibleVaccinations, setVisibleVaccinations] = useState(RECORD_PREVIEW);
   const [visibleRecords, setVisibleRecords] = useState(RECORD_PREVIEW);
   const [visibleCarers, setVisibleCarers] = useState(CARER_PREVIEW);
+  // The last-seen thumbnail opens a real, pannable map (demo item 8).
+  const [locationOpen, setLocationOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [draft, setDraft] = useState('');
@@ -660,7 +663,9 @@ export default function AnimalPage() {
       />
 
       {/* Last-seen mini map (mobile parity + PROJECT.md requirement): where
-          and when the animal was last recorded, as a static thumbnail. */}
+          and when the animal was last recorded. The thumbnail is the
+          affordance (demo item 8) — a click opens the same spot as a
+          pannable map in a sheet. */}
       <h2 className="section">en son görüldüğü yer</h2>
       <MiniMap
         /* The map builds once and never recenters; the key remounts it when
@@ -669,6 +674,8 @@ export default function AnimalPage() {
         lat={animal.location.coordinates[1]}
         lng={animal.location.coordinates[0]}
         height={160}
+        onOpen={() => setLocationOpen(true)}
+        openLabel="En son görüldüğü yeri haritada aç"
       >
         <span
           style={{
@@ -687,7 +694,10 @@ export default function AnimalPage() {
           />
         </span>
       </MiniMap>
-      <div className="muted animal-seen-at">{formatDate(animal.location_updated_at)}</div>
+      <div className="muted animal-seen-at">
+        {formatDate(animal.location_updated_at)}{' '}
+        <span className="animal-map-hint">· haritada aç</span>
+      </div>
 
       {/* Vaccinations above health records: on the street the first question is "vaccinated?". */}
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -1207,6 +1217,18 @@ export default function AnimalPage() {
         </div>
       )}
 
+      {/* Always mounted so its history effect only ever fires on the open
+          transition — see the component. */}
+      <AnimalLocationDialog
+        open={locationOpen}
+        onClose={() => setLocationOpen(false)}
+        species={animal.species}
+        breed={animal.breed}
+        photoUrl={animal.cover_thumb_url}
+        lat={animal.location.coordinates[1]}
+        lng={animal.location.coordinates[0]}
+        updatedAtLabel={formatDate(animal.location_updated_at)}
+      />
     </div>
   );
 }

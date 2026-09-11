@@ -35,6 +35,7 @@ import { bumpLadderValue, headerBadges, setLadderValue } from '../animalBadges';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import AnimalBadgeLadderModal from '../components/AnimalBadgeLadderModal';
+import AnimalLocationSheet from '../components/AnimalLocationSheet';
 import { BadgeSymbol } from '../components/badges';
 import DemoChip from '../components/DemoChip';
 import ReportLink from '../components/ReportSheet';
@@ -162,6 +163,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const [visibleRecords, setVisibleRecords] = useState(RECORD_PREVIEW);
   const [visibleCarers, setVisibleCarers] = useState(CARER_PREVIEW);
   const [followBusy, setFollowBusy] = useState(false);
+  // The last-seen thumbnail opens a real, pannable map (demo item 8).
+  const [locationOpen, setLocationOpen] = useState(false);
 
   // "kedi profili" / "köpek profili" (P6 item 6): the species is known only
   // after the load, so the stack's default title stands until then.
@@ -600,6 +603,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         />
 
         <SectionHeader title="En son görüldüğü yer" style={styles.sectionTop} />
+        {/* The thumbnail is the affordance (demo item 8): a tap opens the
+            same spot as a pannable map in a sheet. The tap target is an
+            overlay, not the MapView itself — a MapView swallows touches
+            even with scroll and zoom turned off. */}
         <View style={styles.miniMapWrapper}>
           <MapView
             style={styles.miniMap}
@@ -622,9 +629,22 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               />
             </MarkerView>
           </MapView>
+          <Pressable
+            style={styles.miniMapTap}
+            onPress={() => setLocationOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="En son görüldüğü yeri haritada aç"
+          >
+            <View style={styles.miniMapHint}>
+              <Icon name="crosshair" size={13} color={colors.textOnBrand} />
+              <Text variant="micro" style={styles.miniMapHintText}>
+                haritada aç
+              </Text>
+            </View>
+          </Pressable>
         </View>
         <Text variant="caption" style={styles.seenAt}>
-          {formatDate(animal.location_updated_at)}
+          {formatDate(animal.location_updated_at)} · dokunarak haritada aç
         </Text>
 
         {/* Vaccinations above health records: on the street, "is this animal
@@ -1072,6 +1092,16 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         focusKey={ladderKey}
         animalName={displayName}
       />
+      <AnimalLocationSheet
+        visible={locationOpen}
+        onClose={() => setLocationOpen(false)}
+        species={animal.species}
+        breed={animal.breed}
+        photoUrl={animal.cover_thumb_url}
+        latitude={latitude}
+        longitude={longitude}
+        updatedAtLabel={formatDate(animal.location_updated_at)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1188,6 +1218,23 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderColor: c.border,
   },
   miniMap: { flex: 1 },
+  // The whole thumbnail is the button; the pill only says so.
+  miniMapTap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    padding: spacing.sm,
+  },
+  miniMapHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: c.overlay,
+  },
+  miniMapHintText: { color: c.textOnBrand },
   block: { marginBottom: spacing.sm },
   recordHeader: {
     flexDirection: 'row',
