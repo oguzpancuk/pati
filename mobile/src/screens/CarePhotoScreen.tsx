@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, View } from 'react-native';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import { LIBRARY_PICKER } from '../photoPicker';
+import { Alert, Image, Pressable, Switch, View } from 'react-native';
 import { submitCarePhotos } from '../api/animals';
 import type { PhotoAsset } from '../api/care';
+import { capturePhoto, SAVE_TO_GALLERY_LABEL, useSaveToGallery } from '../photoCapture';
 import { Icon } from '../components/brand';
 import { Button, Card, Screen, Text } from '../components/ui';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
@@ -27,34 +26,19 @@ export default function CarePhotoScreen({ route, navigation }: any) {
   };
   const [photos, setPhotos] = useState<(PhotoAsset | null)[]>([null, null]);
   const [sending, setSending] = useState(false);
+  const { on: saveToGallery, set: setSaveToGallery } = useSaveToGallery();
   const animalWord = species === 'dog' ? 'köpeğin' : 'kedinin';
   const displayName = name ?? (species === 'dog' ? 'Köpek' : 'Kedi');
 
   async function takePhoto(slot: number) {
-    try {
-      let result = await launchCamera({ mediaType: 'photo', saveToPhotos: false });
-      // Simulators have no camera; the gallery stands in during development
-      // (the same fallback the map's drop flow uses). Never on a device.
-      if (__DEV__ && result.errorCode === 'camera_unavailable') {
-        result = await launchImageLibrary(LIBRARY_PICKER);
-      }
-      if (result.didCancel) return;
-      const asset = result.assets?.[0];
-      if (!asset?.uri) {
-        Alert.alert(
-          'Fotoğraf alınamadı',
-          result.errorMessage ?? result.errorCode ?? 'Bilinmeyen hata'
-        );
-        return;
-      }
-      setPhotos((prev) =>
-        prev.map((p, i) =>
-          i === slot ? { uri: asset.uri!, type: asset.type, fileName: asset.fileName } : p
-        )
-      );
-    } catch (err: any) {
-      Alert.alert('Fotoğraf alınamadı', err?.message ?? 'Bilinmeyen hata');
+    const result = await capturePhoto();
+    if (result.status === 'cancelled') return;
+    if (result.status === 'error') {
+      Alert.alert('Fotoğraf alınamadı', result.message);
+      return;
     }
+    const photo = result.photos[0];
+    setPhotos((prev) => prev.map((p, i) => (i === slot ? photo : p)));
   }
 
   async function handleSubmit() {
@@ -136,6 +120,29 @@ export default function CarePhotoScreen({ route, navigation }: any) {
         ))}
       </View>
 
+      {/* Next to the slots on purpose (demo item 9): whether the photo you
+          are about to take also lands in your own gallery is a decision,
+          not something the app does behind your back. */}
+      <View style={styles.saveRow}>
+        <Switch
+          value={saveToGallery}
+          onValueChange={setSaveToGallery}
+          trackColor={{ true: colors.brand, false: colors.border }}
+          ios_backgroundColor={colors.border}
+          accessibilityLabel={SAVE_TO_GALLERY_LABEL}
+        />
+        {/* The label is part of the target: a 20pt switch alone is under the
+            44pt minimum (DESIGN §4). */}
+        <Text
+          variant="caption"
+          style={styles.saveLabel}
+          onPress={() => setSaveToGallery(!saveToGallery)}
+          suppressHighlighting
+        >
+          {SAVE_TO_GALLERY_LABEL}
+        </Text>
+      </View>
+
       <Card variant="tinted" style={styles.note}>
         <Text variant="caption">
           Bakıcılar yorum yazabilir, görülme bildirebilir, sağlık ve aşı kaydı ekleyebilir. Sadece
@@ -171,6 +178,13 @@ const useStyles = makeStyles(({ colors: c }) => ({
   slotEmpty: { borderWidth: 1, borderStyle: 'dashed', borderColor: c.borderDashed },
   slotImage: { width: '100%', height: '100%' },
   slotLabel: { marginTop: spacing.sm },
+  saveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  saveLabel: { flex: 1 },
   note: { marginTop: spacing.xl },
   submit: { marginTop: spacing.xl, marginBottom: spacing.sm },
 }));

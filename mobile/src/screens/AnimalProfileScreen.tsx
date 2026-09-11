@@ -35,9 +35,11 @@ import { bumpLadderValue, headerBadges, setLadderValue } from '../animalBadges';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import AnimalBadgeLadderModal from '../components/AnimalBadgeLadderModal';
+import AnimalLocationSheet from '../components/AnimalLocationSheet';
 import { BadgeSymbol } from '../components/badges';
 import DemoChip from '../components/DemoChip';
 import ReportLink from '../components/ReportSheet';
+import { useAuth } from '../context/AuthContext';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
   Avatar,
@@ -99,6 +101,9 @@ const COMMENT_PAGE = 20;
 // lists); their cards are tall (status tag, "recovered" button) so more than
 // 2 folds away — even 3 cards pushed the chat below the screen.
 const RECORD_PREVIEW = 2;
+// The carer rows are compact (avatar + name), but a well-known animal can
+// have dozens; five is a glance, the rest sit behind "load more".
+const CARER_PREVIEW = 5;
 // The photo grid: three square tiles per row (P6 item 7), the gutter is
 // the small spacing step.
 const GRID_COLUMNS = 3;
@@ -116,6 +121,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
     (windowWidth - spacing.lg * 2 - spacing.sm * (GRID_COLUMNS - 1)) / GRID_COLUMNS
   );
   const { celebrate } = useBadgeAwards();
+  const { user: me } = useAuth();
   const { animalId } = route.params;
   // When viewed from the add-animal flow as "is this the animal?", a
   // decision bar replaces the comment box. The decision returns to AddAnimal
@@ -155,7 +161,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [visibleVaccinations, setVisibleVaccinations] = useState(RECORD_PREVIEW);
   const [visibleRecords, setVisibleRecords] = useState(RECORD_PREVIEW);
+  const [visibleCarers, setVisibleCarers] = useState(CARER_PREVIEW);
   const [followBusy, setFollowBusy] = useState(false);
+  // The last-seen thumbnail opens a real, pannable map (demo item 8).
+  const [locationOpen, setLocationOpen] = useState(false);
 
   // "kedi profili" / "köpek profili" (P6 item 6): the species is known only
   // after the load, so the stack's default title stands until then.
@@ -242,6 +251,18 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
     } finally {
       setFollowBusy(false);
     }
+  }
+
+  /**
+   * Every person named on this profile is a door to their profile (demo
+   * item 7). Your own name is NOT: a stranger's view of yourself is
+   * confusing, so it opens the profile tab instead — the same rule web
+   * gets from redirecting /kullanici/<me> to /profil.
+   */
+  function openProfile(userId: number | null | undefined) {
+    if (typeof userId !== 'number') return;
+    if (me?.id === userId) navigation.navigate('Tabs', { screen: 'Profile' });
+    else navigation.navigate('PublicProfile', { userId });
   }
 
   function openCarePhotos() {
@@ -438,7 +459,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           {Array.from({
             length: (() => {
               const shown = Math.min(animal.photos.length, HERO_PHOTOS);
-              return (GRID_COLUMNS - (shown % GRID_COLUMNS)) % GRID_COLUMNS || (shown ? 0 : GRID_COLUMNS);
+              return (
+                (GRID_COLUMNS - (shown % GRID_COLUMNS)) % GRID_COLUMNS || (shown ? 0 : GRID_COLUMNS)
+              );
             })(),
           }).map((_, i) => (
             <View
@@ -550,7 +573,40 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           </View>
         )}
 
+        {/* Who cares for this animal (demo item 7): the rows are doors to
+            the people, which is what the "N bakıcı" count above promises. */}
+        <SectionHeader title="Bakıcılar" style={styles.sectionTop} />
+        {animal.carers.length === 0 ? (
+          <Card variant="flat" style={styles.block}>
+            <Text variant="caption">Henüz bakıcı yok. İlk bakıcı sen ol.</Text>
+          </Card>
+        ) : (
+          animal.carers.slice(0, visibleCarers).map((carer) => (
+            <Pressable
+              key={carer.id}
+              style={styles.carerRow}
+              onPress={() => openProfile(carer.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${carer.name} profilini aç`}
+            >
+              <Avatar uri={carer.avatar_url} name={carer.name} size={34} />
+              <Text variant="bodyStrong" numberOfLines={1} style={styles.carerName}>
+                {carer.name}
+              </Text>
+              <Icon name="chevronRight" size={16} color={colors.textSubtle} />
+            </Pressable>
+          ))
+        )}
+        <LoadMoreButton
+          remaining={animal.carers.length - visibleCarers}
+          onPress={() => setVisibleCarers(animal.carers.length)}
+        />
+
         <SectionHeader title="En son görüldüğü yer" style={styles.sectionTop} />
+        {/* The thumbnail is the affordance (demo item 8): a tap opens the
+            same spot as a pannable map in a sheet. The tap target is an
+            overlay, not the MapView itself — a MapView swallows touches
+            even with scroll and zoom turned off. */}
         <View style={styles.miniMapWrapper}>
           <MapView
             style={styles.miniMap}
@@ -573,6 +629,19 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               />
             </MarkerView>
           </MapView>
+          <Pressable
+            style={styles.miniMapTap}
+            onPress={() => setLocationOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="En son görüldüğü yeri haritada aç"
+          >
+            <View style={styles.miniMapHint}>
+              <Icon name="crosshair" size={13} color={colors.textOnBrand} />
+              <Text variant="micro" style={styles.miniMapHintText}>
+                haritada aç
+              </Text>
+            </View>
+          </Pressable>
         </View>
         <Text variant="caption" style={styles.seenAt}>
           {formatDate(animal.location_updated_at)}
@@ -607,7 +676,18 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 </Text>
               ) : null}
               <Text variant="caption">
-                {formatDate(vaccination.administered_at)} · {vaccination.recorded_by_name ?? ''}
+                {formatDate(vaccination.administered_at)}
+                {vaccination.recorded_by_name ? ' · ' : ''}
+                {vaccination.recorded_by_name ? (
+                  <Text
+                    variant="caption"
+                    color="brand"
+                    onPress={() => openProfile(vaccination.recorded_by)}
+                    suppressHighlighting
+                  >
+                    {vaccination.recorded_by_name}
+                  </Text>
+                ) : null}
               </Text>
               {vaccination.next_due_at ? (
                 <Text variant="caption">Sonraki doz: {formatDate(vaccination.next_due_at)}</Text>
@@ -653,12 +733,30 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                   {record.description}
                 </Text>
                 <Text variant="caption">
-                  {record.recorded_by_name ?? ''} · {record.comment_count} yorum · dokunarak
-                  kayıtları gör
+                  {record.recorded_by_name ? (
+                    <Text
+                      variant="caption"
+                      color="brand"
+                      onPress={() => openProfile(record.recorded_by)}
+                      suppressHighlighting
+                    >
+                      {record.recorded_by_name}
+                    </Text>
+                  ) : null}
+                  {record.recorded_by_name ? ' · ' : ''}
+                  {record.comment_count} yorum · dokunarak kayıtları gör
                 </Text>
                 {record.status === 'recovered' && record.recovered_by_name && (
                   <Text variant="caption">
-                    {record.recovered_by_name} iyileşti olarak işaretledi
+                    <Text
+                      variant="caption"
+                      color="brand"
+                      onPress={() => openProfile(record.recovered_by)}
+                      suppressHighlighting
+                    >
+                      {record.recovered_by_name}
+                    </Text>{' '}
+                    iyileşti olarak işaretledi
                   </Text>
                 )}
                 {/* An action phrasing on a quiet outline: the old solid-green
@@ -726,10 +824,22 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         ) : (
           comments.map((comment) => (
             <View key={comment.id} style={styles.commentRow}>
-              <Avatar uri={comment.avatar_url} name={comment.user_name} size={34} />
+              <Pressable
+                onPress={() => openProfile(comment.user_id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${comment.user_name} profilini aç`}
+              >
+                <Avatar uri={comment.avatar_url} name={comment.user_name} size={34} />
+              </Pressable>
               <View style={styles.commentBody}>
                 <View style={styles.commentHead}>
-                  <Text variant="bodyStrong" numberOfLines={1} style={styles.commentAuthor}>
+                  <Text
+                    variant="bodyStrong"
+                    numberOfLines={1}
+                    style={styles.commentAuthor}
+                    onPress={() => openProfile(comment.user_id)}
+                    suppressHighlighting
+                  >
                     {comment.user_name}
                   </Text>
                   <DemoChip visible={comment.user_is_demo === true} />
@@ -943,7 +1053,19 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 logComments.map((comment) => (
                   <View key={comment.id} style={styles.logRow}>
                     <View style={styles.commentHead}>
-                      <Text variant="bodyStrong" numberOfLines={1} style={styles.commentAuthor}>
+                      <Text
+                        variant="bodyStrong"
+                        numberOfLines={1}
+                        style={styles.commentAuthor}
+                        // A sheet is not a page (DESIGN §8): the record log
+                        // closes on the way out, otherwise it would sit over
+                        // the profile we just pushed.
+                        onPress={() => {
+                          setLogRecord(null);
+                          openProfile(comment.user_id);
+                        }}
+                        suppressHighlighting
+                      >
                         {comment.user_name}
                       </Text>
                       <DemoChip visible={comment.user_is_demo === true} />
@@ -969,6 +1091,16 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         steps={animal.badgeLadder}
         focusKey={ladderKey}
         animalName={displayName}
+      />
+      <AnimalLocationSheet
+        visible={locationOpen}
+        onClose={() => setLocationOpen(false)}
+        species={animal.species}
+        breed={animal.breed}
+        photoUrl={animal.cover_thumb_url}
+        latitude={latitude}
+        longitude={longitude}
+        updatedAtLabel={formatDate(animal.location_updated_at)}
       />
     </KeyboardAvoidingView>
   );
@@ -1071,6 +1203,13 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   sectionTop: { marginTop: spacing.xl },
   seenAt: { marginTop: spacing.sm },
+  carerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  carerName: { flex: 1 },
   miniMapWrapper: {
     height: 168,
     borderRadius: radius.lg,
@@ -1079,6 +1218,23 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderColor: c.border,
   },
   miniMap: { flex: 1 },
+  // The whole thumbnail is the button; the pill only says so.
+  miniMapTap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    padding: spacing.sm,
+  },
+  miniMapHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: c.overlay,
+  },
+  miniMapHintText: { color: c.textOnBrand },
   block: { marginBottom: spacing.sm },
   recordHeader: {
     flexDirection: 'row',
