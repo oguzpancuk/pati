@@ -511,6 +511,15 @@ async function resetPassword(req, res, next) {
       return res.status(400).json({ error: weak });
     }
 
+    // Refused at this door as well as at forgot-password's. A code issued
+    // before an account was deleted outlives the deletion — anonymizeAccount
+    // renames the address into the tombstone domain and drops the
+    // verification row, not this one — and without this guard that code would
+    // still open the renamed row and hang a live password off it.
+    if (isReservedEmail(email)) {
+      return res.status(400).json({ error: RESET_CODE_ERRORS.none });
+    }
+
     const user = await findSignInTarget(email, USER_COLUMNS);
     // An address with no account answers exactly like an account with no
     // outstanding code. This endpoint takes an address too, so a distinct

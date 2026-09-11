@@ -92,10 +92,11 @@ const limits = {
   // and a code by its own 5-attempt cap.
   forgotPassword: userRateLimit({ windowMs: HOUR, limit: 10, action: 'şifre sıfırlama isteği' }),
   resetPassword: userRateLimit({ windowMs: HOUR, limit: 20, action: 'kod denemesi' }),
-  // Changing a password is authenticated, so this one is per user; nobody
-  // honest changes it ten times in an hour, and a stolen session gets no
-  // password-guessing oracle out of the current-password check.
-  changePassword: userRateLimit({ windowMs: HOUR, limit: 10, action: 'şifre değişikliği' }),
+  // Changing a password is authenticated, so this one is per user — and it
+  // gets account deletion's tight budget for account deletion's reason: the
+  // current-password check is a password-guessing oracle for a stolen token,
+  // and five tries covers any honest typo streak.
+  changePassword: userRateLimit({ windowMs: HOUR, limit: 5, action: 'deneme' }),
   // Direct messages: a fast back-and-forth is a few a minute; 300/hour is
   // one every 12 seconds nonstop, and bounds a spam script's reach.
   messages: userRateLimit({ windowMs: HOUR, limit: 300, action: 'mesaj' }),

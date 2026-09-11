@@ -89,8 +89,12 @@ export function ForgotPasswordDialog({
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('keydown', onKey);
       // Closed from inside (the button, Escape, a finished reset): drop the
-      // entry we pushed, or the next Back press would only undo it.
-      if (!popped) window.history.back();
+      // entry we pushed, or the next Back press would only undo it. Guarded
+      // on the state we wrote, so a close that races something else's
+      // navigation cannot pop somebody else's entry.
+      if (!popped && window.history.state?.patiDialog === 'forgotPassword') {
+        window.history.back();
+      }
     };
   }, [open, onClose]);
 
