@@ -480,13 +480,34 @@ async function forgotPassword(req, res, next) {
   }
 }
 
-/** How a refused reset code is explained. Every reason has a way forward. */
-const RESET_CODE_ERRORS = {
-  none: 'Bekleyen bir sıfırlama kodu yok; yeni kod iste',
-  expired: 'Kodun süresi dolmuş; yeni kod iste',
-  attempts: 'Çok fazla hatalı deneme; yeni kod iste',
-  wrong: 'Kod hatalı',
-};
+/**
+ * The one thing a refused reset code is ever told, and the one status it comes
+ * with. A way forward that is true whichever reason it was.
+ */
+const RESET_CODE_REFUSED = Object.freeze({
+  status: 400,
+  error: 'Kod hatalı ya da süresi dolmuş; yeni kod iste',
+});
+
+/**
+ * The answer for a reset code we will not accept. It takes the outcome the
+ * check returned and DELIBERATELY does not read it.
+ *
+ * This used to be a four-message taxonomy, and that taxonomy undid
+ * forgot-password's neutral answer one request later: forgot-password creates
+ * a reset row for an address that HAS an account, so a wrong code afterwards
+ * came back "Kod hatalı (4 deneme kaldı)" while an address with no account got
+ * "Bekleyen bir sıfırlama kodu yok". Two unauthenticated requests per address,
+ * and every hit mail-bombed as a bonus. So: no per-reason wording, no status
+ * that varies, and no remaining-attempts countdown — that number is one only a
+ * real account could produce.
+ *
+ * What this cannot flatten, honestly: the reply for an unknown address is one
+ * query faster, and /auth/register's 409 still discloses existence outright.
+ */
+function resetCodeRefusal(/* outcome — deliberately unread; see above */) {
+  return RESET_CODE_REFUSED;
+}
 
 /**
  * POST /auth/reset-password — the mailed code plus the new password, and the
@@ -518,31 +539,24 @@ async function resetPassword(req, res, next) {
     // verification row, not this one — and without this guard that code would
     // still open the renamed row and hang a live password off it.
     if (isReservedEmail(email)) {
-      return res.status(400).json({ error: RESET_CODE_ERRORS.none });
+      const refusal = resetCodeRefusal();
+      return res.status(refusal.status).json({ error: refusal.error });
     }
 
     const user = await findSignInTarget(email, USER_COLUMNS);
-    // An address with no account answers exactly like an account with no
-    // outstanding code. This endpoint takes an address too, so a distinct
-    // "no such user" here would undo the neutrality forgot-password is built
-    // for — one request further along.
+    // An address with no account answers exactly like an account whose code
+    // was wrong. This endpoint takes an address too, so anything distinct here
+    // would undo the neutrality forgot-password is built for — one request
+    // further along.
     if (!user) {
-      return res.status(400).json({ error: RESET_CODE_ERRORS.none });
+      const refusal = resetCodeRefusal();
+      return res.status(refusal.status).json({ error: refusal.error });
     }
 
     const outcome = await passwordReset.checkCode(user.id, code);
     if (!outcome.ok) {
-      const status = outcome.reason === 'attempts' ? 429 : 400;
-      let suffix = '';
-      if (outcome.reason === 'wrong') {
-        // The fifth wrong guess retires the code; saying so here spares the
-        // user a correct code answered with "ask for a new one".
-        suffix =
-          outcome.remaining > 0
-            ? ` (${outcome.remaining} deneme kaldı)`
-            : '; deneme hakkın bitti, yeni kod iste';
-      }
-      return res.status(status).json({ error: `${RESET_CODE_ERRORS[outcome.reason]}${suffix}` });
+      const refusal = resetCodeRefusal(outcome);
+      return res.status(refusal.status).json({ error: refusal.error });
     }
 
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -581,7 +595,8 @@ async function resetPassword(req, res, next) {
     if (!updated) {
       // The row disappeared between the code check and the write (an account
       // deleted, or a pending registration retired by a replacement).
-      return res.status(400).json({ error: RESET_CODE_ERRORS.none });
+      const refusal = resetCodeRefusal();
+      return res.status(refusal.status).json({ error: refusal.error });
     }
 
     const token = signToken({ userId: updated.id, role: updated.role });
@@ -1001,9 +1016,11 @@ module.exports = {
   resetPassword,
   changePassword,
   // Exported for backend/test/passwordReset.test.js: the rule every
-  // password-setting door shares is worth pinning in one place.
+  // password-setting door shares, and the single answer a refused reset code
+  // gets, are both properties a future edit can quietly break.
   passwordComplaint,
   MIN_PASSWORD_LENGTH,
+  resetCodeRefusal,
   appleLogin,
   googleLogin,
   providers,
