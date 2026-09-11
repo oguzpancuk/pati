@@ -14,7 +14,10 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 10px 12px;
-  box-shadow: 0 6px 20px rgb(33 32 30 / 12%);
+  /* The theme's float shadow, not a literal: it is the one shadow token
+     redefined for dark mode, where a 12%-opacity charcoal is invisible
+     against the basemap. Mobile's twin callout uses `shadow.float`. */
+  box-shadow: var(--shadow-float);
   font: inherit;
 }
 

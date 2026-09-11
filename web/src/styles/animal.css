@@ -111,7 +111,9 @@
   padding: 4px;
   border-radius: 50%;
   background: var(--surface);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  /* The theme's float shadow, not a literal: it is the one shadow token
+     redefined for dark mode (same fix as the care popup in map.css). */
+  box-shadow: var(--shadow-float);
 }
 
 .animal-location-callout {
