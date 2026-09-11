@@ -1,12 +1,19 @@
 import { Link } from 'react-router-dom';
 import type { UserComment } from '../api';
 import { AnimalAvatar } from '../avatars';
+import '../styles/profile.css';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
-/** The profile's "recent comments" block: 3 previews + "see all (N)". */
+/**
+ * The profile's "recent comments" block, as SPEECH BUBBLES: the animal's
+ * small face on the left, the comment inside the bubble, the animal and the
+ * date as its caption. Carers and comments used to be two identical stacks
+ * of rows (owner, 2026-09-11); the shape is what tells them apart now — a
+ * gallery there, bubbles here. 3 previews + "see all (N)".
+ */
 export function RecentComments({
   comments,
   total,
@@ -38,24 +45,19 @@ export function RecentComments({
         </div>
       ) : (
         comments.map((c) => (
-          <Link
-            key={c.id}
-            to={`/hayvanlar/${c.animal_id}`}
-            className="card flat row"
-            style={{ textDecoration: 'none', color: 'inherit', alignItems: 'flex-start' }}
-          >
+          <Link key={c.id} to={`/hayvanlar/${c.animal_id}`} className="comment-bubble-row">
             <AnimalAvatar
               species={c.animal_species}
               breed={c.animal_breed}
               photoUrl={c.animal_thumb_url}
-              size={36}
+              size={32}
             />
-            <div className="grow">
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <strong>{c.animal_name ?? (c.animal_species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
-                <span className="subtle">{formatDate(c.created_at)}</span>
+            <div className="comment-bubble-body">
+              <div className="comment-bubble">{c.body}</div>
+              <div className="comment-bubble-caption">
+                {c.animal_name ?? (c.animal_species === 'cat' ? 'Kedi' : 'Köpek')} ·{' '}
+                {formatDate(c.created_at)}
               </div>
-              <div style={{ fontSize: 14 }}>{c.body}</div>
             </div>
           </Link>
         ))

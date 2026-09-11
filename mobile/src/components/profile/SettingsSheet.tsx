@@ -1,0 +1,135 @@
+import React from 'react';
+import { Linking, Pressable, View } from 'react-native';
+import { Chip, Divider, Text } from '../ui';
+import { brand, makeStyles, spacing, type ThemeMode } from '../../theme';
+import Sheet from './Sheet';
+
+const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
+  { key: 'system', label: 'sistem' },
+  { key: 'light', label: 'açık' },
+  { key: 'dark', label: 'koyu' },
+];
+
+export type SettingsSheetProps = {
+  visible: boolean;
+  onClose: () => void;
+  mode: ThemeMode;
+  onSelectMode: (mode: ThemeMode) => void;
+  /** `false` means the showcase world is hidden; absent means on. */
+  showDemo: boolean;
+  demoBusy: boolean;
+  onToggleDemo: () => void;
+  onLogout: () => void;
+  /** The account-deletion link with its own modal, owned by the screen. */
+  deleteAccount: React.ReactNode;
+};
+
+/**
+ * The settings that used to be scattered down the profile, gathered behind
+ * the gear (owner, 2026-09-11). Order is the owner's: görünüm, demo
+ * verileri, then the account block below a hairline.
+ */
+export default function SettingsSheet({
+  visible,
+  onClose,
+  mode,
+  onSelectMode,
+  showDemo,
+  demoBusy,
+  onToggleDemo,
+  onLogout,
+  deleteAccount,
+}: SettingsSheetProps) {
+  const styles = useStyles();
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Ayarlar">
+      <Text variant="micro" style={styles.label}>
+        görünüm
+      </Text>
+      <View style={styles.themeRow}>
+        {THEME_OPTIONS.map((option) => (
+          <Chip
+            key={option.key}
+            label={option.label}
+            selected={mode === option.key}
+            onPress={() => onSelectMode(option.key)}
+          />
+        ))}
+      </View>
+
+      {/* The showcase (demo) world is each person's own choice (owner,
+          2026-09-09): on by default so a new user finds a neighbourhood in
+          use, off with one tap when the tour is over. */}
+      <Text variant="micro" style={styles.label}>
+        demo verileri
+      </Text>
+      <View style={styles.demoRow}>
+        <View style={styles.demoText}>
+          <Text variant="bodyStrong">Demo verileri</Text>
+          <Text variant="caption">
+            {showDemo
+              ? 'Örnek mahalleler haritada ve listelerde görünüyor.'
+              : 'Sadece gerçek kayıtlar görünüyor.'}
+          </Text>
+        </View>
+        {/* "görünüyor / gizli", not "açık / kapalı": the theme chips sit
+            directly above and one of THEM is called "açık" (light) — same
+            word, different meaning (QA). */}
+        <Chip
+          label={showDemo ? 'görünüyor' : 'gizli'}
+          selected={showDemo}
+          onPress={demoBusy ? undefined : onToggleDemo}
+        />
+      </View>
+
+      <Divider style={styles.divider} />
+
+      {/* TODO(main): mount ChangePassword here — track Ş ships the
+          "şifremi değiştir" form as a self-contained component. */}
+
+      <Text variant="caption" color="textSubtle" center style={styles.legal}>
+        <Text
+          variant="caption"
+          color="textSubtle"
+          onPress={() => Linking.openURL(brand.privacyUrl).catch(() => {})}
+        >
+          gizlilik (kvkk)
+        </Text>
+        {'   ·   '}
+        <Text
+          variant="caption"
+          color="textSubtle"
+          onPress={() => Linking.openURL(brand.termsUrl).catch(() => {})}
+        >
+          kullanım koşulları
+        </Text>
+      </Text>
+
+      <Pressable onPress={onLogout} style={styles.logout} accessibilityRole="button">
+        <Text variant="captionStrong" color="textSubtle" center>
+          çıkış yap
+        </Text>
+      </Pressable>
+
+      {deleteAccount}
+
+      {/* TODO(main): mount the map attribution line here — item 15 takes the
+          OpenStreetMap credit off the map and into this sheet. */}
+    </Sheet>
+  );
+}
+
+const useStyles = makeStyles(() => ({
+  label: { marginBottom: spacing.sm },
+  themeRow: { flexDirection: 'row', gap: spacing.sm },
+  demoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  demoText: { flex: 1 },
+  divider: { marginVertical: spacing.xl },
+  legal: { marginBottom: spacing.lg },
+  logout: { alignSelf: 'center', marginBottom: spacing.sm },
+}));

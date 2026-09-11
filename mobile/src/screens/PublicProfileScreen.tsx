@@ -10,27 +10,20 @@ import {
   removeFriendship,
   sendFriendRequest,
 } from '../api/users';
-import { badgeProgressText, badgeTitle, sortBadges } from '../badges';
+import { sortBadges } from '../badges';
 import { mergeById } from '../paging';
-import AnimalAvatar from '../components/AnimalAvatar';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
-import { BadgeSymbol } from '../components/badges';
 import LevelBar from '../components/LevelBar';
-import DemoChip from '../components/DemoChip';
-import StatStrip from '../components/StatStrip';
 import RecentComments from '../components/RecentComments';
 import {
-  Avatar,
-  Button,
-  Card,
-  LoadingState,
-  LoadMoreButton,
-  Screen,
-  SectionHeader,
-  Text,
-} from '../components/ui';
-import { Icon } from '../components/brand';
-import { makeStyles, spacing, useTheme } from '../theme';
+  BadgeBlock,
+  CarerGallery,
+  FriendshipButton,
+  ProfileHeader,
+  ProfileStats,
+} from '../components/profile';
+import { LoadingState, Screen } from '../components/ui';
+import { makeStyles, spacing } from '../theme';
 
 // The profile is a summary; the first page of animals comes with it, the rest from here.
 const ANIMAL_PAGE = 20;
@@ -43,9 +36,15 @@ function formatDate(iso: string) {
   });
 }
 
+/**
+ * Someone else's profile. Same skeleton as your own (owner, 2026-09-11):
+ * header, stats, level bar, badges, the carer gallery, the comment bubbles —
+ * all from components/profile, so the two cannot drift apart again. The only
+ * difference is the header's top-right, where one friendship button stands
+ * in for bell / arkadaşlar / ayarlar.
+ */
 export default function PublicProfileScreen({ route, navigation }: any) {
   const styles = useStyles();
-  const { colors } = useTheme();
   const { userId } = route.params;
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [animals, setAnimals] = useState<ProfileAnimal[]>([]);
@@ -107,170 +106,65 @@ export default function PublicProfileScreen({ route, navigation }: any) {
       ? profile.featuredBadges
       : sortBadges(profile.badges.filter((b) => b.tier)).slice(0, 3);
 
-  const stats = [
-    { value: profile.stats.foodCount, label: 'Mama' },
-    { value: profile.stats.waterCount, label: 'Su' },
-    { value: profile.stats.animalCount, label: 'Kayıt' },
-    { value: profile.friendCount, label: 'Arkadaş' },
-  ];
-
   return (
     <Screen scroll>
-      {/* Same header language as your own profile (handoff 3d), minus the
-          avatar picker: portrait, name, join date, then the numbers. */}
-      <View style={styles.header}>
-        <Avatar uri={profile.avatar_url} name={profile.name} size={60} />
-        <View style={styles.headerText}>
-          <View style={styles.nameWrap}>
-            <Text variant="title" numberOfLines={1} style={styles.name}>
-              {profile.name}
-            </Text>
-            <DemoChip visible={profile.is_demo === true} />
-          </View>
-          <Text variant="caption">{formatDate(profile.created_at)} tarihinde katıldı</Text>
-        </View>
-      </View>
+      <ProfileHeader
+        avatarUrl={profile.avatar_url}
+        name={profile.name}
+        secondary={`${formatDate(profile.created_at)} tarihinde katıldı`}
+        demo={profile.is_demo === true}
+        actions={
+          <FriendshipButton
+            status={profile.friendshipStatus}
+            busy={busy}
+            onAdd={() => runAction(() => sendFriendRequest(userId), 'Gönderilemedi')}
+            onAccept={() =>
+              profile.friendshipId != null &&
+              runAction(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
+            }
+            onRemove={() =>
+              profile.friendshipId != null &&
+              runAction(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
+            }
+          />
+        }
+      />
 
-      <StatStrip
-        style={styles.statStrip}
-        stats={[
-          { value: String(profile.points?.total ?? 0), label: 'puan' },
-          // Showcase accounts do not compete (owner, 2026-09-09: "botlar
-          // sıralamada gözükmesin"), so the cell says what the account is
-          // instead of showing an empty rank.
-          profile.is_demo
-            ? { value: 'demo', label: 'hesabı' }
-            : {
-                value: profile.rank ? `${profile.rank.rank}. / ${profile.rank.totalUsers}` : '—',
-                label: 'sıra',
-              },
-          { value: String(profile.level?.level ?? 1), label: 'seviye' },
-        ]}
+      <ProfileStats
+        points={profile.points?.total ?? 0}
+        rank={profile.rank}
+        level={profile.level?.level ?? 1}
+        demo={profile.is_demo === true}
+        onOpenLeaderboard={() => navigation.push('Leaderboard')}
+        counts={{
+          food: profile.stats.foodCount,
+          water: profile.stats.waterCount,
+          animals: profile.stats.animalCount,
+          friends: profile.friendCount,
+        }}
       />
 
       <View style={styles.levelCard}>
         <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
       </View>
 
-      <View style={styles.statsRow}>
-        {stats.map((stat) => (
-          <View key={stat.label} style={styles.statBox}>
-            <Text variant="subheading">{stat.value}</Text>
-            <Text variant="micro">{stat.label.toLocaleLowerCase('tr-TR')}</Text>
-          </View>
-        ))}
-      </View>
-
-      {profile.friendshipStatus === 'none' && (
-        <Button
-          title="Arkadaş ekle"
-          onPress={() => runAction(() => sendFriendRequest(userId), 'Gönderilemedi')}
-          loading={busy}
-          fullWidth
-          icon={<Icon name="users" size={18} color={colors.textOnBrand} />}
-          style={styles.action}
-        />
-      )}
-      {profile.friendshipStatus === 'pending_sent' && (
-        <Card variant="tinted" padding="md" style={styles.action}>
-          <Text variant="caption" center>
-            İstek gönderildi, yanıt bekleniyor.
-          </Text>
-        </Card>
-      )}
-      {profile.friendshipStatus === 'pending_received' && profile.friendshipId && (
-        <Button
-          title="Arkadaşlık isteğini kabul et"
-          onPress={() =>
-            runAction(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
-          }
-          loading={busy}
-          fullWidth
-          style={styles.action}
-        />
-      )}
-      {profile.friendshipStatus === 'friends' && profile.friendshipId && (
-        <Button
-          title="Arkadaşlıktan çık"
-          variant="secondary"
-          onPress={() =>
-            runAction(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
-          }
-          loading={busy}
-          fullWidth
-          style={styles.action}
-        />
-      )}
-
-      <SectionHeader
-        title="Rozetler"
-        actionLabel="Tüm rozetler"
+      <BadgeBlock
+        title="Öne çıkan rozetleri"
+        actionLabel="tümü"
         onAction={() => setCatalogVisible(true)}
+        badges={displayBadges}
+        emptyText="Henüz rozet kazanmamış."
       />
-      {/* Show the user's chosen featured badges, or their strongest ones if
-          they haven't picked; no empty area. */}
-      {displayBadges.length === 0 ? (
-        <Card variant="flat" style={styles.block}>
-          <Text variant="caption">Henüz rozet kazanmamış.</Text>
-        </Card>
-      ) : (
-        <View style={styles.badgeRow}>
-          {displayBadges.map((badge) => (
-            <Card
-              key={badge.key}
-              variant="flat"
-              padding="md"
-              style={styles.badgeCard}
-              onPress={() => setCatalogVisible(true)}
-            >
-              <View style={styles.badgeSymbol}>
-                <BadgeSymbol symbol={badge.symbol} tier={badge.tier} size={40} />
-              </View>
-              <Text variant="captionStrong" color="text" center numberOfLines={2}>
-                {badgeTitle(badge)}
-              </Text>
-              <Text variant="micro" center style={styles.badgeStreak}>
-                {badgeProgressText(badge)}
-              </Text>
-            </Card>
-          ))}
-        </View>
-      )}
 
-      <SectionHeader title="Bakım verdiği hayvanlar" style={styles.sectionTop} />
-      {animals.length === 0 ? (
-        <Card variant="flat" style={styles.block}>
-          <Text variant="caption">Henüz bir hayvana bakım vermiyor.</Text>
-        </Card>
-      ) : (
-        animals.map((animal) => (
-          <Card
-            key={animal.id}
-            variant="flat"
-            padding="md"
-            style={styles.animalRow}
-            onPress={() => navigation.push('AnimalProfile', { animalId: animal.id })}
-          >
-            <AnimalAvatar species={animal.species} breed={animal.breed} photoUrl={animal.cover_thumb_url} size={44} />
-            <View style={styles.animalText}>
-              <View style={styles.nameWrap}>
-                <Text variant="subheading" numberOfLines={1} style={styles.name}>
-                  {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
-                </Text>
-                <DemoChip visible={animal.is_demo === true} />
-              </View>
-              <Text variant="caption" numberOfLines={1}>
-                {animal.breed ?? 'Türü belirtilmemiş'}
-              </Text>
-            </View>
-            <Icon name="chevronRight" size={18} color={colors.textSubtle} />
-          </Card>
-        ))
-      )}
-      <LoadMoreButton
-        remaining={(profile.animalCount ?? animals.length) - animals.length}
-        loading={loadingMoreAnimals}
-        onPress={handleLoadMoreAnimals}
+      <CarerGallery
+        style={styles.sectionTop}
+        title="Bakım verdiği hayvanlar"
+        animals={animals}
+        total={profile.animalCount ?? animals.length}
+        loadingMore={loadingMoreAnimals}
+        onLoadMore={handleLoadMoreAnimals}
+        onOpenAnimal={(animalId) => navigation.push('AnimalProfile', { animalId })}
+        emptyText="Henüz bir hayvana bakım vermiyor."
       />
 
       <View style={styles.sectionTop}>
@@ -299,25 +193,8 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 }
 
 const useStyles = makeStyles(() => ({
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
-  headerText: { flex: 1, marginLeft: spacing.lg },
-  nameWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { flexShrink: 1 },
-  statStrip: { marginBottom: spacing.md },
-  levelCard: { marginBottom: spacing.lg },
-  statsRow: { flexDirection: 'row', marginBottom: spacing.xl },
-  statBox: { flex: 1, alignItems: 'center' },
-  action: { marginBottom: spacing.xl },
-  block: { marginBottom: spacing.sm },
-  badgeRow: { flexDirection: 'row', gap: spacing.sm },
-  badgeCard: { flex: 1, alignItems: 'center' },
-  badgeSymbol: { marginBottom: spacing.xs },
-  badgeStreak: { marginTop: 2 },
+  // Small on purpose: the drop-history row sits directly under the bar,
+  // and the next section's own hairline brings its spacing with it.
+  levelCard: { marginBottom: spacing.md },
   sectionTop: { marginTop: spacing.xl },
-  animalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  animalText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
 }));
