@@ -61,7 +61,9 @@ export function SettingsSheet({
       <div className="label">demo verileri</div>
       <div className="row" style={{ gap: 12 }}>
         <div className="grow">
-          <strong>Demo verileri</strong>
+          {/* No heading of its own: the label above already names the
+              section, and the two together read as the words repeating
+              (mobile parity). */}
           <div className="subtle">
             {showDemo
               ? 'Örnek mahalleler haritada ve listelerde görünüyor.'
