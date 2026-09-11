@@ -126,10 +126,12 @@ export default function UserProfileScreen({ navigation, route }: any) {
   // finding).
   const [openDeleteAccount, setOpenDeleteAccount] = useState(!!route?.params?.deleteAccount);
   useEffect(() => {
-    // After the first commit: the link has its own `open` state by now, so
-    // clearing this does not close the dialog that just opened.
-    setOpenDeleteAccount(false);
-  }, []);
+    // Cleared only once `me` has arrived, because the screen renders a loading
+    // state until then and the link does not exist to read this yet. By the
+    // time this effect runs on that commit the link has mounted and captured
+    // its own `open`, so clearing here does not close what just opened.
+    if (openDeleteAccount && me) setOpenDeleteAccount(false);
+  }, [openDeleteAccount, me]);
 
   /** A sheet is not a page: leaving it for a screen closes it first. */
   function leaveSheet(go: () => void) {
