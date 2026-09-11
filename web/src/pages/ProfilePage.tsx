@@ -21,6 +21,7 @@ import { useAuth } from '../auth';
 import { DeleteAccountLink } from '../components/DeleteAccountDialog';
 import { BadgeCatalogModal, LevelBar } from '../badges';
 import { useBadgeAwards } from '../badgeAwards';
+import { ChangePasswordForm } from '../components/password';
 import { RecentComments } from '../components/RecentComments';
 import {
   BadgeBlock,
@@ -254,7 +255,6 @@ export default function ProfilePage() {
         seeAllTo="/yorumlarim"
       />
 
-
       {/* The header's sheets. The Notifications PAGE stays — deep links and
           push open it — and renders the same list this sheet does. */}
       <NotificationsSheet
@@ -293,6 +293,16 @@ export default function ProfilePage() {
         demoBusy={demoBusy}
         onToggleDemo={toggleShowDemo}
         onLogout={logout}
+        changePassword={
+          // `onChanged` is load-bearing: after a social-only account sets a
+          // password, hasPassword flips and the form has to be told, or the
+          // next change is refused for a missing current password.
+          <ChangePasswordForm
+            hasPassword={me.hasPassword !== false}
+            authProviders={me.authProviders ?? []}
+            onChanged={refresh}
+          />
+        }
         deleteAccount={<DeleteAccountLink />}
       />
       <CareHistorySheet
@@ -389,7 +399,6 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

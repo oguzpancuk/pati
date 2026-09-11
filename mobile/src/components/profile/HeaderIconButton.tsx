@@ -1,7 +1,12 @@
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import Text from '../ui/Text';
-import { makeStyles, radius, spacing } from '../../theme';
+import { makeStyles, minTouch, radius, spacing } from '../../theme';
+
+const BUTTON_SIZE = 40;
+/** Grows the 40pt circle to `minTouch` without touching its neighbour's. */
+const SLOP = (minTouch - BUTTON_SIZE) / 2;
+const HIT_SLOP = { top: SLOP, bottom: SLOP, left: SLOP, right: SLOP } as const;
 
 export type HeaderIconButtonProps = {
   /** Screen-reader label; the button itself carries only the glyph. */
@@ -29,6 +34,12 @@ export default function HeaderIconButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={count > 0 ? `${label} (${count})` : label}
+      // The circle stays 40 for the header's proportions; the touch target is
+      // grown to the theme's 44 floor (layout.ts minTouch). Deliberately NOT
+      // the shared `hitSlop` of 8: these sit spacing.sm apart, so 8 a side
+      // would make neighbouring targets overlap and a near-miss would open the
+      // wrong sheet. 2 a side is exactly 44 and still leaves a 4pt gap.
+      hitSlop={HIT_SLOP}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]}
     >
       {children}
@@ -45,8 +56,8 @@ export default function HeaderIconButton({
 
 const useStyles = makeStyles(({ colors: c }) => ({
   button: {
-    width: 40,
-    height: 40,
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: c.border,

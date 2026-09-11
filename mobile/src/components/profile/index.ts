@@ -16,4 +16,3 @@ export { default as CarerGallery } from './CarerGallery';
 export { default as BadgeBlock } from './BadgeBlock';
 export { default as ProfileStats } from './ProfileStats';
 export { default as FriendshipButton } from './FriendshipButton';
-export { GearIcon } from './icons';

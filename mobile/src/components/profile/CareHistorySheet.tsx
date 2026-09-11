@@ -47,12 +47,14 @@ export default function CareHistorySheet({
   const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
   const [careGroup, setCareGroup] = useState<MyCareAction[] | null>(null);
   // Chooser → detail must not present the second modal while the first is
-  // still dismissing (the iOS RN-modal race silently drops the second one).
-  // The picked record parks here and the chooser's onDismiss opens it.
+  // still dismissing. Nesting fixed WHICH controller presents the popups, not
+  // this: the sheet's own controller is still busy dismissing the chooser when
+  // the detail asks to be presented, and iOS drops the second one. The picked
+  // record parks here and the chooser's onDismiss opens it.
   const pendingCareDetail = useRef<MyCareAction | null>(null);
 
-  // A popup must never outlive the sheet it sits on: both are siblings of
-  // the sheet's modal, so nothing dismisses them with it.
+  // Closing the sheet takes its popups with it: the sheet's Modal unmounts its
+  // children, and this clears the state so reopening starts on the map.
   useEffect(() => {
     if (!visible) {
       pendingCareDetail.current = null;
@@ -147,73 +149,75 @@ export default function CareHistorySheet({
   }
 
   return (
-    <>
-      <Sheet visible={visible} onClose={onClose} title="Mama & su geçmişim" fill scroll={false}>
-        {actions.length === 0 ? (
-          <Card variant="flat">
-            <Text variant="caption">Henüz mama veya su bırakmadın.</Text>
-          </Card>
-        ) : (
-          <>
-            {/* The history is a MAP, not a list (owner decision,
-                2026-08-31): every drop is a marker; tapping one opens the
-                detail popup with the date (and delete, while allowed). */}
-            <View style={styles.mapWrapper}>
-              <MapView
-                style={styles.mapInner}
-                mapStyle={mapStyles[themeName]}
-                pitchEnabled={false}
-                rotateEnabled={false}
-                // The full map screen carries the required attribution.
-                attributionEnabled={false}
-              >
-                {/* Controlled (not defaultSettings): a new drop outside the
-                    old bounds must re-fit the camera on refresh. */}
-                <Camera {...camera} animationDuration={0} />
-                {careGroups.map((group) => (
-                  <MarkerView
-                    key={`care-${group.actions[0].id}`}
-                    coordinate={[group.lng, group.lat]}
-                    anchor={{ x: 0.5, y: 0.5 }}
+    <Sheet visible={visible} onClose={onClose} title="Mama & su geçmişim" fill scroll={false}>
+      {actions.length === 0 ? (
+        <Card variant="flat">
+          <Text variant="caption">Henüz mama veya su bırakmadın.</Text>
+        </Card>
+      ) : (
+        <>
+          {/* The history is a MAP, not a list (owner decision, 2026-08-31):
+              every drop is a marker; tapping one opens the detail popup with
+              the date (and delete, while allowed). */}
+          <View style={styles.mapWrapper}>
+            <MapView
+              style={styles.mapInner}
+              mapStyle={mapStyles[themeName]}
+              pitchEnabled={false}
+              rotateEnabled={false}
+              // The full map screen carries the required attribution.
+              attributionEnabled={false}
+            >
+              {/* Controlled (not defaultSettings): a new drop outside the
+                  old bounds must re-fit the camera on refresh. */}
+              <Camera {...camera} animationDuration={0} />
+              {careGroups.map((group) => (
+                <MarkerView
+                  key={`care-${group.actions[0].id}`}
+                  coordinate={[group.lng, group.lat]}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                >
+                  <Pressable
+                    style={styles.marker}
+                    onPress={() =>
+                      group.actions.length === 1
+                        ? setCareDetail(group.actions[0])
+                        : setCareGroup(group.actions)
+                    }
                   >
-                    <Pressable
-                      style={styles.marker}
-                      onPress={() =>
-                        group.actions.length === 1
-                          ? setCareDetail(group.actions[0])
-                          : setCareGroup(group.actions)
-                      }
-                    >
-                      <Icon
-                        name={group.actions[0].action_type === 'food' ? 'food' : 'water'}
-                        size={16}
-                        color={colors.brand}
-                      />
-                      {group.actions.length > 1 && (
-                        <View style={styles.markerBadge}>
-                          <Text variant="micro" style={styles.markerBadgeText}>
-                            {group.actions.length}
-                          </Text>
-                        </View>
-                      )}
-                    </Pressable>
-                  </MarkerView>
-                ))}
-              </MapView>
-            </View>
-            {/* The map draws at most 100 records (the API's page cap); a full
-                page means older drops exist but aren't shown — say so. */}
-            {actions.length === 100 && (
-              <Text variant="caption" color="textSubtle" center style={styles.capNote}>
-                Son 100 kayıt gösteriliyor.
-              </Text>
-            )}
-          </>
-        )}
-      </Sheet>
+                    <Icon
+                      name={group.actions[0].action_type === 'food' ? 'food' : 'water'}
+                      size={16}
+                      color={colors.brand}
+                    />
+                    {group.actions.length > 1 && (
+                      <View style={styles.markerBadge}>
+                        <Text variant="micro" style={styles.markerBadgeText}>
+                          {group.actions.length}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                </MarkerView>
+              ))}
+            </MapView>
+          </View>
+          {/* The map draws at most 100 records (the API's page cap); a full
+              page means older drops exist but aren't shown — say so. */}
+          {actions.length === 100 && (
+            <Text variant="caption" color="textSubtle" center style={styles.capNote}>
+              Son 100 kayıt gösteriliyor.
+            </Text>
+          )}
+        </>
+      )}
 
-      {/* Siblings of the sheet, not children: a modal presented over the
-          sheet's own modal is the flow the iOS dance below was written for. */}
+      {/* CHILDREN of the sheet's own Modal, not siblings. iOS presents a modal
+          from its nearest view controller: as siblings these asked the screen's
+          controller, which is already presenting the sheet, so UIKit refused
+          and the chooser, the detail and the only "Sil" affordance never
+          appeared (review finding). A RN Modal is position:absolute, so it
+          costs the map no layout. */}
       <Modal
         visible={!!careGroup}
         transparent
@@ -337,7 +341,7 @@ export default function CareHistorySheet({
           </Pressable>
         </Pressable>
       </Modal>
-    </>
+    </Sheet>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -29,12 +29,12 @@ import { AvatarPickerModal } from '../components/avatars';
 import LevelBar from '../components/LevelBar';
 import DeleteAccountLink from '../components/DeleteAccountModal';
 import RecentComments from '../components/RecentComments';
+import { ChangePasswordForm } from '../components/password';
 import {
   BadgeBlock,
   CareHistorySheet,
   CarerGallery,
   FriendsSheet,
-  GearIcon,
   HeaderIconButton,
   NotificationsSheet,
   ProfileHeader,
@@ -119,6 +119,19 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const [sheet, setSheet] = useState<ProfileSheet | null>(
     route?.params?.deleteAccount ? 'settings' : null
   );
+  // The link is consumed ONCE. RN's Modal renders null while hidden, so the
+  // sheet's children — DeleteAccountLink among them — remount on every gear
+  // tap; reading the route param there (navigation never clears it) reopened
+  // the destructive dialog each time for the rest of the session (review
+  // finding).
+  const [openDeleteAccount, setOpenDeleteAccount] = useState(!!route?.params?.deleteAccount);
+  useEffect(() => {
+    // Cleared only once `me` has arrived, because the screen renders a loading
+    // state until then and the link does not exist to read this yet. By the
+    // time this effect runs on that commit the link has mounted and captured
+    // its own `open`, so clearing here does not close what just opened.
+    if (openDeleteAccount && me) setOpenDeleteAccount(false);
+  }, [openDeleteAccount, me]);
 
   /** A sheet is not a page: leaving it for a screen closes it first. */
   function leaveSheet(go: () => void) {
@@ -319,7 +332,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
               <Icon name="users" size={20} color={colors.brand} />
             </HeaderIconButton>
             <HeaderIconButton label="Ayarlar" onPress={() => setSheet('settings')}>
-              <GearIcon size={20} color={colors.brand} />
+              <Icon name="settings" size={20} color={colors.brand} />
             </HeaderIconButton>
           </>
         }
@@ -431,9 +444,19 @@ export default function UserProfileScreen({ navigation, route }: any) {
         demoBusy={demoBusy}
         onToggleDemo={toggleShowDemo}
         onLogout={logout}
+        changePassword={
+          // `onChanged` is load-bearing: after a social-only account sets a
+          // password, hasPassword flips and the form has to be told, or the
+          // next change is refused for a missing current password.
+          <ChangePasswordForm
+            hasPassword={me?.hasPassword !== false}
+            authProviders={me?.authProviders ?? []}
+            onChanged={load}
+          />
+        }
         deleteAccount={
           <DeleteAccountLink
-            initialOpen={!!route?.params?.deleteAccount}
+            initialOpen={openDeleteAccount}
             hasPassword={me?.hasPassword !== false}
             authProviders={me?.authProviders ?? []}
           />

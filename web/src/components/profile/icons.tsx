@@ -1,14 +1,25 @@
 /**
- * The thin-stroke marks the profile header and its sheets use. Same language
- * as mobile's `brand/Icon`: 24-unit box, 1.8 stroke, round caps, currentColor
- * replaced by the brand token so they tint with the theme.
+ * The thin-stroke marks the profile header and its sheets use — web's copy of
+ * the set mobile keeps in `brand/Icon`: 24-unit box, 1.8 stroke, round caps,
+ * currentColor replaced by the brand token so they tint with the theme. Every
+ * mark goes through this wrapper; a second hand-rolled <svg> beside it is how
+ * the two drift.
  */
-function Stroke({ size, children }: { size: number; children: React.ReactNode }) {
+function Stroke({
+  size,
+  viewBox = '0 0 24 24',
+  children,
+}: {
+  size: number;
+  /** Only for a mark whose artwork touches the edges — see `GearIcon`. */
+  viewBox?: string;
+  children: React.ReactNode;
+}) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox={viewBox}
       fill="none"
       stroke="var(--brand)"
       strokeWidth="1.8"
@@ -39,23 +50,17 @@ export function UsersIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-/** The settings gear; the viewBox is inset so the stroke does not clip. */
+/**
+ * The settings gear — mobile's `Icon name="settings"`. Its outer teeth sit on
+ * the edges of the 24-unit box, so the viewBox is inset by the stroke width or
+ * the ring is shaved off at the top and bottom.
+ */
 export function GearIcon({ size = 20 }: { size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="-1.4 -1.4 26.8 26.8"
-      fill="none"
-      stroke="var(--brand)"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
+    <Stroke size={size} viewBox="-1.4 -1.4 26.8 26.8">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-    </svg>
+    </Stroke>
   );
 }
 

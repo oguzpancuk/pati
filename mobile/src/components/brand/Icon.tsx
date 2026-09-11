@@ -27,7 +27,8 @@ export type IconName =
   | 'crosshair'
   | 'star'
   | 'logout'
-  | 'refresh';
+  | 'refresh'
+  | 'settings';
 
 export type IconProps = {
   name: IconName;
@@ -48,11 +49,20 @@ export default function Icon({ name, size = 24, color, strokeWidth = 1.8 }: Icon
   };
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Svg width={size} height={size} viewBox={VIEW_BOXES[name] ?? '0 0 24 24'}>
       <G {...stroke}>{PATHS[name](tint, strokeWidth)}</G>
     </Svg>
   );
 }
+
+/**
+ * Every mark is drawn inside a 24-unit box with room for its own stroke — bar
+ * `settings`, whose outer teeth sit on the edges. Its box is inset by the
+ * stroke width so the ring is not shaved off at the top and bottom.
+ */
+const VIEW_BOXES: Partial<Record<IconName, string>> = {
+  settings: '-1.4 -1.4 26.8 26.8',
+};
 
 const PATHS: Record<IconName, (color: string, sw: number) => React.ReactNode> = {
   pin: () => (
@@ -147,6 +157,12 @@ const PATHS: Record<IconName, (color: string, sw: number) => React.ReactNode> = 
     <>
       <Path d="M19.4 12a7.4 7.4 0 1 1-2.2-5.3" />
       <Path d="M18 3.6v3.6h-3.6" />
+    </>
+  ),
+  settings: () => (
+    <>
+      <Circle cx={12} cy={12} r={3} />
+      <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
     </>
   ),
 };

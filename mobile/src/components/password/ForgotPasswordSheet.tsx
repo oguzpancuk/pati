@@ -88,7 +88,14 @@ export default function ForgotPasswordSheet({
       setNotice(`${address} adresine bir kod gönderdik.`);
     } catch (err: any) {
       // 503 (this deployment sends no mail) and 429 (the IP limiter) are the
-      // only refusals; neither depends on the address.
+      // only refusals; neither depends on the address. A 429 parks the button
+      // for as long as the server said, the way the verification screens do —
+      // otherwise every impatient tap burns another slot of the /api/auth
+      // brake and shows the same message.
+      if (err?.response?.status === 429) {
+        const retryAfter = err?.response?.data?.retryAfter;
+        setCooldown(typeof retryAfter === 'number' ? retryAfter : RESEND_COOLDOWN_S);
+      }
       setError(message(err, 'Kod gönderilemedi, biraz sonra tekrar dene.'));
     } finally {
       setBusy(false);
@@ -164,10 +171,10 @@ export default function ForgotPasswordSheet({
                   </Text>
                 ) : null}
                 <Button
-                  title="Kod gönder"
+                  title={cooldown > 0 ? `Kod gönder (${cooldown})` : 'Kod gönder'}
                   onPress={sendCode}
                   loading={busy}
-                  disabled={!email.trim()}
+                  disabled={!email.trim() || cooldown > 0}
                   fullWidth
                 />
               </>

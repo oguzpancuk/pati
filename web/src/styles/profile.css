@@ -56,6 +56,18 @@
   color: var(--text);
 }
 
+/* The circle stays 40px for the header's proportions, but the design system's
+   touch floor is 44 (mobile theme layout.ts `minTouch`). Grown with a
+   pseudo-element rather than a bigger box so the row's spacing is unchanged;
+   2px a side is exactly 44 and still leaves 4px between two neighbours, so a
+   near-miss cannot open the wrong sheet. */
+.profile-icon-btn::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+}
+
 .profile-icon-btn:active {
   background: var(--brand-tint);
 }

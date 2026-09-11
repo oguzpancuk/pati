@@ -23,7 +23,11 @@ const assert = require('node:assert');
 const express = require('express');
 
 const passwordReset = require('../src/utils/passwordReset');
-const { passwordComplaint, MIN_PASSWORD_LENGTH } = require('../src/controllers/auth.controller');
+const {
+  passwordComplaint,
+  MIN_PASSWORD_LENGTH,
+  resetCodeRefusal,
+} = require('../src/controllers/auth.controller');
 const { limits } = require('../src/middleware/rateLimit.middleware');
 
 test('a code is six digits, and a leading zero is a digit like any other', () => {
@@ -65,6 +69,36 @@ test('the neutral answer names no address and no account', () => {
   assert.equal(JSON.stringify(answer), JSON.stringify({ ...answer }));
 });
 
+test('a refused reset code says the same thing whatever refused it', () => {
+  // forgot-password's neutral answer only holds if the NEXT request keeps it.
+  // One forgot-password call creates a reset row for an address that has an
+  // account, so from then on "wrong code" means "registered" and "no
+  // outstanding code" means "not registered" — the whole oracle, two requests
+  // per address. checkCode's four reasons must therefore all come back
+  // identical, statuses included.
+  const reasons = ['none', 'expired', 'attempts', 'wrong'];
+  const answers = [
+    resetCodeRefusal(),
+    ...reasons.map((reason) => resetCodeRefusal({ ok: false, reason })),
+    // The shape the old code decorated: a wrong guess carrying a countdown.
+    resetCodeRefusal({ ok: false, reason: 'wrong', remaining: 4 }),
+    resetCodeRefusal({ ok: false, reason: 'wrong', remaining: 0 }),
+  ];
+  for (const answer of answers) {
+    assert.deepEqual(answer, answers[0], 'every refusal is byte-identical');
+    assert.equal(answer.status, 400, 'a 429 for a retired code would name the account too');
+  }
+
+  // Frozen so no handler can append " (4 deneme kaldı)" to it in place.
+  assert.ok(Object.isFrozen(answers[0]), 'the refusal must not be mutable');
+  assert.deepEqual(Object.keys(answers[0]).sort(), ['error', 'status']);
+  // Still a way forward: the user is told to ask for a new code whichever of
+  // the four reasons it actually was.
+  assert.match(answers[0].error, /yeni kod iste/);
+  // Nothing that could only be true of an existing account.
+  assert.doesNotMatch(answers[0].error, /deneme kaldı|bekleyen/i);
+});
+
 test('one password rule, and it is the one register already enforced', () => {
   assert.equal(MIN_PASSWORD_LENGTH, 8, 'register has always said 8 characters');
   assert.equal(passwordComplaint('a'.repeat(MIN_PASSWORD_LENGTH)), null);
@@ -98,7 +132,10 @@ test('the forgot-password bucket bites, in Turkish, with a countdown', async () 
   const url = `http://127.0.0.1:${server.address().port}/forgot`;
 
   try {
-    for (let i = 0; i < 10; i += 1) {
+    // The ceiling sits just under /api/auth's own per-IP brake on purpose: a
+    // carrier NAT shares this bucket, so it must not be what locks a
+    // neighbourhood out of password reset.
+    for (let i = 0; i < 60; i += 1) {
       assert.equal((await fetch(url, { method: 'POST' })).status, 200, `request ${i + 1}`);
     }
     const refused = await fetch(url, { method: 'POST' });
