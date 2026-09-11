@@ -967,7 +967,15 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </View>
       ) : null}
 
-      <Modal visible={recordModalVisible} transparent animationType="fade">
+      {/* A sheet is not a page (DESIGN §8): Android's hardware back closes
+          it instead of leaving the animal profile. Locked while the save is
+          in flight, exactly like the "Vazgeç" button below. */}
+      <Modal
+        visible={recordModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !savingRecord && setRecordModalVisible(false)}
+      >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1023,7 +1031,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={vaccineModalVisible} transparent animationType="fade">
+      <Modal
+        visible={vaccineModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !savingVaccine && setVaccineModalVisible(false)}
+      >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1067,7 +1080,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={!!logRecord} transparent animationType="slide">
+      <Modal
+        visible={!!logRecord}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLogRecord(null)}
+      >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text variant="heading" style={styles.modalTitle}>
