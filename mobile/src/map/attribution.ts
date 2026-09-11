@@ -5,8 +5,8 @@
  * The tiles come from OpenFreeMap's planet build of OpenMapTiles, whose data
  * is OpenStreetMap's. ODbL requires the credit to be discoverable wherever
  * the data is shown; the owner decided (2026-09-11, demo note 15) that it
- * leaves the map itself and lives one level deeper, always visible in the
- * settings sheet rather than behind a further tap. The style JSON carries no
+ * leaves the map itself and lives one level deeper, as the last line of the
+ * settings sheet — a scroll away rather than behind a further tap. The style JSON carries no
  * `attribution` field of its own — it is generated from OpenFreeMap's liberty
  * style by shared/mapstyle/build.mjs — so this string, not the renderer, is
  * what discharges it.

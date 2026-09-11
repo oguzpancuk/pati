@@ -725,7 +725,7 @@ export default function MapScreen({ navigation }: any) {
         rotateEnabled={false}
         pitchEnabled={false}
         // The OpenMapTiles/OSM credit is no longer drawn on any map: it is
-        // one always-visible line in the profile's settings sheet (owner,
+        // the last line of the profile's settings sheet (owner,
         // 2026-09-11 demo note 15; map/attribution.ts). The MapLibre logo
         // is optional and stays off too.
         attributionEnabled={false}

@@ -19,10 +19,16 @@ const openSheets: SheetEntry[] = [];
 let nextSheetId = 0;
 
 /**
- * How many history entries this document has pushed on its own behalf — see
- * the push below. Read by PageHeader's `hasAppHistory`; module state, so it
- * resets on reload, which is the safe direction: the fallback root is a small
- * surprise, a back button that does nothing is the dead end DESIGN §8 is about.
+ * How many entries this document pushed that are STILL behind us — pushed
+ * when a sheet opens, given back when it closes, and deliberately left
+ * counted when a link inside the sheet consumes it with `replace` (there
+ * really is a page behind us then). Read by PageHeader's `hasAppHistory`.
+ *
+ * Counting pushes and never releasing them made the arrow on a deep-linked
+ * animal page leave the site once any dialog had been opened and closed
+ * (review, 2026-09-11): nothing was behind us, but the counter still said so.
+ * Module state, so it resets on reload — the safe direction, since the
+ * fallback root is a small surprise and a dead arrow is what §8 is about.
  */
 let entriesPushed = 0;
 
@@ -60,6 +66,10 @@ function topOwningIndex() {
 export function useSheetDismiss(open: boolean, onClose: () => void, history = true) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  // Read by the cleanup to tell a real close from an effect re-run; set
+  // during render, so it is already false when a close's cleanup runs.
+  const openRef = useRef(open);
+  openRef.current = open;
   // Stable across StrictMode's double-invoked effects, which is what lets the
   // second run recognise the entry the first run already pushed.
   const idRef = useRef(0);
@@ -107,6 +117,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       // An owned entry is given back to the browser; the popstate that
       // follows is what actually closes the sheet.
       if (entry.owns && (window.history.state as { patiSheet?: number } | null)?.patiSheet === id) {
+        entriesPushed -= 1;
         window.history.back();
         return;
       }
@@ -122,6 +133,28 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       dismissRef.current = null;
       const index = openSheets.indexOf(entry);
       if (index >= 0) openSheets.splice(index, 1);
+
+      // A sheet does NOT only close through `dismiss`. A "Vazgeç" button, a
+      // "Tamam", a successful save — all of them just set the state false, and
+      // every one of those used to strand the entry this sheet pushed, so the
+      // user's next Back press was silently swallowed (review, 2026-09-11:
+      // three presses to leave an animal page after two cancels). Requiring
+      // every close path in every dialog to route through `dismiss` is a rule
+      // nobody can keep; handing the entry back here means the dialog may
+      // close however it likes.
+      //
+      // Three things are NOT a close and must not hand anything back:
+      //   - an effect re-run (StrictMode invokes mount/cleanup/mount): `open`
+      //     is still true, because a real close has already re-rendered with
+      //     it false by the time this runs;
+      //   - a dismissal already in flight, which gave the entry back itself;
+      //   - unmounting while still open, e.g. a link inside the sheet — the
+      //     entry is consumed by that navigation and the page it led to is
+      //     genuinely behind us.
+      if (openRef.current || entry.closing || !entry.owns) return;
+      if ((window.history.state as { patiSheet?: number } | null)?.patiSheet !== id) return;
+      entriesPushed -= 1;
+      window.history.back();
     };
   }, [open, history, id]);
 

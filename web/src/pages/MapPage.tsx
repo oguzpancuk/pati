@@ -439,7 +439,7 @@ export default function MapPage() {
       minZoom: WORLD_MIN_ZOOM,
       maxZoom: 19,
       // The basemap credit left every map surface (owner, demo note 15): it
-      // is one always-visible line in the settings sheet now, so the control
+      // is one last line of the settings sheet now, so the control
       // that used to sit over the map is off. See @mobile/map/attribution.
       attributionControl: false,
     });

@@ -9,10 +9,7 @@ import {
   signInWithApple,
 } from '../socialAuth';
 import { resolvedThemeName } from '../theme';
-import { useSheetExit } from './profile/Sheet';
-// DESIGN §8 point 3: Escape and Back close the dialog, not the page. Its
-// mobile twin got the same through onRequestClose in this range.
-import { useSheetDismiss } from './profile/Sheet';
+import { useSheetDismiss, useSheetExit } from './profile/Sheet';
 
 /**
  * Self-service account deletion (the KVKK promise on /gizlilik + App Store

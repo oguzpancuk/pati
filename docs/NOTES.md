@@ -3925,8 +3925,10 @@ Five web dialogs still close only on their own backdrop and buttons, with no
 Escape and no `popstate`: the PWA install prompt (`install.tsx`), the badge
 catalogue and the badge-award celebration (`badges.tsx`), the avatar picker
 (`ProfilePage`), the map's add chooser and confirm (`MapPage`), and the
-conversation dialog (`ConversationPage`). DESIGN §8 point 3 applies to all of
-them and the mechanism is ready — `useSheetDismiss` in
+conversation dialog (`ConversationPage`) — and the animal page's own
+fullscreen photo viewer (`AnimalPage`), which sits alongside the four that
+WERE fixed, so do not read that page as finished. DESIGN §8 point 3 applies to
+all of them and the mechanism is ready — `useSheetDismiss` in
 `web/src/components/profile/Sheet.tsx`, which is not profile-specific despite
 where it lives, and takes `history: false` for a dialog nested inside a sheet.
 
