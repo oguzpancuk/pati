@@ -27,19 +27,23 @@ export function MiniMap({
   interactive = false,
   onOpen,
   openLabel,
+  openHint,
   markerLabel,
   onMarkerClick,
   children,
 }: {
   lat: number;
   lng: number;
-  height?: number;
+  /** A number of px, or any CSS length — the sheet caps its map against the viewport. */
+  height?: number | string;
   zoom?: number;
   /** Pan and zoom. Off for the thumbnail, on inside the sheet. */
   interactive?: boolean;
   /** Makes the (static) map box a button — the thumbnail's "open the sheet". */
   onOpen?: () => void;
   openLabel?: string;
+  /** The pill drawn on the map to say the box opens (mobile parity). */
+  openHint?: string;
   markerLabel?: string;
   /** Interactive maps only: the marker becomes a button. */
   onMarkerClick?: () => void;
@@ -126,6 +130,13 @@ export function MiniMap({
               {children}
             </div>
           )}
+      {/* The label already reaches a screen reader through the button's
+          aria-label; the pill is the visible half of the same hint. */}
+      {openHint && (
+        <span className="minimap-hint" aria-hidden="true">
+          {openHint}
+        </span>
+      )}
     </div>
   );
 

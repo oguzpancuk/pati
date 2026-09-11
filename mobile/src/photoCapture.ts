@@ -40,13 +40,16 @@ export type CaptureOutcome =
 // when a refused permission turns it off.
 let saveToGallery = SAVE_TO_GALLERY_DEFAULT;
 let loaded: Promise<void> | null = null;
+// Set the moment anyone decides: a read still in flight must not land on
+// top of a choice made while it was running.
+let decided = false;
 const listeners = new Set<(on: boolean) => void>();
 
 function ensureLoaded(): Promise<void> {
   if (!loaded) {
     loaded = AsyncStorage.getItem(SAVE_TO_GALLERY_KEY)
       .then((stored) => {
-        if (stored !== null) saveToGallery = stored === '1';
+        if (!decided && stored !== null) saveToGallery = stored === '1';
       })
       // An unreadable store is not a reason to change the answer: the
       // default stands and the next write repairs it.
@@ -57,10 +60,9 @@ function ensureLoaded(): Promise<void> {
 
 /** Turn the preference on or off and remember it. */
 export function setSaveToGallery(on: boolean): void {
+  decided = true;
   saveToGallery = on;
   for (const listener of listeners) listener(on);
-  // Mark it loaded: a write must not be overwritten by a slower first read.
-  loaded = loaded ?? Promise.resolve();
   AsyncStorage.setItem(SAVE_TO_GALLERY_KEY, on ? '1' : '0').catch(() => {});
 }
 

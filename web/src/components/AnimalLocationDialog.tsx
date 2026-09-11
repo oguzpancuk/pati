@@ -48,7 +48,12 @@ export function AnimalLocationDialog({
     setDateShown(false);
     // Safe under StrictMode's double-invoke: this component stays mounted
     // with open=false, so the setup only ever runs on the open transition.
-    window.history.pushState({ patiSheet: SHEET_STATE }, '');
+    // React Router's own state (its `idx` bookkeeping) is carried over —
+    // the entry is the same URL, only flagged.
+    window.history.pushState(
+      { ...(window.history.state as object | null), patiSheet: SHEET_STATE },
+      ''
+    );
     const onPop = () => closeRef.current();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeRef.current();
@@ -85,7 +90,9 @@ export function AnimalLocationDialog({
         <MiniMap
           lat={lat}
           lng={lng}
-          height={320}
+          // The sheet must fit a landscape phone without the map pushing
+          // "Kapat" past its 86% cap.
+          height="min(320px, 45vh)"
           zoom={16}
           interactive
           markerLabel="Son güncelleme tarihini göster"

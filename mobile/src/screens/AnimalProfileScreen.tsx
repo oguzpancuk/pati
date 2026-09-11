@@ -644,7 +644,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           </Pressable>
         </View>
         <Text variant="caption" style={styles.seenAt}>
-          {formatDate(animal.location_updated_at)} · dokunarak haritada aç
+          {formatDate(animal.location_updated_at)}
         </Text>
 
         {/* Vaccinations above health records: on the street, "is this animal

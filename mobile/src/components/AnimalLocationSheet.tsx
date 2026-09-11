@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, View } from 'react-native';
+import { Modal, Pressable, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
 import AnimalAvatar from './AnimalAvatar';
@@ -40,6 +40,11 @@ export default function AnimalLocationSheet({
   const styles = useStyles();
   const { name: themeName } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  // The sheet does not scroll (a ScrollView would fight the map's pan), so
+  // the map sizes itself against the screen: a landscape phone must still
+  // show the title and the close button.
+  const mapHeight = Math.max(180, Math.min(340, Math.round(windowHeight * 0.45)));
   const [dateShown, setDateShown] = useState(false);
 
   function close() {
@@ -63,7 +68,7 @@ export default function AnimalLocationSheet({
             Haritayı kaydırıp yakınlaştırabilirsin. Tarihi görmek için işarete dokun.
           </Text>
 
-          <View style={styles.mapWrapper}>
+          <View style={[styles.mapWrapper, { height: mapHeight }]}>
             {/* Mounted only while open: a MapView left alive behind a closed
                 sheet keeps its GL surface and its tile requests. */}
             {visible && (
@@ -139,11 +144,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   title: { marginBottom: 2 },
   lead: { marginBottom: spacing.md },
-  // Capped so the sheet fits a small phone in landscape as well; the map
-  // grows with the width, not past the screen.
+  // Height comes from the screen (see mapHeight); the rest is the frame.
   mapWrapper: {
-    height: 340,
-    maxHeight: '70%',
     borderRadius: radius.lg,
     overflow: 'hidden',
     borderWidth: 1,

@@ -1,7 +1,9 @@
 /*
  * Track H — the animal profile's own styles (demo items 7 and 8). Kept out
  * of theme.css, which is hand-merged and has swallowed a parallel track
- * before; imported from the components that use it.
+ * before; imported from the components that use it. MiniMap's new classes
+ * (`minimap-open`, `minimap-hint`, `minimap-marker`) live here for the same
+ * reason — only this page mounts it.
  */
 
 /* ---------------------------------------------- the carers list (item 7) */
@@ -65,8 +67,18 @@
   cursor: pointer;
 }
 
-.animal-map-hint {
-  color: var(--text-subtle);
+/* Sits on the thumbnail and says the box opens (mobile parity). */
+.minimap-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: var(--overlay);
+  color: var(--text-on-brand);
+  font-size: 11px;
+  line-height: 16px;
+  pointer-events: none;
 }
 
 /* A real maplibre marker (the sheet's map moves under it). */
@@ -112,7 +124,7 @@
   padding: 3px 9px;
   border-radius: 99px;
   background: var(--overlay);
-  color: #fff;
+  color: var(--text-on-brand);
   font-size: 11px;
   line-height: 16px;
   white-space: nowrap;

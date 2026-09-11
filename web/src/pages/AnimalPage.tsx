@@ -150,6 +150,40 @@ function ChoiceChips({
   );
 }
 
+/**
+ * Every person named on an animal profile is a door to their profile (demo
+ * item 7). Your own name goes to your own page rather than a stranger's
+ * view of yourself — /kullanici/<me> redirects there anyway, this just
+ * skips the bounce.
+ */
+function profilePath(userId: number, selfId?: number) {
+  return selfId === userId ? '/profil' : `/kullanici/${userId}`;
+}
+
+/** The same door inside running text ("kaydeden", "… iyileşti olarak işaretledi"). */
+function PersonLink({
+  userId,
+  name,
+  selfId,
+}: {
+  userId?: number | null;
+  name: string;
+  selfId?: number;
+}) {
+  if (typeof userId !== 'number') return <>{name}</>;
+  return (
+    <Link
+      className="person-link"
+      to={profilePath(userId, selfId)}
+      // A record card is itself clickable (it opens the record log); the
+      // name inside it must go to the person, not to both.
+      onClick={(e) => e.stopPropagation()}
+    >
+      {name}
+    </Link>
+  );
+}
+
 // Two rows; the rest live in the viewer behind the "+N" tile.
 const HERO_PHOTOS = 6;
 export default function AnimalPage() {
@@ -491,32 +525,7 @@ export default function AnimalPage() {
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
   const carers = animal.carers ?? [];
-
-  /**
-   * Every person named on this profile is a door to their profile (demo
-   * item 7). Your own name goes to your own page rather than a stranger's
-   * view of yourself — /kullanici/<me> redirects there anyway, this just
-   * skips the bounce.
-   */
-  function profilePath(userId: number) {
-    return me?.id === userId ? '/profil' : `/kullanici/${userId}`;
-  }
-
-  /** The same door inside running text ("kaydeden", "… iyileşti olarak işaretledi"). */
-  function PersonLink({ userId, name }: { userId?: number | null; name: string }) {
-    if (typeof userId !== 'number') return <>{name}</>;
-    return (
-      <Link
-        className="person-link"
-        to={profilePath(userId)}
-        // A record card is itself clickable (it opens the record log); the
-        // name inside it must go to the person, not to both.
-        onClick={(e) => e.stopPropagation()}
-      >
-        {name}
-      </Link>
-    );
-  }
+  const selfId = me?.id;
 
   // The grid always fills to a multiple of 3: real tiles + dashed "photo"
   // placeholders — even an empty profile invites.
@@ -650,7 +659,7 @@ export default function AnimalPage() {
         <div className="card flat muted">Henüz bakıcı yok. İlk bakıcı sen ol.</div>
       ) : (
         carers.slice(0, visibleCarers).map((carer) => (
-          <Link key={carer.id} className="animal-carer-row" to={profilePath(carer.id)}>
+          <Link key={carer.id} className="animal-carer-row" to={profilePath(carer.id, selfId)}>
             <UserAvatar avatarUrl={carer.avatar_url} name={carer.name} size={34} />
             <strong className="grow">{carer.name}</strong>
             <span className="subtle chevron">›</span>
@@ -676,6 +685,7 @@ export default function AnimalPage() {
         height={160}
         onOpen={() => setLocationOpen(true)}
         openLabel="En son görüldüğü yeri haritada aç"
+        openHint="haritada aç"
       >
         <span
           style={{
@@ -694,10 +704,7 @@ export default function AnimalPage() {
           />
         </span>
       </MiniMap>
-      <div className="muted animal-seen-at">
-        {formatDate(animal.location_updated_at)}{' '}
-        <span className="animal-map-hint">· haritada aç</span>
-      </div>
+      <div className="muted animal-seen-at">{formatDate(animal.location_updated_at)}</div>
 
       {/* Vaccinations above health records: on the street the first question is "vaccinated?". */}
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -726,7 +733,7 @@ export default function AnimalPage() {
               {formatDate(v.administered_at)}
               {v.recorded_by_name ? ' · ' : ''}
               {v.recorded_by_name && (
-                <PersonLink userId={v.recorded_by} name={v.recorded_by_name} />
+                <PersonLink userId={v.recorded_by} name={v.recorded_by_name} selfId={selfId} />
               )}
               {v.next_due_at ? ` · Sonraki doz: ${formatDate(v.next_due_at)}` : ''}
             </div>
@@ -768,13 +775,13 @@ export default function AnimalPage() {
                 {r.vet_verified ? ' · veteriner onaylı' : ''}
                 {r.recorded_by_name ? ' · ' : ''}
                 {r.recorded_by_name && (
-                  <PersonLink userId={r.recorded_by} name={r.recorded_by_name} />
+                  <PersonLink userId={r.recorded_by} name={r.recorded_by_name} selfId={selfId} />
                 )}{' '}
                 · {r.comment_count} yorum · dokunarak kayıtları gör
                 {r.status === 'recovered' && r.recovered_by_name && (
                   <>
                     {' · '}
-                    <PersonLink userId={r.recovered_by} name={r.recovered_by_name} /> iyileşti
+                    <PersonLink userId={r.recovered_by} name={r.recovered_by_name} selfId={selfId} /> iyileşti
                     olarak işaretledi
                   </>
                 )}
@@ -837,13 +844,13 @@ export default function AnimalPage() {
       )}
       {comments.map((c) => (
         <div key={c.id} className="row" style={{ alignItems: 'flex-start', marginBottom: 12 }}>
-          <Link to={profilePath(c.user_id)} aria-label={`${c.user_name} profilini aç`}>
+          <Link to={profilePath(c.user_id, selfId)} aria-label={`${c.user_name} profilini aç`}>
             <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={34} />
           </Link>
           <div className="grow">
             <div className="row" style={{ gap: 6 }}>
               <strong style={{ fontSize: 14 }}>
-                <PersonLink userId={c.user_id} name={c.user_name} />
+                <PersonLink userId={c.user_id} name={c.user_name} selfId={selfId} />
               </strong>
               {c.user_is_demo && <span className="demo-chip">demo</span>}
               <span className="subtle">{formatDate(c.created_at)}</span>
@@ -1192,14 +1199,14 @@ export default function AnimalPage() {
                   className="row"
                   style={{ alignItems: 'flex-start', marginBottom: 10 }}
                 >
-                  <Link to={profilePath(c.user_id)} aria-label={`${c.user_name} profilini aç`}>
+                  <Link to={profilePath(c.user_id, selfId)} aria-label={`${c.user_name} profilini aç`}>
                     <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={30} />
                   </Link>
                   <div className="grow">
                     <div className="row" style={{ justifyContent: 'space-between' }}>
                       <div className="name-with-chip">
                         <strong style={{ fontSize: 14 }}>
-                          <PersonLink userId={c.user_id} name={c.user_name} />
+                          <PersonLink userId={c.user_id} name={c.user_name} selfId={selfId} />
                         </strong>
                         {c.user_is_demo && <span className="demo-chip">demo</span>}
                       </div>
