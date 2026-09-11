@@ -53,11 +53,11 @@ export const TIER_ORDER: BadgeTier[] = ['bronze', 'silver', 'gold', 'diamond'];
  * DISPLAY ONLY (the tier ladder in the badge catalog). Awarding always
  * happens server-side; if the backend values change, change these with them.
  */
-export const STREAK_THRESHOLDS: Record<BadgeTier, number> = {
+export const CARE_THRESHOLDS: Record<BadgeTier, number> = {
   bronze: 1,
-  silver: 7,
-  gold: 30,
-  diamond: 365,
+  silver: 10,
+  gold: 50,
+  diamond: 250,
 };
 export const COUNT_THRESHOLDS: Record<BadgeTier, number> = {
   bronze: 1,
@@ -75,7 +75,9 @@ export const COMMENT_THRESHOLDS: Record<BadgeTier, number> = {
 /** Threshold table for a badge key (same mapping the backend applies). */
 export function thresholdsFor(key: string): Record<BadgeTier, number> {
   const [group, name] = key.split(':');
-  if (group === 'streak') return STREAK_THRESHOLDS;
+  // Registering an animal is not repeatable the way a drop is, so it keeps
+  // the shorter ladder even though it is a `care:` badge.
+  if (group === 'care') return name === 'registrar' ? COUNT_THRESHOLDS : CARE_THRESHOLDS;
   if (name === 'commenter') return COMMENT_THRESHOLDS;
   return COUNT_THRESHOLDS;
 }
@@ -128,7 +130,7 @@ export function badgeTitle(badge: Badge): string {
 export function symbolForKey(key: string): BadgeSymbolName {
   const [group, name] = key.split(':');
   if (group === 'breed') return 'paw';
-  if (group === 'streak') {
+  if (group === 'care') {
     if (name === 'feeder') return 'food';
     if (name === 'water') return 'water';
     return 'register';
@@ -138,23 +140,23 @@ export function symbolForKey(key: string): BadgeSymbolName {
   return 'health';
 }
 
-export type BadgeGroup = 'streak' | 'breed' | 'count';
+/**
+ * Two groups since the care badges started counting records rather than
+ * consecutive days (owner, 2026-09-11): there is no "Süreklilik" any more,
+ * because nothing is a streak.
+ */
+export type BadgeGroup = 'breed' | 'count';
 
 export function badgeGroup(badge: Badge): BadgeGroup {
-  const prefix = badge.key.split(':')[0];
-  if (prefix === 'breed') return 'breed';
-  if (prefix === 'streak') return 'streak';
-  return 'count';
+  return badge.key.split(':')[0] === 'breed' ? 'breed' : 'count';
 }
 
 export const GROUP_LABELS: Record<BadgeGroup, string> = {
-  streak: 'Süreklilik',
   breed: 'Desen Dostlukları',
   count: 'Katkı',
 };
 
 export const GROUP_DESCRIPTIONS: Record<BadgeGroup, string> = {
-  streak: 'Üst üste kaç gün aksiyon aldığınıza göre kazanılır.',
   breed: 'Aynı tür/desenden kaç hayvan kaydettiğinize göre kazanılır.',
   count: 'Toplam katkı adedinize göre kazanılır.',
 };

@@ -33,7 +33,7 @@ interface Props {
   onSaveFeatured?: (keys: string[]) => Promise<void> | void;
 }
 
-const GROUP_ORDER: BadgeGroup[] = ['streak', 'breed', 'count'];
+const GROUP_ORDER: BadgeGroup[] = ['count', 'breed'];
 
 export default function BadgeCatalogModal({
   visible,
@@ -63,7 +63,6 @@ export default function BadgeCatalogModal({
 
   const grouped = useMemo(() => {
     const map: Record<BadgeGroup, Badge[]> = {
-      streak: [],
       breed: [],
       count: [],
     };

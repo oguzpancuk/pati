@@ -11,9 +11,15 @@ const BADGEABLE_PATTERNS = new Set([...CAT_PATTERNS, ...DOG_PATTERNS]);
 const TIER_POINTS = { bronze: 10, silver: 25, gold: 60, diamond: 150 };
 const TIER_ORDER = ['bronze', 'silver', 'gold', 'diamond'];
 
-// Badges based on consecutive-day streaks (food/water/animal registration).
-const STREAK_THRESHOLDS = { bronze: 1, silver: 7, gold: 30, diamond: 365 };
-// Count-based badges (breed friendships, comments, health tracking).
+// Every badge counts what you did, not how many days running you did it
+// (owner, 2026-09-11). A streak punished one missed day and rewarded nobody
+// for two drops in an afternoon; the ladders below are the owner's.
+//
+// Food and water are the app's most frequent action, so their ladder is the
+// long one. Registering animals is not repeatable in the same way — a
+// neighbourhood holds a finite number of them — so it shares the ladder the
+// breed badges already use.
+const CARE_THRESHOLDS = { bronze: 1, silver: 10, gold: 50, diamond: 250 };
 const COUNT_THRESHOLDS = { bronze: 1, silver: 5, gold: 20, diamond: 100 };
 const COMMENT_THRESHOLDS = { bronze: 1, silver: 10, gold: 50, diamond: 200 };
 
@@ -25,7 +31,7 @@ const COMMENT_THRESHOLDS = { bronze: 1, silver: 10, gold: 50, diamond: 200 };
 // Naming standard: levels describe a **ladder of responsibility** (in Turkish,
 // product-facing): Gönüllü (volunteer) → Sorumlu (steward) → Temsilci
 // (representative) → Onur (honorary). No jokes, no hyperbole; same register
-// as the badge names (see STREAK_CATEGORIES).
+// as the badge names (see CARE_CATEGORIES).
 const LEVELS = [
   { level: 1, title: 'Yeni Komşu', minPoints: 0 },
   { level: 2, title: 'Mahalle Gönüllüsü', minPoints: 40 },
@@ -93,10 +99,20 @@ function nextThresholdFor(tier, thresholds) {
 // people really are volunteers.
 //
 // `symbol` tells the mobile side which SVG to draw (we don't use emoji).
-const STREAK_CATEGORIES = {
-  feeder: { label: 'Mama Gönüllüsü', unit: 'gün', symbol: 'food' },
-  water: { label: 'Su Gönüllüsü', unit: 'gün', symbol: 'water' },
-  registrar: { label: 'Kayıt Gönüllüsü', unit: 'gün', symbol: 'register' },
+// `care:` rather than the old `streak:`: the prefix is what the clients group
+// by, and calling a count a streak was the kind of untrue name this codebase
+// keeps having to correct. 015_badge_counts.sql renames the keys already
+// stored in user_badge_awards and users.featured_badges, and
+// scripts/recompute-badges.js re-awards them under the new ladders.
+const CARE_CATEGORIES = {
+  feeder: { label: 'Mama Gönüllüsü', unit: 'kayıt', symbol: 'food', thresholds: CARE_THRESHOLDS },
+  water: { label: 'Su Gönüllüsü', unit: 'kayıt', symbol: 'water', thresholds: CARE_THRESHOLDS },
+  registrar: {
+    label: 'Kayıt Gönüllüsü',
+    unit: 'hayvan',
+    symbol: 'register',
+    thresholds: COUNT_THRESHOLDS,
+  },
 };
 
 const COUNT_CATEGORIES = {
@@ -123,26 +139,15 @@ const COUNT_CATEGORIES = {
 // Queries are written set-based over many users so a single-user lookup and
 // the leaderboard share the same code path: the leaderboard can compute 100+
 // users without issuing a query per user.
-async function fetchStreakDays(userIds) {
+async function fetchCareCounts(userIds) {
   const result = await pool.query(
-    `WITH events AS (
-       SELECT user_id, action_type AS category, DATE(created_at) AS d
+    `SELECT user_id, action_type AS category, count(*)::int AS total
        FROM care_actions WHERE user_id = ANY($1)
-       UNION
-       SELECT created_by AS user_id, 'registrar' AS category, DATE(created_at) AS d
+      GROUP BY user_id, action_type
+     UNION ALL
+     SELECT created_by AS user_id, 'registrar' AS category, count(*)::int AS total
        FROM animals WHERE created_by = ANY($1)
-     ),
-     grouped AS (
-       SELECT user_id, category, d,
-              d - (ROW_NUMBER() OVER (PARTITION BY user_id, category ORDER BY d))::int AS grp
-       FROM (SELECT DISTINCT user_id, category, d FROM events) x
-     ),
-     runs AS (
-       SELECT user_id, category, grp, count(*)::int AS len
-       FROM grouped GROUP BY user_id, category, grp
-     )
-     SELECT user_id, category, max(len)::int AS longest
-     FROM runs GROUP BY user_id, category`,
+      GROUP BY created_by`,
     [userIds]
   );
 
@@ -152,7 +157,7 @@ async function fetchStreakDays(userIds) {
     // care_actions uses 'food'/'water'; badge keys are 'feeder'/'water'.
     const key =
       row.category === 'food' ? 'feeder' : row.category === 'water' ? 'water' : 'registrar';
-    map.get(row.user_id)[key] = row.longest;
+    map.get(row.user_id)[key] = row.total;
   }
   return map;
 }
@@ -256,8 +261,8 @@ function commentPoints(stats) {
   return stats.capped * 1 + stats.distinctAnimals * 3;
 }
 
-function buildBadgesFor(userId, streaks, breeds, comments, health, vaccines) {
-  const streakData = streaks.get(userId) || {};
+function buildBadgesFor(userId, care, breeds, comments, health, vaccines) {
+  const careData = care.get(userId) || {};
   const breedData = breeds.get(userId) || {};
   const commentData = comments.get(userId);
   const healthCount = health.get(userId) || 0;
@@ -265,16 +270,16 @@ function buildBadgesFor(userId, streaks, breeds, comments, health, vaccines) {
 
   const badges = [];
 
-  for (const [key, meta] of Object.entries(STREAK_CATEGORIES)) {
-    const value = streakData[key] || 0;
+  for (const [key, meta] of Object.entries(CARE_CATEGORIES)) {
+    const value = careData[key] || 0;
     badges.push(
       badgeEntry(
-        `streak:${key}`,
+        `care:${key}`,
         meta.label,
         meta.unit,
         value,
-        tierFor(value, STREAK_THRESHOLDS),
-        STREAK_THRESHOLDS,
+        tierFor(value, meta.thresholds),
+        meta.thresholds,
         meta.symbol
       )
     );
@@ -540,8 +545,8 @@ async function animalBadgeLadder(animalId) {
 
 async function getBadgesForUsers(userIds) {
   if (userIds.length === 0) return new Map();
-  const [streaks, breeds, comments, health, vaccines] = await Promise.all([
-    fetchStreakDays(userIds),
+  const [care, breeds, comments, health, vaccines] = await Promise.all([
+    fetchCareCounts(userIds),
     fetchBreedCounts(userIds),
     fetchCommentStats(userIds),
     fetchHealthCounts(userIds),
@@ -550,7 +555,7 @@ async function getBadgesForUsers(userIds) {
 
   const result = new Map();
   for (const userId of userIds) {
-    result.set(userId, buildBadgesFor(userId, streaks, breeds, comments, health, vaccines));
+    result.set(userId, buildBadgesFor(userId, care, breeds, comments, health, vaccines));
   }
   return result;
 }
@@ -567,8 +572,9 @@ module.exports = {
   LEVELS,
   TIER_POINTS,
   TIER_ORDER,
-  STREAK_THRESHOLDS,
+  CARE_THRESHOLDS,
   COUNT_THRESHOLDS,
+  tierFor,
   COMMENT_THRESHOLDS,
   ANIMAL_BADGES,
   animalBadgeTier,

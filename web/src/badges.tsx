@@ -89,7 +89,7 @@ export function LevelBar({ level, points }: { level: UserLevel; points: number }
   );
 }
 
-const GROUP_ORDER: BadgeGroup[] = ['streak', 'breed', 'count'];
+const GROUP_ORDER: BadgeGroup[] = ['count', 'breed'];
 
 /**
  * The badge catalog. Selection mode only on your own profile (the 3 badges
@@ -121,7 +121,7 @@ export function BadgeCatalogModal({
   }, [signature, open]);
 
   const grouped = useMemo(() => {
-    const map: Record<BadgeGroup, Badge[]> = { streak: [], breed: [], count: [] };
+    const map: Record<BadgeGroup, Badge[]> = { breed: [], count: [] };
     // The catalog shows every obtainable badge, so breed badges the server
     // didn't send (no progress yet) appear as locked placeholders.
     for (const b of withCatalogPlaceholders(badges)) map[badgeGroup(b)].push(b);
