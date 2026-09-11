@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -119,6 +119,17 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const [sheet, setSheet] = useState<ProfileSheet | null>(
     route?.params?.deleteAccount ? 'settings' : null
   );
+  // The link is consumed ONCE. RN's Modal renders null while hidden, so the
+  // sheet's children — DeleteAccountLink among them — remount on every gear
+  // tap; reading the route param there (navigation never clears it) reopened
+  // the destructive dialog each time for the rest of the session (review
+  // finding).
+  const [openDeleteAccount, setOpenDeleteAccount] = useState(!!route?.params?.deleteAccount);
+  useEffect(() => {
+    // After the first commit: the link has its own `open` state by now, so
+    // clearing this does not close the dialog that just opened.
+    setOpenDeleteAccount(false);
+  }, []);
 
   /** A sheet is not a page: leaving it for a screen closes it first. */
   function leaveSheet(go: () => void) {
@@ -433,7 +444,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
         onLogout={logout}
         deleteAccount={
           <DeleteAccountLink
-            initialOpen={!!route?.params?.deleteAccount}
+            initialOpen={openDeleteAccount}
             hasPassword={me?.hasPassword !== false}
             authProviders={me?.authProviders ?? []}
           />
