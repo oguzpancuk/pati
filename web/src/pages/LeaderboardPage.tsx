@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { TIER_LABELS } from '@mobile/badges';
 import { fetchLeaderboard, LeaderboardEntry, LeaderboardResponse } from '../api';
 import { UserAvatar } from '../avatars';
+import { PageHeader } from '../components/PageHeader';
 import { LevelMark } from '../badges';
 
 function medalFor(rank: number) {
@@ -13,7 +14,6 @@ function medalFor(rank: number) {
 }
 
 export default function LeaderboardPage() {
-  const navigate = useNavigate();
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,10 +68,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="page">
-      <button className="link" onClick={() => navigate(-1)} style={{ marginBottom: 8 }}>
-        ‹ Geri
-      </button>
-      <h1 style={{ margin: '0 0 10px', fontSize: 22 }}>Sıralama</h1>
+      <PageHeader title="sıralama" fallback="/profil" />
       {error && <div className="error">{error}</div>}
       {data?.me && (
         <div className="card">

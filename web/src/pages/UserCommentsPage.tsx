@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { fetchUserComments, UserComment } from '../api';
 import { AnimalAvatar } from '../avatars';
 import { LoadMoreButton } from '../components/LoadMoreButton';
+import { PageHeader } from '../components/PageHeader';
 import { mergeById } from '@mobile/paging';
 
 const PAGE = 30;
@@ -19,7 +20,6 @@ function formatDate(iso: string) {
 export default function UserCommentsPage() {
   const { id } = useParams();
   const userId: number | 'me' = id ? Number(id) : 'me';
-  const navigate = useNavigate();
   const [comments, setComments] = useState<UserComment[]>([]);
   const [total, setTotal] = useState(0);
   const [name, setName] = useState<string | null>(null);
@@ -49,9 +49,7 @@ export default function UserCommentsPage() {
 
   return (
     <div className="page">
-      <button className="link" onClick={() => navigate(-1)} style={{ marginBottom: 8 }}>
-        ‹ Geri
-      </button>
+      <PageHeader title="yorumlar" fallback="/profil" />
       <h1 style={{ margin: '0 0 4px', fontSize: 22 }}>
         {userId === 'me' ? 'Yorumlarım' : `${name ?? ''} · Yorumlar`}
       </h1>

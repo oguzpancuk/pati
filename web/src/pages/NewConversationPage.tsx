@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { PageHeader } from '../components/PageHeader';
 import { fetchMyFriendships, FriendshipEntry } from '../api';
 import { createGroup, openDirectConversation } from '../api/messages';
 import { UserAvatar } from '../avatars';
@@ -56,13 +57,7 @@ export default function NewConversationPage() {
 
   return (
     <div className="page">
-      <div className="topbar">
-        <button className="back" onClick={() => navigate(-1)} aria-label="Geri">
-          ‹
-        </button>
-        <div className="micro">yeni sohbet</div>
-        <span />
-      </div>
+      <PageHeader title="yeni sohbet" fallback="/mesajlar" />
 
       <div className="chiprow" style={{ marginBottom: 14 }}>
         <button

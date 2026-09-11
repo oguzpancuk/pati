@@ -24,6 +24,7 @@ import { AnimalAvatar } from '../avatars';
 import { isPermissionFailure } from '../addAnimalGate';
 import { useBadgeAwards } from '../badgeAwards';
 import { ChipRow } from '../components/ChipRow';
+import { PageHeader } from '../components/PageHeader';
 import { Coordinates, getCurrentLocation, describeLocationError } from '../location';
 
 const MIN_PHOTOS = 2;
@@ -530,7 +531,7 @@ export default function AddAnimalPage() {
   if (locationBlocked) {
     return (
       <div className="page">
-        <h1 style={{ marginTop: 0 }}>Yeni hayvan</h1>
+        <PageHeader title="yeni hayvan" fallback="/hayvanlar" />
         <div className="card flat">
           <p className="muted" style={{ margin: 0 }}>
             {locationBlocked} Konum olmadan hayvan eklenemez: kayıt, bulunduğun yere düşer.
@@ -571,6 +572,7 @@ export default function AddAnimalPage() {
   if (step === 'results' && species) {
     return (
       <div className="page">
+        <PageHeader title="yeni hayvan" fallback="/hayvanlar" />
         <h1 style={{ marginTop: 0 }}>Benzer kayıtlar bulundu</h1>
         {error && <div className="error">{error}</div>}
         <div className="card flat">
@@ -639,7 +641,9 @@ export default function AddAnimalPage() {
 
   return (
     <div className="page">
-      <h1 style={{ marginTop: 0 }}>Yeni Hayvan</h1>
+      {/* The two pages you could reach and not leave were this one and the
+          legal pages (owner's first demo note); the header is the way out. */}
+      <PageHeader title="yeni hayvan" fallback="/hayvanlar" />
       {error && <div className="error">{error}</div>}
       {draft && photos.length === 0 && (
         <div className="card flat">

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../components/PageHeader';
 import { NotificationList } from '../components/profile';
 
 /**
@@ -9,17 +9,11 @@ import { NotificationList } from '../components/profile';
  * prevent.
  */
 export default function NotificationsPage() {
-  const navigate = useNavigate();
-
   return (
     <div className="page">
-      <div className="topbar">
-        <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
-          ←
-        </button>
-        <div className="micro">bildirimler</div>
-        <span />
-      </div>
+      {/* Reached from the profile's bell, or from a link — hence the root it
+          falls back to when there is no history behind it. */}
+      <PageHeader title="bildirimler" fallback="/profil" />
 
       {/* No `inSheet`: on the page a row is a normal push, so Back returns
           here rather than replacing the entry a sheet would have owned. */}

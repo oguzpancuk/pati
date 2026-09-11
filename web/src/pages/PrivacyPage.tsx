@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { PageHeader } from '../components/PageHeader';
 import { KVKK_MD } from '../legal';
 
 /**
@@ -74,18 +74,13 @@ function rich(text: string) {
  * bar); each page stands alone and is reached by its own link.
  */
 export function LegalPage({ md, micro }: { md: string; micro: string }) {
-  const navigate = useNavigate();
   const blocks = useMemo(() => parse(md), [md]);
 
   return (
     <div className="page" style={{ maxWidth: 640, margin: '0 auto' }}>
-      <div className="topbar">
-        <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
-          ←
-        </button>
-        <div className="micro">{micro}</div>
-        <span />
-      </div>
+      {/* Public pages: a shared link opens them with no history at all, and
+          signed out the root is the login screen — a way out either way. */}
+      <PageHeader title={micro} fallback="/" />
 
       <div style={{ lineHeight: 1.65, fontSize: 14.5 }}>
         {blocks.map((block, i) => {

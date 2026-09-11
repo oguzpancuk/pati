@@ -35,6 +35,7 @@ import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { ChipRow } from '../components/ChipRow';
 import { LoadMoreButton } from '../components/LoadMoreButton';
+import { PageHeader, useGoBack } from '../components/PageHeader';
 import '../styles/animal.css';
 
 const RECORD_TYPE_LABELS = { illness: 'Hastalık', injury: 'Yaralanma' } as const;
@@ -163,6 +164,7 @@ const HERO_PHOTOS = 6;
 export default function AnimalPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const backToMatches = useGoBack('/hayvanlar/yeni');
   const [searchParams] = useSearchParams();
   // Did we arrive via "review candidate" from the add-animal flow? Carried
   // in the URL instead of state so it survives a page refresh.
@@ -510,14 +512,11 @@ export default function AnimalPage() {
 
   return (
     <div className="page">
-      <div className="topbar">
-        <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
-          ←
-        </button>
-        {/* "kedi profili" / "köpek profili" (P6 item 6, mobile parity). */}
-        <div className="micro">{animal.species === 'cat' ? 'kedi profili' : 'köpek profili'}</div>
-        <span />
-      </div>
+      {/* "kedi profili" / "köpek profili" (P6 item 6, mobile parity). */}
+      <PageHeader
+        title={animal.species === 'cat' ? 'kedi profili' : 'köpek profili'}
+        fallback="/hayvanlar"
+      />
 
       {error && <div className="error">{error}</div>}
 
@@ -859,7 +858,10 @@ export default function AnimalPage() {
                 : 'Eklemek istediğin hayvan bu mu? Fotoğraf kontrol edilemedi; konumu güncellersin.'}
           </p>
           <div className="row">
-            <button className="btn secondary grow" onClick={() => navigate(-1)}>
+            {/* The same rule as the header's back (DESIGN §8): history, or
+                the flow's own page when a shared link opened this review
+                with nothing behind it. */}
+            <button className="btn secondary grow" onClick={backToMatches}>
               Geri dön
             </button>
             <button
