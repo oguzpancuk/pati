@@ -9,7 +9,6 @@ import {
   fetchMyCareActions,
   fetchMyFriendships,
   fetchUserAnimals,
-  FriendshipEntry,
   FriendshipsResponse,
   MyCareAction,
   ProfileAnimal,
@@ -23,11 +22,19 @@ import { fetchUnreadCount } from '../api/animalSocial';
 import { unreadCareAlertCount } from '../careAlertLog';
 import { useAuth } from '../auth';
 import { DeleteAccountLink } from '../components/DeleteAccountDialog';
-import { AnimalAvatar, UserAvatar } from '../avatars';
+import { AnimalAvatar } from '../avatars';
 import { BadgeCatalogModal, BadgeSymbol, LevelBar } from '../badges';
 import { useBadgeAwards } from '../badgeAwards';
 import { LoadMoreButton } from '../components/LoadMoreButton';
 import { RecentComments } from '../components/RecentComments';
+import {
+  BellIcon,
+  FriendsSheet,
+  HeaderIconButton,
+  NotificationsSheet,
+  ProfileHeader,
+  UsersIcon,
+} from '../components/profile';
 import { MiniMap } from '../components/MiniMap';
 import { CareHistoryMap } from '../components/CareHistoryMap';
 import { mergeById } from '@mobile/paging';
@@ -113,7 +120,9 @@ export default function ProfilePage() {
   // A marker holding several records opens this chooser first.
   const [careGroup, setCareGroup] = useState<MyCareAction[] | null>(null);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
-  const [visibleFriends, setVisibleFriends] = useState(PREVIEW);
+  // Only one sheet is open at a time (owner, 2026-09-11: the header's
+  // controls open sheets OVER the profile, never a second page).
+  const [sheet, setSheet] = useState<'bell' | 'friends' | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(readThemeMode());
   // The showcase (demo) world is each person's own switch (owner,
   // 2026-09-09); a missing field means on, matching the column default.
@@ -215,47 +224,33 @@ export default function ProfilePage() {
       {error && <div className="error">{error}</div>}
       <InstallBanner />
 
-      {/* Header (handoff 3d): avatar + name + email + orange micro label */}
-      <div
-        className="row"
-        role="button"
-        style={{ cursor: 'pointer', alignItems: 'flex-start' }}
-        onClick={() => setPickerOpen(true)}
-      >
-        <UserAvatar avatarUrl={me.avatar_url} name={me.name} size={60} />
-        <div className="grow">
-          <h1 style={{ margin: '2px 0 0', fontSize: 24 }}>{me.name}</h1>
-          <div className="muted">{me.email}</div>
-          <div className="micro" style={{ color: 'var(--brand)', margin: '4px 0 0' }}>
-            {busy ? 'kaydediliyor…' : 'dokun, avatarını seç'}
-          </div>
-        </div>
-      </div>
+      {/* Header (handoff 3d): avatar + name + email + orange micro label,
+          with the sheet controls top-right (owner, 2026-09-11). */}
+      <ProfileHeader
+        avatarUrl={me.avatar_url}
+        name={me.name}
+        secondary={me.email}
+        demo={me.is_demo === true}
+        hint={busy ? 'kaydediliyor…' : 'dokun, avatarını seç'}
+        onPressAvatar={() => setPickerOpen(true)}
+        actions={
+          <>
+            {/* The bell (P6 track C): the inbox of animal events and the
+                browser's care alerts, with the unread count. */}
+            <HeaderIconButton label="Bildirimler" count={unread} onClick={() => setSheet('bell')}>
+              <BellIcon />
+            </HeaderIconButton>
+            <HeaderIconButton
+              label="Arkadaşlarım"
+              count={incoming.length}
+              onClick={() => setSheet('friends')}
+            >
+              <UsersIcon />
+            </HeaderIconButton>
+          </>
+        }
+      />
 
-      {/* The bell (P6 track C): the inbox of animal events and the browser's
-          care alerts, with the unread count. */}
-      <Link
-        to="/bildirimler"
-        className="card flat row bell-row"
-        style={{ textDecoration: 'none', color: 'inherit' }}
-      >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="var(--brand)"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
-          <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15l1.5-2Z M10 20.5a2 2 0 0 0 4 0" />
-        </svg>
-        <strong className="grow">Bildirimler</strong>
-        {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
-        <span className="subtle">›</span>
-      </Link>
       {/* Stat strip: points / rank / level — links to the leaderboard, except
           for a showcase account, which is not on it (mobile parity). */}
       <StatStrip demo={me.is_demo === true}>
@@ -270,8 +265,8 @@ export default function ProfilePage() {
             {me.is_demo
               ? 'demo hesabı'
               : me.rank
-                ? `sıra / ${me.rank.totalUsers.toLocaleString('tr-TR')}`
-                : 'sıra'}
+              ? `sıra / ${me.rank.totalUsers.toLocaleString('tr-TR')}`
+              : 'sıra'}
           </div>
         </div>
         <div>
@@ -384,84 +379,6 @@ export default function ProfilePage() {
         seeAllTo="/yorumlarim"
       />
 
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2 className="section">arkadaşlarım</h2>
-        <Link to="/arkadas-bul" className="link">
-          arkadaş bul
-        </Link>
-      </div>
-      {incoming.length > 0 && (
-        <>
-          <div className="label">gelen istekler</div>
-          {incoming.map((entry: FriendshipEntry) => (
-            <div key={entry.friendship_id} className="card flat">
-              <Link
-                to={`/kullanici/${entry.id}`}
-                className="row"
-                style={{ textDecoration: 'none', color: 'inherit' }}
-              >
-                <UserAvatar avatarUrl={entry.avatar_url} name={entry.name} size={36} />
-                <div className="name-with-chip grow">
-                  <strong>{entry.name}</strong>
-                  {entry.is_demo && <span className="demo-chip">demo</span>}
-                </div>
-              </Link>
-              <div className="row" style={{ marginTop: 8 }}>
-                <button
-                  className="btn small"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      await acceptFriendRequest(entry.friendship_id);
-                      await load();
-                    }, 'Kabul edilemedi')
-                  }
-                >
-                  Kabul et
-                </button>
-                <button
-                  className="btn small ghost"
-                  disabled={busy}
-                  onClick={() =>
-                    run(async () => {
-                      await removeFriendship(entry.friendship_id);
-                      await load();
-                    }, 'Reddedilemedi')
-                  }
-                >
-                  Reddet
-                </button>
-              </div>
-            </div>
-          ))}
-        </>
-      )}
-      {friends.length === 0 ? (
-        <div className="card flat">
-          <span className="muted">Henüz arkadaşın yok.</span>
-        </div>
-      ) : (
-        friends.slice(0, visibleFriends).map((f) => (
-          <Link
-            key={f.friendship_id}
-            to={`/kullanici/${f.id}`}
-            className="card flat row"
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            <UserAvatar avatarUrl={f.avatar_url} name={f.name} size={36} />
-            <div className="name-with-chip grow">
-              <strong>{f.name}</strong>
-              {f.is_demo && <span className="demo-chip">demo</span>}
-            </div>
-            <span className="subtle">›</span>
-          </Link>
-        ))
-      )}
-      <LoadMoreButton
-        remaining={friends.length - visibleFriends}
-        onClick={() => setVisibleFriends((n) => n + PAGE)}
-      />
-
       {/* The showcase (demo) world: on by default so a new user finds a
           neighbourhood in use, off with one tap when the tour is over
           (owner, 2026-09-09). Mobile parity: profile → "Demo verileri". */}
@@ -528,6 +445,33 @@ export default function ProfilePage() {
         </Link>
       </div>
       <DeleteAccountLink />
+
+      {/* The header's sheets. The Notifications PAGE stays — deep links and
+          push open it — and renders the same list this sheet does. */}
+      <NotificationsSheet
+        open={sheet === 'bell'}
+        onClose={() => setSheet(null)}
+        onRead={() => setUnread(0)}
+      />
+      <FriendsSheet
+        open={sheet === 'friends'}
+        onClose={() => setSheet(null)}
+        incoming={incoming}
+        friends={friends}
+        busy={busy}
+        onAccept={(entry) =>
+          run(async () => {
+            await acceptFriendRequest(entry.friendship_id);
+            await load();
+          }, 'Kabul edilemedi')
+        }
+        onRemove={(entry) =>
+          run(async () => {
+            await removeFriendship(entry.friendship_id);
+            await load();
+          }, 'Reddedilemedi')
+        }
+      />
 
       <BadgeCatalogModal
         open={catalogOpen}

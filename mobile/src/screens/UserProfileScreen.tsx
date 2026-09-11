@@ -37,7 +37,12 @@ import StatStrip from '../components/StatStrip';
 import DeleteAccountLink from '../components/DeleteAccountModal';
 import RecentComments from '../components/RecentComments';
 import {
-  Avatar,
+  FriendsSheet,
+  HeaderIconButton,
+  NotificationsSheet,
+  ProfileHeader,
+} from '../components/profile';
+import {
   Button,
   Card,
   Chip,
@@ -84,6 +89,13 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
 // The bell polls the unread count the way the care alert is polled: on
 // focus and every minute while the tab is open (no push yet).
 const UNREAD_POLL_MS = 60 * 1000;
+
+/**
+ * Only one sheet is open at a time (owner, 2026-09-11: the header's controls
+ * open sheets OVER the profile, never a second page). Kept as one value so
+ * two of them can never be presented at once.
+ */
+type ProfileSheet = 'bell' | 'friends';
 
 export default function UserProfileScreen({ navigation, route }: any) {
   const styles = useStyles();
@@ -193,14 +205,20 @@ export default function UserProfileScreen({ navigation, route }: any) {
       },
     };
   }, [careHistory]);
-  // The friend list arrives in one request (it's short); revealed piecewise
-  // client-side to keep the profile lean.
-  const [visibleFriends, setVisibleFriends] = useState(PROFILE_PREVIEW);
+  // The friend list arrives in one request (it's short); the sheet reveals
+  // it piecewise from there.
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [catalogVisible, setCatalogVisible] = useState(false);
   const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
+  const [sheet, setSheet] = useState<ProfileSheet | null>(null);
+
+  /** A sheet is not a page: leaving it for a screen closes it first. */
+  function leaveSheet(go: () => void) {
+    setSheet(null);
+    go();
+  }
 
   const load = useCallback(async () => {
     const startedAt = Date.now();
@@ -396,47 +414,32 @@ export default function UserProfileScreen({ navigation, route }: any) {
   return (
     <Screen edges={['top']} scroll>
       {/* Header (handoff 3d): avatar + name + email + the orange micro label
-          that opens the avatar picker. No card — it sits on white. */}
-      <View style={styles.header}>
-        <Pressable onPress={() => setAvatarPickerVisible(true)} disabled={uploading}>
-          <Avatar uri={me.avatar_url} name={me.name} size={60} />
-        </Pressable>
-        <View style={styles.headerText}>
-          <Text variant="title" numberOfLines={1}>
-            {me.name}
-          </Text>
-          <Text variant="caption" numberOfLines={1}>
-            {me.email}
-          </Text>
-          <Pressable onPress={() => setAvatarPickerVisible(true)} disabled={uploading}>
-            <Text variant="micro" color="brand" style={styles.avatarHint}>
-              {uploading ? 'kaydediliyor…' : 'dokun, avatarını seç'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* The bell (P6 track C): the inbox of animal events and the
-          device's care alerts, with the unread count. */}
-      <Card
-        variant="flat"
-        padding="md"
-        style={styles.bellRow}
-        onPress={() => navigation.navigate('Notifications')}
-      >
-        <Icon name="bell" size={20} color={colors.brand} />
-        <Text variant="bodyStrong" style={styles.bellLabel}>
-          Bildirimler
-        </Text>
-        {unread > 0 && (
-          <View style={styles.bellCount}>
-            <Text variant="micro" style={styles.bellCountText}>
-              {unread > 99 ? '99+' : unread}
-            </Text>
-          </View>
-        )}
-        <Icon name="chevronRight" size={18} color={colors.textSubtle} />
-      </Card>
+          that opens the avatar picker, with the sheet controls top-right
+          (owner, 2026-09-11). No card — it sits on white. */}
+      <ProfileHeader
+        avatarUrl={me.avatar_url}
+        name={me.name}
+        secondary={me.email}
+        demo={me.is_demo === true}
+        hint={uploading ? 'kaydediliyor…' : 'dokun, avatarını seç'}
+        onPressAvatar={uploading ? undefined : () => setAvatarPickerVisible(true)}
+        actions={
+          <>
+            {/* The bell (P6 track C): the inbox of animal events and the
+                device's care alerts, with the unread count. */}
+            <HeaderIconButton label="Bildirimler" count={unread} onPress={() => setSheet('bell')}>
+              <Icon name="bell" size={20} color={colors.brand} />
+            </HeaderIconButton>
+            <HeaderIconButton
+              label="Arkadaşlarım"
+              count={incoming.length}
+              onPress={() => setSheet('friends')}
+            >
+              <Icon name="users" size={20} color={colors.brand} />
+            </HeaderIconButton>
+          </>
+        }
+      />
 
       {/* Stat strip: points / rank / level — the rank cell opens the board. */}
       <StatStrip
@@ -625,69 +628,6 @@ export default function UserProfileScreen({ navigation, route }: any) {
         />
       </View>
 
-      <SectionHeader
-        title="Arkadaşlarım"
-        actionLabel="arkadaş bul"
-        onAction={() => navigation.navigate('FindFriends')}
-        style={styles.sectionTop}
-      />
-
-      {incoming.length > 0 && (
-        <>
-          <Text variant="micro" style={styles.subLabel}>
-            gelen istekler
-          </Text>
-          {incoming.map((entry) => (
-            <Card key={entry.friendship_id} variant="flat" padding="md" style={styles.block}>
-              <Pressable onPress={() => navigation.navigate('PublicProfile', { userId: entry.id })}>
-                <View style={styles.nameWrap}>
-                  <Text variant="bodyStrong" numberOfLines={1} style={styles.nameShrink}>
-                    {entry.name}
-                  </Text>
-                  <DemoChip visible={entry.is_demo === true} />
-                </View>
-              </Pressable>
-              <View style={styles.friendActions}>
-                <Button title="Kabul et" size="sm" onPress={() => handleAccept(entry)} />
-                <Button
-                  title="Reddet"
-                  size="sm"
-                  variant="ghost"
-                  onPress={() => handleRemove(entry)}
-                />
-              </View>
-            </Card>
-          ))}
-        </>
-      )}
-
-      {friends.length === 0 ? (
-        <Card variant="flat" style={styles.block}>
-          <Text variant="caption">Henüz arkadaşın yok.</Text>
-        </Card>
-      ) : (
-        friends.slice(0, visibleFriends).map((item) => (
-          <Card
-            key={item.friendship_id}
-            variant="flat"
-            padding="md"
-            style={styles.friendRow}
-            onPress={() => navigation.navigate('PublicProfile', { userId: item.id })}
-          >
-            <Avatar uri={item.avatar_url} name={item.name} size={36} />
-            <Text variant="bodyStrong" style={styles.friendName} numberOfLines={1}>
-              {item.name}
-            </Text>
-            <DemoChip visible={item.is_demo === true} />
-            <Icon name="chevronRight" size={18} color={colors.textSubtle} />
-          </Card>
-        ))
-      )}
-      <LoadMoreButton
-        remaining={friends.length - visibleFriends}
-        onPress={() => setVisibleFriends((n) => n + PROFILE_PAGE)}
-      />
-
       <SectionHeader title="Görünüm" style={styles.sectionTop} />
       <View style={styles.themeRow}>
         {THEME_OPTIONS.map((option) => (
@@ -748,6 +688,27 @@ export default function UserProfileScreen({ navigation, route }: any) {
         initialOpen={!!route?.params?.deleteAccount}
         hasPassword={me?.hasPassword !== false}
         authProviders={me?.authProviders ?? []}
+      />
+
+      {/* The header's sheets. The Notifications SCREEN stays — deep links and
+          push open it — and renders the same list this sheet does. */}
+      <NotificationsSheet
+        visible={sheet === 'bell'}
+        onClose={() => setSheet(null)}
+        onOpenAnimal={(animalId) =>
+          leaveSheet(() => navigation.navigate('AnimalProfile', { animalId }))
+        }
+        onRead={() => setUnread(0)}
+      />
+      <FriendsSheet
+        visible={sheet === 'friends'}
+        onClose={() => setSheet(null)}
+        incoming={incoming}
+        friends={friends}
+        onAccept={handleAccept}
+        onRemove={handleRemove}
+        onOpenUser={(userId) => leaveSheet(() => navigation.navigate('PublicProfile', { userId }))}
+        onFindFriends={() => leaveSheet(() => navigation.navigate('FindFriends'))}
       />
 
       {/* Chooser for a marker holding several records: pick one, see its
@@ -881,22 +842,6 @@ export default function UserProfileScreen({ navigation, route }: any) {
 }
 
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
-  bellRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
-  bellLabel: { flex: 1, marginLeft: spacing.md },
-  bellCount: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 6,
-    marginRight: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.brand,
-  },
-  bellCountText: { color: c.textOnBrand },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xl },
-  headerText: { flex: 1, marginLeft: spacing.lg },
-  avatarHint: { marginTop: spacing.sm - 2 },
   statStrip: { marginBottom: spacing.md },
   levelCard: { marginBottom: spacing.xl },
   sectionTop: { marginTop: spacing.xl },
@@ -911,20 +856,6 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginBottom: spacing.sm,
   },
   animalText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
-  subLabel: { marginBottom: spacing.sm },
-  friendActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  friendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // Without it the demo chip renders flush against the chevron (review
-    // finding); the name's own marginRight only spaces what precedes it.
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
   careMapWrapper: {
     height: 200,
     borderRadius: radius.lg,
@@ -993,7 +924,6 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     backgroundColor: c.surface,
     ...shadow.float,
   },
-  friendName: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
   themeRow: { flexDirection: 'row', gap: spacing.sm },
   demoRow: {
     flexDirection: 'row',
@@ -1005,8 +935,6 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   animalNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // The name shrinks, the chip does not: a long free-text name would push
   // the chip past the card's right edge otherwise (review finding).
-  nameWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  nameShrink: { flexShrink: 1 },
   animalName: { flexShrink: 1 },
   logout: { marginTop: spacing.xxl, alignSelf: 'center' },
   legal: { marginTop: spacing.md, marginBottom: spacing.lg, alignSelf: 'center' },

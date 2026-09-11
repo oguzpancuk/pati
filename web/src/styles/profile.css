@@ -1,0 +1,135 @@
+/* Profile styles (track P, 2026-09-11). Its own file on purpose: theme.css
+   is hand-merged and must not be touched by two tracks at once. Every value
+   comes from the theme tokens — no literals but geometry. */
+
+/* ---- header ---- */
+
+.profile-head {
+  margin-bottom: 18px;
+}
+
+/* The header's controls sit right-aligned on their own line, so the name
+   keeps the full width on your own profile and on someone else's. */
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.profile-identity {
+  align-items: center;
+}
+
+.profile-head [role='button'] {
+  cursor: pointer;
+}
+
+.profile-name {
+  margin: 2px 0 0;
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.profile-hint {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: lowercase;
+  color: var(--brand);
+  margin: 4px 0 0;
+}
+
+.profile-icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  color: var(--text);
+}
+
+.profile-icon-btn:active {
+  background: var(--brand-tint);
+}
+
+.profile-icon-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1px solid var(--surface);
+  background: var(--brand);
+  color: var(--text-on-brand);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* The friendship button on someone else's profile sits in the same slot as
+   the three icons do on your own. */
+.profile-friend-btn {
+  min-height: 40px;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  border-radius: 999px;
+}
+
+/* ---- sheets ---- */
+
+/* The header stays put while the body scrolls; `.sheet` alone scrolls as a
+   whole, which would take the title with it. */
+.sheet.profile-sheet {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sheet.profile-sheet.fill {
+  height: 86%;
+}
+
+.profile-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  flex: none;
+}
+
+.profile-sheet-head h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-sheet-close {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  line-height: 0;
+}
+
+.profile-sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
