@@ -6,6 +6,7 @@ import type { AuthStackParamList } from '../navigation';
 import { Button, Input, Screen, Text } from '../components/ui';
 import { Wordmark } from '../components/brand';
 import SocialSignIn from '../components/SocialSignIn';
+import { ForgotPasswordSheet } from '../components/password';
 import { hitSlop, makeStyles, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
@@ -21,6 +22,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   async function handleLogin() {
     setSubmitting(true);
@@ -61,6 +63,20 @@ export default function LoginScreen({ navigation }: Props) {
           />
           <Button title="Giriş yap" onPress={handleLogin} loading={submitting} fullWidth />
 
+          {/* Under the button, not next to the field: the sheet is the way
+              out of a forgotten password, and it belongs where someone looks
+              after a refused sign-in. */}
+          <Pressable
+            onPress={() => setForgotOpen(true)}
+            hitSlop={hitSlop}
+            style={styles.forgot}
+            accessibilityRole="button"
+          >
+            <Text variant="caption" color="brand" center>
+              Şifremi unuttum
+            </Text>
+          </Pressable>
+
           <SocialSignIn />
 
           <Pressable
@@ -81,6 +97,12 @@ export default function LoginScreen({ navigation }: Props) {
           </Text>
         </View>
       </KeyboardAvoidingView>
+
+      <ForgotPasswordSheet
+        visible={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        initialEmail={email}
+      />
     </Screen>
   );
 }
@@ -91,6 +113,7 @@ const useStyles = makeStyles(() => ({
   center: { flex: 1, justifyContent: 'center', paddingHorizontal: 34 },
   brand: { marginBottom: spacing.xxl + 2 },
   lastField: { marginBottom: spacing.lg },
+  forgot: { marginTop: spacing.md, alignSelf: 'center' },
   link: { marginTop: spacing.lg },
   note: { marginTop: spacing.xxl + 8, paddingHorizontal: spacing.sm, lineHeight: 19 },
 }));

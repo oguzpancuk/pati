@@ -37,6 +37,47 @@ export async function resendVerificationCode(): Promise<{ codeSent: boolean; ema
   return data;
 }
 
+/**
+ * POST /auth/forgot-password — the server answers the same thing whether or
+ * not the address has an account (it must not disclose that), so there is
+ * nothing here to branch on: the next screen asks for the code either way.
+ */
+export async function forgotPassword(email: string): Promise<void> {
+  await apiClient.post('/auth/forgot-password', { email });
+}
+
+/**
+ * POST /auth/reset-password — the mailed code plus the new password. The
+ * server returns a session; the app signs in with the new password instead,
+ * because AuthContext owns session storage and exposes no way to adopt a
+ * token from outside it.
+ */
+export async function resetPassword(
+  email: string,
+  code: string,
+  password: string
+): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>('/auth/reset-password', {
+    email,
+    code,
+    password,
+  });
+  return data;
+}
+
+/**
+ * POST /auth/change-password. `currentPassword` is required for an account
+ * that has one and meaningless for an account created through Apple/Google —
+ * which is what `hasPassword` on the profile distinguishes.
+ */
+export async function changePassword(input: {
+  currentPassword?: string;
+  password: string;
+}): Promise<{ hasPassword: boolean }> {
+  const { data } = await apiClient.post<{ hasPassword: boolean }>('/auth/change-password', input);
+  return data;
+}
+
 export async function login(email: string, password: string): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>('/auth/login', {
     email,
