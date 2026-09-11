@@ -13,4 +13,6 @@ export { NotificationList } from './NotificationList';
 export { NotificationsSheet } from './NotificationsSheet';
 export { FriendsSheet } from './FriendsSheet';
 export { SettingsSheet } from './SettingsSheet';
+export { CareHistorySheet } from './CareHistorySheet';
+export { RowButton } from './RowButton';
 export { BellIcon, UsersIcon, GearIcon, CloseIcon, CareIcon } from './icons';

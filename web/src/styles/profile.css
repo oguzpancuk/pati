@@ -133,3 +133,42 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* ---- mama & su geçmişi ---- */
+
+/* The row that opens a sheet: the same hairline card, laid out as a row. */
+.row-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.care-group-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 8px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.care-detail-marker {
+  display: inline-flex;
+  padding: 6px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.btn.care-delete {
+  margin-top: 10px;
+  background: var(--danger);
+}

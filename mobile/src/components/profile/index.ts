@@ -10,4 +10,6 @@ export { default as NotificationList } from './NotificationList';
 export { default as NotificationsSheet } from './NotificationsSheet';
 export { default as FriendsSheet } from './FriendsSheet';
 export { default as SettingsSheet } from './SettingsSheet';
+export { default as CareHistorySheet } from './CareHistorySheet';
+export { default as RowButton } from './RowButton';
 export { GearIcon } from './icons';

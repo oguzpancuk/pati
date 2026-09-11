@@ -1,6 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
-import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { Alert, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { LIBRARY_PICKER } from '../photoPicker';
@@ -21,10 +20,9 @@ import {
   setShowDemo as saveShowDemo,
   uploadAvatar,
 } from '../api/users';
-import { deleteCareAction, fetchMyCareActions, MyCareAction } from '../api/care';
+import { fetchMyCareActions, MyCareAction } from '../api/care';
 import { fetchUnreadCount } from '../api/notifications';
 import { unreadCareAlertCount } from '../careAlertLog';
-import { mapStyles } from '../map/styles';
 import { badgeProgressText, badgeTitle } from '../badges';
 import { mergeById } from '../paging';
 import AnimalAvatar from '../components/AnimalAvatar';
@@ -37,11 +35,13 @@ import StatStrip from '../components/StatStrip';
 import DeleteAccountLink from '../components/DeleteAccountModal';
 import RecentComments from '../components/RecentComments';
 import {
+  CareHistorySheet,
   FriendsSheet,
   GearIcon,
   HeaderIconButton,
   NotificationsSheet,
   ProfileHeader,
+  RowButton,
   SettingsSheet,
 } from '../components/profile';
 import {
@@ -55,23 +55,12 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import { makeStyles, radius, spacing, useTheme, useThemeMode } from '../theme';
+import { makeStyles, spacing, useTheme, useThemeMode } from '../theme';
 
 // The profile is a summary screen: 3 rows per section (same as comments),
 // the rest in pages of 20 via "show more".
 const PROFILE_PREVIEW = 3;
 const PROFILE_PAGE = 20;
-
-// Drop-history rows show the time too: whether a record is still deletable
-// depends on how fresh it is, and a date alone hides that.
-function formatCareDate(iso: string) {
-  return new Date(iso).toLocaleString('tr-TR', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 // The bell polls the unread count the way the care alert is polled: on
 // focus and every minute while the tab is open (no push yet).
@@ -82,11 +71,11 @@ const UNREAD_POLL_MS = 60 * 1000;
  * open sheets OVER the profile, never a second page). Kept as one value so
  * two of them can never be presented at once.
  */
-type ProfileSheet = 'bell' | 'friends' | 'settings';
+type ProfileSheet = 'bell' | 'friends' | 'settings' | 'care';
 
 export default function UserProfileScreen({ navigation, route }: any) {
   const styles = useStyles();
-  const { name: themeName, colors } = useTheme();
+  const { colors } = useTheme();
   // Server inbox rows plus the device's own food/water alerts (careAlertLog).
   const [unread, setUnread] = useState(0);
   useFocusEffect(
@@ -126,72 +115,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
   const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
-  // The tapped marker's detail popup: what and when (and delete, while the
-  // window allows).
-  const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
-
-  // Nearby drops collapse into ONE marker with a count badge — at the
-  // fitted zoom even fanned-out markers overlap, and a water drop under a
-  // food drop was simply invisible (owner report: "su geçmişi gözükmüyor").
-  // Tapping a multi-record marker opens a chooser first.
-  const careGroups = useMemo(() => {
-    const groups = new Map<string, MyCareAction[]>();
-    for (const action of careHistory) {
-      // ~110 m buckets: GPS scatter lands repeat drops metres apart. Known
-      // limit: two drops straddling a bucket boundary still overlap; a
-      // distance-based merge would fix that if it ever bites.
-      const key = `${action.location.coordinates[0].toFixed(
-        3
-      )},${action.location.coordinates[1].toFixed(3)}`;
-      groups.set(key, [...(groups.get(key) ?? []), action]);
-    }
-    return [...groups.values()].map((actions) => ({
-      actions,
-      lng: actions[0].location.coordinates[0],
-      lat: actions[0].location.coordinates[1],
-    }));
-  }, [careHistory]);
-  // The tapped multi-record marker's chooser list.
-  const [careGroup, setCareGroup] = useState<MyCareAction[] | null>(null);
-  // Chooser → detail must not present the second modal while the first is
-  // still dismissing (the iOS RN-modal race silently drops the second one).
-  // The picked record parks here and the chooser's onDismiss opens it.
-  const pendingCareDetail = useRef<MyCareAction | null>(null);
-  const openCareDetailFromGroup = (action: MyCareAction) => {
-    if (Platform.OS === 'ios') {
-      pendingCareDetail.current = action;
-      setCareGroup(null);
-    } else {
-      // Android modals swap synchronously and never fire onDismiss.
-      setCareGroup(null);
-      setCareDetail(action);
-    }
-  };
-
-  // Fit the history map to every marker; a single spot gets a street-scale
-  // center instead (a zero-size bounds box over-zooms).
-  const careHistoryCamera = useMemo(() => {
-    if (careHistory.length === 0) return { zoomLevel: 5 };
-    const lngs = careHistory.map((a) => a.location.coordinates[0]);
-    const lats = careHistory.map((a) => a.location.coordinates[1]);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    if (maxLng - minLng < 1e-4 && maxLat - minLat < 1e-4) {
-      return { centerCoordinate: [lngs[0], lats[0]], zoomLevel: 15 };
-    }
-    return {
-      bounds: {
-        ne: [maxLng, maxLat] as [number, number],
-        sw: [minLng, minLat] as [number, number],
-        paddingLeft: 28,
-        paddingRight: 28,
-        paddingTop: 28,
-        paddingBottom: 28,
-      },
-    };
-  }, [careHistory]);
+  // Total across every page, so the row-button can name the real count even
+  // though the sheet's map draws at most 100 markers.
+  const [careTotal, setCareTotal] = useState(0);
   // The friend list arrives in one request (it's short); the sheet reveals
   // it piecewise from there.
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
@@ -230,6 +156,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
       setAnimalTotal(animalPage.total);
       setFriendships(friendshipsData);
       setCareHistory(carePage.actions);
+      setCareTotal(carePage.total);
       setLoadError(null);
     } catch (err: any) {
       setLoadError(err?.response?.data?.error ?? err?.message ?? 'Profil yüklenemedi');
@@ -247,32 +174,6 @@ export default function UserProfileScreen({ navigation, route }: any) {
     } finally {
       setLoadingMoreAnimals(false);
     }
-  }
-
-  function handleDeleteCare(action: MyCareAction) {
-    const label = action.action_type === 'food' ? 'mama' : 'su';
-    Alert.alert('Kaydı sil', `Bu ${label} kaydı haritadan da kalkacak. Emin misin?`, [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Sil',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteCareAction(action.id);
-            setCareHistory((prev) => prev.filter((item) => item.id !== action.id));
-            setCareDetail(null);
-          } catch (err: any) {
-            Alert.alert(
-              'Silinemedi',
-              err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
-            );
-            // The window may have expired since the list was fetched;
-            // refresh so stale "sil" buttons disappear.
-            await load();
-          }
-        },
-      },
-    ]);
   }
 
   useFocusEffect(
@@ -458,6 +359,16 @@ export default function UserProfileScreen({ navigation, route }: any) {
         <LevelBar level={me.level} points={me.points?.total ?? 0} />
       </View>
 
+      {/* Directly under the level bar (owner, 2026-09-11): the drop history
+          is one row-button now, and the sheet behind it holds the map, the
+          point chooser and the record detail. */}
+      <RowButton
+        icon="food"
+        label="Mama & su geçmişim"
+        value={`${careTotal} kayıt`}
+        onPress={() => setSheet('care')}
+      />
+
       <SectionHeader
         title="Öne çıkan rozetlerim"
         actionLabel="seç / tümü"
@@ -552,65 +463,6 @@ export default function UserProfileScreen({ navigation, route }: any) {
         onPress={handleLoadMoreAnimals}
       />
 
-      {/* The history is a MAP, not a list (owner decision, 2026-08-31):
-          every drop is a marker; tapping one opens the detail popup with
-          the date (and delete, while the window allows). */}
-      <SectionHeader title="Mama & su geçmişim" style={styles.sectionTop} />
-      {careHistory.length === 0 ? (
-        <Card variant="flat" style={styles.block}>
-          <Text variant="caption">Henüz mama veya su bırakmadın.</Text>
-        </Card>
-      ) : (
-        <View style={styles.careMapWrapper}>
-          <MapView
-            style={styles.careMapInner}
-            mapStyle={mapStyles[themeName]}
-            pitchEnabled={false}
-            rotateEnabled={false}
-            // The full map screen carries the required attribution.
-            attributionEnabled={false}
-          >
-            {/* Controlled (not defaultSettings): a new drop outside the old
-                bounds must re-fit the camera on refresh (review finding). */}
-            <Camera {...careHistoryCamera} animationDuration={0} />
-            {careGroups.map(({ actions, lng, lat }) => (
-              <MarkerView
-                key={`care-${actions[0].id}`}
-                coordinate={[lng, lat]}
-                anchor={{ x: 0.5, y: 0.5 }}
-              >
-                <Pressable
-                  style={styles.careMarker}
-                  onPress={() =>
-                    actions.length === 1 ? setCareDetail(actions[0]) : setCareGroup(actions)
-                  }
-                >
-                  <Icon
-                    name={actions[0].action_type === 'food' ? 'food' : 'water'}
-                    size={16}
-                    color={colors.brand}
-                  />
-                  {actions.length > 1 && (
-                    <View style={styles.careMarkerBadge}>
-                      <Text variant="micro" style={styles.careMarkerBadgeText}>
-                        {actions.length}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              </MarkerView>
-            ))}
-          </MapView>
-        </View>
-      )}
-      {/* The map draws at most 100 records (the API's page cap); a full
-          page means older drops exist but aren't shown — say so. */}
-      {careHistory.length === 100 && (
-        <Text variant="caption" color="textSubtle" center style={styles.careCapNote}>
-          Son 100 kayıt gösteriliyor.
-        </Text>
-      )}
-
       <View style={styles.sectionTop}>
         <RecentComments
           comments={me.recentComments ?? []}
@@ -659,138 +511,21 @@ export default function UserProfileScreen({ navigation, route }: any) {
           />
         }
       />
-
-      {/* Chooser for a marker holding several records: pick one, see its
-          detail. */}
-      <Modal
-        visible={!!careGroup}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCareGroup(null)}
-        onDismiss={() => {
-          if (pendingCareDetail.current) {
-            setCareDetail(pendingCareDetail.current);
-            pendingCareDetail.current = null;
-          }
+      <CareHistorySheet
+        visible={sheet === 'care'}
+        onClose={() => setSheet(null)}
+        actions={careHistory}
+        onDeleted={(id) => {
+          setCareHistory((prev) => prev.filter((item) => item.id !== id));
+          setCareTotal((prev) => Math.max(0, prev - 1));
         }}
-      >
-        <Pressable style={styles.careModalBackdrop} onPress={() => setCareGroup(null)}>
-          <Pressable style={styles.careModalCard} onPress={() => {}}>
-            <Text variant="heading" center>
-              Bu noktadaki kayıtlar
-            </Text>
-            {/* A busy spot can hold dozens of records; the list scrolls
-                inside a capped card so "Kapat" stays reachable. */}
-            <ScrollView style={styles.careGroupList}>
-              {(careGroup ?? []).map((action) => (
-                <Card
-                  key={action.id}
-                  variant="flat"
-                  padding="md"
-                  style={styles.careGroupRow}
-                  onPress={() => openCareDetailFromGroup(action)}
-                >
-                  <Icon
-                    name={action.action_type === 'food' ? 'food' : 'water'}
-                    size={18}
-                    color={colors.brand}
-                  />
-                  <Text variant="bodyStrong" style={styles.careGroupLabel}>
-                    {action.action_type === 'food' ? 'Mama' : 'Su'}
-                  </Text>
-                  <Text variant="caption" color="textSubtle">
-                    {formatCareDate(action.created_at)}
-                  </Text>
-                </Card>
-              ))}
-            </ScrollView>
-            <Button title="Kapat" variant="ghost" onPress={() => setCareGroup(null)} fullWidth />
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Drop-detail popup: where this record landed, as a static map. */}
-      <Modal
-        visible={!!careDetail}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCareDetail(null)}
-      >
-        <Pressable style={styles.careModalBackdrop} onPress={() => setCareDetail(null)}>
-          <Pressable style={styles.careModalCard} onPress={() => {}}>
-            {careDetail && (
-              <>
-                <Text variant="heading" center>
-                  {careDetail.action_type === 'food' ? 'Mama kaydı' : 'Su kaydı'}
-                </Text>
-                <Text variant="caption" color="textSubtle" center style={styles.careModalDate}>
-                  {formatCareDate(careDetail.created_at)}
-                </Text>
-                <View style={styles.careModalMap}>
-                  <MapView
-                    style={styles.careModalMapInner}
-                    mapStyle={mapStyles[themeName]}
-                    scrollEnabled={false}
-                    zoomEnabled={false}
-                    pitchEnabled={false}
-                    rotateEnabled={false}
-                    // A static thumbnail; the full map screen carries the
-                    // required OpenMapTiles/OSM attribution.
-                    attributionEnabled={false}
-                  >
-                    <Camera
-                      defaultSettings={{
-                        centerCoordinate: [
-                          careDetail.location.coordinates[0],
-                          careDetail.location.coordinates[1],
-                        ],
-                        zoomLevel: 16,
-                      }}
-                    />
-                    <MarkerView
-                      coordinate={[
-                        careDetail.location.coordinates[0],
-                        careDetail.location.coordinates[1],
-                      ]}
-                      anchor={{ x: 0.5, y: 0.5 }}
-                    >
-                      <View style={styles.careModalMarker}>
-                        <Icon
-                          name={careDetail.action_type === 'food' ? 'food' : 'water'}
-                          size={18}
-                          color={colors.brand}
-                        />
-                      </View>
-                    </MarkerView>
-                  </MapView>
-                </View>
-                {/* Delete moved here with the list gone — still only inside
-                    the server-computed 15-minute window. */}
-                {careDetail.deletable && (
-                  <Button
-                    title="Sil"
-                    variant="danger"
-                    onPress={() => handleDeleteCare(careDetail)}
-                    fullWidth
-                  />
-                )}
-                <Button
-                  title="Kapat"
-                  variant="ghost"
-                  onPress={() => setCareDetail(null)}
-                  fullWidth
-                  style={styles.careModalClose}
-                />
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onReload={load}
+      />
     </Screen>
   );
 }
 
-const useStyles = makeStyles(({ colors: c, shadow }) => ({
+const useStyles = makeStyles(() => ({
   statStrip: { marginBottom: spacing.md },
   levelCard: { marginBottom: spacing.xl },
   sectionTop: { marginTop: spacing.xl },
@@ -805,86 +540,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginBottom: spacing.sm,
   },
   animalText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
-  careMapWrapper: {
-    height: 200,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    marginBottom: spacing.sm,
-  },
-  careMapInner: { flex: 1 },
-  careCapNote: { marginBottom: spacing.sm },
-  careMarker: {
-    padding: 5,
-    borderRadius: radius.pill,
-    backgroundColor: c.surface,
-    ...shadow.float,
-  },
-  careMarkerBadge: {
-    position: 'absolute',
-    top: -5,
-    right: -7,
-    minWidth: 16,
-    height: 16,
-    borderRadius: radius.pill,
-    backgroundColor: c.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  // micro's 2.5 letter-spacing adds trailing space after a lone digit and
-  // shoves it off-center; zeroed so the count sits in the middle.
-  careMarkerBadgeText: { color: c.textOnBrand, lineHeight: 12, letterSpacing: 0 },
-  careGroupList: { marginVertical: spacing.md, maxHeight: 340 },
-  careGroupRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  careGroupLabel: { flex: 1 },
-  careModalBackdrop: {
-    flex: 1,
-    backgroundColor: c.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  careModalCard: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: c.surface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: c.border,
-    padding: spacing.xl,
-  },
-  careModalDate: { marginTop: 2 },
-  careModalClose: { marginTop: spacing.xs },
-  careModalMap: {
-    height: 180,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    marginVertical: spacing.lg,
-  },
-  careModalMapInner: { flex: 1 },
-  careModalMarker: {
-    padding: 6,
-    borderRadius: radius.pill,
-    backgroundColor: c.surface,
-    ...shadow.float,
-  },
-  themeRow: { flexDirection: 'row', gap: spacing.sm },
-  demoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  demoText: { flex: 1 },
   animalNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // The name shrinks, the chip does not: a long free-text name would push
   // the chip past the card's right edge otherwise (review finding).
   animalName: { flexShrink: 1 },
-  logout: { marginTop: spacing.xxl, alignSelf: 'center' },
-  legal: { marginTop: spacing.md, marginBottom: spacing.lg, alignSelf: 'center' },
 }));

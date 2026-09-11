@@ -5,7 +5,6 @@ import { badgeProgressText, badgeTitle } from '@mobile/badges';
 import { patiAvatarSvg } from '@shared/avatarSvg';
 import {
   acceptFriendRequest,
-  deleteCareAction,
   fetchMyCareActions,
   fetchMyFriendships,
   fetchUserAnimals,
@@ -29,16 +28,17 @@ import { LoadMoreButton } from '../components/LoadMoreButton';
 import { RecentComments } from '../components/RecentComments';
 import {
   BellIcon,
+  CareHistorySheet,
+  CareIcon,
   FriendsSheet,
   GearIcon,
   HeaderIconButton,
   NotificationsSheet,
   ProfileHeader,
+  RowButton,
   SettingsSheet,
   UsersIcon,
 } from '../components/profile';
-import { MiniMap } from '../components/MiniMap';
-import { CareHistoryMap } from '../components/CareHistoryMap';
 import { mergeById } from '@mobile/paging';
 import { applyThemeMode, readThemeMode, type ThemeMode } from '../theme';
 import { InstallBanner } from '../install';
@@ -49,43 +49,6 @@ const PAGE = 20;
 // The bell polls the unread count the way the care alert is polled: on
 // open, every minute while the tab is visible, and when it becomes visible.
 const UNREAD_POLL_MS = 60 * 1000;
-
-/** The brand food-bowl / water-drop stroke icon, shared by the history row
- * and the detail popup's map marker. */
-function CareIcon({ type, size = 20 }: { type: 'food' | 'water'; size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="var(--brand)"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      aria-hidden
-    >
-      {type === 'food' ? (
-        <>
-          <path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z" />
-          <path d="M7.5 8.5c0-1.4 1-1.9 1-2.9M12 8.5c0-1.4 1-1.9 1-2.9M16.5 8.5c0-1.4 1-1.9 1-2.9" />
-        </>
-      ) : (
-        <path d="M12 3.4s6.2 6.5 6.2 10.2a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.4 12 3.4Z" />
-      )}
-    </svg>
-  );
-}
-
-// Drop-history rows show the time too: whether a record is still deletable
-// depends on how fresh it is, and a date alone hides that.
-function formatCareDate(iso: string) {
-  return new Date(iso).toLocaleString('tr-TR', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 /** The strip opens the leaderboard — unless this account is not on it. */
 function StatStrip({ demo, children }: { demo: boolean; children: React.ReactNode }) {
@@ -110,15 +73,13 @@ export default function ProfilePage() {
   const [animalTotal, setAnimalTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
-  // The clicked marker's detail popup: what and when (and delete, while the
-  // window allows).
-  const [careDetail, setCareDetail] = useState<MyCareAction | null>(null);
-  // A marker holding several records opens this chooser first.
-  const [careGroup, setCareGroup] = useState<MyCareAction[] | null>(null);
+  // Total across every page, so the row-button can name the real count even
+  // though the sheet's map draws at most 100 markers.
+  const [careTotal, setCareTotal] = useState(0);
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   // Only one sheet is open at a time (owner, 2026-09-11: the header's
   // controls open sheets OVER the profile, never a second page).
-  const [sheet, setSheet] = useState<'bell' | 'friends' | 'settings' | null>(null);
+  const [sheet, setSheet] = useState<'bell' | 'friends' | 'settings' | 'care' | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(readThemeMode());
   // The showcase (demo) world is each person's own switch (owner,
   // 2026-09-09); a missing field means on, matching the column default.
@@ -159,6 +120,7 @@ export default function ProfilePage() {
       setAnimalTotal(page.total);
       setFriendships(fr);
       setCareHistory(carePage.actions);
+      setCareTotal(carePage.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Profil yüklenemedi');
     }
@@ -210,22 +172,6 @@ export default function ProfilePage() {
       setAnimalTotal(page.total);
     } finally {
       setLoadingMore(false);
-    }
-  }
-
-  async function handleDeleteCare(action: MyCareAction) {
-    const label = action.action_type === 'food' ? 'mama' : 'su';
-    if (!window.confirm(`Bu ${label} kaydı haritadan da kalkacak. Emin misin?`)) return;
-    try {
-      await deleteCareAction(action.id);
-      setCareHistory((prev) => prev.filter((item) => item.id !== action.id));
-      setCareDetail(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Silinemedi');
-      // The window may have expired since the map was fetched; refresh so
-      // stale delete buttons disappear.
-      setCareDetail(null);
-      await load();
     }
   }
 
@@ -293,6 +239,16 @@ export default function ProfilePage() {
       </StatStrip>
 
       <LevelBar level={me.level} points={me.points?.total ?? 0} />
+
+      {/* Directly under the level bar (owner, 2026-09-11): the drop history
+          is one row-button now, and the sheet behind it holds the map, the
+          point chooser and the record detail. */}
+      <RowButton
+        icon={<CareIcon type="food" />}
+        label="Mama & su geçmişim"
+        value={`${careTotal} kayıt`}
+        onClick={() => setSheet('care')}
+      />
 
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h2 className="section">öne çıkan rozetlerim</h2>
@@ -364,30 +320,6 @@ export default function ProfilePage() {
         onClick={loadMoreAnimals}
       />
 
-      {/* The history is a MAP, not a list (owner decision, 2026-08-31):
-          every drop is a marker; tapping one opens the date/delete popup. */}
-      <h2 className="section">mama &amp; su geçmişim</h2>
-      {careHistory.length === 0 ? (
-        <div className="card flat">
-          <span className="muted">Henüz mama veya su bırakmadın.</span>
-        </div>
-      ) : (
-        <>
-          <CareHistoryMap
-            actions={careHistory}
-            onSelect={(group) =>
-              group.length === 1 ? setCareDetail(group[0]) : setCareGroup(group)
-            }
-          />
-          {/* The map draws at most 100 records (the API's page cap). */}
-          {careHistory.length === 100 && (
-            <p className="subtle" style={{ textAlign: 'center', margin: '6px 0 0' }}>
-              Son 100 kayıt gösteriliyor.
-            </p>
-          )}
-        </>
-      )}
-
       <RecentComments
         comments={me.recentComments ?? []}
         total={me.commentCount ?? 0}
@@ -436,6 +368,16 @@ export default function ProfilePage() {
         onToggleDemo={toggleShowDemo}
         onLogout={logout}
         deleteAccount={<DeleteAccountLink />}
+      />
+      <CareHistorySheet
+        open={sheet === 'care'}
+        onClose={() => setSheet(null)}
+        actions={careHistory}
+        onDeleted={(id) => {
+          setCareHistory((prev) => prev.filter((item) => item.id !== id));
+          setCareTotal((prev) => Math.max(0, prev - 1));
+        }}
+        onReload={load}
       />
 
       <BadgeCatalogModal
@@ -522,94 +464,6 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Chooser for a marker holding several records. */}
-      {careGroup && (
-        <div className="backdrop" onClick={() => setCareGroup(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ textAlign: 'center', marginBottom: 12 }}>Bu noktadaki kayıtlar</h2>
-            {careGroup.map((action) => (
-              <button
-                key={action.id}
-                className="card flat"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  width: '100%',
-                  marginBottom: 8,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-                onClick={() => {
-                  setCareGroup(null);
-                  setCareDetail(action);
-                }}
-              >
-                <CareIcon type={action.action_type} size={18} />
-                <strong style={{ flex: 1 }}>{action.action_type === 'food' ? 'Mama' : 'Su'}</strong>
-                <span className="muted">{formatCareDate(action.created_at)}</span>
-              </button>
-            ))}
-            <button
-              className="btn ghost full"
-              style={{ marginTop: 6 }}
-              onClick={() => setCareGroup(null)}
-            >
-              Kapat
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Drop-detail popup: where this record landed, as a static map. */}
-      {careDetail && (
-        <div className="backdrop" onClick={() => setCareDetail(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ textAlign: 'center', marginBottom: 2 }}>
-              {careDetail.action_type === 'food' ? 'Mama kaydı' : 'Su kaydı'}
-            </h2>
-            <p className="muted" style={{ textAlign: 'center', margin: '0 0 12px' }}>
-              {formatCareDate(careDetail.created_at)}
-            </p>
-            <MiniMap
-              key={careDetail.id}
-              lat={careDetail.location.coordinates[1]}
-              lng={careDetail.location.coordinates[0]}
-              height={180}
-            >
-              <span
-                style={{
-                  display: 'inline-flex',
-                  padding: 6,
-                  borderRadius: '50%',
-                  background: 'var(--surface)',
-                  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.12)',
-                }}
-              >
-                <CareIcon type={careDetail.action_type} size={18} />
-              </span>
-            </MiniMap>
-            {/* Delete moved here with the list gone — still only inside the
-                server-computed 15-minute window. */}
-            {careDetail.deletable && (
-              <button
-                className="btn full"
-                style={{ marginTop: 10, background: 'var(--danger)' }}
-                onClick={() => handleDeleteCare(careDetail)}
-              >
-                Sil
-              </button>
-            )}
-            <button
-              className="btn ghost full"
-              style={{ marginTop: 10 }}
-              onClick={() => setCareDetail(null)}
-            >
-              Kapat
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
