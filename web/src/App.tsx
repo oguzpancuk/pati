@@ -1,5 +1,8 @@
-import { Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
+import { fetchUnreadMessageCount, UNREAD_POLL_INTERVAL_MS } from './api/messages';
+import './styles/messages.css';
 import AnimalPage from './pages/AnimalPage';
 import AnimalsPage from './pages/AnimalsPage';
 import AddAnimalPage from './pages/AddAnimalPage';
@@ -45,24 +48,67 @@ const ICONS = {
 };
 
 function Shell() {
+  const { pathname } = useLocation();
+  // The unread total on the messages tab (owner, 2026-09-11 demo note 10),
+  // mobile parity: once a minute, plus a fresh read whenever the page
+  // changes — leaving a conversation is exactly when it was marked read —
+  // and whenever the tab comes back to the front.
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    const poll = () => {
+      fetchUnreadMessageCount()
+        .then((count) => {
+          if (alive) setUnreadMessages(count);
+        })
+        .catch(() => {
+          // A background count; the badge keeps its last number.
+        });
+    };
+    poll();
+    const timer = window.setInterval(poll, UNREAD_POLL_INTERVAL_MS);
+    const onVisibility = () => {
+      if (!document.hidden) poll();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [pathname]);
+
   return (
     <div className="app">
       <Outlet />
       <nav className="tabbar">
         <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
-          <TabIcon d={ICONS.map} />
+          <span className="tab-icon">
+            <TabIcon d={ICONS.map} />
+          </span>
           harita
         </NavLink>
         <NavLink to="/hayvanlar" className={({ isActive }) => (isActive ? 'active' : '')}>
-          <TabIcon d={ICONS.paw} />
+          <span className="tab-icon">
+            <TabIcon d={ICONS.paw} />
+          </span>
           hayvanlar
         </NavLink>
         <NavLink to="/mesajlar" className={({ isActive }) => (isActive ? 'active' : '')}>
-          <TabIcon d={ICONS.chat} />
+          <span className="tab-icon">
+            <TabIcon d={ICONS.chat} />
+            {unreadMessages > 0 && (
+              <span className="tab-badge" aria-label={`${unreadMessages} okunmamış mesaj`}>
+                {unreadMessages > 99 ? '99+' : unreadMessages}
+              </span>
+            )}
+          </span>
           mesajlar
         </NavLink>
         <NavLink to="/profil" className={({ isActive }) => (isActive ? 'active' : '')}>
-          <TabIcon d={ICONS.user} />
+          <span className="tab-icon">
+            <TabIcon d={ICONS.user} />
+          </span>
           profilim
         </NavLink>
       </nav>

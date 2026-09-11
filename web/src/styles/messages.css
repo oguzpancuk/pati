@@ -1,0 +1,48 @@
+/* Messaging surfaces that theme.css does not carry (demo notes 10 and 12).
+   Kept out of theme.css deliberately: that file is hand-merged and has
+   swallowed changes before. */
+
+/* ---- the unread total on the messages tab (note 10) ---------------- */
+
+/* The badge is positioned against the icon, not the whole tab link, so it
+   sits on the glyph's shoulder however wide the label is. */
+.tab-icon {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
+}
+
+.tab-badge {
+  position: absolute;
+  top: -5px;
+  left: 13px;
+  box-sizing: border-box;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--brand);
+  color: var(--text-on-brand);
+  font-size: 10px;
+  line-height: 17px;
+  /* The tab link spaces its label out; a number must not inherit that. */
+  letter-spacing: 0;
+  text-align: center;
+}
+
+/* ---- a group event is a message, not a bubble (note 12) ------------ */
+
+/* A system row is the conversation speaking: centred, muted, no avatar, no
+   bubble and no "⋯" menu — nothing to report, delete or reply to. */
+.msg-system {
+  align-self: center;
+  max-width: 86%;
+  margin: 10px auto;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 17px;
+  text-align: center;
+}

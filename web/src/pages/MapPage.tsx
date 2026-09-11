@@ -44,6 +44,7 @@ import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { HeartBurst, HEART_BURST_MS } from '../components/HeartBurst';
 import { InstallBanner } from '../install';
+import '../styles/map.css';
 
 // Same rules as mobile's MapScreen: worldwide, one map for food
 // and water whose records are screen-constant markers in a depleting green
@@ -90,6 +91,72 @@ const USER_RADIUS_STROKE = 'rgba(33, 32, 30, 0.35)';
 // parity).
 
 const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
+// The callout's own heading, capitalised — the sheet copy uses the lowercase
+// labels above mid-sentence.
+const CARE_TYPE_TITLE: Record<CareType, string> = { food: 'Mama', water: 'Su' };
+
+/**
+ * A care row as the server now sends it: `expires_at` is computed there from
+ * the row's own action type (food 4 h, water 6 h), so no client carries a
+ * copy of those hours. The shared `CareAction` in ../api belongs to no
+ * single page and stays untouched by this track; the map narrows it here.
+ */
+type CareRecord = CareAction & { expires_at: string };
+
+// A tapped marker explains itself instead of the add sheet explaining the
+// rings (owner, 2026-09-11 demo note 13). Two records closer than this are
+// the same spot — a bowl refilled, not two places — and the popup says how
+// many are there. Deliberately a distance on the ground, not on screen: the
+// answer then does not change as the user zooms. Mobile uses the same rule.
+const SAME_SPOT_METERS = 15;
+
+/** "az önce" / "12 dakika önce" / "2 saat önce" — when the record was left. */
+function placedAgo(iso: string): string {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (minutes < 1) return 'az önce bırakıldı';
+  if (minutes < 60) return `${minutes} dakika önce bırakıldı`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} saat önce bırakıldı`;
+  return `${Math.floor(hours / 24)} gün önce bırakıldı`;
+}
+
+/**
+ * "18 dakika kaldı" / "2 sa 10 dk kaldı" / "Süresi doldu". The moment comes
+ * from the server (`expires_at`); the comparison is the browser's clock, so
+ * a badly skewed machine is a few minutes out — the same tolerance the
+ * ring's own fade already has.
+ */
+function remainingLabel(iso: string): string {
+  const minutes = Math.floor((new Date(iso).getTime() - Date.now()) / 60000);
+  // A row from a server that does not send expires_at yet: say nothing
+  // rather than print "NaN sa NaN dk".
+  if (!Number.isFinite(minutes)) return 'Süre bilinmiyor';
+  if (minutes <= 0) return 'Süresi doldu';
+  if (minutes < 60) return `${minutes} dakika kaldı`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} saat kaldı` : `${hours} sa ${rest} dk kaldı`;
+}
+
+/**
+ * The popup's markup. Every value in it is ours (a fixed label, a formatted
+ * duration, a count) — no user text reaches setHTML.
+ */
+function carePopupHtml(action: CareRecord, sameSpot: number): string {
+  const glyph = CARE_GLYPH_PATHS[action.action_type].map((d) => `<path d="${d}" />`).join('');
+  const expired = new Date(action.expires_at).getTime() <= Date.now();
+  return [
+    '<div class="care-popup-head">',
+    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${glyph}</svg>`,
+    `<strong>${CARE_TYPE_TITLE[action.action_type]}</strong>`,
+    '</div>',
+    `<div class="care-popup-line">${placedAgo(action.created_at)}</div>`,
+    `<div class="care-popup-line ${expired ? 'expired' : 'left'}">${remainingLabel(
+      action.expires_at
+    )}</div>`,
+    sameSpot > 1 ? `<div class="care-popup-line stack">Aynı noktada ${sameSpot} kayıt</div>` : '',
+  ].join('');
+}
 
 // Stacked markers (owner, 2026-09-08, P7 item 9) — same rule as mobile's
 // MapScreen: from the avatar zoom on, records and avatars that would
@@ -142,8 +209,11 @@ export default function MapPage() {
   // marker itself: the map is imperative, so the stack layout is
   // re-applied from these refs by paintMarkers() whenever records,
   // animals, the dot or the zoom change.
-  const actionsRef = useRef<CareAction[]>([]);
+  const actionsRef = useRef<CareRecord[]>([]);
   const myLocationRef = useRef<Coordinates | null>(null);
+  // The open care callout, if any; removed on the next tap, on a viewport
+  // refresh that drops its record, and on unmount.
+  const carePopupRef = useRef<maplibregl.Popup | null>(null);
   const userDotRef = useRef<maplibregl.Marker | null>(null);
   const animalMarkersRef = useRef<maplibregl.Marker[]>([]);
   // Request generations for the racy loaders (see loadMarkers).
@@ -451,6 +521,57 @@ export default function MapPage() {
       }, VIEWPORT_REFRESH_MS);
     });
 
+    // A tapped marker explains itself (demo note 13). The listener is a
+    // plain map click rather than a layer-scoped one: `ensureLayers` re-adds
+    // the layer on every style.load, and a layer-scoped listener registered
+    // beside it would pile up one handler per theme switch.
+    map.on('click', (e) => {
+      // Markers and popups are DOM children of the canvas container, so a
+      // click on one bubbles here as well: an avatar tap must not also open
+      // a callout, and a click inside the open callout must not close it.
+      const target = e.originalEvent.target as HTMLElement | null;
+      if (target?.closest?.('.maplibregl-marker, .maplibregl-popup')) return;
+      if (!map.getLayer('care-markers-icon')) return;
+      const hits = map.queryRenderedFeatures(e.point, { layers: ['care-markers-icon'] });
+      // Below the avatar zoom only the freshest record of a pile is
+      // rendered (collision placement), so that is the one a click can
+      // reach — and the one the popup should describe.
+      const id = Number(hits[0]?.properties?.id);
+      const action = Number.isInteger(id) ? actionsRef.current.find((a) => a.id === id) : undefined;
+      carePopupRef.current?.remove();
+      if (!action) return;
+      // The popup sits on the marker's DRAWN position (the feature's own
+      // coordinates, fan seat included); the "same spot" count compares
+      // TRUE positions, which a fan has pulled apart.
+      const drawn = hits[0].geometry as GeoJSON.Point;
+      const [lng, lat] = action.location.coordinates;
+      const here = new maplibregl.LngLat(lng, lat);
+      const sameSpot = actionsRef.current.filter((a) => {
+        const [aLng, aLat] = a.location.coordinates;
+        return here.distanceTo(new maplibregl.LngLat(aLng, aLat)) <= SAME_SPOT_METERS;
+      }).length;
+      const popup = new maplibregl.Popup({
+        closeButton: true,
+        closeOnClick: false,
+        // Clear of the marker: its icon is CARE_MARKER_SIZE (44) centred on
+        // the coordinate, so the popup starts just above its top edge.
+        offset: 24,
+        maxWidth: '230px',
+        className: 'care-popup',
+      })
+        .setLngLat(drawn.coordinates as [number, number])
+        .setHTML(carePopupHtml(action, sameSpot))
+        .addTo(map);
+      // Which record it describes, so a viewport refresh can tell whether
+      // that record is still on the map.
+      const el = popup.getElement();
+      if (el) el.dataset.careId = String(action.id);
+      popup.on('close', () => {
+        if (carePopupRef.current === popup) carePopupRef.current = null;
+      });
+      carePopupRef.current = popup;
+    });
+
     // The OS can flip light/dark while the map is open; the app theme is CSS
     // (instant), the basemap needs a setStyle. ensureLayers restores our
     // sources afterwards; DOM markers survive a style swap on their own.
@@ -481,6 +602,8 @@ export default function MapPage() {
 
     return () => {
       scheme.removeEventListener('change', onScheme);
+      carePopupRef.current?.remove();
+      carePopupRef.current = null;
       for (const marker of animalMarkersRef.current) marker.remove();
       animalMarkersRef.current = [];
       map.remove();
@@ -500,9 +623,11 @@ export default function MapPage() {
     const b = map.getBounds();
     // An antimeridian viewport is two boxes; the records are the union.
     const boxes = viewportBoxes([b.getEast(), b.getNorth()], [b.getWest(), b.getSouth()]);
-    let parts: CareAction[][];
+    let parts: CareRecord[][];
     try {
-      parts = await Promise.all(boxes.map((box) => fetchCareActionsInBounds(box)));
+      parts = (await Promise.all(
+        boxes.map((box) => fetchCareActionsInBounds(box))
+      )) as CareRecord[][];
     } catch (err) {
       // The flag belongs behind the same sequence guard as the data: a
       // stale request must neither raise nor clear it (review finding).
@@ -511,11 +636,19 @@ export default function MapPage() {
     }
     if (seq !== markersSeqRef.current) return;
     setActionsFailed(false);
-    const byId = new Map<number, CareAction>();
+    const byId = new Map<number, CareRecord>();
     for (const part of parts) for (const action of part) byId.set(action.id, action);
     const actions = [...byId.values()];
     actionsRef.current = actions;
     paintMarkers();
+    // A refresh that dropped the record the callout describes closes it,
+    // rather than leaving a card about something no longer on the map.
+    if (
+      carePopupRef.current &&
+      !byId.has(Number(carePopupRef.current.getElement()?.dataset.careId))
+    ) {
+      carePopupRef.current.remove();
+    }
   }, [paintMarkers]);
 
   /** Both statuses around a point; a failed pair leaves the sheet cautious. */
@@ -692,7 +825,9 @@ export default function MapPage() {
         const center = map && map.getZoom() >= DROP_FALLBACK_MIN_ZOOM ? map.getCenter() : null;
         if (!center) {
           throw new Error(
-            `${describeLocationError(err)} Kaydı bırakmak için haritayı sokak seviyesine yakınlaştır.`
+            `${describeLocationError(
+              err
+            )} Kaydı bırakmak için haritayı sokak seviyesine yakınlaştır.`
           );
         }
         usedFallback = describeLocationError(err);
@@ -834,8 +969,10 @@ export default function MapPage() {
           <div className="sheet-handle" />
           <h2>{sheetTitle}</h2>
           <p className="muted" style={{ margin: '2px 0 12px' }}>
+            {/* The ring no longer explains itself here (owner, demo note
+                13): a tapped marker says what it is and how long it has. */}
             {statuses
-              ? 'Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.'
+              ? 'Kayıt şu anki konumuna düşer.'
               : statusFailed
               ? 'Konum ya da bağlantı hazır olunca burayı gösteririz; kayıt yine şu anki konumuna düşer.'
               : 'Konumunu açınca buranın durumunu gösteririz; kayıt yine şu anki konumuna düşer.'}

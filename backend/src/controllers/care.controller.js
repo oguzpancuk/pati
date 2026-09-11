@@ -257,6 +257,10 @@ const WINDOW_HOURS_SQL = `(CASE action_type
     ELSE ${DEFAULT_WINDOW_HOURS} END)`;
 const WEIGHT_SQL = `GREATEST(0, 1 - EXTRACT(EPOCH FROM (now() - created_at)) / 3600.0 / ${WINDOW_HOURS_SQL})`;
 const WITHIN_WINDOW_SQL = `created_at > now() - (${WINDOW_HOURS_SQL} * interval '1 hour')`;
+// When this record's window runs out. The map callouts say how much time is
+// left (owner, 2026-09-11 demo note 13); computed here so no client has to
+// carry a copy of WINDOW_HOURS to work it out.
+const EXPIRES_AT_SQL = `(created_at + ${WINDOW_HOURS_SQL} * interval '1 hour')`;
 
 async function listCareActions(req, res, next) {
   try {
@@ -264,7 +268,9 @@ async function listCareActions(req, res, next) {
     // A junk radius must not fall back to the default silently, and an
     // absurd one must not walk the whole table (review finding).
     if (isPresent(req.query.radiusMeters) && radiusParam(req.query.radiusMeters) === null) {
-      return res.status(400).json({ error: 'radiusMeters 0 ile 200000 arasında bir sayı olmalıdır' });
+      return res
+        .status(400)
+        .json({ error: 'radiusMeters 0 ile 200000 arasında bir sayı olmalıdır' });
     }
     const radiusMeters = radiusParam(req.query.radiusMeters) ?? DEFAULT_RADIUS_METERS;
 
@@ -279,9 +285,7 @@ async function listCareActions(req, res, next) {
       const min = coordinate(minLat, minLng);
       const max = coordinate(maxLat, maxLng);
       if (!min || !max) {
-        return res
-          .status(400)
-          .json({ error: 'Harita sınırları geçerli koordinat olmalıdır' });
+        return res.status(400).json({ error: 'Harita sınırları geçerli koordinat olmalıdır' });
       }
       const box = [min.lng, min.lat, max.lng, max.lat];
       const params = box;
@@ -290,7 +294,8 @@ async function listCareActions(req, res, next) {
       const result = await pool.query(
         `SELECT id, action_type, photo_url, created_at,
                 ST_AsGeoJSON(location)::json AS location,
-                ${WEIGHT_SQL} AS weight
+                ${WEIGHT_SQL} AS weight,
+                ${EXPIRES_AT_SQL} AS expires_at
          FROM care_actions
          -- Planar comparison on purpose: a geography envelope's edges are
          -- great circles, so a world-wide viewport stopped matching its own
@@ -323,7 +328,8 @@ async function listCareActions(req, res, next) {
     const result = await pool.query(
       `SELECT id, action_type, photo_url, created_at,
               ST_AsGeoJSON(location)::json AS location,
-              ${WEIGHT_SQL} AS weight
+              ${WEIGHT_SQL} AS weight,
+              ${EXPIRES_AT_SQL} AS expires_at
        FROM care_actions
        WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
          AND ${WITHIN_WINDOW_SQL}
@@ -344,7 +350,9 @@ async function getCareStatus(req, res, next) {
   try {
     const { lat, lng, actionType } = req.query;
     if (isPresent(req.query.radiusMeters) && radiusParam(req.query.radiusMeters) === null) {
-      return res.status(400).json({ error: 'radiusMeters 0 ile 200000 arasında bir sayı olmalıdır' });
+      return res
+        .status(400)
+        .json({ error: 'radiusMeters 0 ile 200000 arasında bir sayı olmalıdır' });
     }
     const radiusMeters = radiusParam(req.query.radiusMeters) ?? DEFAULT_STATUS_RADIUS_METERS;
 

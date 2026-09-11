@@ -83,12 +83,51 @@ function excerptOf(body) {
 }
 
 /**
+ * What a group event says, in the conversation itself (owner decision,
+ * 2026-09-11, demo note 12). Written without case suffixes on the names:
+ * Turkish accusative endings depend on the last vowel and the last letter,
+ * and getting them wrong on a person's name is worse than a plainer
+ * sentence.
+ */
+const systemBody = {
+  groupCreated: (actorName) => `${actorName ?? 'Bir üye'} grubu oluşturdu.`,
+  memberAdded: (actorName, targetName) =>
+    `${actorName ?? 'Bir yönetici'} gruba yeni üye ekledi: ${targetName ?? 'yeni üye'}`,
+};
+
+/** True for the conversation's own lines — no sender, no reply, no moderation. */
+function isSystemRow(row) {
+  return !!row && row.kind === 'system';
+}
+
+/**
+ * A system message: the conversation telling its members what happened.
+ * `actorId` is stored as the sender so the event does not land in the
+ * unread count of the person who caused it — every wire shape strips it
+ * (shapeMessage, shapeLastMessage), so no client can attribute a system
+ * line to somebody, and `last_message_at` moves with it so the inbox
+ * ordering follows.
+ */
+async function insertSystemMessage(db, conversationId, actorId, body) {
+  const inserted = await db.query(
+    `INSERT INTO messages (conversation_id, sender_id, body, kind)
+     VALUES ($1, $2, $3, 'system') RETURNING created_at`,
+    [conversationId, actorId, body]
+  );
+  await db.query('UPDATE conversations SET last_message_at = $2 WHERE id = $1', [
+    conversationId,
+    inserted.rows[0].created_at,
+  ]);
+}
+
+/**
  * Turns a joined message row into the wire shape for one reader; a deleted
  * body never leaves the server. `joinedAt` is the reader's membership
  * start: a quote of a message from before it is dropped, since the reader
  * may not see that message directly either (review finding).
  */
 function shapeMessage(row, joinedAt) {
+  const system = isSystemRow(row);
   const deleted = !!row.deleted_at;
   // The quote is resolved at read time, so a source deleted after the reply
   // was sent shows as deleted everywhere on the next page or poll; the
@@ -108,22 +147,46 @@ function shapeMessage(row, joinedAt) {
   return {
     id: row.id,
     conversationId: row.conversation_id,
-    sender: row.sender_id
-      ? { id: row.sender_id, name: row.sender_name, avatar_url: row.sender_avatar_url }
-      : null,
+    kind: system ? 'system' : 'user',
+    // A system row carries its actor in the database and nowhere else: the
+    // clients render it centred and unattributed, and every path that acts
+    // on a sender (reply, delete, report) refuses it.
+    sender:
+      system || !row.sender_id
+        ? null
+        : { id: row.sender_id, name: row.sender_name, avatar_url: row.sender_avatar_url },
     body: deleted ? null : row.body,
     deleted,
     // Whether the sender took it back (true) or an admin removed it (false).
     deletedBySender: deleted ? row.deleted_by !== null && row.deleted_by === row.sender_id : null,
-    replyTo,
+    replyTo: system ? null : replyTo,
     createdAt: row.created_at,
+  };
+}
+
+/**
+ * The inbox's preview of a conversation's last visible message. A system
+ * row has no sender here either, so the group preview prints the line
+ * itself instead of prefixing it with the actor's name.
+ */
+function shapeLastMessage(row) {
+  if (!row.last_id) return null;
+  const system = row.last_kind === 'system';
+  return {
+    id: row.last_id,
+    kind: system ? 'system' : 'user',
+    body: row.last_deleted_at ? null : row.last_body,
+    deleted: !!row.last_deleted_at,
+    senderId: system ? null : row.last_sender_id,
+    senderName: system ? null : row.last_sender_name,
+    createdAt: row.last_created_at,
   };
 }
 
 // The quoted source rides along on every list/poll/echo row (P7 item 7):
 // the clients render it without a second request.
 const MESSAGE_SELECT = `
-  SELECT x.id, x.conversation_id, x.sender_id, x.body, x.created_at, x.deleted_at, x.deleted_by,
+  SELECT x.id, x.conversation_id, x.sender_id, x.body, x.kind, x.created_at, x.deleted_at, x.deleted_by,
          u.name AS sender_name, u.avatar_url AS sender_avatar_url,
          q.id AS quote_id, q.body AS quote_body, q.deleted_at AS quote_deleted_at,
          q.created_at AS quote_created_at, q.sender_id AS quote_sender_id, qu.name AS quote_sender_name
@@ -146,13 +209,13 @@ async function listConversations(req, res, next) {
                   AND x.sender_id IS DISTINCT FROM $1
                   AND (m.last_read_at IS NULL OR x.created_at > m.last_read_at)) AS unread_count,
               lm.id AS last_id, lm.body AS last_body, lm.deleted_at AS last_deleted_at,
-              lm.sender_id AS last_sender_id, lm.created_at AS last_created_at,
+              lm.sender_id AS last_sender_id, lm.created_at AS last_created_at, lm.kind AS last_kind,
               ls.name AS last_sender_name,
               other.id AS other_id, other.name AS other_name, other.avatar_url AS other_avatar_url
        FROM conversation_members m
        JOIN conversations c ON c.id = m.conversation_id
        LEFT JOIN LATERAL (
-         SELECT id, body, deleted_at, sender_id, created_at FROM messages
+         SELECT id, body, deleted_at, sender_id, created_at, kind FROM messages
          WHERE conversation_id = c.id AND created_at >= m.joined_at ORDER BY id DESC LIMIT 1
        ) lm ON true
        LEFT JOIN users ls ON ls.id = lm.sender_id
@@ -183,20 +246,38 @@ async function listConversations(req, res, next) {
         memberCount: row.member_count,
         role: row.role,
         unreadCount: row.unread_count,
-        lastMessage: row.last_id
-          ? {
-              id: row.last_id,
-              body: row.last_deleted_at ? null : row.last_body,
-              deleted: !!row.last_deleted_at,
-              senderId: row.last_sender_id,
-              senderName: row.last_sender_name,
-              createdAt: row.last_created_at,
-            }
-          : null,
+        lastMessage: shapeLastMessage(row),
         lastMessageAt: row.last_message_at,
         createdAt: row.created_at,
       })),
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * The unread total across every conversation, for the messages tab badge
+ * (owner, 2026-09-11 demo note 10). Same arithmetic as listConversations'
+ * per-conversation count, summed in SQL: a badge must not cost the client
+ * the whole inbox.
+ */
+async function unreadCount(req, res, next) {
+  try {
+    const userId = req.user.userId;
+    const r = await pool.query(
+      `SELECT COALESCE(SUM(
+                (SELECT count(*) FROM messages x
+                  WHERE x.conversation_id = m.conversation_id AND x.deleted_at IS NULL
+                    AND x.created_at >= m.joined_at
+                    AND x.sender_id IS DISTINCT FROM $1
+                    AND (m.last_read_at IS NULL OR x.created_at > m.last_read_at))
+              ), 0)::int AS count
+       FROM conversation_members m
+       WHERE m.user_id = $1`,
+      [userId]
+    );
+    res.json({ unreadCount: r.rows[0].count });
   } catch (err) {
     next(err);
   }
@@ -303,6 +384,11 @@ async function createGroup(req, res, next) {
        SELECT $1, unnest($2::int[])`,
       [conv.id, memberIds]
     );
+    // The opening line of the group (demo note 12): without it the members
+    // who were added at creation open an empty room and cannot tell what
+    // they were added to or by whom.
+    const creator = (await client.query('SELECT name FROM users WHERE id = $1', [userId])).rows[0];
+    await insertSystemMessage(client, conv.id, userId, systemBody.groupCreated(creator?.name));
     await client.query('COMMIT');
     res.status(201).json({ id: conv.id, kind: 'group', name, created: true });
   } catch (err) {
@@ -372,6 +458,11 @@ async function renameGroup(req, res, next) {
 }
 
 async function addMember(req, res, next) {
+  // Transactional since demo note 12: the membership and the system message
+  // that announces it land together or not at all — a 500 between the two
+  // would leave the member added with nothing said, and the retry would
+  // answer "Bu kişi zaten grupta".
+  const client = await pool.connect();
   try {
     const conv = await requireGroupAdmin(req, res);
     if (!conv) return;
@@ -381,10 +472,10 @@ async function addMember(req, res, next) {
     }
     // Owner rule: a group grows only through someone's own friends — the
     // admin adding, not the creator, is the one whose list counts.
-    if (!(await areFriends(pool, req.user.userId, targetId))) {
+    if (!(await areFriends(client, req.user.userId, targetId))) {
       return res.status(403).json({ error: 'Gruba yalnızca arkadaşlarını ekleyebilirsin' });
     }
-    const count = await pool.query(
+    const count = await client.query(
       'SELECT count(*)::int AS n FROM conversation_members WHERE conversation_id = $1',
       [conv.id]
     );
@@ -393,17 +484,34 @@ async function addMember(req, res, next) {
         .status(400)
         .json({ error: `Bir grupta en fazla ${MAX_GROUP_MEMBERS} üye olabilir` });
     }
-    const inserted = await pool.query(
+    await client.query('BEGIN');
+    const inserted = await client.query(
       `INSERT INTO conversation_members (conversation_id, user_id) VALUES ($1, $2)
        ON CONFLICT DO NOTHING RETURNING user_id`,
       [conv.id, targetId]
     );
     if (inserted.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Bu kişi zaten grupta' });
     }
-    res.status(201).json({ members: await listMembers(pool, conv.id) });
+    // The member list is read anyway; the two names come from it rather
+    // than from a second lookup.
+    const members = await listMembers(client, conv.id);
+    const actor = members.find((m) => m.id === req.user.userId);
+    const target = members.find((m) => m.id === targetId);
+    await insertSystemMessage(
+      client,
+      conv.id,
+      req.user.userId,
+      systemBody.memberAdded(actor?.name, target?.name)
+    );
+    await client.query('COMMIT');
+    res.status(201).json({ members });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     next(err);
+  } finally {
+    client.release();
   }
 }
 
@@ -596,13 +704,20 @@ async function sendMessage(req, res, next) {
         replyToId &&
         (
           await client.query(
-            `SELECT deleted_at FROM messages
+            `SELECT deleted_at, kind FROM messages
              WHERE id = $1 AND conversation_id = $2 AND created_at >= $3`,
             [replyToId, id, conv.joined_at]
           )
         ).rows[0];
-      if (!source) return res.status(400).json({ error: 'Yanıtlanan mesaj bu sohbette bulunamadı' });
-      if (source.deleted_at) return res.status(400).json({ error: 'Silinmiş bir mesaj yanıtlanamaz' });
+      if (!source)
+        return res.status(400).json({ error: 'Yanıtlanan mesaj bu sohbette bulunamadı' });
+      if (source.deleted_at)
+        return res.status(400).json({ error: 'Silinmiş bir mesaj yanıtlanamaz' });
+      // A quote carries its source's sender, and a system line has none:
+      // quoting one would put a name on something nobody said. Neither
+      // client offers it — this is the gate for anything calling the API
+      // directly.
+      if (isSystemRow(source)) return res.status(400).json({ error: 'Sistem mesajı yanıtlanamaz' });
     }
     if (conv.kind === 'direct') {
       // The friendship is the permission, not the conversation: after an
@@ -660,10 +775,16 @@ async function markRead(req, res, next) {
   }
 }
 
-/** A message the caller may see, with the caller's role in its conversation; null otherwise. */
+/**
+ * A message the caller may see, with the caller's role in its conversation;
+ * null otherwise. `kind` is the MESSAGE's ('user'/'system'); the
+ * conversation's own kind ('direct'/'group') rides along under
+ * `conversation_kind`, so `isSystemRow` reads the same field here as
+ * everywhere else.
+ */
 async function loadVisibleMessage(messageId, userId) {
   const r = await pool.query(
-    `SELECT x.id, x.conversation_id, x.sender_id, x.deleted_at, c.kind, m.role
+    `SELECT x.id, x.conversation_id, x.sender_id, x.deleted_at, x.kind, c.kind AS conversation_kind, m.role
      FROM messages x
      JOIN conversations c ON c.id = x.conversation_id
      JOIN conversation_members m ON m.conversation_id = x.conversation_id AND m.user_id = $2
@@ -679,8 +800,11 @@ async function deleteMessage(req, res, next) {
     const userId = req.user.userId;
     const msg = id && (await loadVisibleMessage(id, userId));
     if (!msg) return res.status(404).json({ error: 'Mesaj bulunamadı' });
+    // The conversation's own lines belong to nobody, so there is no sender
+    // to take one back and no admin claim over it (demo note 12).
+    if (isSystemRow(msg)) return res.status(403).json({ error: 'Sistem mesajı silinemez' });
     const isSender = msg.sender_id === userId;
-    const isGroupAdmin = msg.kind === 'group' && msg.role === 'admin';
+    const isGroupAdmin = msg.conversation_kind === 'group' && msg.role === 'admin';
     if (!isSender && !isGroupAdmin) {
       return res
         .status(403)
@@ -715,6 +839,9 @@ async function reportMessage(req, res, next) {
     }
     const msg = id && (await loadVisibleMessage(id, userId));
     if (!msg) return res.status(404).json({ error: 'Şikayet edilecek içerik bulunamadı' });
+    // Nobody wrote a system line, so there is nobody to report for it; the
+    // moderation queue would have no author to act on either.
+    if (isSystemRow(msg)) return res.status(400).json({ error: 'Sistem mesajı şikayet edilemez' });
     if (msg.sender_id === userId) {
       return res.status(400).json({ error: 'Kendi mesajını şikayet edemezsin' });
     }
@@ -737,6 +864,7 @@ async function reportMessage(req, res, next) {
 
 module.exports = {
   listConversations,
+  unreadCount,
   openDirect,
   createGroup,
   getConversation,
@@ -750,4 +878,10 @@ module.exports = {
   markRead,
   deleteMessage,
   reportMessage,
+  // Exported for backend/test/messageKind.test.js: the pure halves of the
+  // system-message rule, testable without a database.
+  isSystemRow,
+  shapeMessage,
+  shapeLastMessage,
+  systemBody,
 };

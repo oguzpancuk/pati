@@ -13,6 +13,9 @@ function msg(id: number, senderId: number, body = `m${id}`): Message {
   return {
     id,
     conversationId: 1,
+    // Every message in this contract is a person's; the conversation's own
+    // system lines have their own tests (backend/test/messageKind.test.js).
+    kind: 'user',
     sender: sender(senderId),
     body,
     deleted: false,
