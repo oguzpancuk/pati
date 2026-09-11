@@ -35,7 +35,10 @@
 /* A system row is the conversation speaking: centred, muted, no avatar, no
    bubble and no "⋯" menu — nothing to report, delete or reply to. */
 .msg-system {
-  align-self: center;
+  /* The list is a block, so `align-self` does nothing here and the box would
+     stretch to the full 86% whatever the text is — a grey band instead of a
+     capsule, where mobile shrink-wraps (review, 2026-09-12). */
+  width: fit-content;
   max-width: 86%;
   margin: 10px auto;
   padding: 5px 12px;

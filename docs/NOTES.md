@@ -4073,8 +4073,10 @@ styled onto the `<Text>` itself, and a pill radius on an iOS `<Text>` needs
 `overflow: 'hidden'` to clip — which clips the whole line away. Moving the
 pill onto the wrapping `<View>` and leaving the `<Text>` unstyled fixes it and
 drops the `overflow` entirely. Every other `overflow: 'hidden'` in
-`mobile/src` sits on a `View` (each one has a `flexDirection`), so this was a
-one-off, not a class.
+`mobile/src` sits on a `View`, so this was a one-off, not a class — and the
+test for that is the element, not the style: several of those Views have no
+`flexDirection` either. What makes a style suspect is a `backgroundColor` or
+a `borderRadius` on something that renders as a `<Text>`.
 
 Worth remembering for its shape rather than its size: the battery was green
 with the defect present and always would have been, because nothing here is
