@@ -25,8 +25,6 @@ import { fetchUnreadCount } from '../api/notifications';
 import { unreadCareAlertCount } from '../careAlertLog';
 import { badgeProgressText, badgeTitle } from '../badges';
 import { mergeById } from '../paging';
-import AnimalAvatar from '../components/AnimalAvatar';
-import DemoChip from '../components/DemoChip';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { AvatarPickerModal } from '../components/avatars';
 import { BadgeSymbol } from '../components/badges';
@@ -36,6 +34,7 @@ import DeleteAccountLink from '../components/DeleteAccountModal';
 import RecentComments from '../components/RecentComments';
 import {
   CareHistorySheet,
+  CarerGallery,
   FriendsSheet,
   GearIcon,
   HeaderIconButton,
@@ -49,7 +48,6 @@ import {
   Card,
   EmptyState,
   LoadingState,
-  LoadMoreButton,
   Screen,
   SectionHeader,
   Text,
@@ -422,45 +420,15 @@ export default function UserProfileScreen({ navigation, route }: any) {
         onSaveFeatured={handleSaveFeatured}
       />
 
-      <SectionHeader title="Bakım verdiğim hayvanlar" style={styles.sectionTop} />
-      {myAnimals.length === 0 ? (
-        <Card variant="flat" style={styles.block}>
-          <Text variant="caption">Henüz bir hayvana bakım vermiyorsun.</Text>
-        </Card>
-      ) : (
-        myAnimals.map((animal) => (
-          <Card
-            key={animal.id}
-            variant="flat"
-            padding="md"
-            style={styles.animalRow}
-            onPress={() => navigation.navigate('AnimalProfile', { animalId: animal.id })}
-          >
-            <AnimalAvatar
-              species={animal.species}
-              breed={animal.breed}
-              photoUrl={animal.cover_thumb_url}
-              size={44}
-            />
-            <View style={styles.animalText}>
-              <View style={styles.animalNameRow}>
-                <Text variant="subheading" numberOfLines={1} style={styles.animalName}>
-                  {animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek')}
-                </Text>
-                <DemoChip visible={animal.is_demo === true} />
-              </View>
-              <Text variant="caption" numberOfLines={1}>
-                {animal.breed ?? 'Türü belirtilmemiş'}
-              </Text>
-            </View>
-            <Icon name="chevronRight" size={18} color={colors.textSubtle} />
-          </Card>
-        ))
-      )}
-      <LoadMoreButton
-        remaining={animalTotal - myAnimals.length}
-        loading={loadingMoreAnimals}
-        onPress={handleLoadMoreAnimals}
+      <CarerGallery
+        style={styles.sectionTop}
+        title="Bakım verdiğim hayvanlar"
+        animals={myAnimals}
+        total={animalTotal}
+        loadingMore={loadingMoreAnimals}
+        onLoadMore={handleLoadMoreAnimals}
+        onOpenAnimal={(animalId) => navigation.navigate('AnimalProfile', { animalId })}
+        emptyText="Henüz bir hayvana bakım vermiyorsun."
       />
 
       <View style={styles.sectionTop}>
@@ -534,14 +502,4 @@ const useStyles = makeStyles(() => ({
   badgeCard: { flex: 1, alignItems: 'center' },
   badgeSymbol: { marginBottom: spacing.xs },
   badgeStreak: { marginTop: 2 },
-  animalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  animalText: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm },
-  animalNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  // The name shrinks, the chip does not: a long free-text name would push
-  // the chip past the card's right edge otherwise (review finding).
-  animalName: { flexShrink: 1 },
 }));

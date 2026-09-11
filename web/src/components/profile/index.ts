@@ -15,4 +15,5 @@ export { FriendsSheet } from './FriendsSheet';
 export { SettingsSheet } from './SettingsSheet';
 export { CareHistorySheet } from './CareHistorySheet';
 export { RowButton } from './RowButton';
+export { CarerGallery } from './CarerGallery';
 export { BellIcon, UsersIcon, GearIcon, CloseIcon, CareIcon } from './icons';

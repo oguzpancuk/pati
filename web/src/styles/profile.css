@@ -172,3 +172,112 @@
   margin-top: 10px;
   background: var(--danger);
 }
+
+/* ---- carers: a gallery, not a list ---- */
+
+.carer-gallery {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 2px 0 6px;
+  scrollbar-width: none;
+}
+
+.carer-gallery::-webkit-scrollbar {
+  display: none;
+}
+
+.carer-card {
+  flex: none;
+  width: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-decoration: none;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.carer-name {
+  margin-top: 8px;
+  font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.carer-breed {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: lowercase;
+  color: var(--text-muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The trailing "tümünü gör" card: the same footprint, a hairline box. */
+.carer-more {
+  justify-content: center;
+  height: 84px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  align-self: flex-start;
+}
+
+/* ---- comments: speech bubbles, not rows ---- */
+
+.comment-bubble-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.comment-bubble-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The square corner nearest the avatar is the bubble's tail; the rest is
+   fully rounded, like the bubbles in a conversation. */
+.comment-bubble {
+  /* -webkit-box is what clamps the text to three lines; fit-content is what
+     keeps a short comment from stretching across the whole row. */
+  width: fit-content;
+  max-width: 100%;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  border-top-left-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-body);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.comment-bubble-caption {
+  margin: 4px 0 0 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: lowercase;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

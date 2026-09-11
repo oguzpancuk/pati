@@ -12,4 +12,5 @@ export { default as FriendsSheet } from './FriendsSheet';
 export { default as SettingsSheet } from './SettingsSheet';
 export { default as CareHistorySheet } from './CareHistorySheet';
 export { default as RowButton } from './RowButton';
+export { default as CarerGallery } from './CarerGallery';
 export { GearIcon } from './icons';

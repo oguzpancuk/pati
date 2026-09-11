@@ -1,11 +1,11 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import type { UserComment } from '../api/users';
 import AnimalAvatar from './AnimalAvatar';
 import Card from './ui/Card';
 import SectionHeader from './ui/SectionHeader';
 import Text from './ui/Text';
-import { makeStyles, spacing } from '../theme';
+import { makeStyles, radius, spacing } from '../theme';
 
 interface Props {
   comments: UserComment[];
@@ -23,7 +23,13 @@ function formatDate(iso: string) {
   });
 }
 
-/** The recent-comments summary on the profile; "see all" opens the full list. */
+/**
+ * The recent-comments summary on the profile, as SPEECH BUBBLES: the
+ * animal's small face on the left, the comment inside the bubble, the animal
+ * and the date as its caption. Carers and comments used to be two identical
+ * stacks of rows (owner, 2026-09-11); the shape is what tells them apart now
+ * — a gallery there, bubbles here. "see all" opens the full list.
+ */
 export default function RecentComments({
   comments,
   total,
@@ -47,49 +53,53 @@ export default function RecentComments({
         </Card>
       ) : (
         comments.map((comment) => (
-          <Card
+          <Pressable
             key={comment.id}
-            variant="flat"
-            padding="md"
-            style={styles.row}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             onPress={() => onOpenAnimal(comment.animal_id)}
+            accessibilityRole="button"
           >
             <AnimalAvatar
               species={comment.animal_species}
               breed={comment.animal_breed}
               photoUrl={comment.animal_thumb_url}
-              size={36}
+              size={32}
             />
             <View style={styles.body}>
-              <View style={styles.metaRow}>
-                <Text variant="bodyStrong" style={styles.animalName} numberOfLines={1}>
-                  {comment.animal_name ?? (comment.animal_species === 'cat' ? 'Kedi' : 'Köpek')}
-                </Text>
-                <Text variant="micro" style={styles.date}>
-                  {formatDate(comment.created_at)}
+              <View style={styles.bubble}>
+                <Text variant="caption" color="textBody" numberOfLines={3}>
+                  {comment.body}
                 </Text>
               </View>
-              <Text variant="caption" numberOfLines={2} style={styles.text}>
-                {comment.body}
+              <Text variant="micro" numberOfLines={1} style={styles.caption}>
+                {`${
+                  comment.animal_name ?? (comment.animal_species === 'cat' ? 'Kedi' : 'Köpek')
+                } · ${formatDate(comment.created_at)}`}
               </Text>
             </View>
-          </Card>
+          </Pressable>
         ))
       )}
     </View>
   );
 }
 
-const useStyles = makeStyles(() => ({
+const useStyles = makeStyles(({ colors: c }) => ({
   empty: { marginBottom: spacing.sm },
-  row: { flexDirection: 'row', marginBottom: spacing.sm },
-  body: { flex: 1, marginLeft: spacing.md },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
+  row: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.md },
+  pressed: { opacity: 0.8 },
+  body: { flex: 1, marginLeft: spacing.sm },
+  // The square corner nearest the avatar is the bubble's tail; the rest is
+  // fully rounded, like the chat bubbles in a conversation.
+  bubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: c.surfaceAlt,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: radius.lg,
+    borderTopLeftRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  animalName: { flexShrink: 1 },
-  date: { marginLeft: spacing.sm },
-  text: { marginTop: 2 },
+  caption: { marginTop: spacing.xs, marginLeft: spacing.xs },
 }));

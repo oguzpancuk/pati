@@ -21,15 +21,14 @@ import { fetchUnreadCount } from '../api/animalSocial';
 import { unreadCareAlertCount } from '../careAlertLog';
 import { useAuth } from '../auth';
 import { DeleteAccountLink } from '../components/DeleteAccountDialog';
-import { AnimalAvatar } from '../avatars';
 import { BadgeCatalogModal, BadgeSymbol, LevelBar } from '../badges';
 import { useBadgeAwards } from '../badgeAwards';
-import { LoadMoreButton } from '../components/LoadMoreButton';
 import { RecentComments } from '../components/RecentComments';
 import {
   BellIcon,
   CareHistorySheet,
   CareIcon,
+  CarerGallery,
   FriendsSheet,
   GearIcon,
   HeaderIconButton,
@@ -284,40 +283,13 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <h2 className="section">bakım verdiğim hayvanlar</h2>
-      {animals.length === 0 ? (
-        <div className="card flat">
-          <span className="muted">Henüz bir hayvana bakım vermiyorsun.</span>
-        </div>
-      ) : (
-        animals.map((a) => (
-          <Link
-            key={a.id}
-            to={`/hayvanlar/${a.id}`}
-            className="card flat row"
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            <AnimalAvatar
-              species={a.species}
-              breed={a.breed}
-              photoUrl={a.cover_thumb_url}
-              size={44}
-            />
-            <div className="grow">
-              <div className="name-with-chip">
-                <strong>{a.name ?? (a.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
-                {a.is_demo && <span className="demo-chip">demo</span>}
-              </div>
-              <div className="muted">{a.breed ?? 'Türü belirtilmemiş'}</div>
-            </div>
-            <span className="subtle">›</span>
-          </Link>
-        ))
-      )}
-      <LoadMoreButton
-        remaining={animalTotal - animals.length}
-        loading={loadingMore}
-        onClick={loadMoreAnimals}
+      <CarerGallery
+        title="bakım verdiğim hayvanlar"
+        animals={animals}
+        total={animalTotal}
+        loadingMore={loadingMore}
+        onLoadMore={loadMoreAnimals}
+        emptyText="Henüz bir hayvana bakım vermiyorsun."
       />
 
       <RecentComments
