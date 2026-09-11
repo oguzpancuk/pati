@@ -86,11 +86,13 @@ const limits = {
   // Password reset. These two mount UNAUTHENTICATED, so the keyGenerator falls
   // back to the IP — which is what they need, and which means a carrier NAT
   // shares one bucket. That is the case this module's own header warns about,
-  // so these sit just under the /api/auth per-IP brake (120/h, app.js) rather
-  // than an order of magnitude below it: at 10/h a single script on a Turkish
-  // CGNAT disabled password reset for everyone behind it with ten cheap
-  // requests, and the eleventh honest person was locked out of their own
-  // account while login from the same address kept working.
+  // so these now sit level with what /api/auth's own brake already allows over
+  // an hour (30 per 15 min, app.js) instead of an order of magnitude below it.
+  // At 10/h a single script on a Turkish CGNAT took password reset away from
+  // everyone behind that address for an hour with ten cheap requests, and the
+  // eleventh honest person was locked out of their own account while login
+  // from the same address kept working. The outer brake still bites first in a
+  // burst, which is the right way round: it is the one shared with login.
   //
   // Neither limiter is the real defence and neither is sized as if it were: a
   // mailbox is protected by the per-account 60-second cooldown in
