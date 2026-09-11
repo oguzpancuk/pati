@@ -1,0 +1,88 @@
+/* The care marker's callout (demo note 13): the map explains its own
+   markers — what was left there, when, and how much of the window is left.
+   Kept out of theme.css deliberately: that file is hand-merged and has
+   swallowed changes before.
+
+   maplibre-gl.css paints a popup as a white box with 3px corners and a
+   matching tip; every rule below re-dresses it in the studio surface and
+   hairline, in both themes. The selectors are two classes deep, so they
+   win over the library's own without !important. */
+
+.care-popup .maplibregl-popup-content {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgb(33 32 30 / 12%);
+  font: inherit;
+}
+
+.care-popup .maplibregl-popup-close-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-subtle);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.care-popup .maplibregl-popup-close-button:hover {
+  background: transparent;
+  color: var(--text);
+}
+
+/* The tip is drawn as a border triangle, so the side facing the popup is
+   the one that takes the surface colour. `anchor-top*` covers top-left and
+   top-right as well. */
+.care-popup[class*='maplibregl-popup-anchor-top'] .maplibregl-popup-tip {
+  border-bottom-color: var(--surface);
+}
+
+.care-popup[class*='maplibregl-popup-anchor-bottom'] .maplibregl-popup-tip {
+  border-top-color: var(--surface);
+}
+
+.care-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--surface);
+}
+
+.care-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--surface);
+}
+
+.care-popup-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* Clear of the close button in the corner. */
+  padding-right: 18px;
+  margin-bottom: 3px;
+  color: var(--brand);
+}
+
+.care-popup-head strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.care-popup-line {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 17px;
+}
+
+.care-popup-line.left {
+  color: var(--brand);
+}
+
+.care-popup-line.expired {
+  color: var(--danger);
+}
+
+.care-popup-line.stack {
+  margin-top: 3px;
+  color: var(--text-subtle);
+}

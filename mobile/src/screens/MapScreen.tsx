@@ -10,6 +10,7 @@ import {
   MapView,
   MapViewRef,
   MarkerView,
+  type OnPressEvent,
   RegionPayload,
   ShapeSource,
   SymbolLayer,
@@ -59,7 +60,7 @@ import { viewportBoxes } from '../map/viewport';
 import { mapStyles } from '../map/styles';
 import { Button, Text } from '../components/ui';
 import { Icon, Logo } from '../components/brand';
-import { makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
+import { hitSlop, makeStyles, mapColors, radius, spacing, useTheme } from '../theme';
 
 // The map is worldwide (owner, 2026-09-09 — it used to be locked to a
 // Turkey bounding box with the camera's maxBounds): no service area, no
@@ -120,7 +121,43 @@ const HEART_RISE = heartRiseFor(ANIMAL_MARKER_SIZE);
 // Placement is collision-managed: where markers would overlap the fresher
 // one wins (symbolSortKey), and icons shrink toward country zoom.
 const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
+// The callout's own heading, capitalised — the sheet copy uses the lowercase
+// labels above mid-sentence.
+const CARE_TYPE_TITLE: Record<CareType, string> = { food: 'Mama', water: 'Su' };
 const NO_PLACEMENT = new Map<string, { drawAt: Coordinates; spot: Coordinates | null }>();
+
+// A tapped marker explains itself instead of the add sheet explaining the
+// rings (owner, 2026-09-11 demo note 13): what it is, when it was left and
+// how much of its window is left. Two records closer than this are the same
+// spot — a bowl refilled, not two places — and the callout says how many are
+// there. Deliberately a distance on the ground, not on screen: the answer
+// then does not change as the user zooms.
+const SAME_SPOT_METERS = 15;
+
+/** "az önce" / "12 dakika önce" / "2 saat önce" — when the record was left. */
+function placedAgo(iso: string): string {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (minutes < 1) return 'az önce bırakıldı';
+  if (minutes < 60) return `${minutes} dakika önce bırakıldı`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} saat önce bırakıldı`;
+  return `${Math.floor(hours / 24)} gün önce bırakıldı`;
+}
+
+/**
+ * "18 dakika kaldı" / "2 sa 10 dk kaldı" / "Süresi doldu". The moment comes
+ * from the server (`expires_at`); the comparison is the device's clock, so a
+ * badly skewed phone is a few minutes out — the same tolerance the ring's
+ * own fade already has.
+ */
+function remainingLabel(iso: string): string {
+  const minutes = Math.floor((new Date(iso).getTime() - Date.now()) / 60000);
+  if (minutes <= 0) return 'Süresi doldu';
+  if (minutes < 60) return `${minutes} dakika kaldı`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours} saat kaldı` : `${hours} sa ${rest} dk kaldı`;
+}
 
 // The "AI is checking the photo" interstitial is real since ADR-0005: the
 // photo goes up during it and the model says whether it shows the food or
@@ -166,6 +203,10 @@ export default function MapScreen({ navigation }: any) {
   // The settled zoom drives the stack layout (screen-space rule); the ref
   // stays for the celebration path.
   const [zoomLevel, setZoomLevel] = useState(WORLD_ZOOM);
+  // Which record's callout is open, by id — not the row itself, so a
+  // viewport refetch that drops the record closes the callout with it
+  // instead of leaving a card describing something no longer on the map.
+  const [selectedCareId, setSelectedCareId] = useState<number | null>(null);
   // The latest render's seat function, for callbacks armed by older renders.
   const seatsAtRef = useRef<(zoom: number) => Map<string, Coordinates>>(() => new Map());
   // Heart bursts draw in a separate layer above the map at screen
@@ -257,53 +298,56 @@ export default function MapScreen({ navigation }: any) {
     await loadActionsIn(viewportBoxes(ne, sw), seq);
   }, [loadActionsIn]);
 
-  const load = useCallback(async (known?: Coordinates) => {
-    // Overlapping loads (a refocus during a slow first load, a drop right
-    // after) race: without the sequence check, whichever response lands
-    // LAST paints the map and the bottom sheet.
-    const seq = ++loadSeqRef.current;
-    setLoading(true);
-    try {
-      const loc = known ?? (await getCurrentLocation().catch(() => null));
-      if (seq !== loadSeqRef.current) return null;
-      // The records follow the viewport, not a fixed box (worldwide).
-      loadActionsForViewport();
-      if (loc) {
-        setMyLocation(loc);
-        const [food, water, animalData] = await Promise.all([
-          fetchCareStatus(loc.lat, loc.lng, 'food'),
-          fetchCareStatus(loc.lat, loc.lng, 'water'),
-          fetchAnimals({ lat: loc.lat, lng: loc.lng, radiusMeters: ANIMAL_RADIUS_METERS }),
-        ]);
+  const load = useCallback(
+    async (known?: Coordinates) => {
+      // Overlapping loads (a refocus during a slow first load, a drop right
+      // after) race: without the sequence check, whichever response lands
+      // LAST paints the map and the bottom sheet.
+      const seq = ++loadSeqRef.current;
+      setLoading(true);
+      try {
+        const loc = known ?? (await getCurrentLocation().catch(() => null));
         if (seq !== loadSeqRef.current) return null;
-        setStatuses({ food, water });
-        setStatusFailed(false);
-        setAnimals(animalData);
-        centerOnUser(loc);
-        return animalData;
+        // The records follow the viewport, not a fixed box (worldwide).
+        loadActionsForViewport();
+        if (loc) {
+          setMyLocation(loc);
+          const [food, water, animalData] = await Promise.all([
+            fetchCareStatus(loc.lat, loc.lng, 'food'),
+            fetchCareStatus(loc.lat, loc.lng, 'water'),
+            fetchAnimals({ lat: loc.lat, lng: loc.lng, radiusMeters: ANIMAL_RADIUS_METERS }),
+          ]);
+          if (seq !== loadSeqRef.current) return null;
+          setStatuses({ food, water });
+          setStatusFailed(false);
+          setAnimals(animalData);
+          centerOnUser(loc);
+          return animalData;
+        }
+        // No fix: drop the last place's verdict, and tell the two reasons
+        // apart — a denied permission is "we don't know where you are", a
+        // granted one that produced no fix is a failed lookup (review
+        // finding). `getCurrentLocation` throws for both.
+        const granted = await hasLocationPermission().catch(() => false);
+        if (seq === loadSeqRef.current) {
+          setStatuses(null);
+          setStatusFailed(granted);
+        }
+      } catch (err: any) {
+        if (seq === loadSeqRef.current) {
+          // The sheet must not read as "we don't know where you are" when the
+          // lookup itself failed (review finding).
+          setStatusFailed(true);
+          Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
+        }
+      } finally {
+        if (seq === loadSeqRef.current) setLoading(false);
       }
-      // No fix: drop the last place's verdict, and tell the two reasons
-      // apart — a denied permission is "we don't know where you are", a
-      // granted one that produced no fix is a failed lookup (review
-      // finding). `getCurrentLocation` throws for both.
-      const granted = await hasLocationPermission().catch(() => false);
-      if (seq === loadSeqRef.current) {
-        setStatuses(null);
-        setStatusFailed(granted);
-      }
-    } catch (err: any) {
-      if (seq === loadSeqRef.current) {
-        // The sheet must not read as "we don't know where you are" when the
-        // lookup itself failed (review finding).
-        setStatusFailed(true);
-        Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
-      }
-    } finally {
-      if (seq === loadSeqRef.current) setLoading(false);
-    }
-    return null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadActionsForViewport]);
+      return null;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [loadActionsForViewport]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -329,6 +373,29 @@ export default function MapScreen({ navigation }: any) {
 
   function handleAnimalPress(animalId: number) {
     navigation.navigate('AnimalProfile', { animalId });
+  }
+
+  /**
+   * A tapped care marker opens its callout. The hitbox is 44 pt, so a fan of
+   * seats can return more than one feature: the one nearest the tap wins.
+   * Below the avatar zoom only the freshest record of a pile is rendered
+   * (collision placement, symbolSortKey), so that is the one a tap reaches —
+   * which is also what the callout should describe.
+   */
+  function handleCarePress(event: OnPressEvent) {
+    const tap = { lat: event.coordinates.latitude, lng: event.coordinates.longitude };
+    let best: { id: number; distance: number } | null = null;
+    for (const feature of event.features) {
+      const id = Number((feature.properties as { id?: unknown } | null)?.id);
+      const geometry = feature.geometry as Point | undefined;
+      if (!Number.isInteger(id) || geometry?.type !== 'Point') continue;
+      const distance = distanceMeters(tap, {
+        lat: geometry.coordinates[1],
+        lng: geometry.coordinates[0],
+      });
+      if (!best || distance < best.distance) best = { id, distance };
+    }
+    if (best) setSelectedCareId(best.id);
   }
 
   /**
@@ -635,6 +702,18 @@ export default function MapScreen({ navigation }: any) {
     [actions, placement]
   );
 
+  // The open callout's record, and how many others share its spot. Derived
+  // from `actions`, so a refetch either refreshes the card or closes it.
+  const selectedCare = useMemo(
+    () => (selectedCareId === null ? null : actions.find((a) => a.id === selectedCareId) ?? null),
+    [actions, selectedCareId]
+  );
+  const selectedCareStack = useMemo(() => {
+    if (!selectedCare) return 0;
+    const at = actionPosition(selectedCare);
+    return actions.filter((a) => distanceMeters(at, actionPosition(a)) <= SAME_SPOT_METERS).length;
+  }, [actions, selectedCare]);
+
   // The dashed ring marks the range where animals are drawn (500 m) — the
   // depiction in the handoff.
   const userRing = useMemo(
@@ -656,6 +735,10 @@ export default function MapScreen({ navigation }: any) {
         attributionPosition={{ top: 64, left: 8 }}
         onDidFinishLoadingMap={handleMapReady}
         onRegionDidChange={handleRegionDidChange}
+        // A tap the care source did not claim closes the open callout;
+        // native returns early when a touchable source handled the tap, so
+        // these two never fire for the same touch.
+        onPress={() => setSelectedCareId(null)}
       >
         <Camera
           ref={cameraRef}
@@ -671,7 +754,7 @@ export default function MapScreen({ navigation }: any) {
             again). Keep <Images> — dropping it for onImageMissing alone
             would leave nothing for that path to fetch. */}
         <Images images={CARE_MARKER_IMAGES} />
-        <ShapeSource id="care-markers" shape={careMarkers}>
+        <ShapeSource id="care-markers" shape={careMarkers} onPress={handleCarePress}>
           <SymbolLayer
             id="care-markers-icon"
             style={{
@@ -728,26 +811,78 @@ export default function MapScreen({ navigation }: any) {
           </MarkerView>
         )}
 
+        {/* The tapped record's callout, above its marker (demo note 13).
+            Drawn after the care layer and before the avatars so it is not
+            hidden by either. */}
+        {selectedCare && (
+          <MarkerView
+            coordinate={(() => {
+              const at =
+                placement.get(`care-${selectedCare.id}`)?.drawAt ?? actionPosition(selectedCare);
+              return [at.lng, at.lat];
+            })()}
+            anchor={{ x: 0.5, y: 1 }}
+          >
+            {/* The bottom padding is the gap over the marker: MarkerView
+                anchors the view's edge on the coordinate, with no offset
+                of its own. */}
+            <View style={styles.calloutWrap}>
+              <View style={styles.callout}>
+                <View style={styles.calloutHead}>
+                  <Icon name={selectedCare.action_type} size={16} color={colors.brand} />
+                  <Text variant="bodyStrong" style={styles.calloutTitle}>
+                    {CARE_TYPE_TITLE[selectedCare.action_type]}
+                  </Text>
+                  <Pressable
+                    onPress={() => setSelectedCareId(null)}
+                    hitSlop={hitSlop}
+                    accessibilityRole="button"
+                    accessibilityLabel="Kapat"
+                  >
+                    <Icon name="close" size={16} color={colors.textSubtle} />
+                  </Pressable>
+                </View>
+                <Text variant="caption" color="textMuted">
+                  {placedAgo(selectedCare.created_at)}
+                </Text>
+                <Text
+                  variant="caption"
+                  color={
+                    new Date(selectedCare.expires_at).getTime() <= Date.now() ? 'danger' : 'brand'
+                  }
+                >
+                  {remainingLabel(selectedCare.expires_at)}
+                </Text>
+                {selectedCareStack > 1 && (
+                  <Text variant="caption" color="textSubtle">
+                    {`Aynı noktada ${selectedCareStack} kayıt`}
+                  </Text>
+                )}
+              </View>
+            </View>
+          </MarkerView>
+        )}
+
         {animalsVisible &&
           animals.map((animal) => {
             const at = placement.get(`animal-${animal.id}`)?.drawAt ?? animalPosition(animal);
             return (
-            <MarkerView
-              key={`animal-${animal.id}`}
-              coordinate={[at.lng, at.lat]}
-              anchor={{ x: 0.5, y: 0.5 }}
-            >
-              {/* The avatar sits in a 42pt white disc (handoff size) so it
+              <MarkerView
+                key={`animal-${animal.id}`}
+                coordinate={[at.lng, at.lat]}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                {/* The avatar sits in a 42pt white disc (handoff size) so it
                   separates from the map ground at any zoom. */}
-              <Pressable style={styles.animalMarker} onPress={() => handleAnimalPress(animal.id)}>
-                <AnimalAvatar
-                  species={animal.species}
-                  breed={animal.breed}
-                  photoUrl={animal.cover_thumb_url}
-                  size={ANIMAL_MARKER_SIZE}
-                />
-              </Pressable>
-            </MarkerView>
+                <Pressable style={styles.animalMarker} onPress={() => handleAnimalPress(animal.id)}>
+                  <AnimalAvatar
+                    species={animal.species}
+                    breed={animal.breed}
+                    photoUrl={animal.cover_thumb_url}
+                    size={ANIMAL_MARKER_SIZE}
+                  />
+                </Pressable>
+              </MarkerView>
             );
           })}
       </MapView>
@@ -822,8 +957,10 @@ export default function MapScreen({ navigation }: any) {
             {sheetTitle}
           </Text>
           <Text variant="body" style={styles.sheetDesc}>
+            {/* The ring no longer explains itself here (owner, demo note
+                13): a tapped marker says what it is and how long it has. */}
             {statuses
-              ? 'Kayıt şu anki konumuna düşer; halka süre bitene kadar erir.'
+              ? 'Kayıt şu anki konumuna düşer.'
               : statusFailed
               ? 'Konum ya da bağlantı hazır olunca burayı gösteririz; kayıt yine şu anki konumuna düşer.'
               : 'Konumunu açınca buranın durumunu gösteririz; kayıt yine şu anki konumuna düşer.'}
@@ -1044,6 +1181,21 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     backgroundColor: c.surface,
     ...shadow.float,
   },
+  // The gap between the callout's lower edge and the marker it belongs to.
+  calloutWrap: { paddingBottom: 30 },
+  callout: {
+    minWidth: 150,
+    maxWidth: 220,
+    backgroundColor: c.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: c.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    ...shadow.float,
+  },
+  calloutHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  calloutTitle: { flex: 1, marginLeft: spacing.xs, color: c.text },
   // The round controls sit above the bottom sheet; otherwise the sheet covers
   // them and they stop being tappable.
   topLayer: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' },

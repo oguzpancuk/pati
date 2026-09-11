@@ -8,6 +8,12 @@ export interface CareAction {
   created_at: string;
   location: GeoJSON.Point;
   weight: string;
+  /**
+   * When this record's window runs out, computed on the server from its own
+   * action type (food 4 h, water 6 h). The map callout says how much is
+   * left from this, so no client carries a copy of those hours.
+   */
+  expires_at: string;
 }
 
 export interface CareStatus {
