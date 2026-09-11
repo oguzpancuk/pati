@@ -9,4 +9,5 @@ export { default as HeaderIconButton } from './HeaderIconButton';
 export { default as NotificationList } from './NotificationList';
 export { default as NotificationsSheet } from './NotificationsSheet';
 export { default as FriendsSheet } from './FriendsSheet';
+export { default as SettingsSheet } from './SettingsSheet';
 export { GearIcon } from './icons';

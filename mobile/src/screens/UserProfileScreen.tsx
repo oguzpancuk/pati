@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -38,14 +38,15 @@ import DeleteAccountLink from '../components/DeleteAccountModal';
 import RecentComments from '../components/RecentComments';
 import {
   FriendsSheet,
+  GearIcon,
   HeaderIconButton,
   NotificationsSheet,
   ProfileHeader,
+  SettingsSheet,
 } from '../components/profile';
 import {
   Button,
   Card,
-  Chip,
   EmptyState,
   LoadingState,
   LoadMoreButton,
@@ -54,15 +55,7 @@ import {
   Text,
 } from '../components/ui';
 import { Icon } from '../components/brand';
-import {
-  brand,
-  makeStyles,
-  radius,
-  spacing,
-  useTheme,
-  useThemeMode,
-  type ThemeMode,
-} from '../theme';
+import { makeStyles, radius, spacing, useTheme, useThemeMode } from '../theme';
 
 // The profile is a summary screen: 3 rows per section (same as comments),
 // the rest in pages of 20 via "show more".
@@ -80,12 +73,6 @@ function formatCareDate(iso: string) {
   });
 }
 
-const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
-  { key: 'system', label: 'sistem' },
-  { key: 'light', label: 'açık' },
-  { key: 'dark', label: 'koyu' },
-];
-
 // The bell polls the unread count the way the care alert is polled: on
 // focus and every minute while the tab is open (no push yet).
 const UNREAD_POLL_MS = 60 * 1000;
@@ -95,7 +82,7 @@ const UNREAD_POLL_MS = 60 * 1000;
  * open sheets OVER the profile, never a second page). Kept as one value so
  * two of them can never be presented at once.
  */
-type ProfileSheet = 'bell' | 'friends';
+type ProfileSheet = 'bell' | 'friends' | 'settings';
 
 export default function UserProfileScreen({ navigation, route }: any) {
   const styles = useStyles();
@@ -212,7 +199,11 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [catalogVisible, setCatalogVisible] = useState(false);
   const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
-  const [sheet, setSheet] = useState<ProfileSheet | null>(null);
+  // The dev/QA deep link `pati://profile?deleteAccount=1` now has to open
+  // the settings sheet first: that is where account deletion lives.
+  const [sheet, setSheet] = useState<ProfileSheet | null>(
+    route?.params?.deleteAccount ? 'settings' : null
+  );
 
   /** A sheet is not a page: leaving it for a screen closes it first. */
   function leaveSheet(go: () => void) {
@@ -437,6 +428,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
             >
               <Icon name="users" size={20} color={colors.brand} />
             </HeaderIconButton>
+            <HeaderIconButton label="Ayarlar" onPress={() => setSheet('settings')}>
+              <GearIcon size={20} color={colors.brand} />
+            </HeaderIconButton>
           </>
         }
       />
@@ -628,68 +622,6 @@ export default function UserProfileScreen({ navigation, route }: any) {
         />
       </View>
 
-      <SectionHeader title="Görünüm" style={styles.sectionTop} />
-      <View style={styles.themeRow}>
-        {THEME_OPTIONS.map((option) => (
-          <Chip
-            key={option.key}
-            label={option.label}
-            selected={mode === option.key}
-            onPress={() => setMode(option.key)}
-          />
-        ))}
-      </View>
-
-      {/* The showcase (demo) world is each person's own choice (owner,
-          2026-09-09): on by default so a new user finds a neighbourhood in
-          use, off with one tap when the tour is over. */}
-      <View style={styles.demoRow}>
-        <View style={styles.demoText}>
-          <Text variant="bodyStrong">Demo verileri</Text>
-          <Text variant="caption">
-            {me.show_demo === false
-              ? 'Sadece gerçek kayıtlar görünüyor.'
-              : 'Örnek mahalleler haritada ve listelerde görünüyor.'}
-          </Text>
-        </View>
-        {/* "görünüyor / gizli", not "açık / kapalı": the theme chips sit
-            directly below and one of THEM is called "açık" (light) —
-            two chips a finger apart, same word, different meaning (QA). */}
-        <Chip
-          label={me.show_demo === false ? 'gizli' : 'görünüyor'}
-          selected={me.show_demo !== false}
-          onPress={toggleShowDemo}
-        />
-      </View>
-
-      <Pressable onPress={logout} style={styles.logout} accessibilityRole="button">
-        <Text variant="captionStrong" color="textSubtle" center>
-          çıkış yap
-        </Text>
-      </Pressable>
-      <Text variant="caption" color="textSubtle" center style={styles.legal}>
-        <Text
-          variant="caption"
-          color="textSubtle"
-          onPress={() => Linking.openURL(brand.privacyUrl).catch(() => {})}
-        >
-          gizlilik (kvkk)
-        </Text>
-        {'   ·   '}
-        <Text
-          variant="caption"
-          color="textSubtle"
-          onPress={() => Linking.openURL(brand.termsUrl).catch(() => {})}
-        >
-          kullanım koşulları
-        </Text>
-      </Text>
-      <DeleteAccountLink
-        initialOpen={!!route?.params?.deleteAccount}
-        hasPassword={me?.hasPassword !== false}
-        authProviders={me?.authProviders ?? []}
-      />
-
       {/* The header's sheets. The Notifications SCREEN stays — deep links and
           push open it — and renders the same list this sheet does. */}
       <NotificationsSheet
@@ -709,6 +641,23 @@ export default function UserProfileScreen({ navigation, route }: any) {
         onRemove={handleRemove}
         onOpenUser={(userId) => leaveSheet(() => navigation.navigate('PublicProfile', { userId }))}
         onFindFriends={() => leaveSheet(() => navigation.navigate('FindFriends'))}
+      />
+      <SettingsSheet
+        visible={sheet === 'settings'}
+        onClose={() => setSheet(null)}
+        mode={mode}
+        onSelectMode={setMode}
+        showDemo={me.show_demo !== false}
+        demoBusy={demoBusy}
+        onToggleDemo={toggleShowDemo}
+        onLogout={logout}
+        deleteAccount={
+          <DeleteAccountLink
+            initialOpen={!!route?.params?.deleteAccount}
+            hasPassword={me?.hasPassword !== false}
+            authProviders={me?.authProviders ?? []}
+          />
+        }
       />
 
       {/* Chooser for a marker holding several records: pick one, see its

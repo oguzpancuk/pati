@@ -12,4 +12,5 @@ export { ProfileHeader, HeaderIconButton } from './ProfileHeader';
 export { NotificationList } from './NotificationList';
 export { NotificationsSheet } from './NotificationsSheet';
 export { FriendsSheet } from './FriendsSheet';
+export { SettingsSheet } from './SettingsSheet';
 export { BellIcon, UsersIcon, GearIcon, CloseIcon, CareIcon } from './icons';

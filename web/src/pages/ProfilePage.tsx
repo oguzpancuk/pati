@@ -30,9 +30,11 @@ import { RecentComments } from '../components/RecentComments';
 import {
   BellIcon,
   FriendsSheet,
+  GearIcon,
   HeaderIconButton,
   NotificationsSheet,
   ProfileHeader,
+  SettingsSheet,
   UsersIcon,
 } from '../components/profile';
 import { MiniMap } from '../components/MiniMap';
@@ -85,12 +87,6 @@ function formatCareDate(iso: string) {
   });
 }
 
-const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
-  { key: 'system', label: 'sistem' },
-  { key: 'light', label: 'açık' },
-  { key: 'dark', label: 'koyu' },
-];
-
 /** The strip opens the leaderboard — unless this account is not on it. */
 function StatStrip({ demo, children }: { demo: boolean; children: React.ReactNode }) {
   if (demo) return <div className="statstrip">{children}</div>;
@@ -122,7 +118,7 @@ export default function ProfilePage() {
   const [friendships, setFriendships] = useState<FriendshipsResponse | null>(null);
   // Only one sheet is open at a time (owner, 2026-09-11: the header's
   // controls open sheets OVER the profile, never a second page).
-  const [sheet, setSheet] = useState<'bell' | 'friends' | null>(null);
+  const [sheet, setSheet] = useState<'bell' | 'friends' | 'settings' | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(readThemeMode());
   // The showcase (demo) world is each person's own switch (owner,
   // 2026-09-09); a missing field means on, matching the column default.
@@ -188,6 +184,24 @@ export default function ProfilePage() {
     }
   }
 
+  async function toggleShowDemo() {
+    if (!me || demoBusy) return;
+    const next = me.show_demo === false;
+    setDemoBusy(true);
+    // Flipped locally first so the chip answers the click; rolled back if
+    // the server refuses.
+    applyMe({ ...me, show_demo: next });
+    try {
+      await setShowDemo(next);
+      await refresh();
+    } catch (err) {
+      applyMe({ ...me, show_demo: !next });
+      setError(err instanceof Error ? err.message : 'Kaydedilemedi');
+    } finally {
+      setDemoBusy(false);
+    }
+  }
+
   async function loadMoreAnimals() {
     setLoadingMore(true);
     try {
@@ -246,6 +260,9 @@ export default function ProfilePage() {
               onClick={() => setSheet('friends')}
             >
               <UsersIcon />
+            </HeaderIconButton>
+            <HeaderIconButton label="Ayarlar" onClick={() => setSheet('settings')}>
+              <GearIcon />
             </HeaderIconButton>
           </>
         }
@@ -379,72 +396,6 @@ export default function ProfilePage() {
         seeAllTo="/yorumlarim"
       />
 
-      {/* The showcase (demo) world: on by default so a new user finds a
-          neighbourhood in use, off with one tap when the tour is over
-          (owner, 2026-09-09). Mobile parity: profile → "Demo verileri". */}
-      <h2 className="section">demo verileri</h2>
-      <div className="row" style={{ gap: 12, marginBottom: 18 }}>
-        <div className="grow">
-          <div className="subtle">
-            {me.show_demo === false
-              ? 'Sadece gerçek kayıtlar görünüyor.'
-              : 'Örnek mahalleler haritada ve listelerde görünüyor.'}
-          </div>
-        </div>
-        <button
-          className={`chip ${me.show_demo === false ? '' : 'selected'}`}
-          disabled={demoBusy}
-          onClick={async () => {
-            const next = me.show_demo === false;
-            setDemoBusy(true);
-            // Flipped locally first so the chip answers the click; rolled
-            // back if the server refuses.
-            applyMe({ ...me, show_demo: next });
-            try {
-              await setShowDemo(next);
-              await refresh();
-            } catch (err) {
-              applyMe({ ...me, show_demo: !next });
-              setError(err instanceof Error ? err.message : 'Kaydedilemedi');
-            } finally {
-              setDemoBusy(false);
-            }
-          }}
-        >
-          {me.show_demo === false ? 'gizli' : 'görünüyor'}
-        </button>
-      </div>
-
-      <h2 className="section">görünüm</h2>
-      <div className="segmented" style={{ marginBottom: 18 }}>
-        {THEME_OPTIONS.map((o) => (
-          <button
-            key={o.key}
-            className={`chip ${theme === o.key ? 'selected' : ''}`}
-            onClick={() => {
-              setTheme(o.key);
-              applyThemeMode(o.key);
-            }}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-
-      <button className="textlink" onClick={logout}>
-        çıkış yap
-      </button>
-
-      <div className="subtle" style={{ textAlign: 'center', marginTop: 10 }}>
-        <Link to="/gizlilik" className="subtle">
-          gizlilik (kvkk)
-        </Link>
-        {' · '}
-        <Link to="/kosullar" className="subtle">
-          kullanım koşulları
-        </Link>
-      </div>
-      <DeleteAccountLink />
 
       {/* The header's sheets. The Notifications PAGE stays — deep links and
           push open it — and renders the same list this sheet does. */}
@@ -471,6 +422,20 @@ export default function ProfilePage() {
             await load();
           }, 'Reddedilemedi')
         }
+      />
+      <SettingsSheet
+        open={sheet === 'settings'}
+        onClose={() => setSheet(null)}
+        theme={theme}
+        onSelectTheme={(mode) => {
+          setTheme(mode);
+          applyThemeMode(mode);
+        }}
+        showDemo={me.show_demo !== false}
+        demoBusy={demoBusy}
+        onToggleDemo={toggleShowDemo}
+        onLogout={logout}
+        deleteAccount={<DeleteAccountLink />}
       />
 
       <BadgeCatalogModal
