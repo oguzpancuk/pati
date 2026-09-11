@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { mergeById } from '@mobile/paging';
 import { conditionsFor, OTHER, VACCINE_TYPES } from '@mobile/taxonomy';
 import {
@@ -12,6 +12,7 @@ import {
   HealthRecord,
   markHealthRecordRecovered,
   reopenHealthRecord,
+  Vaccination,
 } from '../api';
 import {
   AnimalSocialDetail,
@@ -24,6 +25,7 @@ import {
   unlikePhoto,
 } from '../api/animalSocial';
 import { AnimalAvatar, UserAvatar } from '../avatars';
+import { useAuth } from '../auth';
 import { bumpLadderValue, headerBadges, setLadderValue } from '@mobile/animalBadges';
 import { BadgeSymbol } from '../badges';
 import { AnimalBadgeLadder } from '../components/AnimalBadgeLadder';
@@ -33,6 +35,7 @@ import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { ChipRow } from '../components/ChipRow';
 import { LoadMoreButton } from '../components/LoadMoreButton';
+import '../styles/animal.css';
 
 const RECORD_TYPE_LABELS = { illness: 'Hastalık', injury: 'Yaralanma' } as const;
 const STATUS_META = {
@@ -42,10 +45,37 @@ const STATUS_META = {
 } as const;
 
 // Same numbers as mobile's AnimalProfileScreen: chat opens with the last 3
-// comments, "load earlier" pages by 20; record cards fold at 2.
+// comments, "load earlier" pages by 20; record cards fold at 2, carer rows
+// at 5.
 const COMMENT_PREVIEW = 3;
 const COMMENT_PAGE = 20;
 const RECORD_PREVIEW = 2;
+const CARER_PREVIEW = 5;
+
+/**
+ * Fields GET /animals/:id already returns that web's shared `api.ts` types
+ * do not name yet: the carers and the author ids that make every person on
+ * the page a link (demo item 7). Declared here because `api.ts` is the file
+ * the parallel tracks share; the shapes match mobile's `AnimalDetail`
+ * (`carers: Carer[]`, `HealthRecord.recorded_by` / `.recovered_by`,
+ * `Vaccination.recorded_by`) and the main session can fold them in later.
+ */
+interface Carer {
+  id: number;
+  name: string;
+  avatar_url: string | null;
+}
+interface RecordAuthors {
+  recorded_by?: number | null;
+  recovered_by?: number | null;
+}
+// Omit, not intersect: `A[] & B[]` keeps resolving `.map` through the first
+// signature, so the extra fields never reach the callback's parameter.
+type AnimalPageDetail = Omit<AnimalSocialDetail, 'healthRecords' | 'vaccinations'> & {
+  carers?: Carer[];
+  healthRecords: (HealthRecord & RecordAuthors)[];
+  vaccinations: (Vaccination & RecordAuthors)[];
+};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -119,7 +149,6 @@ function ChoiceChips({
   );
 }
 
-
 // Two rows; the rest live in the viewer behind the "+N" tile.
 const HERO_PHOTOS = 6;
 export default function AnimalPage() {
@@ -135,7 +164,8 @@ export default function AnimalPage() {
   const matchHit = searchParams.get('eslesme') === '1';
   const photoChecked = searchParams.get('kontrol') !== '0';
   const animalId = Number(id);
-  const [animal, setAnimal] = useState<AnimalSocialDetail | null>(null);
+  const { me } = useAuth();
+  const [animal, setAnimal] = useState<AnimalPageDetail | null>(null);
   // The full-screen viewer (P6 item 7): the index of the open photo, or null.
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const likeBusy = useRef<Set<number>>(new Set());
@@ -155,6 +185,7 @@ export default function AnimalPage() {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [visibleVaccinations, setVisibleVaccinations] = useState(RECORD_PREVIEW);
   const [visibleRecords, setVisibleRecords] = useState(RECORD_PREVIEW);
+  const [visibleCarers, setVisibleCarers] = useState(CARER_PREVIEW);
   const [error, setError] = useState<string | null>(null);
 
   const [draft, setDraft] = useState('');
@@ -181,7 +212,10 @@ export default function AnimalPage() {
         // Only the last few comments at open: first paint must not grow with the chat.
         fetchComments(animalId, { limit: COMMENT_PREVIEW }),
       ]);
-      setAnimal(detail);
+      // why: the one place the response is widened to the fields api.ts does
+      // not name yet (see AnimalPageDetail). Every read of them below is
+      // optional-chained, so an older server simply shows no links.
+      setAnimal(detail as AnimalPageDetail);
       setComments(commentPage.comments);
       setCommentTotal(commentPage.total);
     } catch (err) {
@@ -453,6 +487,33 @@ export default function AnimalPage() {
 
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
+  const carers = animal.carers ?? [];
+
+  /**
+   * Every person named on this profile is a door to their profile (demo
+   * item 7). Your own name goes to your own page rather than a stranger's
+   * view of yourself — /kullanici/<me> redirects there anyway, this just
+   * skips the bounce.
+   */
+  function profilePath(userId: number) {
+    return me?.id === userId ? '/profil' : `/kullanici/${userId}`;
+  }
+
+  /** The same door inside running text ("kaydeden", "… iyileşti olarak işaretledi"). */
+  function PersonLink({ userId, name }: { userId?: number | null; name: string }) {
+    if (typeof userId !== 'number') return <>{name}</>;
+    return (
+      <Link
+        className="person-link"
+        to={profilePath(userId)}
+        // A record card is itself clickable (it opens the record log); the
+        // name inside it must go to the person, not to both.
+        onClick={(e) => e.stopPropagation()}
+      >
+        {name}
+      </Link>
+    );
+  }
 
   // The grid always fills to a multiple of 3: real tiles + dashed "photo"
   // placeholders — even an empty profile invites.
@@ -462,7 +523,7 @@ export default function AnimalPage() {
   // opens the viewer on the rest.
   const heroPhotos = animal.photos.slice(0, HERO_PHOTOS);
   const photoSlots = Math.max(3, Math.ceil(heroPhotos.length / 3) * 3);
-  const viewerPhoto = viewerIndex === null ? null : (animal.photos[viewerIndex] ?? null);
+  const viewerPhoto = viewerIndex === null ? null : animal.photos[viewerIndex] ?? null;
 
   return (
     <div className="page">
@@ -579,6 +640,25 @@ export default function AnimalPage() {
         </div>
       )}
 
+      {/* Who cares for this animal (demo item 7): the rows are doors to the
+          people, which is what the "N bakıcı" count above promises. */}
+      <h2 className="section">bakıcılar</h2>
+      {carers.length === 0 ? (
+        <div className="card flat muted">Henüz bakıcı yok. İlk bakıcı sen ol.</div>
+      ) : (
+        carers.slice(0, visibleCarers).map((carer) => (
+          <Link key={carer.id} className="animal-carer-row" to={profilePath(carer.id)}>
+            <UserAvatar avatarUrl={carer.avatar_url} name={carer.name} size={34} />
+            <strong className="grow">{carer.name}</strong>
+            <span className="subtle chevron">›</span>
+          </Link>
+        ))
+      )}
+      <LoadMoreButton
+        remaining={carers.length - visibleCarers}
+        onClick={() => setVisibleCarers(carers.length)}
+      />
+
       {/* Last-seen mini map (mobile parity + PROJECT.md requirement): where
           and when the animal was last recorded, as a static thumbnail. */}
       <h2 className="section">en son görüldüğü yer</h2>
@@ -633,7 +713,11 @@ export default function AnimalPage() {
               </div>
             )}
             <div className="subtle" style={{ marginTop: 4 }}>
-              {formatDate(v.administered_at)} · {v.recorded_by_name ?? ''}
+              {formatDate(v.administered_at)}
+              {v.recorded_by_name ? ' · ' : ''}
+              {v.recorded_by_name && (
+                <PersonLink userId={v.recorded_by} name={v.recorded_by_name} />
+              )}
               {v.next_due_at ? ` · Sonraki doz: ${formatDate(v.next_due_at)}` : ''}
             </div>
           </div>
@@ -671,11 +755,19 @@ export default function AnimalPage() {
               </div>
               <div className="subtle" style={{ marginTop: 4 }}>
                 {RECORD_TYPE_LABELS[r.record_type]}
-                {r.vet_verified ? ' · veteriner onaylı' : ''} · {r.recorded_by_name ?? ''} ·{' '}
-                {r.comment_count} yorum · dokunarak kayıtları gör
-                {r.status === 'recovered' && r.recovered_by_name
-                  ? ` · ${r.recovered_by_name} iyileşti olarak işaretledi`
-                  : ''}
+                {r.vet_verified ? ' · veteriner onaylı' : ''}
+                {r.recorded_by_name ? ' · ' : ''}
+                {r.recorded_by_name && (
+                  <PersonLink userId={r.recorded_by} name={r.recorded_by_name} />
+                )}{' '}
+                · {r.comment_count} yorum · dokunarak kayıtları gör
+                {r.status === 'recovered' && r.recovered_by_name && (
+                  <>
+                    {' · '}
+                    <PersonLink userId={r.recovered_by} name={r.recovered_by_name} /> iyileşti
+                    olarak işaretledi
+                  </>
+                )}
               </div>
               {/* Action phrasing on a quiet outline: the old solid-check
                   "✓ iyileşti" read as a status tag (mobile parity). */}
@@ -735,10 +827,14 @@ export default function AnimalPage() {
       )}
       {comments.map((c) => (
         <div key={c.id} className="row" style={{ alignItems: 'flex-start', marginBottom: 12 }}>
-          <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={34} />
+          <Link to={profilePath(c.user_id)} aria-label={`${c.user_name} profilini aç`}>
+            <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={34} />
+          </Link>
           <div className="grow">
             <div className="row" style={{ gap: 6 }}>
-              <strong style={{ fontSize: 14 }}>{c.user_name}</strong>
+              <strong style={{ fontSize: 14 }}>
+                <PersonLink userId={c.user_id} name={c.user_name} />
+              </strong>
               {c.user_is_demo && <span className="demo-chip">demo</span>}
               <span className="subtle">{formatDate(c.created_at)}</span>
               <span className="grow" />
@@ -763,8 +859,8 @@ export default function AnimalPage() {
             {!matchHit
               ? 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'
               : photoChecked
-                ? 'Eklemek istediğin hayvan bu mu?'
-                : 'Eklemek istediğin hayvan bu mu? Fotoğraf kontrol edilemedi; konumu güncellersin.'}
+              ? 'Eklemek istediğin hayvan bu mu?'
+              : 'Eklemek istediğin hayvan bu mu? Fotoğraf kontrol edilemedi; konumu güncellersin.'}
           </p>
           <div className="row">
             <button className="btn secondary grow" onClick={() => navigate(-1)}>
@@ -859,8 +955,8 @@ export default function AnimalPage() {
               i === null
                 ? i
                 : end < start
-                  ? Math.min(i + 1, animal.photos.length - 1)
-                  : Math.max(i - 1, 0)
+                ? Math.min(i + 1, animal.photos.length - 1)
+                : Math.max(i - 1, 0)
             );
           }}
         >
@@ -1086,11 +1182,15 @@ export default function AnimalPage() {
                   className="row"
                   style={{ alignItems: 'flex-start', marginBottom: 10 }}
                 >
-                  <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={30} />
+                  <Link to={profilePath(c.user_id)} aria-label={`${c.user_name} profilini aç`}>
+                    <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={30} />
+                  </Link>
                   <div className="grow">
                     <div className="row" style={{ justifyContent: 'space-between' }}>
                       <div className="name-with-chip">
-                        <strong style={{ fontSize: 14 }}>{c.user_name}</strong>
+                        <strong style={{ fontSize: 14 }}>
+                          <PersonLink userId={c.user_id} name={c.user_name} />
+                        </strong>
                         {c.user_is_demo && <span className="demo-chip">demo</span>}
                       </div>
                       <span className="subtle">{formatDate(c.created_at)}</span>
@@ -1106,6 +1206,7 @@ export default function AnimalPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

@@ -1,0 +1,52 @@
+/*
+ * Track H — the animal profile's own styles (demo item 7). Kept out
+ * of theme.css, which is hand-merged and has swallowed a parallel track
+ * before; imported from the components that use it.
+ */
+
+/* ---------------------------------------------- the carers list (item 7) */
+
+.animal-carer-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.animal-carer-row .grow {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.animal-carer-row .chevron {
+  color: var(--text-subtle);
+  flex: 0 0 auto;
+}
+
+/*
+ * Every person named on the profile — comment authors, "kaydeden", the
+ * carers. It inherits the type of the sentence it sits in and marks itself
+ * with the brand color alone; an underline through a caption line read as
+ * damage.
+ */
+.person-link {
+  font: inherit;
+  color: var(--brand);
+  cursor: pointer;
+  text-align: inherit;
+  text-decoration: none;
+}
+
+.person-link:hover {
+  text-decoration: underline;
+}
