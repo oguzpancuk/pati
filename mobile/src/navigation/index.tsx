@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, useFocusEffect, type LinkingOptions } from '@react-navigation/native';
@@ -36,7 +36,11 @@ import NewConversationScreen from '../screens/NewConversationScreen';
 import ConversationScreen from '../screens/ConversationScreen';
 import GroupSettingsScreen from '../screens/GroupSettingsScreen';
 import { BadgeAwardProvider } from '../context/BadgeAwardContext';
-import { fetchUnreadMessageCount, UNREAD_POLL_INTERVAL_MS } from '../api/messages';
+import {
+  fetchUnreadMessageCount,
+  subscribeUnreadMessageCount,
+  UNREAD_POLL_INTERVAL_MS,
+} from '../api/messages';
 import { useCareAlerts } from '../useCareAlerts';
 
 export type AuthStackParamList = {
@@ -166,11 +170,13 @@ function MainTabs() {
   // The unread total on the messages tab (owner, 2026-09-11 demo note 10),
   // polled the way the profile bell is: once a minute while the tabs are in
   // front. A pushed screen (a conversation) blurs the tabs, so the timer
-  // stops there and the count is re-read the moment the user comes back.
-  // That is a race with the read the conversation announced — fetchUnread-
-  // MessageCount waits for a read still in flight, so the number that comes
-  // back is the one the user just earned.
+  // stops there — which is exactly when the number changes.
   const [unreadMessages, setUnreadMessages] = useState(0);
+  // So the badge follows the read rather than polling against it: every
+  // mark-read answers with the caller's new total, computed by the server in
+  // the same request that stamped last_read_at. Not focus-gated — the reads
+  // that matter happen while the tabs are behind a conversation.
+  useEffect(() => subscribeUnreadMessageCount(setUnreadMessages), []);
   useFocusEffect(
     useCallback(() => {
       let alive = true;

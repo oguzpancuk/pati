@@ -119,19 +119,26 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
 }
 
 /**
- * A conversation is marked read as it opens, and the tab badge re-reads the
- * count the moment that screen is left — the two calls are often in flight
- * together, and the server answers whichever arrives first. The count waits
- * for any read still running (review finding): without it, leaving a slow
- * conversation early left the badge showing messages the user had already
- * read, until the next minute's tick.
+ * The tab badge's subscription. A conversation is marked read while the tabs
+ * are blurred, so the badge used to re-read the count on its own clock when
+ * they came back and race the read it was waiting for. It now FOLLOWS the
+ * read: `markConversationRead` publishes the total the server computed in
+ * the same request that did the stamping, so there is no second number to
+ * disagree with. The minute poll stays for messages that arrive from
+ * elsewhere.
  */
-const readsInFlight = new Set<Promise<unknown>>();
+type UnreadListener = (count: number) => void;
+const unreadListeners = new Set<UnreadListener>();
+
+export function subscribeUnreadMessageCount(listener: UnreadListener): () => void {
+  unreadListeners.add(listener);
+  return () => {
+    unreadListeners.delete(listener);
+  };
+}
 
 /** Every conversation's unread counts added up server-side, for the tab badge. */
 export async function fetchUnreadMessageCount(): Promise<number> {
-  // allSettled: a read that failed must not take the count down with it.
-  if (readsInFlight.size > 0) await Promise.allSettled([...readsInFlight]);
   const { data } = await apiClient.get<{ unreadCount: number }>('/messages/unread-count');
   return data.unreadCount;
 }
@@ -203,14 +210,20 @@ export async function sendMessage(id: number, body: string, replyToId?: number):
   return data;
 }
 
-export async function markConversationRead(id: number): Promise<void> {
-  const call = apiClient.post(`/messages/conversations/${id}/read`);
-  readsInFlight.add(call);
-  try {
-    await call;
-  } finally {
-    readsInFlight.delete(call);
+/**
+ * Announce a conversation read. The server answers with the caller's new
+ * unread TOTAL, which every subscriber gets — that is how the tab badge
+ * follows the read instead of polling against it.
+ */
+export async function markConversationRead(id: number): Promise<number | null> {
+  const { data } = await apiClient.post<{ read: boolean; unreadCount?: number }>(
+    `/messages/conversations/${id}/read`
+  );
+  const count = typeof data?.unreadCount === 'number' ? data.unreadCount : null;
+  if (count !== null) {
+    for (const listener of unreadListeners) listener(count);
   }
+  return count;
 }
 
 export async function deleteMessage(messageId: number): Promise<void> {
