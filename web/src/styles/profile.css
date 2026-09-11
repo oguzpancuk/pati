@@ -281,3 +281,30 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- the shared skeleton ---- */
+
+/* The four small counts under the stat strip. Like theme.css's `.stats`,
+   minus the top hairline: it sits directly under a bordered strip here. */
+.profile-counts {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.profile-counts strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.profile-counts .micro {
+  margin: 2px 0 0;
+}
+
+.badge-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 4px;
+}

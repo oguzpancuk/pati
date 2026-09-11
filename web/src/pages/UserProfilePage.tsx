@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { badgeProgressText, badgeTitle, sortBadges } from '@mobile/badges';
+import { useNavigate, useParams } from 'react-router-dom';
+import { sortBadges } from '@mobile/badges';
 import {
   acceptFriendRequest,
   fetchUserAnimals,
@@ -11,10 +11,15 @@ import {
   sendFriendRequest,
 } from '../api';
 import { useAuth } from '../auth';
-import { AnimalAvatar, UserAvatar } from '../avatars';
-import { BadgeCatalogModal, BadgeSymbol, LevelBar } from '../badges';
-import { LoadMoreButton } from '../components/LoadMoreButton';
+import { BadgeCatalogModal, LevelBar } from '../badges';
 import { RecentComments } from '../components/RecentComments';
+import {
+  BadgeBlock,
+  CarerGallery,
+  FriendshipButton,
+  ProfileHeader,
+  ProfileStats,
+} from '../components/profile';
 import { mergeById } from '@mobile/paging';
 
 const ANIMAL_PAGE = 20;
@@ -27,7 +32,13 @@ function formatDate(iso: string) {
   });
 }
 
-/** Someone else's profile (mobile's PublicProfileScreen). */
+/**
+ * Someone else's profile (mobile's PublicProfileScreen). Same skeleton as
+ * your own (owner, 2026-09-11): header, stats, level bar, badges, the carer
+ * gallery, the comment bubbles — all from components/profile, so the two
+ * cannot drift apart again. The only difference is the header's top-right,
+ * where one friendship button stands in for bell / arkadaşlar / ayarlar.
+ */
 export default function UserProfilePage() {
   const { id } = useParams();
   const userId = Number(id);
@@ -92,149 +103,73 @@ export default function UserProfilePage() {
     profile.featuredBadges?.length > 0
       ? profile.featuredBadges
       : sortBadges(profile.badges.filter((b) => b.tier)).slice(0, 3);
-  const stats: [number, string][] = [
-    [profile.stats.foodCount, 'MAMA'],
-    [profile.stats.waterCount, 'SU'],
-    [profile.stats.animalCount, 'KAYIT'],
-    [profile.friendCount, 'ARKADAŞ'],
-  ];
 
   return (
     <div className="page">
+      {/* Back means history, never a hardcoded parent (DESIGN.md §8). */}
       <button className="link" onClick={() => navigate(-1)} style={{ marginBottom: 8 }}>
         ‹ Geri
       </button>
       {error && <div className="error">{error}</div>}
 
-      <div className="card" style={{ textAlign: 'center' }}>
-        <div style={{ display: 'inline-block' }}>
-          <UserAvatar avatarUrl={profile.avatar_url} name={profile.name} size={88} />
-        </div>
-        <div className="name-with-chip" style={{ justifyContent: 'center' }}>
-          <h1 style={{ margin: '8px 0 0', fontSize: 22 }}>{profile.name}</h1>
-          {profile.is_demo && <span className="demo-chip">demo</span>}
-        </div>
-        <div className="muted">{formatDate(profile.created_at)} tarihinde katıldı</div>
-        {/* Showcase accounts do not compete (owner, 2026-09-09: "botlar
-            sıralamada gözükmesin"); the line names the account instead. */}
-        {profile.is_demo && (
-          <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: 13, marginTop: 4 }}>
-            demo hesabı · {profile.points.total} puan
-          </div>
-        )}
-        {!profile.is_demo && profile.rank && (
-          <div style={{ color: 'var(--brand)', fontWeight: 800, fontSize: 13, marginTop: 4 }}>
-            {profile.rank.rank}. / {profile.rank.totalUsers} · {profile.points.total} puan
-          </div>
-        )}
-        <div style={{ textAlign: 'left' }}>
-          <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
-        </div>
-        <div className="stats">
-          {stats.map(([value, label]) => (
-            <div key={label}>
-              <strong>{value}</strong>
-              <span className="subtle">{label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <ProfileHeader
+        avatarUrl={profile.avatar_url}
+        name={profile.name}
+        secondary={`${formatDate(profile.created_at)} tarihinde katıldı`}
+        demo={profile.is_demo === true}
+        actions={
+          <FriendshipButton
+            status={profile.friendshipStatus}
+            busy={busy}
+            onAdd={() => run(() => sendFriendRequest(userId), 'Gönderilemedi')}
+            onAccept={() =>
+              profile.friendshipId != null &&
+              run(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
+            }
+            onRemove={() =>
+              profile.friendshipId != null &&
+              run(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
+            }
+          />
+        }
+      />
 
-      {profile.friendshipStatus === 'none' && (
-        <button
-          className="btn full"
-          disabled={busy}
-          onClick={() => run(() => sendFriendRequest(userId), 'Gönderilemedi')}
-        >
-          👥 Arkadaş ekle
-        </button>
-      )}
-      {profile.friendshipStatus === 'pending_sent' && (
-        <div className="card flat" style={{ textAlign: 'center', background: 'var(--brand-tint)' }}>
-          <span className="muted">İstek gönderildi, yanıt bekleniyor.</span>
-        </div>
-      )}
-      {profile.friendshipStatus === 'pending_received' && profile.friendshipId && (
-        <button
-          className="btn full"
-          disabled={busy}
-          onClick={() => run(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')}
-        >
-          Arkadaşlık isteğini kabul et
-        </button>
-      )}
-      {profile.friendshipStatus === 'friends' && profile.friendshipId && (
-        <button
-          className="btn secondary full"
-          disabled={busy}
-          onClick={() => run(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')}
-        >
-          Arkadaşlıktan çık
-        </button>
-      )}
+      <ProfileStats
+        points={profile.points?.total ?? 0}
+        rank={profile.rank}
+        level={profile.level?.level ?? 1}
+        demo={profile.is_demo === true}
+        counts={{
+          food: profile.stats.foodCount,
+          water: profile.stats.waterCount,
+          animals: profile.stats.animalCount,
+          friends: profile.friendCount,
+        }}
+      />
 
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2 className="section">Rozetler</h2>
-        <button className="link" onClick={() => setCatalogOpen(true)}>
-          Tüm rozetler
-        </button>
-      </div>
-      {displayBadges.length === 0 ? (
-        <div className="card flat">
-          <span className="muted">Henüz rozet kazanmamış.</span>
-        </div>
-      ) : (
-        <div className="badge-grid">
-          {displayBadges.map((b) => (
-            <div
-              key={b.key}
-              className="card flat"
-              role="button"
-              onClick={() => setCatalogOpen(true)}
-            >
-              <BadgeSymbol symbol={b.symbol} tier={b.tier} size={40} />
-              <div style={{ fontSize: 13, fontWeight: 800, marginTop: 4 }}>{badgeTitle(b)}</div>
-              <div className="subtle">{badgeProgressText(b)}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
 
-      <h2 className="section">Bakım verdiği hayvanlar</h2>
-      {animals.length === 0 ? (
-        <div className="card flat">
-          <span className="muted">Henüz bir hayvana bakım vermiyor.</span>
-        </div>
-      ) : (
-        animals.map((a) => (
-          <Link
-            key={a.id}
-            to={`/hayvanlar/${a.id}`}
-            className="card flat row"
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            <AnimalAvatar species={a.species} breed={a.breed} photoUrl={a.cover_thumb_url} size={44} />
-            <div className="grow">
-              <div className="name-with-chip">
-                <strong>{a.name ?? (a.species === 'cat' ? 'Kedi' : 'Köpek')}</strong>
-                {a.is_demo && <span className="demo-chip">demo</span>}
-              </div>
-              <div className="muted">{a.breed ?? 'Türü belirtilmemiş'}</div>
-            </div>
-            <span className="subtle">›</span>
-          </Link>
-        ))
-      )}
-      <LoadMoreButton
-        remaining={(profile.animalCount ?? animals.length) - animals.length}
-        loading={loadingMore}
-        onClick={loadMoreAnimals}
+      <BadgeBlock
+        title="öne çıkan rozetleri"
+        actionLabel="tümü"
+        onAction={() => setCatalogOpen(true)}
+        badges={displayBadges}
+        emptyText="Henüz rozet kazanmamış."
+      />
+
+      <CarerGallery
+        title="bakım verdiği hayvanlar"
+        animals={animals}
+        total={profile.animalCount ?? animals.length}
+        loadingMore={loadingMore}
+        onLoadMore={loadMoreAnimals}
+        emptyText="Henüz bir hayvana bakım vermiyor."
       />
 
       <RecentComments
         comments={profile.recentComments ?? []}
         total={profile.commentCount ?? 0}
-        title="Son yorumları"
+        title="son yorumları"
         emptyText="Henüz yorum yapmamış."
         seeAllTo={`/kullanici/${profile.id}/yorumlar`}
       />

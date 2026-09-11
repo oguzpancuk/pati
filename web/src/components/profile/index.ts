@@ -16,4 +16,7 @@ export { SettingsSheet } from './SettingsSheet';
 export { CareHistorySheet } from './CareHistorySheet';
 export { RowButton } from './RowButton';
 export { CarerGallery } from './CarerGallery';
+export { BadgeBlock } from './BadgeBlock';
+export { ProfileStats } from './ProfileStats';
+export { FriendshipButton } from './FriendshipButton';
 export { BellIcon, UsersIcon, GearIcon, CloseIcon, CareIcon } from './icons';

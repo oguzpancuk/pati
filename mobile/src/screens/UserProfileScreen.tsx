@@ -23,16 +23,14 @@ import {
 import { fetchMyCareActions, MyCareAction } from '../api/care';
 import { fetchUnreadCount } from '../api/notifications';
 import { unreadCareAlertCount } from '../careAlertLog';
-import { badgeProgressText, badgeTitle } from '../badges';
 import { mergeById } from '../paging';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { AvatarPickerModal } from '../components/avatars';
-import { BadgeSymbol } from '../components/badges';
 import LevelBar from '../components/LevelBar';
-import StatStrip from '../components/StatStrip';
 import DeleteAccountLink from '../components/DeleteAccountModal';
 import RecentComments from '../components/RecentComments';
 import {
+  BadgeBlock,
   CareHistorySheet,
   CarerGallery,
   FriendsSheet,
@@ -40,18 +38,11 @@ import {
   HeaderIconButton,
   NotificationsSheet,
   ProfileHeader,
+  ProfileStats,
   RowButton,
   SettingsSheet,
 } from '../components/profile';
-import {
-  Button,
-  Card,
-  EmptyState,
-  LoadingState,
-  Screen,
-  SectionHeader,
-  Text,
-} from '../components/ui';
+import { Button, EmptyState, LoadingState, Screen } from '../components/ui';
 import { Icon } from '../components/brand';
 import { makeStyles, spacing, useTheme, useThemeMode } from '../theme';
 
@@ -334,23 +325,18 @@ export default function UserProfileScreen({ navigation, route }: any) {
         }
       />
 
-      {/* Stat strip: points / rank / level — the rank cell opens the board. */}
-      <StatStrip
-        style={styles.statStrip}
-        stats={[
-          { value: String(me.points?.total ?? 0), label: 'puan' },
-          {
-            // Rank alone; the total is on the leaderboard (the strip cell is narrow).
-            // A showcase account does not compete (owner, 2026-09-09), so
-            // its cell names what the account is instead of an empty rank.
-            value: me.is_demo ? 'demo' : me.rank ? `${me.rank.rank}.` : '—',
-            label: me.is_demo ? 'hesabı' : 'sıra',
-            // A showcase account is not on the board, so its cell does not
-            // open one (review finding).
-            onPress: me.is_demo ? undefined : () => navigation.navigate('Leaderboard'),
-          },
-          { value: String(me.level?.level ?? 1), label: 'seviye' },
-        ]}
+      <ProfileStats
+        points={me.points?.total ?? 0}
+        rank={me.rank}
+        level={me.level?.level ?? 1}
+        demo={me.is_demo === true}
+        onOpenLeaderboard={() => navigation.navigate('Leaderboard')}
+        counts={{
+          food: me.stats?.foodCount ?? 0,
+          water: me.stats?.waterCount ?? 0,
+          animals: me.stats?.animalCount ?? 0,
+          friends: friends.length,
+        }}
       />
 
       <View style={styles.levelCard}>
@@ -367,40 +353,14 @@ export default function UserProfileScreen({ navigation, route }: any) {
         onPress={() => setSheet('care')}
       />
 
-      <SectionHeader
+      <BadgeBlock
         title="Öne çıkan rozetlerim"
         actionLabel="seç / tümü"
         onAction={() => setCatalogVisible(true)}
+        badges={featured}
+        emptyText="Henüz rozet seçmedin. Profilinde gösterilecek 3 rozeti seçmek için dokun."
+        emptyPressable
       />
-      {featured.length === 0 ? (
-        <Card variant="flat" onPress={() => setCatalogVisible(true)} style={styles.block}>
-          <Text variant="caption">
-            Henüz rozet seçmedin. Profilinde gösterilecek 3 rozeti seçmek için dokun.
-          </Text>
-        </Card>
-      ) : (
-        <View style={styles.badgeRow}>
-          {featured.map((badge) => (
-            <Card
-              key={badge.key}
-              variant="flat"
-              padding="md"
-              style={styles.badgeCard}
-              onPress={() => setCatalogVisible(true)}
-            >
-              <View style={styles.badgeSymbol}>
-                <BadgeSymbol symbol={badge.symbol} tier={badge.tier} size={40} />
-              </View>
-              <Text variant="captionStrong" color="text" center numberOfLines={2}>
-                {badgeTitle(badge)}
-              </Text>
-              <Text variant="micro" center style={styles.badgeStreak}>
-                {badgeProgressText(badge)}
-              </Text>
-            </Card>
-          ))}
-        </View>
-      )}
 
       <AvatarPickerModal
         visible={avatarPickerVisible}
@@ -494,12 +454,6 @@ export default function UserProfileScreen({ navigation, route }: any) {
 }
 
 const useStyles = makeStyles(() => ({
-  statStrip: { marginBottom: spacing.md },
   levelCard: { marginBottom: spacing.xl },
   sectionTop: { marginTop: spacing.xl },
-  block: { marginBottom: spacing.sm },
-  badgeRow: { flexDirection: 'row', gap: spacing.sm },
-  badgeCard: { flex: 1, alignItems: 'center' },
-  badgeSymbol: { marginBottom: spacing.xs },
-  badgeStreak: { marginTop: 2 },
 }));

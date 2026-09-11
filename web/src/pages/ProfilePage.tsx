@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { AVATAR_VARIANTS } from '@mobile/avatars';
-import { badgeProgressText, badgeTitle } from '@mobile/badges';
 import { patiAvatarSvg } from '@shared/avatarSvg';
 import {
   acceptFriendRequest,
@@ -21,10 +19,11 @@ import { fetchUnreadCount } from '../api/animalSocial';
 import { unreadCareAlertCount } from '../careAlertLog';
 import { useAuth } from '../auth';
 import { DeleteAccountLink } from '../components/DeleteAccountDialog';
-import { BadgeCatalogModal, BadgeSymbol, LevelBar } from '../badges';
+import { BadgeCatalogModal, LevelBar } from '../badges';
 import { useBadgeAwards } from '../badgeAwards';
 import { RecentComments } from '../components/RecentComments';
 import {
+  BadgeBlock,
   BellIcon,
   CareHistorySheet,
   CareIcon,
@@ -34,6 +33,7 @@ import {
   HeaderIconButton,
   NotificationsSheet,
   ProfileHeader,
+  ProfileStats,
   RowButton,
   SettingsSheet,
   UsersIcon,
@@ -48,16 +48,6 @@ const PAGE = 20;
 // The bell polls the unread count the way the care alert is polled: on
 // open, every minute while the tab is visible, and when it becomes visible.
 const UNREAD_POLL_MS = 60 * 1000;
-
-/** The strip opens the leaderboard — unless this account is not on it. */
-function StatStrip({ demo, children }: { demo: boolean; children: React.ReactNode }) {
-  if (demo) return <div className="statstrip">{children}</div>;
-  return (
-    <Link to="/siralama" className="statstrip" style={{ textDecoration: 'none', color: 'inherit' }}>
-      {children}
-    </Link>
-  );
-}
 
 export default function ProfilePage() {
   const { me, logout, applyMe, refresh } = useAuth();
@@ -213,29 +203,18 @@ export default function ProfilePage() {
         }
       />
 
-      {/* Stat strip: points / rank / level — links to the leaderboard, except
-          for a showcase account, which is not on it (mobile parity). */}
-      <StatStrip demo={me.is_demo === true}>
-        <div>
-          <strong>{me.points?.total ?? 0}</strong>
-          <div className="micro">puan</div>
-        </div>
-        <div>
-          {/* A showcase account does not compete (owner, 2026-09-09). */}
-          <strong>{me.is_demo ? 'demo' : me.rank ? `${me.rank.rank}.` : '—'}</strong>
-          <div className="micro">
-            {me.is_demo
-              ? 'demo hesabı'
-              : me.rank
-              ? `sıra / ${me.rank.totalUsers.toLocaleString('tr-TR')}`
-              : 'sıra'}
-          </div>
-        </div>
-        <div>
-          <strong>{me.level.level}</strong>
-          <div className="micro">seviye</div>
-        </div>
-      </StatStrip>
+      <ProfileStats
+        points={me.points?.total ?? 0}
+        rank={me.rank}
+        level={me.level?.level ?? 1}
+        demo={me.is_demo === true}
+        counts={{
+          food: me.stats?.foodCount ?? 0,
+          water: me.stats?.waterCount ?? 0,
+          animals: me.stats?.animalCount ?? 0,
+          friends: friends.length,
+        }}
+      />
 
       <LevelBar level={me.level} points={me.points?.total ?? 0} />
 
@@ -249,39 +228,14 @@ export default function ProfilePage() {
         onClick={() => setSheet('care')}
       />
 
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h2 className="section">öne çıkan rozetlerim</h2>
-        <button className="link" onClick={() => setCatalogOpen(true)}>
-          seç / tümü
-        </button>
-      </div>
-      {featured.length === 0 ? (
-        <div
-          className="card flat"
-          role="button"
-          style={{ cursor: 'pointer' }}
-          onClick={() => setCatalogOpen(true)}
-        >
-          <span className="muted">
-            Henüz rozet seçmedin. Profilinde gösterilecek 3 rozeti seçmek için dokun.
-          </span>
-        </div>
-      ) : (
-        <div className="badge-grid">
-          {featured.map((b) => (
-            <div
-              key={b.key}
-              className="card flat"
-              role="button"
-              onClick={() => setCatalogOpen(true)}
-            >
-              <BadgeSymbol symbol={b.symbol} tier={b.tier} size={40} />
-              <div style={{ fontSize: 13, fontWeight: 800, marginTop: 4 }}>{badgeTitle(b)}</div>
-              <div className="subtle">{badgeProgressText(b)}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      <BadgeBlock
+        title="öne çıkan rozetlerim"
+        actionLabel="seç / tümü"
+        onAction={() => setCatalogOpen(true)}
+        badges={featured}
+        emptyText="Henüz rozet seçmedin. Profilinde gösterilecek 3 rozeti seçmek için dokun."
+        emptyPressable
+      />
 
       <CarerGallery
         title="bakım verdiğim hayvanlar"
