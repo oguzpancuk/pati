@@ -6,6 +6,8 @@ type SheetEntry = {
   owns: boolean;
   /** Set the moment the way out is taken, before the browser answers. */
   closing: boolean;
+  /** Set once the entry has been given back or consumed, so it is counted once. */
+  released: boolean;
   close: () => void;
 };
 
@@ -34,6 +36,19 @@ let entriesPushed = 0;
 
 export function sheetEntriesPushed(): number {
   return entriesPushed;
+}
+
+/**
+ * An entry stops standing behind us exactly once, however it goes: handed
+ * back by `dismiss`, handed back by the cleanup, or consumed by the browser
+ * travelling backwards over it. The flag is what lets all three call this —
+ * counting in only some of them is what left the counter high after a Back
+ * press, and a page whose own back arrow then walked off the site.
+ */
+function releaseEntry(entry: SheetEntry) {
+  if (!entry.owns || entry.released) return;
+  entry.released = true;
+  entriesPushed -= 1;
 }
 
 function closeDownTo(index: number) {
@@ -80,7 +95,12 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
 
   useEffect(() => {
     if (!open) return;
-    const entry: SheetEntry = { owns: history, closing: false, close: () => closeRef.current() };
+    const entry: SheetEntry = {
+      owns: history,
+      closing: false,
+      released: false,
+      close: () => closeRef.current(),
+    };
     openSheets.push(entry);
     if (history && (window.history.state as { patiSheet?: number } | null)?.patiSheet !== id) {
       // The router's own state fields are carried over: react-router tracks
@@ -105,6 +125,10 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
     const onPop = () => {
       const index = topOwningIndex();
       if (index < 0 || openSheets[index] !== entry) return;
+      // The browser has already travelled over it — by the time this runs
+      // `history.state` is the page's again, so the cleanup below cannot
+      // recognise the entry as ours. Account for it here or nowhere.
+      releaseEntry(entry);
       closeDownTo(index);
     };
     const dismiss = () => {
@@ -117,7 +141,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       // An owned entry is given back to the browser; the popstate that
       // follows is what actually closes the sheet.
       if (entry.owns && (window.history.state as { patiSheet?: number } | null)?.patiSheet === id) {
-        entriesPushed -= 1;
+        releaseEntry(entry);
         window.history.back();
         return;
       }
@@ -153,7 +177,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       //     genuinely behind us.
       if (openRef.current || entry.closing || !entry.owns) return;
       if ((window.history.state as { patiSheet?: number } | null)?.patiSheet !== id) return;
-      entriesPushed -= 1;
+      releaseEntry(entry);
       window.history.back();
     };
   }, [open, history, id]);

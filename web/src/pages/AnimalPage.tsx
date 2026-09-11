@@ -245,9 +245,6 @@ export default function AnimalPage() {
   const [careError, setCareError] = useState<string | null>(null);
   const [careDone, setCareDone] = useState<string | null>(null);
   const [careSending, setCareSending] = useState(false);
-  // Read by the dismiss callbacks below, which outlive a single render.
-  const careSendingRef = useRef(careSending);
-  careSendingRef.current = careSending;
   const careInputs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [commentTotal, setCommentTotal] = useState(0);
@@ -271,8 +268,6 @@ export default function AnimalPage() {
   const [vaccineType, setVaccineType] = useState<string | null>(null);
   const [vaccineNote, setVaccineNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const savingRef = useRef(saving);
-  savingRef.current = saving;
   const { celebrate } = useBadgeAwards();
   // Tapping a health record lists only the comments bound to that record.
   const [logRecord, setLogRecord] = useState<HealthRecord | null>(null);
@@ -281,18 +276,16 @@ export default function AnimalPage() {
   // the animal profile — which on the PWA used to throw away a half-typed
   // health record. Mobile's four modals gained the same through
   // onRequestClose; this is the web half of that rule.
-  // The refusals match the backdrop's, and match the mobile twins'
-  // onRequestClose: a dialog with a request in flight does not vanish under
-  // the POST that is still running, whichever way it is asked to.
-  const closeCare = useSheetDismiss(careOpen, () => {
-    if (!careSendingRef.current) setCareOpen(false);
-  });
-  const closeRecord = useSheetDismiss(recordOpen, () => {
-    if (!savingRef.current) setRecordOpen(false);
-  });
-  const closeVaccine = useSheetDismiss(vaccineOpen, () => {
-    if (!savingRef.current) setVaccineOpen(false);
-  });
+  // Back and Escape never refuse, even mid-save: they are the OS's and the
+  // browser's own way out, the same rule the mobile modals follow. A refusal
+  // here would ALSO orphan the dialog — the popstate has already spent the
+  // history entry and unregistered the sheet by the time the callback runs,
+  // so a `close()` that declines leaves a dialog no backdrop and no Escape
+  // can reach (review, 2026-09-11). The backdrop keeps its own `busy` guard:
+  // a stray tap is not a deliberate gesture.
+  const closeCare = useSheetDismiss(careOpen, () => setCareOpen(false));
+  const closeRecord = useSheetDismiss(recordOpen, () => setRecordOpen(false));
+  const closeVaccine = useSheetDismiss(vaccineOpen, () => setVaccineOpen(false));
   const closeLog = useSheetDismiss(!!logRecord, () => setLogRecord(null));
   const [logComments, setLogComments] = useState<AnimalComment[]>([]);
 

@@ -974,7 +974,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         visible={recordModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => !savingRecord && setRecordModalVisible(false)}
+        // Hardware back is the OS's own way out and never locks — the same
+        // rule ReportSheet and DeleteAccountModal follow. The backdrop keeps
+        // its guard (a stray tap is not a deliberate gesture); closing does
+        // not cancel the request, which is what already happens when the
+        // screen is backgrounded.
+        onRequestClose={() => setRecordModalVisible(false)}
       >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
@@ -1035,7 +1040,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         visible={vaccineModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => !savingVaccine && setVaccineModalVisible(false)}
+        // Hardware back is the OS's own way out and never locks — the same
+        // rule ReportSheet and DeleteAccountModal follow. The backdrop keeps
+        // its guard (a stray tap is not a deliberate gesture); closing does
+        // not cancel the request, which is what already happens when the
+        // screen is backgrounded.
+        onRequestClose={() => setVaccineModalVisible(false)}
       >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
