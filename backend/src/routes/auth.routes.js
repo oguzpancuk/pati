@@ -5,11 +5,14 @@ const {
   verifyEmail,
   resendCooldown,
   resendVerification,
+  forgotPassword,
+  resetPassword,
+  changePassword,
   appleLogin,
   googleLogin,
   providers,
 } = require('../controllers/auth.controller');
-const { requireAuthAllowPending } = require('../middleware/auth.middleware');
+const { requireAuth, requireAuthAllowPending } = require('../middleware/auth.middleware');
 const { limits } = require('../middleware/rateLimit.middleware');
 
 const router = express.Router();
@@ -34,6 +37,17 @@ router.post(
   limits.verifyResend,
   resendVerification
 );
+// Forgotten password. Both are unauthenticated, so their limiters key on the
+// IP (rateLimit.middleware's fallback) on top of the /api/auth IP brake in
+// app.js; what really bounds the mail is the per-account cooldown inside
+// utils/passwordReset.js, and what bounds guessing is the 5-attempt cap the
+// code retires itself after.
+router.post('/forgot-password', limits.forgotPassword, forgotPassword);
+router.post('/reset-password', limits.resetPassword, resetPassword);
+// Changing (or first setting) a password from inside the app. Plain
+// requireAuth, not the pending-tolerant one: an account still owing a
+// verification code verifies first, like every other authenticated route.
+router.post('/change-password', requireAuth, limits.changePassword, changePassword);
 router.post('/apple', appleLogin);
 router.post('/google', googleLogin);
 

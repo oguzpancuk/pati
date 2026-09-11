@@ -83,6 +83,19 @@ const limits = {
   // hour against a million codes. Honest users type one code, maybe twice.
   verifyEmail: userRateLimit({ windowMs: HOUR, limit: 30, action: 'doğrulama denemesi' }),
   verifyResend: userRateLimit({ windowMs: HOUR, limit: 6, action: 'kod isteği' }),
+  // Password reset. These two mount UNAUTHENTICATED, so the keyGenerator
+  // falls back to the IP — which is what they need, and which means a carrier
+  // NAT shares one bucket (the module's CGNAT caveat, accepted here because
+  // /api/auth already brakes per IP in app.js and these ceilings sit above a
+  // normal person's handful of attempts). Neither is the real defence: a
+  // mailbox is protected by the per-account cooldown in utils/passwordReset.js
+  // and a code by its own 5-attempt cap.
+  forgotPassword: userRateLimit({ windowMs: HOUR, limit: 10, action: 'şifre sıfırlama isteği' }),
+  resetPassword: userRateLimit({ windowMs: HOUR, limit: 20, action: 'kod denemesi' }),
+  // Changing a password is authenticated, so this one is per user; nobody
+  // honest changes it ten times in an hour, and a stolen session gets no
+  // password-guessing oracle out of the current-password check.
+  changePassword: userRateLimit({ windowMs: HOUR, limit: 10, action: 'şifre değişikliği' }),
   // Direct messages: a fast back-and-forth is a few a minute; 300/hour is
   // one every 12 seconds nonstop, and bounds a spam script's reach.
   messages: userRateLimit({ windowMs: HOUR, limit: 300, action: 'mesaj' }),

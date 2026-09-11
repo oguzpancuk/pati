@@ -9,8 +9,24 @@ const {
   verifyIdentityToken,
 } = require('../utils/socialAuth');
 const verification = require('../utils/emailVerification');
+const passwordReset = require('../utils/passwordReset');
 
 const SALT_ROUNDS = 10;
+const MIN_PASSWORD_LENGTH = 8;
+
+/**
+ * The one password rule, shared by every door that SETS a password:
+ * registration, the reset flow and change-password. A second rule elsewhere
+ * would eventually produce an account whose own login refuses its password.
+ * Returns a Turkish complaint, or null when the value passes.
+ */
+function passwordComplaint(value) {
+  if (typeof value !== 'string') return 'Şifre metin olmalıdır';
+  if (value.length < MIN_PASSWORD_LENGTH) {
+    return `Şifre en az ${MIN_PASSWORD_LENGTH} karakter olmalıdır`;
+  }
+  return null;
+}
 
 /** users columns every auth response is built from. */
 const USER_COLUMNS = 'id, name, email, role, avatar_url, email_verification_pending';
@@ -76,8 +92,9 @@ async function register(req, res, next) {
     if (typeof email !== 'string' || typeof name !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ error: 'name, email ve password metin olmalıdır' });
     }
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Şifre en az 8 karakter olmalıdır' });
+    const weak = passwordComplaint(password);
+    if (weak) {
+      return res.status(400).json({ error: weak });
     }
 
     const normalizedEmail = normalizeEmail(email);
@@ -285,7 +302,9 @@ async function resendCooldown(req, res, next) {
   try {
     const wait = await verification.cooldownRemaining(req.user.userId);
     if (wait > 0) {
-      return res.status(429).json({ error: `Yeni kod için ${wait} saniye bekle`, retryAfter: wait });
+      return res
+        .status(429)
+        .json({ error: `Yeni kod için ${wait} saniye bekle`, retryAfter: wait });
     }
     next();
   } catch (err) {
@@ -327,6 +346,32 @@ async function resendVerification(req, res, next) {
   }
 }
 
+/**
+ * The row an address signs in as. Matched case-insensitively, but the row
+ * stored EXACTLY as typed wins: where a pre-normalisation pair exists
+ * (`Ali@x.com` and `ali@x.com` are both legal — users_email_key is
+ * case-sensitive), preferring the normalised row would check the wrong
+ * password hash and lock the owner of the capitalised address out silently
+ * (review finding).
+ *
+ * Every door an address opens shares this one lookup deliberately. The reset
+ * flow writes its code against a user id in one request and reads it back in
+ * the next, so a different tie-break between the two halves would check a
+ * code that was never issued to that row.
+ */
+async function findSignInTarget(email, columns) {
+  const typed = typeof email === 'string' ? email.trim() : '';
+  const result = await pool.query(
+    `SELECT ${columns}
+       FROM users
+      WHERE lower(email) = $1
+      ORDER BY (email = $2) DESC, (email = $1) DESC, id
+      LIMIT 1`,
+    [normalizeEmail(email), typed]
+  );
+  return result.rows[0] || null;
+}
+
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
@@ -339,21 +384,7 @@ async function login(req, res, next) {
       return res.status(400).json({ error: 'email ve password metin olmalıdır' });
     }
 
-    // Matched case-insensitively, but the row stored EXACTLY as typed wins.
-    // Where a pre-normalisation pair exists (`Ali@x.com` and `ali@x.com` are
-    // both legal — users_email_key is case-sensitive), preferring the
-    // normalised row would check the wrong password hash and lock the owner
-    // of the capitalised address out silently (review finding).
-    const typed = typeof email === 'string' ? email.trim() : '';
-    const result = await pool.query(
-      `SELECT ${USER_COLUMNS}, password_hash
-         FROM users
-        WHERE lower(email) = $1
-        ORDER BY (email = $2) DESC, (email = $1) DESC, id
-        LIMIT 1`,
-      [normalizeEmail(email), typed]
-    );
-    const user = result.rows[0];
+    const user = await findSignInTarget(email, `${USER_COLUMNS}, password_hash`);
     if (!user) {
       return res.status(401).json({ error: 'Geçersiz e-posta veya şifre' });
     }
@@ -390,6 +421,219 @@ async function login(req, res, next) {
     // automatic mail per login would let anyone holding the password fill
     // the address's inbox.
     res.json(pendingResponse(user, token));
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /auth/forgot-password — the same answer for every address.
+ *
+ * Whether an address has an account is not ours to disclose: this endpoint is
+ * unauthenticated, so ANY difference between "sent" and "no such account" is
+ * an enumeration oracle someone can run down a leaked address list. Wording,
+ * status code, the cooldown's 429 and response time all count, which is why
+ * the neutral answer goes out before the work starts and nothing after it
+ * touches `res`.
+ *
+ * The one address-independent exception is a deployment with no mail
+ * transport at all: 503, exactly like resendVerification, because every
+ * address gets it.
+ */
+async function forgotPassword(req, res, next) {
+  let email;
+  try {
+    email = req.body?.email;
+    if (typeof email !== 'string' || email.trim() === '') {
+      return res.status(400).json({ error: 'email zorunludur' });
+    }
+    if (!passwordReset.isEnabled()) {
+      return res.status(503).json({ error: 'Şifre sıfırlama şu anda kullanılamıyor' });
+    }
+    // Answered before the lookup and the mail send, which take time an
+    // address with no account never spends — a stopwatch is an oracle too.
+    res.json(passwordReset.NEUTRAL_ANSWER);
+  } catch (err) {
+    return next(err);
+  }
+
+  // Past the answer: everything below only logs. Throwing here would become
+  // an unhandled rejection (express is not awaiting us any more), so the
+  // catch has to cover the whole of it.
+  try {
+    // The bot worlds and the deletion tombstones (RESERVED_EMAIL_DOMAINS):
+    // addresses no person holds a mailbox for. A code for one could only be
+    // read by whoever controls those domains, and resetting a tombstone would
+    // hang a live, chosen password off a deleted account.
+    if (isReservedEmail(email)) return;
+    const user = await findSignInTarget(email, 'id, name, email');
+    // A social-only account (password_hash IS NULL) is included on purpose:
+    // the code proves the address, and setting a password simply adds e-mail
+    // sign-in to an account that had only Apple/Google.
+    if (user) await passwordReset.sendCode(user);
+  } catch (err) {
+    // A failed send must not become an oracle either: an address with no
+    // account never reaches a mail server, so reporting this one would answer
+    // "yes, that account exists".
+    console.error('password reset request failed:', err.message);
+  }
+}
+
+/** How a refused reset code is explained. Every reason has a way forward. */
+const RESET_CODE_ERRORS = {
+  none: 'Bekleyen bir sıfırlama kodu yok; yeni kod iste',
+  expired: 'Kodun süresi dolmuş; yeni kod iste',
+  attempts: 'Çok fazla hatalı deneme; yeni kod iste',
+  wrong: 'Kod hatalı',
+};
+
+/**
+ * POST /auth/reset-password — the mailed code plus the new password, and the
+ * caller is signed in. Returns exactly what login returns, so a client can
+ * adopt the session without a second round trip.
+ */
+async function resetPassword(req, res, next) {
+  try {
+    const email = req.body?.email;
+    if (typeof email !== 'string' || email.trim() === '') {
+      return res.status(400).json({ error: 'email zorunludur' });
+    }
+    // People paste "123 456"; the mail shows the digits without spaces but
+    // some clients add them.
+    const raw = req.body?.code;
+    const code = typeof raw === 'string' ? raw.replace(/\s+/g, '') : '';
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ error: 'Kod 6 haneli olmalı' });
+    }
+    const password = req.body?.password;
+    const weak = passwordComplaint(password);
+    if (weak) {
+      return res.status(400).json({ error: weak });
+    }
+
+    const user = await findSignInTarget(email, USER_COLUMNS);
+    // An address with no account answers exactly like an account with no
+    // outstanding code. This endpoint takes an address too, so a distinct
+    // "no such user" here would undo the neutrality forgot-password is built
+    // for — one request further along.
+    if (!user) {
+      return res.status(400).json({ error: RESET_CODE_ERRORS.none });
+    }
+
+    const outcome = await passwordReset.checkCode(user.id, code);
+    if (!outcome.ok) {
+      const status = outcome.reason === 'attempts' ? 429 : 400;
+      let suffix = '';
+      if (outcome.reason === 'wrong') {
+        // The fifth wrong guess retires the code; saying so here spares the
+        // user a correct code answered with "ask for a new one".
+        suffix =
+          outcome.remaining > 0
+            ? ` (${outcome.remaining} deneme kaldı)`
+            : '; deneme hakkın bitti, yeni kod iste';
+      }
+      return res.status(status).json({ error: `${RESET_CODE_ERRORS[outcome.reason]}${suffix}` });
+    }
+
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const client = await pool.connect();
+    let updated;
+    try {
+      await client.query('BEGIN');
+      // The typed code is mailbox proof — the same proof the verification
+      // code gives, and more than registration ever asked for. So the account
+      // leaves the pending state and becomes linkable here (ADR-0003's
+      // email_verified) instead of being sent to type a second six-digit code
+      // proving the address it just proved. Whoever completes this flow owns
+      // the account outright anyway: they chose the password.
+      const result = await client.query(
+        `UPDATE users
+            SET password_hash = $2,
+                email_verified = true,
+                email_verification_pending = false
+          WHERE id = $1
+          RETURNING ${USER_COLUMNS}`,
+        [user.id, passwordHash]
+      );
+      updated = result.rows[0] || null;
+      await client.query('DELETE FROM password_resets WHERE user_id = $1', [user.id]);
+      // The address is proven now, so an outstanding verification code is a
+      // second live secret for something nobody needs to prove again.
+      await client.query('DELETE FROM email_verifications WHERE user_id = $1', [user.id]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    if (!updated) {
+      // The row disappeared between the code check and the write (an account
+      // deleted, or a pending registration retired by a replacement).
+      return res.status(400).json({ error: RESET_CODE_ERRORS.none });
+    }
+
+    const token = signToken({ userId: updated.id, role: updated.role });
+    res.json(pendingResponse(updated, token));
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /auth/change-password — for a signed-in account.
+ *
+ * An account that HAS a password must supply it: an unlocked phone or a
+ * borrowed browser tab must not be enough to lock its owner out, the same
+ * rule account deletion re-authenticates for. An account created through
+ * Apple/Google has none, and asking it for a password nobody ever chose would
+ * leave those users unable to set one at all — for them this is "şifre
+ * belirle" and the provider session they are already holding is the proof.
+ *
+ * Other sessions survive the change: a JWT cannot be revoked (docs/NOTES.md),
+ * so "sign my other devices out" needs a token version on users and is not
+ * part of this endpoint's promise.
+ */
+async function changePassword(req, res, next) {
+  try {
+    const password = req.body?.password;
+    const weak = passwordComplaint(password);
+    if (weak) {
+      return res.status(400).json({ error: weak });
+    }
+    const currentPassword = req.body?.currentPassword;
+
+    const current = await pool.query('SELECT password_hash FROM users WHERE id = $1', [
+      req.user.userId,
+    ]);
+    const row = current.rows[0];
+    if (!row) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+
+    if (row.password_hash) {
+      if (typeof currentPassword !== 'string' || currentPassword.length === 0) {
+        return res.status(400).json({ error: 'Mevcut şifreni gir' });
+      }
+      if (!(await bcrypt.compare(currentPassword, row.password_hash))) {
+        // 403, not 401: both clients read a 401 as an expired session and
+        // would log the user out over a typo.
+        return res.status(403).json({ error: 'Mevcut şifren hatalı' });
+      }
+      if (currentPassword === password) {
+        return res.status(400).json({ error: 'Yeni şifren eskisiyle aynı olamaz' });
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    await pool.query('UPDATE users SET password_hash = $2 WHERE id = $1', [
+      req.user.userId,
+      passwordHash,
+    ]);
+    // A password its owner just replaced retires any outstanding reset code:
+    // one mailed before the change must not still open the account after it.
+    await pool.query('DELETE FROM password_resets WHERE user_id = $1', [req.user.userId]);
+
+    res.json({ hasPassword: true });
   } catch (err) {
     next(err);
   }
@@ -687,6 +931,13 @@ module.exports = {
   verifyEmail,
   resendCooldown,
   resendVerification,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+  // Exported for backend/test/passwordReset.test.js: the rule every
+  // password-setting door shares is worth pinning in one place.
+  passwordComplaint,
+  MIN_PASSWORD_LENGTH,
   appleLogin,
   googleLogin,
   providers,
