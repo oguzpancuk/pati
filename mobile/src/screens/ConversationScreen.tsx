@@ -244,7 +244,9 @@ export default function ConversationScreen({ route, navigation }: any) {
   }
 
   function onLongPress(m: Message) {
-    if (m.deleted) return;
+    // A system line has no sender to reply to, delete or report; it renders
+    // without a Pressable, and this is the second lock on that door.
+    if (m.deleted || m.kind === 'system') return;
     const mine = !!myId && m.sender?.id === myId;
     const admin = detail?.kind === 'group' && detail.role === 'admin';
     const actions: { text: string; style?: 'destructive' | 'cancel'; onPress?: () => void }[] = [];
@@ -322,6 +324,18 @@ export default function ConversationScreen({ route, navigation }: any) {
             );
           }}
           renderItem={({ item, index }) => {
+            // The conversation's own lines (demo note 12): centred, muted,
+            // no avatar, no bubble — and no long press, so neither the
+            // reply, the delete nor the report sheet can reach one.
+            if (item.kind === 'system') {
+              return (
+                <View style={styles.systemLine}>
+                  <Text variant="caption" color="textMuted" center style={styles.systemText}>
+                    {item.body}
+                  </Text>
+                </View>
+              );
+            }
             const mine = !!myId && item.sender?.id === myId;
             // The avatar (and, in a group, the name) marks the first bubble
             // of a run; the rest of the run indents to stay aligned.
@@ -580,6 +594,14 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   avatarTheirs: { marginRight: spacing.sm, marginTop: 2 },
   avatarMine: { marginLeft: spacing.sm, marginTop: 2 },
   avatarGap: { width: AVATAR + spacing.sm },
+  systemLine: { alignSelf: 'center', maxWidth: '86%', marginVertical: spacing.sm },
+  systemText: {
+    backgroundColor: c.surfaceAlt,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    overflow: 'hidden',
+  },
   sender: { marginBottom: 2, marginLeft: spacing.sm },
   bubble: {
     borderRadius: radius.lg,

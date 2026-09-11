@@ -18,6 +18,7 @@ import {
   withDeleted,
 } from '../api/messages';
 import { UserAvatar } from '../avatars';
+import '../styles/messages.css';
 
 const PAGE = 50;
 const AVATAR = 28;
@@ -171,7 +172,9 @@ export default function ConversationPage() {
       setDraft('');
       setReplyTo(null);
       setMessages((prev) =>
-        (prev ?? []).some((m) => m.id === sent.id) ? prev : [...(prev ?? []), sent].sort((a, b) => a.id - b.id)
+        (prev ?? []).some((m) => m.id === sent.id)
+          ? prev
+          : [...(prev ?? []), sent].sort((a, b) => a.id - b.id)
       );
       // The cursor stays where the last poll left it: advancing it to the
       // sent id would skip a reply that landed in between. The poll dedups
@@ -289,6 +292,16 @@ export default function ConversationPage() {
           </p>
         )}
         {messages?.map((m, i) => {
+          // The conversation's own lines (demo note 12): centred, muted, no
+          // avatar, no bubble — and no "⋯", so neither the reply, the
+          // delete nor the report sheet can reach one.
+          if (m.kind === 'system') {
+            return (
+              <div key={m.id} id={`msg-${m.id}`} className="msg-system">
+                {m.body}
+              </div>
+            );
+          }
           const mine = !!myId && m.sender?.id === myId;
           // The avatar (and, in a group, the name) marks the first bubble of
           // a run; the rest of the run indents to stay aligned.
@@ -308,77 +321,79 @@ export default function ConversationPage() {
             <div key={m.id} id={`msg-${m.id}`} className={`msg-line${mine ? ' mine' : ''}`}>
               {!mine && avatar}
               <div className="msg-col">
-              {showName && (
-                <div className="micro msg-sender">{m.sender?.name ?? 'silinmiş kullanıcı'}</div>
-              )}
-              <div
-                className={`msg-bubble${mine ? ' mine' : ''}${m.deleted ? ' deleted' : ''}${
-                  flashId === m.id ? ' flash' : ''
-                }`}
-              >
-                {m.replyTo && (
-                  <button
-                    type="button"
-                    className={`msg-quote${m.replyTo.deleted ? ' deleted' : ''}`}
-                    onClick={() => jumpTo(m.replyTo!.id)}
-                    aria-label="Alıntılanan mesaja git"
-                  >
-                    <span className="micro msg-quote-name">
-                      {m.replyTo.sender?.name ?? 'silinmiş kullanıcı'}
-                    </span>
-                    <span className="msg-quote-text">
-                      {m.replyTo.deleted ? 'Bu mesaj silindi' : m.replyTo.excerpt}
-                    </span>
-                  </button>
+                {showName && (
+                  <div className="micro msg-sender">{m.sender?.name ?? 'silinmiş kullanıcı'}</div>
                 )}
-                {m.deleted ? (
-                  <span className="subtle">
-                    {m.deletedBySender === false ? 'Yönetici bu mesajı sildi' : 'Bu mesaj silindi'}
-                  </span>
-                ) : (
-                  <span className="msg-body">{m.body}</span>
-                )}
-                <span className="msg-time">{formatTime(m.createdAt)}</span>
-                {(canReply || canDelete || canReport) && (
-                  <button
-                    type="button"
-                    className="msg-more"
-                    aria-label="Mesaj seçenekleri"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuFor(menuFor === m.id ? null : m.id);
-                    }}
-                  >
-                    ⋯
-                  </button>
-                )}
-              </div>
-              {menuFor === m.id && (
-                <div className="msg-menu" onClick={(e) => e.stopPropagation()}>
-                  {canReply && (
-                    <button type="button" className="link" onClick={() => reply(m)}>
-                      yanıtla
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button type="button" className="link danger" onClick={() => remove(m)}>
-                      sil
-                    </button>
-                  )}
-                  {canReport && (
+                <div
+                  className={`msg-bubble${mine ? ' mine' : ''}${m.deleted ? ' deleted' : ''}${
+                    flashId === m.id ? ' flash' : ''
+                  }`}
+                >
+                  {m.replyTo && (
                     <button
                       type="button"
-                      className="link"
-                      onClick={() => {
-                        setMenuFor(null);
-                        setReporting(m);
+                      className={`msg-quote${m.replyTo.deleted ? ' deleted' : ''}`}
+                      onClick={() => jumpTo(m.replyTo!.id)}
+                      aria-label="Alıntılanan mesaja git"
+                    >
+                      <span className="micro msg-quote-name">
+                        {m.replyTo.sender?.name ?? 'silinmiş kullanıcı'}
+                      </span>
+                      <span className="msg-quote-text">
+                        {m.replyTo.deleted ? 'Bu mesaj silindi' : m.replyTo.excerpt}
+                      </span>
+                    </button>
+                  )}
+                  {m.deleted ? (
+                    <span className="subtle">
+                      {m.deletedBySender === false
+                        ? 'Yönetici bu mesajı sildi'
+                        : 'Bu mesaj silindi'}
+                    </span>
+                  ) : (
+                    <span className="msg-body">{m.body}</span>
+                  )}
+                  <span className="msg-time">{formatTime(m.createdAt)}</span>
+                  {(canReply || canDelete || canReport) && (
+                    <button
+                      type="button"
+                      className="msg-more"
+                      aria-label="Mesaj seçenekleri"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuFor(menuFor === m.id ? null : m.id);
                       }}
                     >
-                      şikayet et
+                      ⋯
                     </button>
                   )}
                 </div>
-              )}
+                {menuFor === m.id && (
+                  <div className="msg-menu" onClick={(e) => e.stopPropagation()}>
+                    {canReply && (
+                      <button type="button" className="link" onClick={() => reply(m)}>
+                        yanıtla
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button type="button" className="link danger" onClick={() => remove(m)}>
+                        sil
+                      </button>
+                    )}
+                    {canReport && (
+                      <button
+                        type="button"
+                        className="link"
+                        onClick={() => {
+                          setMenuFor(null);
+                          setReporting(m);
+                        }}
+                      >
+                        şikayet et
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               {mine && avatar}
             </div>
@@ -418,30 +433,30 @@ export default function ConversationPage() {
               </div>
             )}
             <div className="row">
-            <textarea
-              ref={inputRef}
-              className="msg-input"
-              placeholder="Mesaj yaz…"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-              rows={1}
-              maxLength={2000}
-              disabled={!detail}
-            />
-            <button
-              type="submit"
-              className="msg-send"
-              disabled={!draft.trim() || sending}
-              aria-label="Gönder"
-            >
-              ›
-            </button>
+              <textarea
+                ref={inputRef}
+                className="msg-input"
+                placeholder="Mesaj yaz…"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+                rows={1}
+                maxLength={2000}
+                disabled={!detail}
+              />
+              <button
+                type="submit"
+                className="msg-send"
+                disabled={!draft.trim() || sending}
+                aria-label="Gönder"
+              >
+                ›
+              </button>
             </div>
           </form>
         )}

@@ -21,6 +21,14 @@ export const UNREAD_POLL_INTERVAL_MS = 60 * 1000;
 export type ConversationKind = 'direct' | 'group';
 export type MemberRole = 'admin' | 'member';
 
+/**
+ * 'system' is the conversation speaking — "X gruba yeni üye ekledi: Y"
+ * (demo note 12). It has no sender and is neither reportable nor
+ * deletable; the server refuses all three, and the clients render it as a
+ * centred line instead of a bubble.
+ */
+export type MessageKind = 'user' | 'system';
+
 export interface ConversationSummary {
   id: number;
   kind: ConversationKind;
@@ -32,9 +40,11 @@ export interface ConversationSummary {
   unreadCount: number;
   lastMessage: {
     id: number;
+    kind: MessageKind;
     /** null when the message was deleted. */
     body: string | null;
     deleted: boolean;
+    /** Always null for a system line — nobody wrote it. */
     senderId: number | null;
     senderName: string | null;
     createdAt: string;
@@ -74,7 +84,8 @@ export interface Quote {
 export interface Message {
   id: number;
   conversationId: number;
-  /** null once the sender's account is gone. */
+  kind: MessageKind;
+  /** null once the sender's account is gone — and always, for a system line. */
   sender: UserSummary | null;
   /** null when deleted. */
   body: string | null;
