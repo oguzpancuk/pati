@@ -111,10 +111,12 @@ export default function AnimalLocationSheet({
                     style={styles.marker}
                   >
                     {dateShown && (
-                      <View style={styles.callout}>
-                        <Text variant="micro" style={styles.calloutText} numberOfLines={1}>
-                          {updatedAtLabel}
-                        </Text>
+                      <View style={styles.calloutRow} pointerEvents="none">
+                        <View style={styles.callout}>
+                          <Text variant="micro" style={styles.calloutText} numberOfLines={1}>
+                            {updatedAtLabel}
+                          </Text>
+                        </View>
                       </View>
                     )}
                     <AnimalAvatar species={species} breed={breed} photoUrl={photoUrl} size={44} />
@@ -170,10 +172,20 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   map: { flex: 1 },
   marker: { alignItems: 'center', justifyContent: 'center' },
-  callout: {
+  // The pill is measured inside the marker, whose box is deliberately the
+  // avatar's 44 pt so the avatar stays on the spot — and a date measured in
+  // 44 pt came out as "19 …" (simulator, 2026-09-11). This row reaches well
+  // past the marker on both sides so the text has room, and centres the pill
+  // over the avatar; it takes no space of its own and no touches.
+  calloutRow: {
     position: 'absolute',
     bottom: '100%',
+    left: -110,
+    right: -110,
     marginBottom: spacing.xs,
+    alignItems: 'center',
+  },
+  callout: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: radius.pill,
