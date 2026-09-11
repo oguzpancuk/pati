@@ -265,12 +265,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
    * your own profile is one tab tap away, and web says the same (owner,
    * 2026-09-11; the two clients used to disagree here).
    *
-   * It is always a push, never a jump to the profile tab: Tabs is the bottom
-   * of MainStack, so navigating to it pops every pushed screen, taking an
-   * in-flight add-animal draft with it and leaving no way back to the animal
-   * (DESIGN.md §8). `push`, not `navigate`, so a chain like profile → animal
-   * → the same person keeps its history instead of unwinding to the screen
-   * already in the stack.
+   * It is always a push, never a jump to the profile tab: switching tabs
+   * abandons the stack the reader is standing in and leaves no way back to
+   * the animal (DESIGN.md §8). `push`, not `navigate`, so a chain like
+   * profile → animal → the same person keeps its history instead of
+   * unwinding to the screen already in the stack.
    */
   function isSelf(userId: number | null | undefined) {
     return typeof userId === 'number' && userId === myId;
