@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fetchMyFriendships, FriendshipEntry } from '../api';
+import { useSheetExit } from './profile/Sheet';
 import { createGroup, openDirectConversation } from '../api/messages';
 import { UserAvatar } from '../avatars';
 
@@ -15,6 +16,7 @@ type Mode = 'direct' | 'group';
  * shell it was in.
  */
 export function NewConversationForm() {
+  const inSheet = useSheetExit() !== null;
 
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>('direct');
@@ -103,12 +105,18 @@ export function NewConversationForm() {
       <div className="card flat msg-empty">
         <strong>Henüz arkadaşın yok</strong>
         <div className="muted">Mesajlaşmak için önce arkadaş ekle.</div>
-        {/* `replace`, because this form is also rendered inside a Sheet: the sheet
-              added one history entry and a push would leave it standing, so Back
-              would land on a phantom copy of the inbox and the counter behind
-              PageHeader's fallback would never return to zero (review,
-              2026-09-12). */}
-          <Link to="/arkadas-bul" replace className="btn" style={{ marginTop: 12 }}>
+        {/* `replace` ONLY inside the sheet. There it consumes the entry the sheet
+              added, which a push would leave standing so that Back landed on a
+              phantom copy of the inbox. On the /mesajlar/yeni route there is no
+              such entry — that page exists for a cold start, so replacing its
+              only entry would send Back out of the site instead (review,
+              2026-09-12). `useSheetExit` is non-null exactly inside a sheet. */}
+          <Link
+            to="/arkadas-bul"
+            replace={inSheet}
+            className="btn"
+            style={{ marginTop: 12 }}
+          >
           Arkadaş bul
         </Link>
       </div>

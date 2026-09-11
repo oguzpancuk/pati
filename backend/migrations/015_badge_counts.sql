@@ -6,9 +6,25 @@
 --
 -- Only the RENAME is here. Deciding which tiers the new ladders justify is
 -- application logic, not SQL — scripts/recompute-badges.js does that, and is
--- re-runnable. This file is too: a second run matches nothing.
+-- re-runnable. This file is too, including after a stray old-key write: the
+-- DELETE below clears anything the rename could collide with first.
 --
 -- 001_init.sql describes no badge keys, so there is nothing to mirror.
+
+-- A streak row whose care twin already exists cannot be renamed onto it:
+-- UNIQUE (user_id, badge_key, tier) would refuse, and because migrate.js IS
+-- the release command a failure here fails every later deploy. That pairing is
+-- reachable: the release command runs while the OLD machines still serve
+-- traffic, and an award written in that window carries the old key again.
+-- The twin already says everything the survivor would, so drop it.
+DELETE FROM user_badge_awards a
+ WHERE a.badge_key IN ('streak:feeder', 'streak:water', 'streak:registrar')
+   AND EXISTS (
+     SELECT 1 FROM user_badge_awards b
+      WHERE b.user_id = a.user_id
+        AND b.tier = a.tier
+        AND b.badge_key = 'care:' || split_part(a.badge_key, ':', 2)
+   );
 
 UPDATE user_badge_awards
    SET badge_key = 'care:' || split_part(badge_key, ':', 2)

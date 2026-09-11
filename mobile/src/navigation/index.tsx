@@ -1,14 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getFocusedRouteNameFromRoute,
   NavigationContainer,
-  useFocusEffect,
   type LinkingOptions,
   type NavigatorScreenParams,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { linkingConfig } from './linking';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -55,12 +55,6 @@ export type AuthStackParamList = {
   Register: undefined;
 };
 
-/**
- * The ROOT stack holds the tabs and nothing but modals. Anything pushed here
- * covers the tab bar, which is why only the three "do a thing and come back"
- * flows live here (owner, 2026-09-11: the bar must never disappear, and these
- * three should open as popups). Everywhere you can *go* is a tab stack screen.
- */
 /**
  * Everything lives in a tab's own stack — destinations AND the modal flows.
  * Nothing sits on a stack above the tabs any more, and that is not tidiness:
@@ -144,53 +138,7 @@ const linking: LinkingOptions<MainTabParamList> = {
     }
     return Linking.getInitialURL();
   },
-  config: {
-    screens: {
-      // `initialRouteName` per tab is load-bearing, not decoration: without
-      // it a link builds that tab's stack with the linked screen as its ONLY
-      // route — no back chevron, and the tab's own home unreachable for the
-      // session (review, 2026-09-12). A destination exists in every tab's
-      // stack so it can be pushed from wherever the reader is; a link has to
-      // pick one, so each path names the tab it belongs to.
-      Map: { initialRouteName: 'MapHome', screens: { MapHome: 'map' } },
-      Animals: {
-        initialRouteName: 'AnimalsHome',
-        screens: {
-          AnimalsHome: 'animals',
-          // ?matchReview=1 / ?report=1
-          AnimalProfile: { path: 'animal/:animalId', parse: { animalId: Number } },
-          AddAnimal: 'add-animal',
-          CarePhotos: { path: 'animal/:animalId/care', parse: { animalId: Number } }, // ?species=cat
-        },
-      },
-      Messages: {
-        initialRouteName: 'MessagesHome',
-        screens: {
-          MessagesHome: 'messages',
-          NewConversation: 'messages/new',
-          Conversation: {
-            path: 'conversation/:conversationId',
-            parse: { conversationId: Number },
-          },
-          GroupSettings: {
-            path: 'conversation/:conversationId/settings',
-            parse: { conversationId: Number },
-          },
-        },
-      },
-      Profile: {
-        initialRouteName: 'ProfileHome',
-        screens: {
-          ProfileHome: 'profile',
-          Notifications: 'notifications',
-          PublicProfile: { path: 'user/:userId', parse: { userId: Number } },
-          FindFriends: 'friends',
-          Leaderboard: 'leaderboard',
-          UserComments: 'comments',
-        },
-      },
-    },
-  },
+  config: linkingConfig,
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -293,11 +241,16 @@ function sharedScreens() {
       component={GroupSettingsScreen}
       options={{ title: 'grup ayarları' }}
     />,
-    // The modal flows, in the tab stack rather than above it. Presented as
-    // sheets they still cover the tab bar, which is right for a task — but
-    // they can now reach the routes they navigate to, and the add-animal
-    // draft survives a trip to a candidate because the candidate is pushed
-    // above the modal instead of unmounting it.
+    // The modal flows, in the tab stack rather than above it: they can now
+    // reach the routes they navigate to, and the add-animal draft survives a
+    // trip to a candidate because the candidate is pushed above the modal
+    // instead of unmounting it.
+    //
+    // iOS presents them as sheets over everything, tab bar included. Android
+    // lays an opaque modal inside the tab's own stack (react-native-screens
+    // branches on transparency only), so the bar stays visible there and the
+    // hosting tab shows unlit while the reader is standing in it. Nothing
+    // breaks either way; the two platforms just do not photograph alike.
     <TabStack.Screen
       key="AddAnimal"
       name="AddAnimal"
@@ -362,34 +315,38 @@ function MainTabs() {
   const theme = useTheme();
   const tabOptions = tabBarOptions(theme);
   // The unread total on the messages tab (owner, 2026-09-11 demo note 10),
-  // polled the way the profile bell is: once a minute while the tabs are in
-  // front. A pushed screen (a conversation) blurs the tabs, so the timer
-  // stops there — which is exactly when the number changes.
+  // polled once a minute for the whole signed-in session. It used to stop
+  // while a pushed screen was up, because the root stack blurred the tabs —
+  // there is no root stack any more, and the container's own navigation is
+  // always focused, so the interval simply runs. One request a minute is the
+  // price; what it buys is a count that follows messages arriving from
+  // elsewhere, which the mark-read subscription below cannot see.
   const [unreadMessages, setUnreadMessages] = useState(0);
   // So the badge follows the read rather than polling against it: every
   // mark-read answers with the caller's new total, computed by the server in
   // the same request that stamped last_read_at. Not focus-gated — the reads
   // that matter happen while the tabs are behind a conversation.
   useEffect(() => subscribeUnreadMessageCount(setUnreadMessages), []);
-  useFocusEffect(
-    useCallback(() => {
-      let alive = true;
-      async function poll() {
-        try {
-          const count = await fetchUnreadMessageCount();
-          if (alive) setUnreadMessages(count);
-        } catch {
-          // A background count; the badge keeps its last number.
-        }
+  // A plain effect, not useFocusEffect: this component is the root, and the
+  // container's own navigation reports itself focused forever, so the focus
+  // variant only looked like it gated something.
+  useEffect(() => {
+    let alive = true;
+    async function poll() {
+      try {
+        const count = await fetchUnreadMessageCount();
+        if (alive) setUnreadMessages(count);
+      } catch {
+        // A background count; the badge keeps its last number.
       }
-      poll();
-      const timer = setInterval(poll, UNREAD_POLL_INTERVAL_MS);
-      return () => {
-        alive = false;
-        clearInterval(timer);
-      };
-    }, [])
-  );
+    }
+    poll();
+    const timer = setInterval(poll, UNREAD_POLL_INTERVAL_MS);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
   return (
     <Tab.Navigator
       screenOptions={({ route }) => {

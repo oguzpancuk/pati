@@ -1,8 +1,6 @@
 import React from 'react';
-import { View } from 'react-native';
 import type { UserRank } from '../../api/users';
 import StatStrip from '../StatStrip';
-import { Text } from '../ui';
 import { makeStyles, spacing } from '../../theme';
 
 export type ProfileStatsProps = {

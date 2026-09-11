@@ -62,12 +62,18 @@ async function main() {
   for (const r of before.rows) console.log(`  ${r.badge_key} ${r.tier}: ${r.n}`);
 
   const planned = [];
+  const totals = new Map();
   for (let i = 0; i < users.length; i += BATCH) {
     const ids = users.slice(i, i + BATCH).map((u) => u.id);
     const badges = await getBadgesForUsers(ids);
     for (const id of ids) {
       const data = badges.get(id);
       if (!data) continue;
+      // Every user, not only those who keep a badge: the ones the new ladders
+      // leave with nothing are exactly the ones whose stored total is now too
+      // high, and a stale high total makes their next celebration render the
+      // points counting DOWN (review, 2026-09-12).
+      totals.set(id, data.points.total);
       for (const badge of data.badges) {
         if (!badge.tier || !CARE_KEYS.includes(badge.key)) continue;
         // Every tier up to the current one, the way animal badges are
@@ -135,9 +141,6 @@ async function main() {
     console.log('--dry-run: nothing written');
     return;
   }
-
-  const totals = new Map();
-  for (const p of planned) totals.set(p.userId, p.points);
 
   let written = 0;
   const client = await pool.connect();
