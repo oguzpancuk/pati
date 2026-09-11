@@ -70,7 +70,8 @@ export default function SettingsSheet({
       </Text>
       <View style={styles.demoRow}>
         <View style={styles.demoText}>
-          <Text variant="bodyStrong">Demo verileri</Text>
+          {/* No heading of its own: the micro label above already names the
+              section, and the two together read as the words repeating. */}
           <Text variant="caption">
             {showDemo
               ? 'Örnek mahalleler haritada ve listelerde görünüyor.'
@@ -134,7 +135,7 @@ export default function SettingsSheet({
 }
 
 const useStyles = makeStyles(() => ({
-  label: { marginBottom: spacing.sm },
+  label: { marginTop: spacing.lg, marginBottom: spacing.sm },
   themeRow: { flexDirection: 'row', gap: spacing.sm },
   demoRow: {
     flexDirection: 'row',

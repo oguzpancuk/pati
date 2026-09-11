@@ -129,7 +129,12 @@ const useStyles = makeStyles(({ colors: c }) => ({
     paddingBottom: spacing.md,
   },
   title: { flex: 1 },
-  body: { paddingHorizontal: spacing.lg },
+  // flexShrink so the ScrollView is BOUNDED by the card's maxHeight. Without
+  // it the list lays out at its full content height and the card simply
+  // clips the overflow — the settings sheet's last line, the basemap
+  // credit, was unreachable and no swipe would bring it back (simulator,
+  // 2026-09-11). A ScrollView only scrolls when its parent bounds it.
+  body: { paddingHorizontal: spacing.lg, flexShrink: 1 },
   bodyContent: { paddingBottom: spacing.xxl },
   bodyFill: { flex: 1 },
 }));
