@@ -4,10 +4,12 @@
 -- count, the messages tab badge and the inbox ordering all follow from the
 -- messages table instead of needing three separate paths.
 --
--- The messages table is 006's (production has it), so the column is added
--- here rather than in 006's CREATE TABLE body, which would do nothing on an
--- existing table. Every statement survives being re-run: migrate.js applies
--- this file on every deploy.
+-- The messages table is 006's, not 001's, so 006's CREATE TABLE body is what
+-- describes it for a database built from scratch and the column is mirrored
+-- there. On production that body is a no-op — the table already exists — so
+-- the ALTER below is the only thing that can add the column there. Every
+-- statement survives being re-run: migrate.js applies this file on every
+-- deploy.
 --
 -- The default is 'user', so every row that already exists stays a person's
 -- message and no read path changes meaning on the deploy that adds this.

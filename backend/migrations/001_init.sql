@@ -89,6 +89,19 @@ CREATE TABLE IF NOT EXISTS email_verifications (
     last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- The same shape, for the other thing a signed-out person can prove by
+-- reading the address's mail: that they may choose a new password
+-- (013_password_reset.sql). One outstanding code per account, only its
+-- salted hash stored, attempts counted before every comparison.
+CREATE TABLE IF NOT EXISTS password_resets (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    code_hash CHAR(64) NOT NULL,
+    salt CHAR(32) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Animals
 CREATE TABLE IF NOT EXISTS animals (
     id SERIAL PRIMARY KEY,

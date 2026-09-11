@@ -40,7 +40,12 @@ step "web tsc"         web     npx tsc --noEmit
 # The stylesheet is hand-merged at the end of every track; an unbalanced
 # brace nests the rest of the file into one rule and the build still
 # passes (2026-09-08 merge). esbuild's CSS parser refuses it here.
-step "web css"         web     npx esbuild src/theme.css --log-override:css-syntax-error=error --outfile=/tmp/pati-theme-check.css
+# src/styles/*.css joined the check on 2026-09-11: the four parallel
+# tracks each got their own stylesheet precisely so they would not
+# hand-merge theme.css, which would otherwise have left the whole new
+# profile/map/animal/password look outside the battery. Run through sh so
+# the glob expands inside web/, and tolerate an empty styles/ directory.
+step "web css"         web     sh -c 'set -e; files="src/theme.css"; for f in src/styles/*.css; do [ -f "$f" ] && files="$files $f"; done; npx esbuild $files --log-override:css-syntax-error=error --outdir=/tmp/pati-css-check'
 step "backend load"    backend node -e "require('./src/app.js')"
 # The backend's only unit tests so far (badge thresholds); node:test, no
 # database needed. No path argument: a bare directory is not a test file

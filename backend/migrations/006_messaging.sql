@@ -45,6 +45,13 @@ CREATE TABLE IF NOT EXISTS messages (
     -- reply, and a report on the message still needs the row.
     sender_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     body TEXT NOT NULL,
+    -- A group event ("X added Y") is a message rather than a notification
+    -- kind, so the unread count and the inbox ordering carry it for free
+    -- (014_message_kind.sql). Mirrored here because this file, not 001, is
+    -- what describes the messages table for a database built from scratch;
+    -- the CHECK stays in 014 alone, since a standalone constraint naming
+    -- the column would fail here on a database that does not have it yet.
+    kind VARCHAR(10) NOT NULL DEFAULT 'user',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     -- Soft delete: the row stays (the report queue may point at it, and the
     -- moderator must be able to read what was reported); clients see a

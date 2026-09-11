@@ -56,6 +56,7 @@ async function anonymizeAccount(client, userId, { reason }) {
   await client.query('DELETE FROM user_animal_care WHERE user_id = $1', [userId]);
   await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [userId]);
   await client.query('DELETE FROM email_verifications WHERE user_id = $1', [userId]);
+  await client.query('DELETE FROM password_resets WHERE user_id = $1', [userId]);
   // A push token is a device identifier. Nothing sends push yet, so these
   // rows do nothing today — but a deletion that leaves them behind would
   // start meaning something the day APNs/FCM ships, and by then nobody
