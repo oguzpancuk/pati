@@ -85,8 +85,10 @@ let googleInitialized: string | null = null;
 let googlePressListening = false;
 
 function routeGoogleCredential(idToken: string): void {
-  // A press we recognised wins; with no press at all (and exactly one button
-  // on the page) there is nothing to confuse it with.
+  // A press we recognised wins — including when it names a button that has
+  // since been released, which resolves to no handler and drops. Only when
+  // no press was seen at all does the single button on the page get it:
+  // there is nothing to confuse it with then.
   const target =
     googlePressed ?? (googleHandlers.size === 1 ? [...googleHandlers.keys()][0] : null);
   googlePressed = null;
@@ -192,10 +194,15 @@ export async function renderGoogleButton(
  * Drops a button's handler — call it from the effect cleanup that rendered
  * the button. A handler left behind after its component unmounts can still
  * be the one a credential reaches.
+ *
+ * `googlePressed` is deliberately NOT cleared here. If the button the user
+ * pressed has gone away before its credential came back — the delete dialog
+ * closed while Google's chooser was still open, say — that credential
+ * belongs to nobody, and handing it to whatever button is left is exactly
+ * the mix-up this dispatcher exists to prevent. It is dropped instead.
  */
 export function releaseGoogleButton(parent: HTMLElement): void {
   googleHandlers.delete(parent);
-  if (googlePressed === parent) googlePressed = null;
 }
 
 // ------------------------------------------------------------------- Apple
