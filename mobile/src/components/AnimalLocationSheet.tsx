@@ -7,6 +7,14 @@ import { Button, Text } from './ui';
 import { mapStyles } from '../map/styles';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
 
+// Everything in the sheet that is not the map: the handle, the title, the
+// lead line (two lines on a narrow phone), the Kapat button and the paddings
+// around them. The map is sized against what this leaves, never against the
+// screen alone.
+const SHEET_CHROME = 170;
+// The sheet may take 88% of the screen (see the stylesheet's maxHeight).
+const SHEET_MAX_RATIO = 0.88;
+
 /**
  * "En son görüldüğü yer" as a real map (demo item 8): the profile keeps the
  * static thumbnail as the affordance, and a tap brings the same spot up in a
@@ -42,9 +50,15 @@ export default function AnimalLocationSheet({
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   // The sheet does not scroll (a ScrollView would fight the map's pan), so
-  // the map sizes itself against the screen: a landscape phone must still
-  // show the title and the close button.
-  const mapHeight = Math.max(180, Math.min(340, Math.round(windowHeight * 0.45)));
+  // the map takes what the chrome leaves rather than a share of the screen.
+  // Neither client is orientation-locked: rotated, a 45% map plus the title
+  // and the button came to more than the sheet's 88% cap, and the overflow
+  // fell on the Kapat button — the sheet's own way out, clipped on Android
+  // by the rounded top corners (review finding).
+  const mapHeight = Math.max(
+    140,
+    Math.min(340, Math.round(windowHeight * SHEET_MAX_RATIO) - SHEET_CHROME - insets.bottom)
+  );
   const [dateShown, setDateShown] = useState(false);
 
   function close() {
@@ -144,8 +158,11 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   title: { marginBottom: 2 },
   lead: { marginBottom: spacing.md },
-  // Height comes from the screen (see mapHeight); the rest is the frame.
+  // Height comes from the space the chrome leaves (see mapHeight); the rest
+  // is the frame. flexShrink is the backstop on a screen too short even for
+  // the 140 floor: the map gives way, the Kapat button never does.
   mapWrapper: {
+    flexShrink: 1,
     borderRadius: radius.lg,
     overflow: 'hidden',
     borderWidth: 1,

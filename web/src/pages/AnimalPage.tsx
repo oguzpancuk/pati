@@ -1207,6 +1207,7 @@ export default function AnimalPage() {
           transition — see the component. */}
       <AnimalLocationDialog
         open={locationOpen}
+        onOpen={() => setLocationOpen(true)}
         onClose={() => setLocationOpen(false)}
         species={animal.species}
         breed={animal.breed}
