@@ -30,6 +30,11 @@
   white-space: nowrap;
 }
 
+/* Your own row is not a door (owner, 2026-09-11): no pointer, no chevron. */
+.animal-carer-row.self {
+  cursor: default;
+}
+
 .animal-carer-row .chevron {
   color: var(--text-subtle);
   flex: 0 0 auto;
