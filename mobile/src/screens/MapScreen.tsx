@@ -407,6 +407,12 @@ export default function MapScreen({ navigation }: any) {
    * draw; the animals must become visible before the animation can be seen.
    */
   function celebrateNearbyAnimals(origin: Coordinates, currentAnimals: Animal[]) {
+    // The avatars step aside while a callout is up (see the marker list), and
+    // the "Ekle" button lives in the sheet OUTSIDE the map — so it never
+    // fires the map's onPress that would normally close the callout. Without
+    // this, confirming a drop plays the hearts over a map with no animals on
+    // it, under a card still describing the record you tapped a minute ago.
+    setSelectedCareId(null);
     const affected = currentAnimals.filter(
       (animal) =>
         distanceMeters(origin, {

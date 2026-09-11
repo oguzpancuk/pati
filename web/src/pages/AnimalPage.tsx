@@ -37,6 +37,9 @@ import { AdBanner } from '../components/AdBanner';
 import { ChipRow } from '../components/ChipRow';
 import { LoadMoreButton } from '../components/LoadMoreButton';
 import { PageHeader, useGoBack } from '../components/PageHeader';
+// DESIGN §8 point 3: a dialog is not a page. The mechanism lives with the
+// profile sheets because they needed it first; it is not profile-specific.
+import { useSheetDismiss } from '../components/profile/Sheet';
 import '../styles/animal.css';
 
 const RECORD_TYPE_LABELS = { illness: 'Hastalık', injury: 'Yaralanma' } as const;
@@ -268,6 +271,15 @@ export default function AnimalPage() {
   const { celebrate } = useBadgeAwards();
   // Tapping a health record lists only the comments bound to that record.
   const [logRecord, setLogRecord] = useState<HealthRecord | null>(null);
+
+  // Escape and the browser's / Android's Back close these instead of leaving
+  // the animal profile — which on the PWA used to throw away a half-typed
+  // health record. Mobile's four modals gained the same through
+  // onRequestClose; this is the web half of that rule.
+  const closeCare = useSheetDismiss(careOpen, () => setCareOpen(false));
+  const closeRecord = useSheetDismiss(recordOpen, () => setRecordOpen(false));
+  const closeVaccine = useSheetDismiss(vaccineOpen, () => setVaccineOpen(false));
+  const closeLog = useSheetDismiss(!!logRecord, () => setLogRecord(null));
   const [logComments, setLogComments] = useState<AnimalComment[]>([]);
 
   const load = useCallback(async () => {
@@ -1073,7 +1085,7 @@ export default function AnimalPage() {
       />
 
       {careOpen && (
-        <div className="backdrop" onClick={() => !careSending && setCareOpen(false)}>
+        <div className="backdrop" onClick={() => !careSending && closeCare()}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2>{displayName} için bakım ver</h2>
             {careDone ? (
@@ -1149,7 +1161,7 @@ export default function AnimalPage() {
       )}
 
       {recordOpen && (
-        <div className="backdrop" onClick={() => !saving && setRecordOpen(false)}>
+        <div className="backdrop" onClick={() => !saving && closeRecord()}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Sağlık kaydı ekle</h2>
             <div className="chiprow">
@@ -1189,7 +1201,7 @@ export default function AnimalPage() {
       )}
 
       {vaccineOpen && (
-        <div className="backdrop" onClick={() => !saving && setVaccineOpen(false)}>
+        <div className="backdrop" onClick={() => !saving && closeVaccine()}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Aşı kaydı ekle</h2>
             <div className="label">aşı türü</div>
@@ -1218,7 +1230,7 @@ export default function AnimalPage() {
       )}
 
       {logRecord && (
-        <div className="backdrop" onClick={() => setLogRecord(null)}>
+        <div className="backdrop" onClick={() => closeLog()}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2>
               {RECORD_TYPE_LABELS[logRecord.record_type]}: {logRecord.description}

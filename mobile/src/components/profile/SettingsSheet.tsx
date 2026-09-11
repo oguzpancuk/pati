@@ -121,10 +121,10 @@ export default function SettingsSheet({
       {deleteAccount}
 
       {/* The basemap credit (owner, 2026-09-11 demo note 15). It left every
-          map surface and lives here instead — always visible, never behind a
-          further tap, which is what keeps ODbL's "discoverable" true one
-          level deeper. The words come from map/attribution.ts so both
-          clients say the same sentence. */}
+          map surface and lives here instead — the last line of this sheet
+          rather than behind a further tap, which is what keeps ODbL's
+          "discoverable" true one level deeper. The words come from
+          map/attribution.ts so both clients say the same sentence. */}
       <Divider style={styles.divider} />
       <Text variant="micro" style={styles.label}>
         {MAP_ATTRIBUTION_LABEL}

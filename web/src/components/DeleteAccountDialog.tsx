@@ -10,6 +10,9 @@ import {
 } from '../socialAuth';
 import { resolvedThemeName } from '../theme';
 import { useSheetExit } from './profile/Sheet';
+// DESIGN §8 point 3: Escape and Back close the dialog, not the page. Its
+// mobile twin got the same through onRequestClose in this range.
+import { useSheetDismiss } from './profile/Sheet';
 
 /**
  * Self-service account deletion (the KVKK promise on /gizlilik + App Store
@@ -107,6 +110,12 @@ export function DeleteAccountLink() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, usesPassword, providers, theme, linked.join(',')]);
 
+  // history: false — this dialog opens from INSIDE the settings sheet, which
+  // already owns a history entry. A second owned entry nested in it is the
+  // race the care-history popups were given this same flag for: Escape
+  // closes the dialog, and a Back press closes it together with the sheet.
+  const dismiss = useSheetDismiss(open, reset, false);
+
   return (
     <>
       <button
@@ -125,7 +134,7 @@ export function DeleteAccountLink() {
       </button>
 
       {open && (
-        <div className="backdrop" onClick={() => !busy && reset()}>
+        <div className="backdrop" onClick={() => !busy && dismiss()}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
             <div className="micro" style={{ textAlign: 'center' }}>

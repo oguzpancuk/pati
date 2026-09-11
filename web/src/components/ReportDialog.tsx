@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { createReport } from '../api';
 // Single copy of the reason list, shared with mobile (like @mobile/taxonomy).
 import { REPORT_REASONS, ReportReason, ReportTargetType } from '@mobile/reportReasons';
+// DESIGN §8 point 3: Escape and Back close the dialog, not the page.
+import { useSheetDismiss } from './profile/Sheet';
 
 /**
  * The report flow, shared by every reportable surface: a quiet "şikayet et"
@@ -47,6 +49,8 @@ export function ReportLink({
     }
   }
 
+  const dismiss = useSheetDismiss(open, reset);
+
   return (
     <>
       <button
@@ -59,7 +63,7 @@ export function ReportLink({
       </button>
 
       {open && (
-        <div className="backdrop" onClick={() => !busy && reset()}>
+        <div className="backdrop" onClick={() => !busy && dismiss()}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
             {done ? (

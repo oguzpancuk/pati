@@ -7,6 +7,8 @@ import {
 } from '@mobile/animalBadges';
 import { TIER_LABELS, TIER_ORDER } from '@mobile/badges';
 import { BadgeSymbol } from '../badges';
+// DESIGN §8 point 3: Escape and Back close the sheet, not the page.
+import { useSheetDismiss } from './profile/Sheet';
 
 /**
  * The animal's badge ladder (P7 item 3; mobile parity:
@@ -30,10 +32,12 @@ export function AnimalBadgeLadder({
   focusKey?: string | null;
   animalName: string;
 }) {
+  // Above the early return: a hook cannot be called conditionally.
+  const dismiss = useSheetDismiss(open, onClose);
   if (!open) return null;
   const earned = steps.filter((s) => s.tier).length;
   return (
-    <div className="backdrop" onClick={onClose}>
+    <div className="backdrop" onClick={dismiss}>
       <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Rozetler">
         <h2 style={{ textAlign: 'center' }}>Rozetler</h2>
         <p className="muted" style={{ textAlign: 'center' }}>

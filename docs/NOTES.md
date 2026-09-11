@@ -3893,8 +3893,8 @@ which is the third time this project has learned the same thing:
   marker whose box is deliberately the avatar's 44 pt.
 
 **Owner decisions taken during the work**, all overridable in a word: the map
-credit leaves every map surface and lives always-visible at the bottom of the
-settings sheet (option b of two); your own name is not a link, on an animal
+credit leaves every map surface and becomes the last line of the settings
+sheet — a scroll away rather than another tap (option b of two); your own name is not a link, on an animal
 profile or on your own leaderboard row, on either client; a group event is a
 system message in the group rather than a new notification kind, which is what
 makes the unread count, the tab badge and the inbox ordering follow for free;

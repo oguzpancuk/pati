@@ -60,10 +60,18 @@ function Shell() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   useEffect(() => {
     let alive = true;
+    // A mark-read answers with the count the server computed in the same
+    // statement that stamped last_read_at, so it is never stale. A poll can
+    // be: one that started BEFORE a read landed still carries the old number,
+    // and on a slow count query it arrives after and would overwrite the
+    // badge with it until the next interval. The seq makes the read win —
+    // a poll only publishes if no read published while it was in flight.
+    let readSeq = 0;
     const poll = () => {
+      const seq = readSeq;
       fetchUnreadMessageCount()
         .then((count) => {
-          if (alive) setUnreadMessages(count);
+          if (alive && seq === readSeq) setUnreadMessages(count);
         })
         .catch(() => {
           // A background count; the badge keeps its last number.
@@ -79,6 +87,7 @@ function Shell() {
     // still moves the badge, and it moves it to the number the server computed
     // in the same request that did the stamping — no second read to race.
     const unsubscribe = onConversationRead((count) => {
+      readSeq += 1;
       if (alive) setUnreadMessages(count);
     });
     return () => {

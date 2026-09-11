@@ -89,7 +89,14 @@ export default function GroupSettingsPage() {
     if (!window.confirm('Bu gruptan ayrılmak istediğine emin misin?')) return;
     try {
       await leaveGroup(conversationId);
-      navigate('/mesajlar', { replace: true });
+      // Leaving invalidates this page AND the conversation behind it, so the
+      // way out goes past both — mobile pops 2 for the same reason. `replace`
+      // alone only consumed this page and left Back landing on a conversation
+      // the user is no longer a member of, which renders its fetch error.
+      // Reached by a deep link there is nothing beneath, so the list it is.
+      const idx = (window.history.state as { idx?: number } | null)?.idx;
+      if (typeof idx === 'number' && idx >= 2) navigate(-2);
+      else navigate('/mesajlar', { replace: true });
     } catch (err) {
       fail(err);
     }
