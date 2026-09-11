@@ -7,6 +7,10 @@ import {
   POLL_INTERVAL_MS,
 } from '../api/messages';
 import { UserAvatar } from '../avatars';
+import { NewConversationForm } from '../components/NewConversationForm';
+// DESIGN §8 point 3: the dialog is not a page, so Escape and Back close it
+// rather than leaving the inbox.
+import { Sheet } from '../components/profile/Sheet';
 
 function preview(c: ConversationSummary) {
   if (!c.lastMessage) return c.kind === 'group' ? `${c.memberCount} üye` : 'Henüz mesaj yok';
@@ -18,6 +22,7 @@ function preview(c: ConversationSummary) {
 /** The fourth tab (mobile parity: MessagesScreen): the inbox, polled while the tab is visible. */
 export default function MessagesPage() {
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
+  const [newOpen, setNewOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -63,9 +68,12 @@ export default function MessagesPage() {
           <h1 style={{ margin: 0, fontSize: 22 }}>Mesajlar</h1>
           <div className="muted">Arkadaşlarınla ve gruplarınla</div>
         </div>
-        <Link to="/mesajlar/yeni" className="btn small" style={{ textDecoration: 'none' }}>
+        {/* A dialog, not a route: starting a chat is a task you finish and
+            come back from (owner, 2026-09-11). /mesajlar/yeni still exists
+            for a link or a cold start. */}
+        <button type="button" className="btn small" onClick={() => setNewOpen(true)}>
           + Yeni
-        </Link>
+        </button>
       </div>
 
       {conversations === null && !error && <p className="muted">Yükleniyor…</p>}
@@ -76,9 +84,14 @@ export default function MessagesPage() {
           <div className="muted">
             Bir arkadaşına yaz ya da mahallenin gönüllüleriyle bir grup kur.
           </div>
-          <Link to="/mesajlar/yeni" className="btn" style={{ marginTop: 12, textDecoration: 'none' }}>
+          <button
+            type="button"
+            className="btn"
+            style={{ marginTop: 12 }}
+            onClick={() => setNewOpen(true)}
+          >
             Yeni sohbet
-          </Link>
+          </button>
         </div>
       )}
       {conversations?.map((c) => {
@@ -125,6 +138,10 @@ export default function MessagesPage() {
           </Link>
         );
       })}
+
+      <Sheet open={newOpen} onClose={() => setNewOpen(false)} title="Yeni sohbet">
+        <NewConversationForm />
+      </Sheet>
     </div>
   );
 }
