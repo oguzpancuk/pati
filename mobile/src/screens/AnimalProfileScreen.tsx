@@ -621,8 +621,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             zoomEnabled={false}
             pitchEnabled={false}
             rotateEnabled={false}
-            // A static thumbnail; the full map screen carries the required
-            // OpenMapTiles/OSM attribution.
+            // No map draws the credit any more; it is one line in the
+            // profile's settings sheet (demo note 15, map/attribution.ts).
             attributionEnabled={false}
           >
             <Camera defaultSettings={{ centerCoordinate: [longitude, latitude], zoomLevel: 16 }} />

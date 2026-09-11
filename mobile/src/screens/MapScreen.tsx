@@ -718,10 +718,11 @@ export default function MapScreen({ navigation }: any) {
         mapStyle={mapStyles[themeName]}
         rotateEnabled={false}
         pitchEnabled={false}
-        // OpenMapTiles + OSM attribution (required); top-left, clear of the
-        // floating controls. The MapLibre logo is optional and stays off.
-        attributionEnabled
-        attributionPosition={{ top: 64, left: 8 }}
+        // The OpenMapTiles/OSM credit is no longer drawn on any map: it is
+        // one always-visible line in the profile's settings sheet (owner,
+        // 2026-09-11 demo note 15; map/attribution.ts). The MapLibre logo
+        // is optional and stays off too.
+        attributionEnabled={false}
         onDidFinishLoadingMap={handleMapReady}
         onRegionDidChange={handleRegionDidChange}
         // A tap the care source did not claim closes the open callout;

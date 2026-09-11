@@ -165,7 +165,8 @@ export default function CareHistorySheet({
               mapStyle={mapStyles[themeName]}
               pitchEnabled={false}
               rotateEnabled={false}
-              // The full map screen carries the required attribution.
+              // No map draws the credit any more; it is one line in this
+              // profile's settings sheet (demo note 15, map/attribution.ts).
               attributionEnabled={false}
             >
               {/* Controlled (not defaultSettings): a new drop outside the
@@ -290,8 +291,8 @@ export default function CareHistorySheet({
                     zoomEnabled={false}
                     pitchEnabled={false}
                     rotateEnabled={false}
-                    // A static thumbnail; the full map screen carries the
-                    // required OpenMapTiles/OSM attribution.
+                    // No map draws the credit any more; it is one line in
+                    // this profile's settings sheet (demo note 15).
                     attributionEnabled={false}
                   >
                     <Camera

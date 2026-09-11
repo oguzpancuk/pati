@@ -1,6 +1,7 @@
 import React from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import { Chip, Divider, Text } from '../ui';
+import { MAP_ATTRIBUTION, MAP_ATTRIBUTION_LABEL } from '../../map/attribution';
 import { brand, makeStyles, spacing, type ThemeMode } from '../../theme';
 import Sheet from './Sheet';
 
@@ -118,8 +119,16 @@ export default function SettingsSheet({
 
       {deleteAccount}
 
-      {/* TODO(main): mount the map attribution line here — item 15 takes the
-          OpenStreetMap credit off the map and into this sheet. */}
+      {/* The basemap credit (owner, 2026-09-11 demo note 15). It left every
+          map surface and lives here instead — always visible, never behind a
+          further tap, which is what keeps ODbL's "discoverable" true one
+          level deeper. The words come from map/attribution.ts so both
+          clients say the same sentence. */}
+      <Divider style={styles.divider} />
+      <Text variant="micro" style={styles.label}>
+        {MAP_ATTRIBUTION_LABEL}
+      </Text>
+      <Text variant="caption">{MAP_ATTRIBUTION}</Text>
     </Sheet>
   );
 }
