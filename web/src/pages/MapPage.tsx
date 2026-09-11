@@ -95,14 +95,6 @@ const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
 // labels above mid-sentence.
 const CARE_TYPE_TITLE: Record<CareType, string> = { food: 'Mama', water: 'Su' };
 
-/**
- * A care row as the server now sends it: `expires_at` is computed there from
- * the row's own action type (food 4 h, water 6 h), so no client carries a
- * copy of those hours. The shared `CareAction` in ../api belongs to no
- * single page and stays untouched by this track; the map narrows it here.
- */
-type CareRecord = CareAction & { expires_at: string };
-
 // A tapped marker explains itself instead of the add sheet explaining the
 // rings (owner, 2026-09-11 demo note 13). Two records closer than this are
 // the same spot — a bowl refilled, not two places — and the popup says how
@@ -139,10 +131,23 @@ function remainingLabel(iso: string): string {
 }
 
 /**
+ * How many records sit at the same spot as this one — a bowl refilled, not
+ * two places. True positions, which a fan seat has pulled apart on screen.
+ */
+function sameSpotCount(actions: CareAction[], action: CareAction): number {
+  const [lng, lat] = action.location.coordinates;
+  const here = new maplibregl.LngLat(lng, lat);
+  return actions.filter((a) => {
+    const [aLng, aLat] = a.location.coordinates;
+    return here.distanceTo(new maplibregl.LngLat(aLng, aLat)) <= SAME_SPOT_METERS;
+  }).length;
+}
+
+/**
  * The popup's markup. Every value in it is ours (a fixed label, a formatted
  * duration, a count) — no user text reaches setHTML.
  */
-function carePopupHtml(action: CareRecord, sameSpot: number): string {
+function carePopupHtml(action: CareAction, sameSpot: number): string {
   const glyph = CARE_GLYPH_PATHS[action.action_type].map((d) => `<path d="${d}" />`).join('');
   const expired = new Date(action.expires_at).getTime() <= Date.now();
   return [
@@ -209,7 +214,7 @@ export default function MapPage() {
   // marker itself: the map is imperative, so the stack layout is
   // re-applied from these refs by paintMarkers() whenever records,
   // animals, the dot or the zoom change.
-  const actionsRef = useRef<CareRecord[]>([]);
+  const actionsRef = useRef<CareAction[]>([]);
   const myLocationRef = useRef<Coordinates | null>(null);
   // The open care callout, if any; removed on the next tap, on a viewport
   // refresh that drops its record, and on unmount.
@@ -544,12 +549,7 @@ export default function MapPage() {
       // coordinates, fan seat included); the "same spot" count compares
       // TRUE positions, which a fan has pulled apart.
       const drawn = hits[0].geometry as GeoJSON.Point;
-      const [lng, lat] = action.location.coordinates;
-      const here = new maplibregl.LngLat(lng, lat);
-      const sameSpot = actionsRef.current.filter((a) => {
-        const [aLng, aLat] = a.location.coordinates;
-        return here.distanceTo(new maplibregl.LngLat(aLng, aLat)) <= SAME_SPOT_METERS;
-      }).length;
+      const sameSpot = sameSpotCount(actionsRef.current, action);
       const popup = new maplibregl.Popup({
         closeButton: true,
         closeOnClick: false,
@@ -623,11 +623,9 @@ export default function MapPage() {
     const b = map.getBounds();
     // An antimeridian viewport is two boxes; the records are the union.
     const boxes = viewportBoxes([b.getEast(), b.getNorth()], [b.getWest(), b.getSouth()]);
-    let parts: CareRecord[][];
+    let parts: CareAction[][];
     try {
-      parts = (await Promise.all(
-        boxes.map((box) => fetchCareActionsInBounds(box))
-      )) as CareRecord[][];
+      parts = await Promise.all(boxes.map((box) => fetchCareActionsInBounds(box)));
     } catch (err) {
       // The flag belongs behind the same sequence guard as the data: a
       // stale request must neither raise nor clear it (review finding).
@@ -636,18 +634,22 @@ export default function MapPage() {
     }
     if (seq !== markersSeqRef.current) return;
     setActionsFailed(false);
-    const byId = new Map<number, CareRecord>();
+    const byId = new Map<number, CareAction>();
     for (const part of parts) for (const action of part) byId.set(action.id, action);
     const actions = [...byId.values()];
     actionsRef.current = actions;
     paintMarkers();
-    // A refresh that dropped the record the callout describes closes it,
-    // rather than leaving a card about something no longer on the map.
-    if (
-      carePopupRef.current &&
-      !byId.has(Number(carePopupRef.current.getElement()?.dataset.careId))
-    ) {
-      carePopupRef.current.remove();
+    // The callout ages with the data, the way mobile's does (its content is
+    // a memo over the same list): a refresh re-renders it, so the remaining
+    // time and the "Aynı noktada N kayıt" count move instead of standing
+    // still at whatever they said when the marker was clicked. A refresh
+    // that dropped the record it describes closes it, rather than leaving a
+    // card about something no longer on the map.
+    const openPopup = carePopupRef.current;
+    if (openPopup) {
+      const open = byId.get(Number(openPopup.getElement()?.dataset.careId));
+      if (!open) openPopup.remove();
+      else openPopup.setHTML(carePopupHtml(open, sameSpotCount(actions, open)));
     }
   }, [paintMarkers]);
 

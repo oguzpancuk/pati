@@ -6,6 +6,11 @@ import '../styles/animal.css';
 /** Marks the history entry this sheet pushes, so only its own pop closes it. */
 const SHEET_STATE = 'animalLocation';
 
+/** Is the entry the browser is standing on the one the sheet pushed? */
+function onSheetEntry(): boolean {
+  return (window.history.state as { patiSheet?: string } | null)?.patiSheet === SHEET_STATE;
+}
+
 /**
  * "En son görüldüğü yer" as a real map (demo item 8): the page keeps the
  * static thumbnail as the affordance, and a click brings the same spot up
@@ -17,9 +22,15 @@ const SHEET_STATE = 'animalLocation';
  * back button all close it and leave the animal profile where it was. Back
  * works because opening pushes a history entry; closing any other way pops
  * that entry again so the page's own back still leaves the page.
+ *
+ * Forward is the other half of that: a popped entry stays in the forward
+ * stack, so landing back ON the sheet's entry has to reopen the sheet.
+ * Without it (review finding) Forward re-entered an identical-looking page
+ * and the next Back appeared to do nothing at all.
  */
 export function AnimalLocationDialog({
   open,
+  onOpen,
   onClose,
   species,
   breed,
@@ -29,6 +40,8 @@ export function AnimalLocationDialog({
   updatedAtLabel,
 }: {
   open: boolean;
+  /** Called when a pop lands back on the sheet's own history entry. */
+  onOpen: () => void;
   onClose: () => void;
   species: 'cat' | 'dog';
   breed: string | null;
@@ -39,36 +52,51 @@ export function AnimalLocationDialog({
   updatedAtLabel: string;
 }) {
   const [dateShown, setDateShown] = useState(false);
-  // The effect below must not re-run when the callback identity changes.
+  // The effects below must not re-run when a callback's identity changes.
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const openRef = useRef(onOpen);
+  openRef.current = onOpen;
+
+  // Always listening, open or not: whether a pop opens or closes the sheet
+  // is decided by the entry it lands on, and the entry the sheet pushed
+  // survives in the forward stack after it is popped.
+  useEffect(() => {
+    const onPop = () => {
+      if (onSheetEntry()) openRef.current();
+      else closeRef.current();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
     setDateShown(false);
-    // Safe under StrictMode's double-invoke: this component stays mounted
-    // with open=false, so the setup only ever runs on the open transition.
-    // React Router's own state (its `idx` bookkeeping) is carried over —
-    // the entry is the same URL, only flagged.
-    window.history.pushState(
-      { ...(window.history.state as object | null), patiSheet: SHEET_STATE },
-      ''
-    );
-    const onPop = () => closeRef.current();
+    // Reopened by a Forward into the entry we already pushed: it is the
+    // current one, so pushing again would bury it and cost the user a
+    // second Back. Otherwise: safe under StrictMode's double-invoke, since
+    // this component stays mounted with open=false and the setup only ever
+    // runs on the open transition. React Router's own state (its `idx`
+    // bookkeeping) is carried over — the entry is the same URL, only
+    // flagged.
+    if (!onSheetEntry()) {
+      window.history.pushState(
+        { ...(window.history.state as object | null), patiSheet: SHEET_STATE },
+        ''
+      );
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') closeRef.current();
     };
-    window.addEventListener('popstate', onPop);
     window.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('popstate', onPop);
       window.removeEventListener('keydown', onKey);
-      // Closed by Escape or the backdrop: our entry is still on the stack
-      // and has to go, or the user's next "back" would only undo the sheet
-      // they already closed. Closed BY back: the entry is gone already.
-      if ((window.history.state as { patiSheet?: string } | null)?.patiSheet === SHEET_STATE) {
-        window.history.back();
-      }
+      // Closed by Escape, Kapat or the backdrop: our entry is still the
+      // current one and has to go, or the user's next "back" would only
+      // undo the sheet they already closed. Closed BY back: the entry is
+      // behind us already.
+      if (onSheetEntry()) window.history.back();
     };
   }, [open]);
 

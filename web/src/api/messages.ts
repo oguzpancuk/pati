@@ -111,9 +111,23 @@ export const fetchConversations = () =>
     .get<{ conversations: ConversationSummary[] }>('/messages/conversations')
     .then((r) => r.conversations);
 
+/**
+ * A conversation is marked read as it opens, and the tab badge re-reads the
+ * count the moment that page is left — the two calls are often in flight
+ * together, and the server answers whichever arrives first. The count waits
+ * for any read still running (review finding): without it, leaving a slow
+ * conversation early left the badge showing messages the user had already
+ * read, until the next minute's tick. Mobile's api/messages.ts does the same.
+ */
+const readsInFlight = new Set<Promise<unknown>>();
+
 /** Every conversation's unread counts added up server-side, for the tab badge. */
-export const fetchUnreadMessageCount = () =>
-  api.get<{ unreadCount: number }>('/messages/unread-count').then((r) => r.unreadCount);
+export const fetchUnreadMessageCount = async () => {
+  // allSettled: a read that failed must not take the count down with it.
+  if (readsInFlight.size > 0) await Promise.allSettled([...readsInFlight]);
+  const { unreadCount } = await api.get<{ unreadCount: number }>('/messages/unread-count');
+  return unreadCount;
+};
 
 export const openDirectConversation = (userId: number) =>
   api.post<{ id: number; created: boolean }>('/messages/direct', { userId });
@@ -160,8 +174,15 @@ export function fetchMessages(
 export const sendMessage = (id: number, body: string, replyToId?: number) =>
   api.post<Message>(`/messages/conversations/${id}/messages`, { body, replyToId });
 
-export const markConversationRead = (id: number) =>
-  api.post<void>(`/messages/conversations/${id}/read`);
+export const markConversationRead = async (id: number) => {
+  const call = api.post<void>(`/messages/conversations/${id}/read`);
+  readsInFlight.add(call);
+  try {
+    await call;
+  } finally {
+    readsInFlight.delete(call);
+  }
+};
 
 export const deleteMessage = (messageId: number) => api.del<void>(`/messages/${messageId}`);
 

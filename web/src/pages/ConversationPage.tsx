@@ -76,13 +76,17 @@ export default function ConversationPage() {
   }, [conversationId]);
 
   useEffect(() => {
+    // Opening the page is reading it, so the read is announced as the page
+    // opens rather than after the messages land: a user who leaves a slow
+    // conversation early would otherwise leave before it was sent, and the
+    // tab badge would re-read the count with nothing to wait for.
+    markConversationRead(conversationId).catch(() => {});
     fetchMessages(conversationId, { limit: PAGE })
       .then((page) => {
         setMessages(page.messages);
         setHasMore(page.hasMore);
         lastId.current = page.messages.length ? page.messages[page.messages.length - 1].id : null;
         since.current = page.now;
-        markConversationRead(conversationId).catch(() => {});
         requestAnimationFrame(scrollToBottom);
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Mesajlar alınamadı'));

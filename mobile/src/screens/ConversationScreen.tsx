@@ -92,13 +92,16 @@ export default function ConversationScreen({ route, navigation }: any) {
   }, [conversationId, navigation]);
 
   const loadLatest = useCallback(async () => {
+    // Opening the screen is reading it, so the read is announced as the
+    // screen opens rather than after the page lands: a user who backs out
+    // of a slow conversation would otherwise leave before it was sent, and
+    // the tab badge would re-read the count with nothing to wait for.
+    markConversationRead(conversationId).catch(() => {});
     const page = await fetchMessages(conversationId, { limit: PAGE });
     setMessages(page.messages);
     setHasMore(page.hasMore);
     lastId.current = page.messages.length ? page.messages[page.messages.length - 1].id : null;
     since.current = page.now;
-    // Opening the screen is reading it; the inbox badge clears on return.
-    markConversationRead(conversationId).catch(() => {});
   }, [conversationId]);
 
   const poll = useCallback(async () => {

@@ -166,8 +166,10 @@ function MainTabs() {
   // The unread total on the messages tab (owner, 2026-09-11 demo note 10),
   // polled the way the profile bell is: once a minute while the tabs are in
   // front. A pushed screen (a conversation) blurs the tabs, so the timer
-  // stops there and the count is re-read the moment the user comes back —
-  // which is exactly when a conversation has just been marked read.
+  // stops there and the count is re-read the moment the user comes back.
+  // That is a race with the read the conversation announced — fetchUnread-
+  // MessageCount waits for a read still in flight, so the number that comes
+  // back is the one the user just earned.
   const [unreadMessages, setUnreadMessages] = useState(0);
   useFocusEffect(
     useCallback(() => {
