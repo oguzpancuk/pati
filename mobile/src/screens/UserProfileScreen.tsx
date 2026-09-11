@@ -35,7 +35,6 @@ import {
   CareHistorySheet,
   CarerGallery,
   FriendsSheet,
-  GearIcon,
   HeaderIconButton,
   NotificationsSheet,
   ProfileHeader,
@@ -331,7 +330,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
               <Icon name="users" size={20} color={colors.brand} />
             </HeaderIconButton>
             <HeaderIconButton label="Ayarlar" onPress={() => setSheet('settings')}>
-              <GearIcon size={20} color={colors.brand} />
+              <Icon name="settings" size={20} color={colors.brand} />
             </HeaderIconButton>
           </>
         }
