@@ -12,12 +12,7 @@ const { getUserBadges } = require('../utils/badges');
 const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../utils/badgeAwards');
 const { getUserRank } = require('./leaderboard.controller');
 const { avatarValueFor } = require('../utils/avatars');
-const {
-  AuthTokenError,
-  isEnabled,
-  isProvider,
-  verifyIdentityToken,
-} = require('../utils/socialAuth');
+const { reauthenticateWithProvider } = require('../utils/providerReauth');
 
 const MAX_FEATURED_BADGES = 3;
 
@@ -520,34 +515,15 @@ async function deleteMyAccount(req, res, next) {
         return res.status(403).json({ error: 'Şifre hatalı' });
       }
     } else if (typeof identityToken === 'string' && identityToken.length > 0) {
-      // Validated here rather than inside the verifier: an unknown provider is
-      // a bad request, and letting it reach socialAuth turns our own
-      // configuration errors into 500s whose body names the missing env var.
-      if (!isProvider(provider)) {
-        return res.status(400).json({ error: 'Geçersiz doğrulama sağlayıcısı' });
-      }
-      if (!isEnabled(provider)) {
-        return res
-          .status(503)
-          .json({ error: 'Doğrulama şu anda kullanılamıyor, sonra tekrar dene' });
-      }
-      let identity;
-      try {
-        identity = await verifyIdentityToken(provider, identityToken);
-      } catch (err) {
-        if (err instanceof AuthTokenError) {
-          return res.status(403).json({ error: 'Doğrulama başarısız, tekrar deneyin' });
-        }
-        throw err;
-      }
-      // The token must belong to THIS account: a valid token for somebody
-      // else's identity is exactly the confused-deputy case to refuse.
-      const linked = await pool.query(
-        'SELECT 1 FROM user_identities WHERE user_id = $1 AND provider = $2 AND subject = $3',
-        [req.user.userId, identity.provider, identity.subject]
-      );
-      if (linked.rows.length === 0) {
-        return res.status(403).json({ error: 'Doğrulama başarısız, tekrar deneyin' });
+      // The same proof setting a first password demands, and the same code:
+      // two copies of "what counts as fresh provider proof" would drift, and
+      // these are the two doors it guards (utils/providerReauth.js).
+      const refusal = await reauthenticateWithProvider(req.user.userId, {
+        provider,
+        identityToken,
+      });
+      if (refusal) {
+        return res.status(refusal.status).json({ error: refusal.error });
       }
     } else {
       return res
