@@ -231,6 +231,31 @@ Launch screens:
 
 ---
 
+## 8. Back navigation — the return rule
+
+Owner rule, 2026-09-11: **the tab bar switches roots; everything else pushes.**
+Whenever the screen changes from anywhere other than the tab bar — a comment
+author, a carer row, a leaderboard name, a card, a deep link — the user must be
+able to return to exactly where they came from.
+
+Three things follow from "exactly where they came from":
+
+1. **Back means history, not a parent.** A user profile reached from an animal
+   profile returns to that animal, not to a friends list. Mobile gets this from
+   the native stack; web must use `navigate(-1)`, never a hardcoded `<Link>`.
+2. **A page reached with no history still needs a way out.** `navigate(-1)` in
+   a fresh tab (a shared link, a PWA cold start) goes nowhere. Every web page
+   header falls back to a sensible root when `history.length` offers nothing.
+3. **A sheet is not a page.** Popups, sheets and dialogs stay on the page that
+   opened them: their close button is the way out, and Android's hardware back
+   and the browser's back button must close the sheet rather than leave the
+   page.
+
+Both clients render this through one header component per client, so the back
+affordance sits in the same place on every screen: top-left, before the title.
+Tab roots (map, animals, messages, profile) carry no back — there is nothing
+behind them.
+
 ## Adding a new screen
 
 1. `<Screen>` at the root; for lists pass `padded={false}` and put the spacing

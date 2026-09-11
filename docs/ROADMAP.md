@@ -1049,3 +1049,124 @@ are missing. Closing it means publishing pending files at upload time,
 sweeping them out of the bucket too, and making both readers async through
 `storage.localPath`. Worth doing before a second machine, not before the
 pilot.
+
+---
+
+## 📝 Demo notes — 15 UX items (2026-09-11)
+
+The owner walked the app and came back with fifteen notes, then asked for a
+plan before any code and for parallel execution after it. Four questions went
+back; all four are answered, and item 1 came back refined.
+
+**Owner decisions (2026-09-11):**
+
+1. **Back navigation is a rule, not a screen fix** — "navigasyon harici bir
+   yerden sayfa değiştiğinde önceki sayfaya dönülebilmeli". The tab bar
+   switches roots; everything else pushes and returns to *where you came
+   from*. Written up as docs/DESIGN.md §8; the audit is an integration item,
+   not a track, because it touches every page on both clients.
+2. **Mama & su geçmişi** — a full-width row-button under the level bar
+   ("Mama & su geçmişim · N kayıt ›") opening a sheet. The bell moving to the
+   top-right frees exactly that space; a fourth top-right icon would crowd it
+   and the stat strip has no room for a fourth cell.
+3. **Carers vs comments must not look alike** — "bakım verdiğim hayvanlar"
+   becomes a horizontal gallery of avatar cards; "son yorumlarım" becomes
+   speech-bubble rows with a small animal avatar. Different shape, not just a
+   different heading.
+4. **Group add is a system message**, not a new notification kind — it lands
+   in the group itself, so the unread count, the new tab badge and the inbox
+   ordering all follow for free instead of needing three separate paths.
+5. **OSM attribution leaves the map entirely** (option b) and moves into the
+   settings sheet. ODbL attribution is still discharged, one level deeper.
+
+### Items → tracks
+
+| #   | Item                                                        | Track |
+| --- | ----------------------------------------------------------- | ----- |
+| 2   | Bildirimler + arkadaşlar as top-right buttons → sheets       | P     |
+| 3   | Mama & su geçmişi behind a row-button → sheet                | P     |
+| 4   | Settings sheet: görünüm, demo, kvkk, çıkış, hesabı sil       | P     |
+| 5   | Carers gallery vs comment bubbles                            | P     |
+| 6   | Public profile = own profile's layout; friend button top-right| P    |
+| 11  | Friend-request count on the friends button                   | P     |
+| 7   | Comments/records/carers link to the person's profile         | H     |
+| 8   | Last-seen map opens a responsive sheet with the update date  | H     |
+| 9   | "Save to gallery" for photos taken in the app (mobile only)  | H     |
+| 10  | Unread message count on the messages tab icon                | M     |
+| 12  | Group add shows up like a message                            | M     |
+| 13  | Ring sentence out; care markers explain themselves on tap    | M     |
+| 14  | Şifremi unuttum + şifremi değiştir                           | Ş     |
+| 1   | Back-navigation audit (both clients, every page)             | main  |
+| 15  | OSM attribution off the map, into the settings sheet         | main  |
+
+### File claims
+
+Everything outside a track's claims is read-only for that track. `docs/`,
+`mobile/src/theme/**`, `web/src/theme.css`, `backend/migrations/001_init.sql`
+and `.claude/hooks/verify.sh` belong to the main session alone.
+
+- **P — profil.** `mobile/src/screens/{UserProfile,PublicProfile}Screen.tsx`,
+  `mobile/src/components/RecentComments.tsx`,
+  `mobile/src/components/profile/**` (new),
+  `web/src/pages/{ProfilePage,UserProfilePage}.tsx`,
+  `web/src/components/RecentComments.tsx`,
+  `web/src/components/profile/**` (new), `web/src/styles/profile.css` (new).
+- **H — hayvan profili + kamera.** `mobile/src/screens/{AnimalProfile,AddAnimal,CarePhoto}Screen.tsx`,
+  `mobile/src/photoCapture.ts` (new), `mobile/src/components/AnimalLocationSheet.tsx` (new),
+  `mobile/ios/PatiMobile/Info.plist`, `mobile/android/app/src/main/AndroidManifest.xml`,
+  `web/src/pages/AnimalPage.tsx`, `web/src/components/MiniMap.tsx`,
+  `web/src/components/AnimalLocationDialog.tsx` (new), `web/src/styles/animal.css` (new).
+- **M — harita + mesajlar.** `mobile/src/screens/{Map,Messages,Conversation}Screen.tsx`,
+  `mobile/src/navigation/index.tsx`, `mobile/src/api/{care,messages}.ts`,
+  `web/src/App.tsx`, `web/src/pages/{MapPage,MessagesPage,ConversationPage}.tsx`,
+  `web/src/api/messages.ts`, `web/src/styles/map.css` (new),
+  `backend/src/controllers/{care,message}.controller.js`,
+  `backend/migrations/014_message_kind.sql` (new), `backend/test/messageKind.test.js` (new).
+- **Ş — şifre.** `backend/src/controllers/auth.controller.js`,
+  `backend/src/routes/auth.routes.js`, `backend/src/utils/passwordReset.js` (new),
+  `backend/src/middleware/rateLimit.middleware.js`,
+  `backend/migrations/013_password_reset.sql` (new),
+  `backend/test/passwordReset.test.js` (new),
+  `mobile/src/screens/LoginScreen.tsx`, `mobile/src/api/auth.ts`,
+  `mobile/src/components/password/**` (new), `web/src/pages/LoginPage.tsx`,
+  `web/src/api/password.ts` (new), `web/src/components/password/**` (new),
+  `web/src/styles/password.css` (new).
+
+### Contracts between tracks
+
+Set now so no track has to guess, and so no two tracks touch one file:
+
+- **Migration numbers are pre-assigned**: 013 belongs to Ş, 014 to M. Tracks
+  write ONLY their own numbered file; **mirroring the new columns into
+  `001_init.sql` is the main session's job** at integration, together with the
+  double-migrate check against a database built from production's own files.
+- **Forgot-password is a sheet on the login screen, not a route.** The code is
+  six digits typed in the app (the e-mail verification pattern), so no client
+  needs a new route — which is what keeps `navigation/index.tsx` and
+  `web/src/App.tsx` in track M's hands alone.
+- **Ş exports its change-password UI as a self-contained component**;
+  the main session mounts it in P's settings sheet.
+- **H owns the capture helper** (`photoCapture.ts`) and wires add-animal and
+  care-photo; the main session wires the map's food/water drop after the merge.
+- **Each track gets its own stylesheet** under `web/src/styles/`. `theme.css`
+  is hand-merged and has swallowed a track before (see verify.sh's "web css"
+  comment) — nobody touches it in parallel. The main session extends the
+  battery to parse the new files.
+
+### Verification
+
+Tracks run their own typecheck (`npx tsc --noEmit` in mobile/ and web/,
+symlinking `node_modules` from the main checkout) and add backend tests where
+the change is server-side. **Screenshots, the full battery and the merges stay
+in the main session** — one simulator, one dev server, one shared database.
+
+**Done when:** every item lands on BOTH clients (item 9 is mobile-only by
+nature — a browser cannot write to the camera roll — and item 14's mail path
+degrades exactly like e-mail verification does), each track merged `--no-ff`,
+`bash .claude/hooks/verify.sh` green on a clean committed HEAD, screenshots for
+every visual change on both clients, code-reviewer over the merged range and
+evaluator-qa before any deploy.
+
+**Stop when:** the fifteen items are done and reported, or a track's battery
+fails twice in a row (park it with a note, merge the rest), or a merge conflict
+appears — a conflict means the partition was wrong and the owner arbitrates.
