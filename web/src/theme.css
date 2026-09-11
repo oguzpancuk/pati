@@ -201,7 +201,9 @@ strong {
   display: grid;
   grid-template-columns: 44px 1fr 44px;
   align-items: center;
-  margin: 2px 0 10px;
+  /* 18 below, like every gap under it: the header was the last thing on a
+     different rhythm (owner, 2026-09-12). */
+  margin: 2px 0 18px;
 }
 .topbar .back {
   border: none;
@@ -907,6 +909,21 @@ strong {
 
 /* ---- profile / badges ---- */
 /* Section headings speak the micro-label language too: lowercase + wide spacing. */
+/* A heading row: the same 18-above / 8-below as a bare `.section`, for the
+   sections whose heading shares its line with an action link. Inside a flex
+   row the h2's own margins do not become the gap under the row, so the row
+   has to carry them. */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 18px 0 8px;
+}
+
+.section-head .section {
+  margin: 0;
+}
+
 .section {
   margin: 18px 0 8px;
   font-size: 10.5px;
@@ -929,11 +946,14 @@ strong {
 }
 
 /* Stat strip: one card, 3 cells with vertical hairline dividers. */
+/* 18, like every other block on the profile: the strip and the level bar
+   were the only two on a 12 rhythm, which is what made the page look
+   unevenly spaced (owner, 2026-09-12). */
 .statstrip {
   display: flex;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
-  margin: 12px 0;
+  margin: 18px 0;
 }
 .statstrip > div {
   flex: 1;
@@ -957,7 +977,7 @@ strong {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
-  margin-top: 12px;
+  margin-top: 18px;
   background: var(--surface);
 }
 .levelbar .track {
@@ -1124,7 +1144,9 @@ strong {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px;
-  margin-bottom: 10px;
+  /* 18 like every gap below it: this banner sits at the top of a page and a
+     10 here was the first thing that looked off-rhythm. */
+  margin-bottom: 18px;
 }
 .install.compact {
   padding: 8px 10px;

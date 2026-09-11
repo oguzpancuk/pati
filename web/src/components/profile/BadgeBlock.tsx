@@ -22,7 +22,7 @@ export function BadgeBlock({
 }) {
   return (
     <>
-      <div className="row" style={{ justifyContent: 'space-between' }}>
+      <div className="section-head">
         <h2 className="section">{title}</h2>
         <button className="link" onClick={onAction}>
           {actionLabel}

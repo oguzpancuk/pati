@@ -29,7 +29,7 @@ export function RecentComments({
 }) {
   return (
     <>
-      <div className="row" style={{ justifyContent: 'space-between', marginTop: 18 }}>
+      <div className="section-head">
         <h2 className="section">{title}</h2>
         {/* Whenever any comment exists — mobile parity: with ≤3 comments the
             full list was otherwise unreachable by clicking. */}
