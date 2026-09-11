@@ -84,6 +84,16 @@ async function issueCode(userId) {
   return result.rowCount > 0 ? code : null;
 }
 
+/**
+ * The code sits in the SUBJECT as well as the body, which is a trade-off worth
+ * naming rather than inheriting from the verification mail: a verification code
+ * proves an address, a reset code takes the account over, so a lock-screen
+ * preview read over someone's shoulder is a real cost here. It stays because
+ * removing it buys almost nothing — every mail client shows a body snippet in
+ * the same preview — while the subject is what makes iOS and Android offer the
+ * code for one-tap autofill, and typing six digits by hand off a notification
+ * is where people give up on a reset.
+ */
 function message(name, code) {
   const subject = `Pati şifre sıfırlama kodun: ${code}`;
   const text = [

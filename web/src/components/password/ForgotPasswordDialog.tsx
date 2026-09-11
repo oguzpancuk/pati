@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { ApiError } from '../../api';
 import { forgotPassword, resetPassword } from '../../api/password';
 import { useAuth } from '../../auth';
 import '../../styles/password.css';
@@ -115,7 +116,13 @@ export function ForgotPasswordDialog({
       setNotice(`${address} adresine bir kod gönderdik.`);
     } catch (err) {
       // 503 (this deployment sends no mail) and 429 (the IP limiter) are the
-      // only refusals; neither depends on the address.
+      // only refusals; neither depends on the address. A 429 parks the button
+      // for as long as the server said, the way the verification screens do —
+      // otherwise every impatient tap burns another slot of the /api/auth
+      // brake and shows the same message.
+      if (err instanceof ApiError && err.status === 429) {
+        setCooldown(err.retryAfter ?? RESEND_COOLDOWN_S);
+      }
       setError(message(err, 'Kod gönderilemedi, biraz sonra tekrar dene.'));
     } finally {
       setBusy(false);
@@ -193,8 +200,8 @@ export function ForgotPasswordDialog({
             </label>
             {notice && <div className="pw-notice">{notice}</div>}
             {error && <div className="error">{error}</div>}
-            <button className="btn full" disabled={busy || !email.trim()}>
-              {busy ? 'Gönderiliyor…' : 'Kod gönder'}
+            <button className="btn full" disabled={busy || !email.trim() || cooldown > 0}>
+              {busy ? 'Gönderiliyor…' : cooldown > 0 ? `Kod gönder (${cooldown})` : 'Kod gönder'}
             </button>
           </form>
         ) : (
@@ -239,7 +246,7 @@ export function ForgotPasswordDialog({
             </button>
             <button
               type="button"
-              className="btn ghost full"
+              className="btn ghost full pw-resend"
               style={{ marginTop: 8 }}
               disabled={busy || cooldown > 0}
               onClick={sendCode}

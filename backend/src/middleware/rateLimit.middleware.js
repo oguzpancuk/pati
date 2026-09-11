@@ -83,15 +83,22 @@ const limits = {
   // hour against a million codes. Honest users type one code, maybe twice.
   verifyEmail: userRateLimit({ windowMs: HOUR, limit: 30, action: 'doğrulama denemesi' }),
   verifyResend: userRateLimit({ windowMs: HOUR, limit: 6, action: 'kod isteği' }),
-  // Password reset. These two mount UNAUTHENTICATED, so the keyGenerator
-  // falls back to the IP — which is what they need, and which means a carrier
-  // NAT shares one bucket (the module's CGNAT caveat, accepted here because
-  // /api/auth already brakes per IP in app.js and these ceilings sit above a
-  // normal person's handful of attempts). Neither is the real defence: a
-  // mailbox is protected by the per-account cooldown in utils/passwordReset.js
-  // and a code by its own 5-attempt cap.
-  forgotPassword: userRateLimit({ windowMs: HOUR, limit: 10, action: 'şifre sıfırlama isteği' }),
-  resetPassword: userRateLimit({ windowMs: HOUR, limit: 20, action: 'kod denemesi' }),
+  // Password reset. These two mount UNAUTHENTICATED, so the keyGenerator falls
+  // back to the IP — which is what they need, and which means a carrier NAT
+  // shares one bucket. That is the case this module's own header warns about,
+  // so these sit just under the /api/auth per-IP brake (120/h, app.js) rather
+  // than an order of magnitude below it: at 10/h a single script on a Turkish
+  // CGNAT disabled password reset for everyone behind it with ten cheap
+  // requests, and the eleventh honest person was locked out of their own
+  // account while login from the same address kept working.
+  //
+  // Neither limiter is the real defence and neither is sized as if it were: a
+  // mailbox is protected by the per-account 60-second cooldown in
+  // utils/passwordReset.js (so 60 requests an hour from one NAT still cannot
+  // mail one address more than 60 times), and a code by its own 5-attempt cap
+  // against a million possibilities.
+  forgotPassword: userRateLimit({ windowMs: HOUR, limit: 60, action: 'şifre sıfırlama isteği' }),
+  resetPassword: userRateLimit({ windowMs: HOUR, limit: 60, action: 'kod denemesi' }),
   // Changing a password is authenticated, so this one is per user — and it
   // gets account deletion's tight budget for account deletion's reason: the
   // current-password check is a password-guessing oracle for a stolen token,

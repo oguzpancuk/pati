@@ -132,7 +132,10 @@ test('the forgot-password bucket bites, in Turkish, with a countdown', async () 
   const url = `http://127.0.0.1:${server.address().port}/forgot`;
 
   try {
-    for (let i = 0; i < 10; i += 1) {
+    // The ceiling sits just under /api/auth's own per-IP brake on purpose: a
+    // carrier NAT shares this bucket, so it must not be what locks a
+    // neighbourhood out of password reset.
+    for (let i = 0; i < 60; i += 1) {
       assert.equal((await fetch(url, { method: 'POST' })).status, 200, `request ${i + 1}`);
     }
     const refused = await fetch(url, { method: 'POST' });
