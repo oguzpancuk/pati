@@ -610,7 +610,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           </Card>
         ) : (
           animal.carers.slice(0, visibleCarers).map((carer) => {
-            const self = isSelf(carer.id);
+            const isOwnRow = isSelf(carer.id);
             const row = (
               <>
                 <Avatar uri={carer.avatar_url} name={carer.name} size={34} />
@@ -621,10 +621,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                     world writes carer rows too, so a bot can be met here. */}
                 <DemoChip visible={carer.is_demo === true} />
                 {/* No chevron on your own row: it is not a door. */}
-                {!self && <Icon name="chevronRight" size={16} color={colors.textSubtle} />}
+                {!isOwnRow && <Icon name="chevronRight" size={16} color={colors.textSubtle} />}
               </>
             );
-            return self ? (
+            return isOwnRow ? (
               <View key={carer.id} style={styles.carerRow}>
                 {row}
               </View>
