@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom';
 import type { AuthProviders, SocialProvider } from '../api';
 import { ApiError, fetchAuthProviders } from '../api';
 import { useAuth } from '../auth';
-import { appleReady, googleReady, isAppleCancellation, renderGoogleButton, signInWithApple } from '../socialAuth';
+import {
+  appleReady,
+  googleReady,
+  isAppleCancellation,
+  releaseGoogleButton,
+  renderGoogleButton,
+  signInWithApple,
+} from '../socialAuth';
 import { resolvedThemeName } from '../theme';
 
 /**
@@ -79,10 +86,14 @@ export function SocialSignIn({ onError }: { onError: (message: string | null) =>
 
   const googleClientId = googleReady(providers);
   useEffect(() => {
-    if (!googleClientId || !googleSlot.current) return;
-    renderGoogleButton(googleSlot.current, googleClientId, theme, (token) =>
-      signIn('google', token)
-    ).catch(() => onError('Google girişi yüklenemedi'));
+    const slot = googleSlot.current;
+    if (!googleClientId || !slot) return undefined;
+    renderGoogleButton(slot, googleClientId, theme, (token) => signIn('google', token)).catch(() =>
+      onError('Google girişi yüklenemedi')
+    );
+    // The page's only Google button today — but the credential is routed by
+    // registration, so leaving a stale one behind would matter tomorrow.
+    return () => releaseGoogleButton(slot);
   }, [googleClientId, theme, signIn, onError]);
 
   const apple = appleReady(providers);

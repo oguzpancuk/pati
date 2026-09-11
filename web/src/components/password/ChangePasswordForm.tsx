@@ -2,7 +2,12 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import type { AuthProviders, SocialProvider } from '../../api';
 import { fetchAuthProviders } from '../../api';
 import { changePassword, ChangePasswordProof } from '../../api/password';
-import { isAppleCancellation, renderGoogleButton, signInWithApple } from '../../socialAuth';
+import {
+  isAppleCancellation,
+  releaseGoogleButton,
+  renderGoogleButton,
+  signInWithApple,
+} from '../../socialAuth';
 import { resolvedThemeName } from '../../theme';
 import '../../styles/password.css';
 
@@ -114,12 +119,17 @@ export function ChangePasswordForm({
   };
   useEffect(() => {
     const clientId = providers?.google.webClientId;
-    if (hasPassword || !clientId || !authProviders.includes('google') || !googleSlot.current) {
-      return;
+    const slot = googleSlot.current;
+    if (hasPassword || !clientId || !authProviders.includes('google') || !slot) {
+      return undefined;
     }
-    renderGoogleButton(googleSlot.current, clientId, theme, (identityToken) =>
+    renderGoogleButton(slot, clientId, theme, (identityToken) =>
       submitWithGoogle.current(identityToken)
     ).catch(() => setError('Google doğrulaması yüklenemedi'));
+    // The delete dialog draws a Google button of its own over this sheet;
+    // releasing this one on unmount is half of what keeps a credential from
+    // reaching the wrong handler (socialAuth routes the other half).
+    return () => releaseGoogleButton(slot);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPassword, providers, theme, authProviders.join(',')]);
 

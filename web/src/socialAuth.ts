@@ -56,6 +56,66 @@ interface GoogleIdApi {
   renderButton(parent: HTMLElement, options: Record<string, unknown>): void;
 }
 
+/**
+ * ONE Google Identity Services client per page, with a dispatcher in front of
+ * it.
+ *
+ * `google.accounts.id.initialize()` is a page-level singleton holding exactly
+ * ONE credential callback. The naive version — every component initialising
+ * with its own callback just before it renders its button — looks fine with a
+ * single button on the page and is a real defect with two: whichever
+ * component initialised LAST owns the callback, and it receives the
+ * credential from EVERY rendered button. That is how the settings sheet could
+ * turn "Google ile doğrula" on the change-password form into an account
+ * deletion (the delete dialog had re-initialised behind it).
+ *
+ * So: initialise once, and route by the button the user actually pressed.
+ * Each rendered button registers its handler against the element it was drawn
+ * into; GIS's own `click_listener` names that element on press (it fires
+ * wherever the button's markup lives, iframe included), and a capture-phase
+ * pointerdown is the belt to that braces. If neither signal identified a
+ * registered button, the credential is DROPPED rather than guessed at — one
+ * of these handlers deletes an account.
+ */
+const googleHandlers = new Map<HTMLElement, (idToken: string) => void>();
+/** The button most recently pressed, consumed by the next credential. */
+let googlePressed: HTMLElement | null = null;
+/** The client id GIS was initialised with, or null while it never was. */
+let googleInitialized: string | null = null;
+let googlePressListening = false;
+
+function routeGoogleCredential(idToken: string): void {
+  // A press we recognised wins; with no press at all (and exactly one button
+  // on the page) there is nothing to confuse it with.
+  const target =
+    googlePressed ?? (googleHandlers.size === 1 ? [...googleHandlers.keys()][0] : null);
+  googlePressed = null;
+  const handler = target ? googleHandlers.get(target) : undefined;
+  if (!handler) return;
+  handler(idToken);
+}
+
+function listenForGooglePress(): void {
+  if (googlePressListening) return;
+  googlePressListening = true;
+  // Capture phase: GIS handles the click itself, and a listener on the way
+  // down runs before it either way.
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      const node = event.target;
+      if (!(node instanceof Node)) return;
+      for (const parent of googleHandlers.keys()) {
+        if (parent.contains(node)) {
+          googlePressed = parent;
+          return;
+        }
+      }
+    },
+    true
+  );
+}
+
 declare global {
   interface Window {
     google?: { accounts: { id: GoogleIdApi } };
@@ -92,15 +152,23 @@ export async function renderGoogleButton(
   theme: 'light' | 'dark',
   onToken: (idToken: string) => void
 ): Promise<void> {
+  // Registered BEFORE the await: a component that unmounts while the script
+  // is still loading must find something to release.
+  googleHandlers.set(parent, onToken);
+  listenForGooglePress();
   await loadScript(GSI_SRC);
+  if (!googleHandlers.has(parent)) return; // released while loading
   const api = window.google?.accounts.id;
   if (!api) throw new Error('Google girişi yüklenemedi');
-  api.initialize({
-    client_id: clientId,
-    callback: (response) => onToken(response.credential),
-    // One Tap would pop up on every page; the button is the whole feature.
-    cancel_on_tap_outside: true,
-  });
+  if (googleInitialized !== clientId) {
+    api.initialize({
+      client_id: clientId,
+      callback: (response) => routeGoogleCredential(response.credential),
+      // One Tap would pop up on every page; the button is the whole feature.
+      cancel_on_tap_outside: true,
+    });
+    googleInitialized = clientId;
+  }
   parent.replaceChildren();
   api.renderButton(parent, {
     type: 'standard',
@@ -112,7 +180,22 @@ export async function renderGoogleButton(
     locale: 'tr',
     // GIS clamps to 400; the login form is 380 wide.
     width: Math.min(parent.clientWidth || 380, 400),
+    // GIS's own press signal, and the reason two buttons can coexist: it
+    // names the button being used before the credential comes back.
+    click_listener: () => {
+      googlePressed = parent;
+    },
   });
+}
+
+/**
+ * Drops a button's handler — call it from the effect cleanup that rendered
+ * the button. A handler left behind after its component unmounts can still
+ * be the one a credential reaches.
+ */
+export function releaseGoogleButton(parent: HTMLElement): void {
+  googleHandlers.delete(parent);
+  if (googlePressed === parent) googlePressed = null;
 }
 
 // ------------------------------------------------------------------- Apple
@@ -159,7 +242,9 @@ export function googleReady(providers: AuthProviders | null): string | null {
   return providers.google.webClientId;
 }
 
-export function appleReady(providers: AuthProviders | null): { serviceId: string; redirectUri: string } | null {
+export function appleReady(
+  providers: AuthProviders | null
+): { serviceId: string; redirectUri: string } | null {
   if (!providers?.apple.enabled) return null;
   const { serviceId, redirectUri } = providers.apple;
   return serviceId && redirectUri ? { serviceId, redirectUri } : null;
