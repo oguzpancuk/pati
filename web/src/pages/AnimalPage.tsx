@@ -271,6 +271,10 @@ export default function AnimalPage() {
   const { celebrate } = useBadgeAwards();
   // Tapping a health record lists only the comments bound to that record.
   const [logRecord, setLogRecord] = useState<HealthRecord | null>(null);
+  // Bumped whenever a record/vaccine dialog session starts or ends, so a
+  // save that resolves late can tell whether it is still looking at its own
+  // dialog. A ref, not state: the answer reads it, nothing renders from it.
+  const dialogSession = useRef(0);
 
   // Escape and the browser's / Android's Back close these instead of leaving
   // the animal profile — which on the PWA used to throw away a half-typed
@@ -284,8 +288,14 @@ export default function AnimalPage() {
   // can reach (review, 2026-09-11). The backdrop keeps its own `busy` guard:
   // a stray tap is not a deliberate gesture.
   const closeCare = useSheetDismiss(careOpen, () => setCareOpen(false));
-  const closeRecord = useSheetDismiss(recordOpen, () => setRecordOpen(false));
-  const closeVaccine = useSheetDismiss(vaccineOpen, () => setVaccineOpen(false));
+  const closeRecord = useSheetDismiss(recordOpen, () => {
+    dialogSession.current += 1;
+    setRecordOpen(false);
+  });
+  const closeVaccine = useSheetDismiss(vaccineOpen, () => {
+    dialogSession.current += 1;
+    setVaccineOpen(false);
+  });
   const closeLog = useSheetDismiss(!!logRecord, () => setLogRecord(null));
   const [logComments, setLogComments] = useState<AnimalComment[]>([]);
 
@@ -346,11 +356,19 @@ export default function AnimalPage() {
 
   async function saveRecord() {
     if (!recordDesc?.trim()) return;
+    // Back and Escape no longer refuse mid-save, so the dialog can be closed
+    // and reopened while this request is still out. Without the token the
+    // answer would close the NEW dialog and wipe what was typed into it —
+    // the same lost record the old refusal was there to prevent, in a
+    // narrower window (review, 2026-09-11).
+    const session = ++dialogSession.current;
     setSaving(true);
     try {
       const created = await addHealthRecord(animalId, recordType, recordDesc.trim());
-      setRecordOpen(false);
-      setRecordDesc(null);
+      if (session === dialogSession.current) {
+        setRecordOpen(false);
+        setRecordDesc(null);
+      }
       await load();
       celebrate(created);
     } catch (err) {
@@ -362,6 +380,9 @@ export default function AnimalPage() {
 
   async function saveVaccine() {
     if (!vaccineType?.trim()) return;
+    // See saveRecord: the answer may arrive after this dialog was closed and
+    // another opened.
+    const session = ++dialogSession.current;
     setSaving(true);
     try {
       const created = await addVaccination(
@@ -369,9 +390,11 @@ export default function AnimalPage() {
         vaccineType.trim(),
         vaccineNote.trim() || undefined
       );
-      setVaccineOpen(false);
-      setVaccineType(null);
-      setVaccineNote('');
+      if (session === dialogSession.current) {
+        setVaccineOpen(false);
+        setVaccineType(null);
+        setVaccineNote('');
+      }
       await load();
       celebrate(created);
     } catch (err) {
@@ -1197,7 +1220,7 @@ export default function AnimalPage() {
             <button
               className="btn ghost full"
               disabled={saving}
-              onClick={() => setRecordOpen(false)}
+              onClick={closeRecord}
             >
               Vazgeç
             </button>
@@ -1227,7 +1250,7 @@ export default function AnimalPage() {
             <button
               className="btn ghost full"
               disabled={saving}
-              onClick={() => setVaccineOpen(false)}
+              onClick={closeVaccine}
             >
               Vazgeç
             </button>

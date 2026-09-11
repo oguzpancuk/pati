@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -146,6 +146,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const [ladderKey, setLadderKey] = useState<string | null>(null);
 
   const [recordModalVisible, setRecordModalVisible] = useState(false);
+  // Bumped whenever a record/vaccine modal session starts or ends, so a save
+  // that resolves late can tell whether it is still looking at its own modal.
+  const dialogSession = useRef(0);
   const [recordType, setRecordType] = useState<HealthRecordType>('illness');
   const [recordDescription, setRecordDescription] = useState<string | null>(null);
   const [savingRecord, setSavingRecord] = useState(false);
@@ -326,12 +329,19 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       Alert.alert('Eksik bilgi', 'Listeden seç ya da "Diğer" ile kendin yaz.');
       return;
     }
+    // Hardware back no longer refuses mid-save, so the modal can be closed and
+    // reopened while this request is out. Without the token the answer would
+    // close the NEW modal and wipe what was typed into it — the lost record
+    // the old refusal existed to prevent, in a narrower window.
+    const session = ++dialogSession.current;
     setSavingRecord(true);
     try {
       const created = await addHealthRecord(animalId, recordType, description);
-      setRecordDescription(null);
-      setRecordType('illness');
-      setRecordModalVisible(false);
+      if (session === dialogSession.current) {
+        setRecordDescription(null);
+        setRecordType('illness');
+        setRecordModalVisible(false);
+      }
       await load();
       celebrate(created);
     } catch (err: any) {
@@ -347,15 +357,20 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       Alert.alert('Eksik bilgi', 'Aşı türünü seç ya da "Diğer" ile kendin yaz.');
       return;
     }
+    // See handleSaveRecord: the answer may arrive after this modal was closed
+    // and another opened.
+    const session = ++dialogSession.current;
     setSavingVaccine(true);
     try {
       const created = await addVaccination(animalId, {
         vaccineType: type,
         note: vaccineNote.trim() || undefined,
       });
-      setVaccineType(null);
-      setVaccineNote('');
-      setVaccineModalVisible(false);
+      if (session === dialogSession.current) {
+        setVaccineType(null);
+        setVaccineNote('');
+        setVaccineModalVisible(false);
+      }
       await load();
       celebrate(created);
     } catch (err: any) {
@@ -968,18 +983,19 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       ) : null}
 
       {/* A sheet is not a page (DESIGN §8): Android's hardware back closes
-          it instead of leaving the animal profile. Locked while the save is
-          in flight, exactly like the "Vazgeç" button below. */}
+          it instead of leaving the animal profile. */}
       <Modal
         visible={recordModalVisible}
         transparent
         animationType="fade"
-        // Hardware back is the OS's own way out and never locks — the same
-        // rule ReportSheet and DeleteAccountModal follow. The backdrop keeps
-        // its guard (a stray tap is not a deliberate gesture); closing does
-        // not cancel the request, which is what already happens when the
-        // screen is backgrounded.
-        onRequestClose={() => setRecordModalVisible(false)}
+        // Hardware back is the OS's own way out and never locks, even mid-save
+        // — the same rule ReportSheet and DeleteAccountModal follow, and the
+        // same one web's twin follows. Closing does not cancel the request,
+        // which is what already happens when the screen is backgrounded.
+        onRequestClose={() => {
+          dialogSession.current += 1;
+          setRecordModalVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
@@ -1028,7 +1044,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             <Button
               title="Vazgeç"
               variant="ghost"
-              onPress={() => setRecordModalVisible(false)}
+              onPress={() => {
+                dialogSession.current += 1;
+                setRecordModalVisible(false);
+              }}
               disabled={savingRecord}
               fullWidth
             />
@@ -1040,12 +1059,14 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         visible={vaccineModalVisible}
         transparent
         animationType="fade"
-        // Hardware back is the OS's own way out and never locks — the same
-        // rule ReportSheet and DeleteAccountModal follow. The backdrop keeps
-        // its guard (a stray tap is not a deliberate gesture); closing does
-        // not cancel the request, which is what already happens when the
-        // screen is backgrounded.
-        onRequestClose={() => setVaccineModalVisible(false)}
+        // Hardware back is the OS's own way out and never locks, even mid-save
+        // — the same rule ReportSheet and DeleteAccountModal follow, and the
+        // same one web's twin follows. Closing does not cancel the request,
+        // which is what already happens when the screen is backgrounded.
+        onRequestClose={() => {
+          dialogSession.current += 1;
+          setVaccineModalVisible(false);
+        }}
       >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
@@ -1082,7 +1103,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             <Button
               title="Vazgeç"
               variant="ghost"
-              onPress={() => setVaccineModalVisible(false)}
+              onPress={() => {
+                dialogSession.current += 1;
+                setVaccineModalVisible(false);
+              }}
               disabled={savingVaccine}
               fullWidth
             />

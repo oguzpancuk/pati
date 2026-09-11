@@ -3921,13 +3921,15 @@ as two are running.
 
 ### Same day — left open on purpose, after the final review
 
-Eight web dialogs still close only on their own backdrop and buttons, with
+Seven web dialogs still close only on their own backdrop and buttons, with
 no Escape and no `popstate`: the PWA install prompt (`install.tsx`), the badge
 catalogue and the badge-award celebration (`badges.tsx`), the avatar picker
-(`ProfilePage`), the map's add chooser and its confirm (`MapPage`), the
-conversation dialog (`ConversationPage`), and the animal page's own
-fullscreen photo viewer (`AnimalPage`) — that last one sits alongside the four
-that WERE fixed, so do not read that page as finished. DESIGN §8 point 3 applies to
+(`ProfilePage`), the map's add chooser and its confirm (`MapPage`), and the
+conversation dialog (`ConversationPage`). The animal page's fullscreen photo
+viewer is an eighth case of a different shape: it already closes on Escape
+(and wires the arrow keys), so what it lacks is only the history entry — and
+it sits alongside the four that WERE fixed, so do not read that page as
+finished. DESIGN §8 point 3 applies to
 all of them and the mechanism is ready — `useSheetDismiss` in
 `web/src/components/profile/Sheet.tsx`, which is not profile-specific despite
 where it lives, and takes `history: false` for a dialog nested inside a sheet.
@@ -3938,3 +3940,29 @@ and each wants its own check that Back closes the dialog and keeps the page.
 The seven that WERE fixed (the animal page's four, the report dialog, the
 badge ladder, the delete-account dialog) are the ones whose mobile twins
 gained `onRequestClose` here.
+
+
+### Same day — one known limit in the sheet stack, for whoever adds the next dialog
+
+`onPop` in `web/src/components/profile/Sheet.tsx` decides what a back press
+meant by asking `topOwningIndex()` — the topmost sheet holding a history
+entry — and never checks which entry the browser actually landed on. With two
+OWNING sheets stacked, closing the inner one with its own button hands its
+entry back, and the popstate that follows is picked up by the outer sheet,
+which closes too.
+
+Reachable today only through a race on the animal page: `openLog` awaits a
+comment fetch before it sets its state, so tapping a health-record row and
+then "+ aşı ekle" during that fetch stacks the log dialog on the vaccine one;
+the log's "Kapat" then takes the half-filled vaccine form with it. The history
+side stays correct — both entries really were consumed and the counter lands
+on zero — so the damage is the lost dialog, not a stranded entry.
+
+Two siblings of the same assumption are unreachable from today's seven call
+sites but would not be from the seven queued above: an outer sheet closed by a
+state setter while an owning inner is open leaks its entry, and swapping one
+sheet for another in a single commit closes the new one instantly. The fix is
+for a back press to be consumed once per event rather than once per listener —
+a single module-level `popstate` handler instead of one per sheet. Left alone
+here because this batch cannot reach it and the change touches every sheet;
+worth doing before the queued dialogs land.

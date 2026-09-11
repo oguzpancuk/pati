@@ -6,6 +6,8 @@ type SheetEntry = {
   owns: boolean;
   /** Set the moment the way out is taken, before the browser answers. */
   closing: boolean;
+  /** Whether an entry was actually pushed — `owns` only says one was wanted. */
+  pushed: boolean;
   /** Set once the entry has been given back or consumed, so it is counted once. */
   released: boolean;
   close: () => void;
@@ -46,7 +48,11 @@ export function sheetEntriesPushed(): number {
  * press, and a page whose own back arrow then walked off the site.
  */
 function releaseEntry(entry: SheetEntry) {
-  if (!entry.owns || entry.released) return;
+  // `pushed`, not `owns`: the push is skipped when the current entry is
+  // already this sheet's — reopen after a Forward press onto it — and
+  // releasing what was never pushed drove the counter negative, where it
+  // stayed (review, 2026-09-11).
+  if (!entry.pushed || entry.released) return;
   entry.released = true;
   entriesPushed -= 1;
 }
@@ -97,6 +103,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
     if (!open) return;
     const entry: SheetEntry = {
       owns: history,
+      pushed: false,
       closing: false,
       released: false,
       close: () => closeRef.current(),
@@ -115,6 +122,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       // with nothing behind it, and its back button goes to the fallback root
       // instead of to the profile the sheet was standing on.
       entriesPushed += 1;
+      entry.pushed = true;
     }
 
     const onKey = (event: KeyboardEvent) => {
