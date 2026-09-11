@@ -131,6 +131,19 @@ function remainingLabel(iso: string): string {
 }
 
 /**
+ * How many records sit at the same spot as this one — a bowl refilled, not
+ * two places. True positions, which a fan seat has pulled apart on screen.
+ */
+function sameSpotCount(actions: CareAction[], action: CareAction): number {
+  const [lng, lat] = action.location.coordinates;
+  const here = new maplibregl.LngLat(lng, lat);
+  return actions.filter((a) => {
+    const [aLng, aLat] = a.location.coordinates;
+    return here.distanceTo(new maplibregl.LngLat(aLng, aLat)) <= SAME_SPOT_METERS;
+  }).length;
+}
+
+/**
  * The popup's markup. Every value in it is ours (a fixed label, a formatted
  * duration, a count) — no user text reaches setHTML.
  */
@@ -536,12 +549,7 @@ export default function MapPage() {
       // coordinates, fan seat included); the "same spot" count compares
       // TRUE positions, which a fan has pulled apart.
       const drawn = hits[0].geometry as GeoJSON.Point;
-      const [lng, lat] = action.location.coordinates;
-      const here = new maplibregl.LngLat(lng, lat);
-      const sameSpot = actionsRef.current.filter((a) => {
-        const [aLng, aLat] = a.location.coordinates;
-        return here.distanceTo(new maplibregl.LngLat(aLng, aLat)) <= SAME_SPOT_METERS;
-      }).length;
+      const sameSpot = sameSpotCount(actionsRef.current, action);
       const popup = new maplibregl.Popup({
         closeButton: true,
         closeOnClick: false,
@@ -631,13 +639,17 @@ export default function MapPage() {
     const actions = [...byId.values()];
     actionsRef.current = actions;
     paintMarkers();
-    // A refresh that dropped the record the callout describes closes it,
-    // rather than leaving a card about something no longer on the map.
-    if (
-      carePopupRef.current &&
-      !byId.has(Number(carePopupRef.current.getElement()?.dataset.careId))
-    ) {
-      carePopupRef.current.remove();
+    // The callout ages with the data, the way mobile's does (its content is
+    // a memo over the same list): a refresh re-renders it, so the remaining
+    // time and the "Aynı noktada N kayıt" count move instead of standing
+    // still at whatever they said when the marker was clicked. A refresh
+    // that dropped the record it describes closes it, rather than leaving a
+    // card about something no longer on the map.
+    const openPopup = carePopupRef.current;
+    if (openPopup) {
+      const open = byId.get(Number(openPopup.getElement()?.dataset.careId));
+      if (!open) openPopup.remove();
+      else openPopup.setHTML(carePopupHtml(open, sameSpotCount(actions, open)));
     }
   }, [paintMarkers]);
 
