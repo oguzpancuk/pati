@@ -22,6 +22,7 @@ export function SettingsSheet({
   demoBusy,
   onToggleDemo,
   onLogout,
+  changePassword,
   deleteAccount,
 }: {
   open: boolean;
@@ -33,6 +34,8 @@ export function SettingsSheet({
   demoBusy: boolean;
   onToggleDemo: () => void;
   onLogout: () => void;
+  /** Track Ş's ChangePasswordForm; the page owns `me` and the reload. */
+  changePassword: React.ReactNode;
   /** The account-deletion link with its own dialog, owned by the page. */
   deleteAccount: React.ReactNode;
 }) {
@@ -78,8 +81,9 @@ export function SettingsSheet({
 
       <div className="hairline" />
 
-      {/* TODO(main): mount ChangePassword here — track Ş ships the
-          "şifremi değiştir" form as a self-contained component. */}
+      {changePassword}
+
+      <div className="hairline" />
 
       <div className="subtle" style={{ textAlign: 'center' }}>
         {/* `replace` consumes the sheet's own history entry, so one back

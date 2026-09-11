@@ -29,6 +29,7 @@ import { AvatarPickerModal } from '../components/avatars';
 import LevelBar from '../components/LevelBar';
 import DeleteAccountLink from '../components/DeleteAccountModal';
 import RecentComments from '../components/RecentComments';
+import { ChangePasswordForm } from '../components/password';
 import {
   BadgeBlock,
   CareHistorySheet,
@@ -442,6 +443,16 @@ export default function UserProfileScreen({ navigation, route }: any) {
         demoBusy={demoBusy}
         onToggleDemo={toggleShowDemo}
         onLogout={logout}
+        changePassword={
+          // `onChanged` is load-bearing: after a social-only account sets a
+          // password, hasPassword flips and the form has to be told, or the
+          // next change is refused for a missing current password.
+          <ChangePasswordForm
+            hasPassword={me?.hasPassword !== false}
+            authProviders={me?.authProviders ?? []}
+            onChanged={load}
+          />
+        }
         deleteAccount={
           <DeleteAccountLink
             initialOpen={openDeleteAccount}

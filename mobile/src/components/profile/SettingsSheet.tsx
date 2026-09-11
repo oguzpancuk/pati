@@ -20,6 +20,8 @@ export type SettingsSheetProps = {
   demoBusy: boolean;
   onToggleDemo: () => void;
   onLogout: () => void;
+  /** Track Ş's ChangePasswordForm; the screen owns `me` and the reload. */
+  changePassword: React.ReactNode;
   /** The account-deletion link with its own modal, owned by the screen. */
   deleteAccount: React.ReactNode;
 };
@@ -38,6 +40,7 @@ export default function SettingsSheet({
   demoBusy,
   onToggleDemo,
   onLogout,
+  changePassword,
   deleteAccount,
 }: SettingsSheetProps) {
   const styles = useStyles();
@@ -85,8 +88,9 @@ export default function SettingsSheet({
 
       <Divider style={styles.divider} />
 
-      {/* TODO(main): mount ChangePassword here — track Ş ships the
-          "şifremi değiştir" form as a self-contained component. */}
+      {changePassword}
+
+      <Divider style={styles.divider} />
 
       <Text variant="caption" color="textSubtle" center style={styles.legal}>
         <Text

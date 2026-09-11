@@ -5,6 +5,7 @@ const { AVATAR_KEYS, AVATAR_PREFIX } = require('../utils/avatars');
 const {
   AuthTokenError,
   isEnabled,
+  isProvider,
   publicConfig,
   verifyIdentityToken,
 } = require('../utils/socialAuth');
@@ -591,14 +592,65 @@ async function resetPassword(req, res, next) {
 }
 
 /**
+ * Re-authenticates a signed-in account that has no password of its own, the
+ * way deleteMyAccount does (user.controller.js): the caller signs in with the
+ * provider once more and that fresh token is the proof. Returns null when the
+ * proof holds, or the `{ status, error }` to answer with.
+ *
+ * A bearer token alone is NOT the proof. It is exactly what a borrowed tab or
+ * an XSS leak hands an attacker, it outlives nothing (the account cannot
+ * revoke it), and the two operations it would authorise here — taking a
+ * permanent credential, and then passing deletion's password branch — are the
+ * two this account demonstrably could not do before.
+ *
+ * 403 rather than 401 throughout: both clients read a 401 as "session
+ * expired" and log the user out globally, which a cancelled provider sheet
+ * must not do.
+ */
+async function reauthenticateWithProvider(userId, { provider, identityToken }) {
+  if (typeof identityToken !== 'string' || identityToken.length === 0) {
+    return { status: 400, error: 'Hesabınızı doğrulamanız gerekiyor' };
+  }
+  // Validated here rather than inside the verifier: an unknown provider is a
+  // bad request, and letting it reach socialAuth turns our own configuration
+  // errors into 500s whose body names the missing env var.
+  if (!isProvider(provider)) {
+    return { status: 400, error: 'Geçersiz doğrulama sağlayıcısı' };
+  }
+  if (!isEnabled(provider)) {
+    return { status: 503, error: 'Doğrulama şu anda kullanılamıyor, sonra tekrar dene' };
+  }
+  let identity;
+  try {
+    identity = await verifyIdentityToken(provider, identityToken);
+  } catch (err) {
+    if (err instanceof AuthTokenError) {
+      return { status: 403, error: 'Doğrulama başarısız, tekrar deneyin' };
+    }
+    throw err;
+  }
+  // The token must belong to THIS account: a valid token for somebody else's
+  // identity is exactly the confused-deputy case to refuse.
+  const linked = await pool.query(
+    'SELECT 1 FROM user_identities WHERE user_id = $1 AND provider = $2 AND subject = $3',
+    [userId, identity.provider, identity.subject]
+  );
+  if (linked.rows.length === 0) {
+    return { status: 403, error: 'Doğrulama başarısız, tekrar deneyin' };
+  }
+  return null;
+}
+
+/**
  * POST /auth/change-password — for a signed-in account.
  *
- * An account that HAS a password must supply it: an unlocked phone or a
- * borrowed browser tab must not be enough to lock its owner out, the same
- * rule account deletion re-authenticates for. An account created through
- * Apple/Google has none, and asking it for a password nobody ever chose would
- * leave those users unable to set one at all — for them this is "şifre
- * belirle" and the provider session they are already holding is the proof.
+ * Every caller re-authenticates, the same rule account deletion enforces. An
+ * account that HAS a password supplies it: an unlocked phone or a borrowed
+ * browser tab must not be enough to lock its owner out. An account created
+ * through Apple/Google has none — asking it for a password nobody ever chose
+ * would leave those users unable to set one at all — so for them this is
+ * "şifre belirle" and a FRESH provider token is the proof, exactly as it is
+ * at the deletion endpoint (user.controller.js, deleteMyAccount).
  *
  * Other sessions survive the change: a JWT cannot be revoked (docs/NOTES.md),
  * so "sign my other devices out" needs a token version on users and is not
@@ -630,6 +682,11 @@ async function changePassword(req, res, next) {
       }
       if (currentPassword === password) {
         return res.status(400).json({ error: 'Yeni şifren eskisiyle aynı olamaz' });
+      }
+    } else {
+      const refusal = await reauthenticateWithProvider(req.user.userId, req.body || {});
+      if (refusal) {
+        return res.status(refusal.status).json({ error: refusal.error });
       }
     }
 

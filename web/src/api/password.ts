@@ -3,7 +3,7 @@
  * password functions; the types are repeated here like the rest of web's
  * client, which does not import the mobile axios layer.
  */
-import { api, AuthResponse } from '../api';
+import { api, AuthResponse, SocialProvider } from '../api';
 
 /**
  * POST /auth/forgot-password — the server answers the same thing whether or
@@ -28,13 +28,19 @@ export function resetPassword(
 }
 
 /**
- * POST /auth/change-password. `currentPassword` is required for an account
- * that has one and meaningless for an account created through Apple/Google —
- * which is what `hasPassword` on Me distinguishes.
+ * What POST /auth/change-password takes besides the new password. Every caller
+ * re-authenticates: an account that has a password sends the current one, and
+ * an account created through Apple/Google (`hasPassword: false` on Me) signs
+ * in with its provider once more and sends that fresh token — the same proof
+ * account deletion asks for. A bearer token on its own is not accepted for
+ * either.
  */
-export function changePassword(input: {
-  currentPassword?: string;
-  password: string;
-}): Promise<{ hasPassword: boolean }> {
+export type ChangePasswordProof =
+  { currentPassword: string } | { provider: SocialProvider; identityToken: string };
+
+/** POST /auth/change-password. */
+export function changePassword(
+  input: ChangePasswordProof & { password: string }
+): Promise<{ hasPassword: boolean }> {
   return api.post<{ hasPassword: boolean }>('/auth/change-password', input);
 }

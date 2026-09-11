@@ -66,14 +66,21 @@ export async function resetPassword(
 }
 
 /**
- * POST /auth/change-password. `currentPassword` is required for an account
- * that has one and meaningless for an account created through Apple/Google —
- * which is what `hasPassword` on the profile distinguishes.
+ * What POST /auth/change-password takes besides the new password. Every caller
+ * re-authenticates: an account that has a password sends the current one, and
+ * an account created through Apple/Google (`hasPassword: false` on the
+ * profile) signs in with its provider once more and sends that fresh token —
+ * the same proof account deletion asks for. A bearer token on its own is not
+ * accepted for either.
  */
-export async function changePassword(input: {
-  currentPassword?: string;
-  password: string;
-}): Promise<{ hasPassword: boolean }> {
+export type ChangePasswordProof =
+  | { currentPassword: string }
+  | { provider: SocialProvider; identityToken: string };
+
+/** POST /auth/change-password. */
+export async function changePassword(
+  input: ChangePasswordProof & { password: string }
+): Promise<{ hasPassword: boolean }> {
   const { data } = await apiClient.post<{ hasPassword: boolean }>('/auth/change-password', input);
   return data;
 }
