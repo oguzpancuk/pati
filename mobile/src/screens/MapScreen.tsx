@@ -801,7 +801,18 @@ export default function MapScreen({ navigation }: any) {
           </MarkerView>
         )}
 
+        {/* Hidden while a callout is open. On iOS a MarkerView is a
+            PointAnnotation and the MAP decides how annotation views stack —
+            not React's child order, and not `isSelected`; both were tried and
+            an avatar still drew over the card's text (simulator, 2026-09-11).
+            The alternative is to lift the callout out of the map and position
+            it from `getPointInView` on every region change, which buys exact
+            stacking at the price of bridge lag while the map moves. Pulling
+            the avatars for as long as the card is up costs one condition and
+            reads as "you are looking at this record now". Web needs none of
+            this: a maplibre Popup is a DOM node above the marker canvas. */}
         {animalsVisible &&
+          !selectedCare &&
           animals.map((animal) => {
             const at = placement.get(`animal-${animal.id}`)?.drawAt ?? animalPosition(animal);
             return (
@@ -824,8 +835,9 @@ export default function MapScreen({ navigation }: any) {
             );
           })}
         {/* The tapped record's callout, above its marker (demo note 13).
-            Last of the map's children so it draws over the care layer and
-            over any avatar that shares the spot. */}
+            `allowOverlap` so collision placement cannot hide a card the
+            user just opened by tapping; what keeps it legible is that the
+            avatars step aside while it is up (see above). */}
         {selectedCare && (
           <MarkerView
             coordinate={(() => {
@@ -834,6 +846,7 @@ export default function MapScreen({ navigation }: any) {
               return [at.lng, at.lat];
             })()}
             anchor={{ x: 0.5, y: 1 }}
+            allowOverlap
           >
             {/* The bottom padding is the gap over the marker: MarkerView
                 anchors the view's edge on the coordinate, with no offset
