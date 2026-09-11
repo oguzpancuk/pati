@@ -178,15 +178,14 @@
 /* ---- mama & su geçmişi ---- */
 
 /* The row that opens a sheet: the same hairline card, laid out as a row,
-   inside a band ruled top and bottom so it is its own section rather than
-   the tail of the level block. The bottom rule is the next section's own
-   hairline, so only the top one is drawn here — and the gaps on both sides
-   of the card match, which is what was wrong before. */
+   set apart by equal air above and below rather than by a rule.
+   DELIBERATELY different from mobile, where the same row is ruled top and
+   bottom: mobile separates its sections with hairlines and the row has to
+   join that language, while this page draws no section rules at all — every
+   border here belongs to a card — so a rule above this one row was the only
+   line on the page and read as a mistake (owner, 2026-09-12). */
 .row-button-band {
-  border-top: 1px solid var(--border);
-  margin-top: 18px;
-  padding-top: 18px;
-  margin-bottom: 18px;
+  margin: 18px 0;
 }
 
 .row-button {
