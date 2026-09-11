@@ -574,7 +574,11 @@ async function getAnimal(req, res, next) {
         [req.params.id]
       ),
       pool.query(
-        `SELECT u.id, u.name, u.avatar_url FROM user_animal_care c
+        // is_demo travels with the row: the carers list is a surface where a
+        // showcase bot can be met (seed-showcase writes user_animal_care), and
+        // both clients draw the same "demo" chip the comment authors below it
+        // wear. Without the column they could not tell them apart.
+        `SELECT u.id, u.name, u.avatar_url, u.is_demo FROM user_animal_care c
          JOIN users u ON u.id = c.user_id
          WHERE c.animal_id = $1
          ORDER BY c.created_at`,

@@ -102,6 +102,8 @@ export interface Carer {
   id: number;
   name: string;
   avatar_url: string | null;
+  /** The carer is a showcase account; the row wears the same chip a comment does. */
+  is_demo?: boolean;
 }
 
 export interface AnimalDetail extends Animal {

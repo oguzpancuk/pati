@@ -596,6 +596,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               <Text variant="bodyStrong" numberOfLines={1} style={styles.carerName}>
                 {carer.name}
               </Text>
+              {/* Same chip the comment authors below wear: the showcase world
+                  writes carer rows too, so a bot can be met here. */}
+              <DemoChip visible={carer.is_demo === true} />
               <Icon name="chevronRight" size={16} color={colors.textSubtle} />
             </Pressable>
           ))
