@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import type { AuthProviders, SocialProvider } from '../api';
 import { deleteAccount, fetchAuthProviders } from '../api';
 import { useAuth } from '../auth';
-import { isAppleCancellation, renderGoogleButton, signInWithApple } from '../socialAuth';
+import {
+  isAppleCancellation,
+  releaseGoogleButton,
+  renderGoogleButton,
+  signInWithApple,
+} from '../socialAuth';
 import { resolvedThemeName } from '../theme';
+import { useSheetExit } from './profile/Sheet';
 
 /**
  * Self-service account deletion (the KVKK promise on /gizlilik + App Store
@@ -15,6 +21,11 @@ import { resolvedThemeName } from '../theme';
  */
 export function DeleteAccountLink() {
   const { logout, me } = useAuth();
+  // The settings sheet this link sits in pushed a history entry. Deletion
+  // ends by swapping the whole route element, so the sheet never reaches its
+  // own dismissal and that entry is stranded — the user's first Back press
+  // afterwards would do nothing at all. Same fix as the logout link.
+  const exitSheet = useSheetExit();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,6 +56,9 @@ export function DeleteAccountLink() {
     setError(null);
     try {
       await deleteAccount(proof);
+      // The way out of the sheet is taken FIRST, then the logout — after it
+      // there is no sheet left to take it.
+      exitSheet?.();
       // The session is dead server-side; drop it locally too.
       logout();
     } catch (err) {
@@ -79,12 +93,17 @@ export function DeleteAccountLink() {
   const theme = resolvedThemeName();
   useEffect(() => {
     const clientId = providers?.google.webClientId;
-    if (!open || usesPassword || !clientId || !linked.includes('google') || !googleSlot.current) {
-      return;
+    const slot = googleSlot.current;
+    if (!open || usesPassword || !clientId || !linked.includes('google') || !slot) {
+      return undefined;
     }
-    renderGoogleButton(googleSlot.current, clientId, theme, (identityToken) =>
+    renderGoogleButton(slot, clientId, theme, (identityToken) =>
       remove({ provider: 'google', identityToken })
     ).catch(() => setError('Google doğrulaması yüklenemedi'));
+    // Closing this dialog leaves the change-password form's Google button
+    // mounted behind it; this handler must go with the dialog, or a later
+    // credential could still reach it.
+    return () => releaseGoogleButton(slot);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, usesPassword, providers, theme, linked.join(',')]);
 

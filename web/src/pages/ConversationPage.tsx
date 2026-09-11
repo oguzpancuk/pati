@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { REPORT_REASONS, ReportReason } from '@mobile/reportReasons';
+import { PageHeader } from '../components/PageHeader';
 import { useAuth } from '../auth';
 import {
   applyPoll,
@@ -39,7 +40,6 @@ function formatTime(iso: string) {
 export default function ConversationPage() {
   const { id } = useParams();
   const conversationId = Number(id);
-  const navigate = useNavigate();
   const { me } = useAuth();
   const myId = me?.id;
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
@@ -76,11 +76,6 @@ export default function ConversationPage() {
   }, [conversationId]);
 
   useEffect(() => {
-    // Opening the page is reading it, so the read is announced as the page
-    // opens rather than after the messages land: a user who leaves a slow
-    // conversation early would otherwise leave before it was sent, and the
-    // tab badge would re-read the count with nothing to wait for.
-    markConversationRead(conversationId).catch(() => {});
     fetchMessages(conversationId, { limit: PAGE })
       .then((page) => {
         setMessages(page.messages);
@@ -88,6 +83,13 @@ export default function ConversationPage() {
         lastId.current = page.messages.length ? page.messages[page.messages.length - 1].id : null;
         since.current = page.now;
         requestAnimationFrame(scrollToBottom);
+        // Read is announced AFTER the page lands, and it stays that way
+        // (owner, 2026-09-11): the server stamps `last_read_at = now()`, so
+        // marking first would cover a message that arrived between the mark
+        // and this render — shown on screen and still counted unread. The
+        // badge does not depend on the order any more; api/messages tells it
+        // when a read finishes, however late that is.
+        markConversationRead(conversationId).catch(() => {});
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Mesajlar alınamadı'));
   }, [conversationId, scrollToBottom]);
@@ -225,54 +227,54 @@ export default function ConversationPage() {
 
   return (
     <div className="page fill msg-page">
-      <div className="topbar msg-topbar">
-        <button className="back" onClick={() => navigate(-1)} aria-label="Geri">
-          ‹
-        </button>
+      <PageHeader
+        className="msg-topbar"
+        fallback="/mesajlar"
+        /* One round header control on both clients (owner, P8 item 4): the
+           members glyph for a group, the other person's avatar for a DM. */
+        action={
+          isGroup ? (
+            <Link
+              to={`/mesajlar/${conversationId}/ayarlar`}
+              className="msg-head-btn"
+              aria-label="Grup ayarları"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="9.2" cy="8.4" r="3.2" />
+                <path d="M2.8 20a6.4 6.4 0 0 1 12.8 0" />
+                <path d="M16.4 5.8a3.2 3.2 0 0 1 0 5.2" />
+                <path d="M17.4 14.4A6.4 6.4 0 0 1 21.2 20" />
+              </svg>
+            </Link>
+          ) : detail?.otherUser ? (
+            <Link
+              to={`/kullanici/${detail.otherUser.id}`}
+              className="msg-head-btn"
+              aria-label={detail.otherUser.name}
+            >
+              <UserAvatar
+                avatarUrl={detail.otherUser.avatar_url}
+                name={detail.otherUser.name}
+                size={30}
+              />
+            </Link>
+          ) : null
+        }
+      >
         <div className="msg-title">
           <strong>{detail?.name ?? '…'}</strong>
           {isGroup && <span className="subtle">{detail?.members.length} üye</span>}
         </div>
-        {/* One round header control on both clients (owner, P8 item 4): the
-            members glyph for a group, the other person's avatar for a DM. */}
-        {isGroup ? (
-          <Link
-            to={`/mesajlar/${conversationId}/ayarlar`}
-            className="msg-head-btn"
-            aria-label="Grup ayarları"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="9.2" cy="8.4" r="3.2" />
-              <path d="M2.8 20a6.4 6.4 0 0 1 12.8 0" />
-              <path d="M16.4 5.8a3.2 3.2 0 0 1 0 5.2" />
-              <path d="M17.4 14.4A6.4 6.4 0 0 1 21.2 20" />
-            </svg>
-          </Link>
-        ) : detail?.otherUser ? (
-          <Link
-            to={`/kullanici/${detail.otherUser.id}`}
-            className="msg-head-btn"
-            aria-label={detail.otherUser.name}
-          >
-            <UserAvatar
-              avatarUrl={detail.otherUser.avatar_url}
-              name={detail.otherUser.name}
-              size={30}
-            />
-          </Link>
-        ) : (
-          <span />
-        )}
-      </div>
+      </PageHeader>
 
       <div
         ref={listRef}

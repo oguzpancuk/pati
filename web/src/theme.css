@@ -195,22 +195,29 @@ strong {
   position: relative;
 }
 
-/* Page top bar: back arrow left + micro title centered (animal detail etc.) */
+/* The page header (components/PageHeader, DESIGN §8): back left, micro title
+   centred, an optional control right. Every non-tab page wears this one. */
 .topbar {
   display: grid;
-  grid-template-columns: 40px 1fr 40px;
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
   margin: 2px 0 10px;
 }
 .topbar .back {
   border: none;
   background: none;
-  font-size: 22px;
-  line-height: 1;
   color: var(--text);
   cursor: pointer;
-  padding: 4px;
-  text-align: left;
+  /* The 44px touch floor the design system sets, pulled left so the glyph
+     keeps its optical place at the text edge; the extra target area
+     overhangs into the page's own padding. */
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
 }
 .topbar .micro {
@@ -1339,7 +1346,7 @@ strong {
   margin: 0;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 44px 1fr auto;
 }
 .msg-head-btn {
   width: 36px;

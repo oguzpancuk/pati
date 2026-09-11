@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { PageHeader } from '../components/PageHeader';
 import { fetchMyFriendships, FriendshipEntry } from '../api';
 import { useAuth } from '../auth';
 import {
@@ -99,13 +100,7 @@ export default function GroupSettingsPage() {
 
   return (
     <div className="page">
-      <div className="topbar">
-        <button className="back" onClick={() => navigate(-1)} aria-label="Geri">
-          ‹
-        </button>
-        <div className="micro">grup ayarları</div>
-        <span />
-      </div>
+      <PageHeader title="grup ayarları" fallback="/mesajlar" />
 
       {error && <div className="error">{error}</div>}
       {!detail && !error && <p className="muted">Yükleniyor…</p>}

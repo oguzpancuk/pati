@@ -12,6 +12,7 @@ import {
 } from '../api';
 import { useAuth } from '../auth';
 import { BadgeCatalogModal, LevelBar } from '../badges';
+import { PageHeader } from '../components/PageHeader';
 import { RecentComments } from '../components/RecentComments';
 import {
   BadgeBlock,
@@ -109,10 +110,7 @@ export default function UserProfilePage() {
 
   return (
     <div className="page">
-      {/* Back means history, never a hardcoded parent (DESIGN.md §8). */}
-      <button className="link" onClick={() => navigate(-1)} style={{ marginBottom: 8 }}>
-        ‹ Geri
-      </button>
+      <PageHeader title="profil" fallback="/profil" />
       {error && <div className="error">{error}</div>}
 
       <ProfileHeader

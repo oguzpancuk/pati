@@ -112,14 +112,31 @@ export const fetchConversations = () =>
     .then((r) => r.conversations);
 
 /**
- * A conversation is marked read as it opens, and the tab badge re-reads the
- * count the moment that page is left — the two calls are often in flight
- * together, and the server answers whichever arrives first. The count waits
- * for any read still running (review finding): without it, leaving a slow
- * conversation early left the badge showing messages the user had already
- * read, until the next minute's tick. Mobile's api/messages.ts does the same.
+ * Marking a conversation read and re-reading the tab badge are two requests
+ * about the same fact, and the server answers whichever arrives first. Two
+ * things keep them in order:
+ *
+ * - the count waits for any read still in flight, so a count that overtakes
+ *   a read does not report messages the user has already read;
+ * - a finished read tells the badge to look again (`onConversationRead`), so
+ *   the badge no longer depends on being polled at the right moment. That is
+ *   what lets ConversationPage mark read AFTER its messages land, which is
+ *   the order the server's `last_read_at = now()` requires: marking first
+ *   would stamp over a message that arrives before the page renders, and it
+ *   would be shown and still counted unread.
+ *
+ * Mobile's api/messages.ts does the same.
  */
 const readsInFlight = new Set<Promise<unknown>>();
+const readListeners = new Set<() => void>();
+
+/** Subscribe to "a conversation was just marked read"; returns the unsubscribe. */
+export function onConversationRead(listener: () => void): () => void {
+  readListeners.add(listener);
+  return () => {
+    readListeners.delete(listener);
+  };
+}
 
 /** Every conversation's unread counts added up server-side, for the tab badge. */
 export const fetchUnreadMessageCount = async () => {
@@ -179,6 +196,9 @@ export const markConversationRead = async (id: number) => {
   readsInFlight.add(call);
   try {
     await call;
+    // Copied first: a listener that unsubscribes itself must not change the
+    // set we are walking.
+    for (const listener of [...readListeners]) listener();
   } finally {
     readsInFlight.delete(call);
   }

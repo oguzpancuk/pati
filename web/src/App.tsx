@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
-import { fetchUnreadMessageCount, UNREAD_POLL_INTERVAL_MS } from './api/messages';
+import {
+  fetchUnreadMessageCount,
+  onConversationRead,
+  UNREAD_POLL_INTERVAL_MS,
+} from './api/messages';
 import './styles/messages.css';
 import AnimalPage from './pages/AnimalPage';
 import AnimalsPage from './pages/AnimalsPage';
@@ -50,9 +54,9 @@ const ICONS = {
 function Shell() {
   const { pathname } = useLocation();
   // The unread total on the messages tab (owner, 2026-09-11 demo note 10),
-  // mobile parity: once a minute, plus a fresh read whenever the page
-  // changes — leaving a conversation is exactly when it was marked read —
-  // and whenever the tab comes back to the front.
+  // mobile parity: once a minute, whenever the page changes, whenever the
+  // tab comes back to the front — and, the one that is not a guess about
+  // timing, whenever a conversation has actually been marked read.
   const [unreadMessages, setUnreadMessages] = useState(0);
   useEffect(() => {
     let alive = true;
@@ -71,10 +75,14 @@ function Shell() {
       if (!document.hidden) poll();
     };
     document.addEventListener('visibilitychange', onVisibility);
+    // A read that finishes after the user has already left the conversation
+    // still moves the badge; nothing depends on the poll landing after it.
+    const unsubscribe = onConversationRead(poll);
     return () => {
       alive = false;
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisibility);
+      unsubscribe();
     };
   }, [pathname]);
 

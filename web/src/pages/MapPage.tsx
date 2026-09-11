@@ -438,7 +438,10 @@ export default function MapPage() {
       // stretched vector tiles.
       minZoom: WORLD_MIN_ZOOM,
       maxZoom: 19,
-      attributionControl: { compact: true },
+      // The basemap credit left every map surface (owner, demo note 15): it
+      // is one always-visible line in the settings sheet now, so the control
+      // that used to sit over the map is off. See @mobile/map/attribution.
+      attributionControl: false,
     });
     // No zoom control (handoff): pinch and double-tap are enough.
 
@@ -558,6 +561,12 @@ export default function MapPage() {
         offset: 24,
         maxWidth: '230px',
         className: 'care-popup',
+        // maplibre focuses the popup's first focusable child on every
+        // setDOMContent — and loadMarkers re-renders this callout on every
+        // viewport refresh, so the default would yank the keyboard back to
+        // the × button behind whatever the user had moved on to. The callout
+        // is a card of text; nothing in it needs focus to be read.
+        focusAfterOpen: false,
       })
         .setLngLat(drawn.coordinates as [number, number])
         .setHTML(carePopupHtml(action, sameSpot))

@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { searchUsers, UserSummary } from '../api';
 import { UserAvatar } from '../avatars';
+import { PageHeader } from '../components/PageHeader';
 
 export default function FindFriendsPage() {
-  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,10 +25,7 @@ export default function FindFriendsPage() {
 
   return (
     <div className="page">
-      <button className="link" onClick={() => navigate(-1)} style={{ marginBottom: 8 }}>
-        ‹ Geri
-      </button>
-      <h1 style={{ margin: '0 0 10px', fontSize: 22 }}>Arkadaş bul</h1>
+      <PageHeader title="arkadaş bul" fallback="/profil" />
       <label className="field">
         <input
           placeholder="İsimle ara…"

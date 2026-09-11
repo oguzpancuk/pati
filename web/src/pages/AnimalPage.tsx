@@ -8,6 +8,7 @@ import {
   addVaccination,
   AnimalComment,
   ApiError,
+  Carer,
   fetchComments,
   HealthRecord,
   markHealthRecordRecovered,
@@ -35,6 +36,7 @@ import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { ChipRow } from '../components/ChipRow';
 import { LoadMoreButton } from '../components/LoadMoreButton';
+import { PageHeader, useGoBack } from '../components/PageHeader';
 import '../styles/animal.css';
 
 const RECORD_TYPE_LABELS = { illness: 'Hastalık', injury: 'Yaralanma' } as const;
@@ -126,12 +128,14 @@ function ChoiceChips({
 
 /**
  * Every person named on an animal profile is a door to their profile (demo
- * item 7). Your own name goes to your own page rather than a stranger's
- * view of yourself — /kullanici/<me> redirects there anyway, this just
- * skips the bounce.
+ * item 7) — except you. Your own name is plain text with no link and no
+ * press handler (owner decision, 2026-09-11, both clients): tapping through
+ * to a stranger's-eye view of yourself is the odd outcome, your own profile
+ * is one tab tap away, and it takes a navigation special case out of both
+ * clients. `null` is "this name is not a door".
  */
-function profilePath(userId: number, selfId?: number) {
-  return selfId === userId ? '/profil' : `/kullanici/${userId}`;
+function profilePath(userId: number, selfId?: number): string | null {
+  return selfId === userId ? null : `/kullanici/${userId}`;
 }
 
 /** The same door inside running text ("kaydeden", "… iyileşti olarak işaretledi"). */
@@ -144,11 +148,12 @@ function PersonLink({
   name: string;
   selfId?: number;
 }) {
-  if (typeof userId !== 'number') return <>{name}</>;
+  const to = typeof userId === 'number' ? profilePath(userId, selfId) : null;
+  if (!to) return <>{name}</>;
   return (
     <Link
       className="person-link"
-      to={profilePath(userId, selfId)}
+      to={to}
       // A record card is itself clickable (it opens the record log); the
       // name inside it must go to the person, not to both.
       onClick={(e) => e.stopPropagation()}
@@ -158,11 +163,60 @@ function PersonLink({
   );
 }
 
+/** A comment author's avatar: the same door as their name, or plain for you. */
+function PersonAvatar({
+  userId,
+  name,
+  avatarUrl,
+  size,
+  selfId,
+}: {
+  userId: number;
+  name: string;
+  avatarUrl: string | null;
+  size: number;
+  selfId?: number;
+}) {
+  const avatar = <UserAvatar avatarUrl={avatarUrl} name={name} size={size} />;
+  const to = profilePath(userId, selfId);
+  if (!to) return avatar;
+  return (
+    <Link to={to} aria-label={`${name} profilini aç`}>
+      {avatar}
+    </Link>
+  );
+}
+
+/** A carer row: a door to that person, or — for you — a row that just names you. */
+function CarerRow({ carer, selfId }: { carer: Carer; selfId?: number }) {
+  const body = (
+    <>
+      <UserAvatar avatarUrl={carer.avatar_url} name={carer.name} size={34} />
+      <strong className="grow">{carer.name}</strong>
+      {/* Same chip the comment authors below wear: the showcase world
+          writes carer rows too, so a bot can be met here. */}
+      {carer.is_demo && <span className="demo-chip">demo</span>}
+    </>
+  );
+  const to = profilePath(carer.id, selfId);
+  if (!to) {
+    // No chevron either: it promises somewhere to go.
+    return <div className="animal-carer-row self">{body}</div>;
+  }
+  return (
+    <Link className="animal-carer-row" to={to}>
+      {body}
+      <span className="subtle chevron">›</span>
+    </Link>
+  );
+}
+
 // Two rows; the rest live in the viewer behind the "+N" tile.
 const HERO_PHOTOS = 6;
 export default function AnimalPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const backToMatches = useGoBack('/hayvanlar/yeni');
   const [searchParams] = useSearchParams();
   // Did we arrive via "review candidate" from the add-animal flow? Carried
   // in the URL instead of state so it survives a page refresh.
@@ -510,14 +564,11 @@ export default function AnimalPage() {
 
   return (
     <div className="page">
-      <div className="topbar">
-        <button className="back" aria-label="Geri" onClick={() => navigate(-1)}>
-          ←
-        </button>
-        {/* "kedi profili" / "köpek profili" (P6 item 6, mobile parity). */}
-        <div className="micro">{animal.species === 'cat' ? 'kedi profili' : 'köpek profili'}</div>
-        <span />
-      </div>
+      {/* "kedi profili" / "köpek profili" (P6 item 6, mobile parity). */}
+      <PageHeader
+        title={animal.species === 'cat' ? 'kedi profili' : 'köpek profili'}
+        fallback="/hayvanlar"
+      />
 
       {error && <div className="error">{error}</div>}
 
@@ -629,16 +680,9 @@ export default function AnimalPage() {
       {carers.length === 0 ? (
         <div className="card flat muted">Henüz bakıcı yok. İlk bakıcı sen ol.</div>
       ) : (
-        carers.slice(0, visibleCarers).map((carer) => (
-          <Link key={carer.id} className="animal-carer-row" to={profilePath(carer.id, selfId)}>
-            <UserAvatar avatarUrl={carer.avatar_url} name={carer.name} size={34} />
-            <strong className="grow">{carer.name}</strong>
-            {/* Same chip the comment authors below wear: the showcase world
-                writes carer rows too, so a bot can be met here. */}
-            {carer.is_demo && <span className="demo-chip">demo</span>}
-            <span className="subtle chevron">›</span>
-          </Link>
-        ))
+        carers
+          .slice(0, visibleCarers)
+          .map((carer) => <CarerRow key={carer.id} carer={carer} selfId={selfId} />)
       )}
       <LoadMoreButton
         remaining={carers.length - visibleCarers}
@@ -823,9 +867,13 @@ export default function AnimalPage() {
       )}
       {comments.map((c) => (
         <div key={c.id} className="row" style={{ alignItems: 'flex-start', marginBottom: 12 }}>
-          <Link to={profilePath(c.user_id, selfId)} aria-label={`${c.user_name} profilini aç`}>
-            <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={34} />
-          </Link>
+          <PersonAvatar
+            userId={c.user_id}
+            name={c.user_name}
+            avatarUrl={c.avatar_url}
+            size={34}
+            selfId={selfId}
+          />
           <div className="grow">
             <div className="row" style={{ gap: 6 }}>
               <strong style={{ fontSize: 14 }}>
@@ -859,7 +907,10 @@ export default function AnimalPage() {
                 : 'Eklemek istediğin hayvan bu mu? Fotoğraf kontrol edilemedi; konumu güncellersin.'}
           </p>
           <div className="row">
-            <button className="btn secondary grow" onClick={() => navigate(-1)}>
+            {/* The same rule as the header's back (DESIGN §8): history, or
+                the flow's own page when a shared link opened this review
+                with nothing behind it. */}
+            <button className="btn secondary grow" onClick={backToMatches}>
               Geri dön
             </button>
             <button
@@ -1178,9 +1229,13 @@ export default function AnimalPage() {
                   className="row"
                   style={{ alignItems: 'flex-start', marginBottom: 10 }}
                 >
-                  <Link to={profilePath(c.user_id, selfId)} aria-label={`${c.user_name} profilini aç`}>
-                    <UserAvatar avatarUrl={c.avatar_url} name={c.user_name} size={30} />
-                  </Link>
+                  <PersonAvatar
+                    userId={c.user_id}
+                    name={c.user_name}
+                    avatarUrl={c.avatar_url}
+                    size={30}
+                    selfId={selfId}
+                  />
                   <div className="grow">
                     <div className="row" style={{ justifyContent: 'space-between' }}>
                       <div className="name-with-chip">
