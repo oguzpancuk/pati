@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { deleteCareAction, type MyCareAction } from '../../api';
 import { CareHistoryMap } from '../CareHistoryMap';
 import { MiniMap } from '../MiniMap';
@@ -40,10 +40,20 @@ export function CareHistorySheet({
   const [group, setGroup] = useState<MyCareAction[] | null>(null);
   const [detail, setDetail] = useState<MyCareAction | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // The two popups are sheets too: Escape and the back button close the
-  // topmost one, not the history sheet underneath.
-  useSheetDismiss(!!group, () => setGroup(null));
-  useSheetDismiss(!!detail, () => setDetail(null));
+  // The two popups join the dismiss stack without a history entry of their
+  // own: Escape closes the topmost one, and a back press closes the popup
+  // together with the history sheet it sits on. Giving each its own entry
+  // would need the chooser to hand one back at the exact moment the detail
+  // asks for one — a race the group → detail step would lose.
+  const closeGroup = useSheetDismiss(!!group, () => setGroup(null), false);
+  const closeDetail = useSheetDismiss(!!detail, () => setDetail(null), false);
+  // A popup must never outlive the sheet it sits on.
+  useEffect(() => {
+    if (!open) {
+      setGroup(null);
+      setDetail(null);
+    }
+  }, [open]);
 
   async function handleDelete(action: MyCareAction) {
     const label = action.action_type === 'food' ? 'mama' : 'su';
@@ -92,7 +102,7 @@ export function CareHistorySheet({
       {/* Chooser for a marker holding several records. Rendered after the
           sheet so it paints above it. */}
       {group && (
-        <div className="backdrop" onClick={() => setGroup(null)} role="presentation">
+        <div className="backdrop" onClick={closeGroup} role="presentation">
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2 style={{ textAlign: 'center', marginBottom: 12 }}>Bu noktadaki kayıtlar</h2>
             {group.map((action) => (
@@ -109,11 +119,7 @@ export function CareHistorySheet({
                 <span className="muted">{formatCareDate(action.created_at)}</span>
               </button>
             ))}
-            <button
-              className="btn ghost full"
-              style={{ marginTop: 6 }}
-              onClick={() => setGroup(null)}
-            >
+            <button className="btn ghost full" style={{ marginTop: 6 }} onClick={closeGroup}>
               Kapat
             </button>
           </div>
@@ -122,7 +128,7 @@ export function CareHistorySheet({
 
       {/* Drop-detail popup: where this record landed, as a static map. */}
       {detail && (
-        <div className="backdrop" onClick={() => setDetail(null)} role="presentation">
+        <div className="backdrop" onClick={closeDetail} role="presentation">
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <h2 style={{ textAlign: 'center', marginBottom: 2 }}>
               {detail.action_type === 'food' ? 'Mama kaydı' : 'Su kaydı'}
@@ -146,11 +152,7 @@ export function CareHistorySheet({
                 Sil
               </button>
             )}
-            <button
-              className="btn ghost full"
-              style={{ marginTop: 10 }}
-              onClick={() => setDetail(null)}
-            >
+            <button className="btn ghost full" style={{ marginTop: 10 }} onClick={closeDetail}>
               Kapat
             </button>
           </div>

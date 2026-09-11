@@ -135,7 +135,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         rank={profile.rank}
         level={profile.level?.level ?? 1}
         demo={profile.is_demo === true}
-        onOpenLeaderboard={() => navigation.navigate('Leaderboard')}
+        onOpenLeaderboard={() => navigation.push('Leaderboard')}
         counts={{
           food: profile.stats.foodCount,
           water: profile.stats.waterCount,

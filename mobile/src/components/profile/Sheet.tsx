@@ -62,7 +62,9 @@ export default function Sheet({
       onRequestClose={onClose}
       onDismiss={onDismiss}
     >
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Kapat">
+      {/* Not labelled: it wraps the whole card, and a label here would
+          make a screen reader announce the sheet itself as one button. */}
+      <Pressable style={styles.backdrop} onPress={onClose}>
         {/* Swallows the press so a tap inside the card doesn't close it. */}
         <Pressable style={[styles.card, fill && styles.cardFill]} onPress={() => {}}>
           <View style={styles.grabber} />

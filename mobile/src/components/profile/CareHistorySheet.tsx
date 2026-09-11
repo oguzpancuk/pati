@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { Camera, MapView, MarkerView } from '@maplibre/maplibre-react-native';
 import { deleteCareAction, MyCareAction } from '../../api/care';
@@ -50,6 +50,16 @@ export default function CareHistorySheet({
   // still dismissing (the iOS RN-modal race silently drops the second one).
   // The picked record parks here and the chooser's onDismiss opens it.
   const pendingCareDetail = useRef<MyCareAction | null>(null);
+
+  // A popup must never outlive the sheet it sits on: both are siblings of
+  // the sheet's modal, so nothing dismisses them with it.
+  useEffect(() => {
+    if (!visible) {
+      pendingCareDetail.current = null;
+      setCareGroup(null);
+      setCareDetail(null);
+    }
+  }, [visible]);
 
   const openCareDetailFromGroup = (action: MyCareAction) => {
     if (Platform.OS === 'ios') {
