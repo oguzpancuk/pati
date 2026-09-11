@@ -5,13 +5,6 @@ import StatStrip from '../StatStrip';
 import { Text } from '../ui';
 import { makeStyles, spacing } from '../../theme';
 
-export type ProfileCounts = {
-  food: number;
-  water: number;
-  animals: number;
-  friends: number;
-};
-
 export type ProfileStatsProps = {
   points: number;
   rank: UserRank | null;
@@ -20,12 +13,13 @@ export type ProfileStatsProps = {
   demo?: boolean;
   /** Omitted for a showcase account — it is not on the board (review finding). */
   onOpenLeaderboard?: () => void;
-  counts: ProfileCounts;
 };
 
 /**
- * The numbers under the header, identical on both profiles: the three-cell
- * strip (puan / sıra / seviye) over the four small counts.
+ * The numbers under the header, identical on both profiles: one three-cell
+ * strip, puan / sıra / seviye. The four small counts (mama · su · hayvan ·
+ * arkadaş) that used to sit under it are gone — no item ever asked for them
+ * and the owner had them removed (2026-09-11).
  */
 export default function ProfileStats({
   points,
@@ -33,7 +27,6 @@ export default function ProfileStats({
   level,
   demo = false,
   onOpenLeaderboard,
-  counts,
 }: ProfileStatsProps) {
   const styles = useStyles();
 
@@ -54,28 +47,12 @@ export default function ProfileStats({
           { value: String(level), label: 'seviye' },
         ]}
       />
-      <View style={styles.counts}>
-        {[
-          { value: counts.food, label: 'mama' },
-          { value: counts.water, label: 'su' },
-          // "hayvan", not "kayıt": the drop-history row-button a few pixels
-          // below says "N kayıt" about the food/water total, and one word
-          // could not mean both things that close together (review finding).
-          { value: counts.animals, label: 'hayvan' },
-          { value: counts.friends, label: 'arkadaş' },
-        ].map((cell) => (
-          <View key={cell.label} style={styles.cell}>
-            <Text variant="subheading">{String(cell.value)}</Text>
-            <Text variant="micro">{cell.label}</Text>
-          </View>
-        ))}
-      </View>
     </>
   );
 }
 
 const useStyles = makeStyles(() => ({
-  strip: { marginBottom: spacing.md },
-  counts: { flexDirection: 'row', marginBottom: spacing.lg },
-  cell: { flex: 1, alignItems: 'center' },
+  // The strip is the last thing before the level bar now, so it carries the
+  // gap the counts row used to.
+  strip: { marginBottom: spacing.lg },
 }));

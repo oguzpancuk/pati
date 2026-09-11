@@ -344,12 +344,6 @@ export default function UserProfileScreen({ navigation, route }: any) {
         level={me.level?.level ?? 1}
         demo={me.is_demo === true}
         onOpenLeaderboard={() => navigation.navigate('Leaderboard')}
-        counts={{
-          food: me.stats?.foodCount ?? 0,
-          water: me.stats?.waterCount ?? 0,
-          animals: me.stats?.animalCount ?? 0,
-          friends: friends.length,
-        }}
       />
 
       <View style={styles.levelCard}>

@@ -139,12 +139,6 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         level={profile.level?.level ?? 1}
         demo={profile.is_demo === true}
         onOpenLeaderboard={() => navigation.push('Leaderboard')}
-        counts={{
-          food: profile.stats.foodCount,
-          water: profile.stats.waterCount,
-          animals: profile.stats.animalCount,
-          friends: profile.friendCount,
-        }}
       />
 
       <View style={styles.levelCard}>

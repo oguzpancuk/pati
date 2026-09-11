@@ -16,8 +16,10 @@ export type ProfileHeaderProps = {
   onPressAvatar?: () => void;
   /**
    * Top-right controls: the bell / friends / gear row on your own profile,
-   * the single friendship button on someone else's. Right-aligned on its own
-   * line so the name keeps the full width on both.
+   * the single friendship button on someone else's. They sit on the identity
+   * row itself, right-aligned and centred against the avatar — on their own
+   * line above it they floated toward the top of the screen with a band of
+   * nothing under them (owner, 2026-09-11).
    */
   actions?: React.ReactNode;
 };
@@ -35,46 +37,54 @@ export default function ProfileHeader({
   const styles = useStyles();
   return (
     <View style={styles.header}>
-      {actions ? <View style={styles.actions}>{actions}</View> : null}
       <View style={styles.identity}>
         <Pressable onPress={onPressAvatar} disabled={!onPressAvatar}>
-          <Avatar uri={avatarUrl} name={name} size={60} />
+          <Avatar uri={avatarUrl} name={name} size={52} />
         </Pressable>
         <View style={styles.text}>
-          <View style={styles.nameWrap}>
-            <Text variant="title" numberOfLines={1} style={styles.name}>
-              {name}
+          {/* The name has the row to itself. Sharing it with the demo chip
+              cost roughly sixty points of width and truncated even a short
+              name to "Can…" once the controls joined the row. */}
+          <Text variant="title" numberOfLines={1}>
+            {name}
+          </Text>
+          <View style={styles.secondaryRow}>
+            <Text variant="caption" numberOfLines={1} style={styles.secondary}>
+              {secondary}
             </Text>
             <DemoChip visible={demo} />
           </View>
-          <Text variant="caption" numberOfLines={1}>
-            {secondary}
-          </Text>
-          {hint ? (
-            <Pressable onPress={onPressAvatar} disabled={!onPressAvatar}>
-              <Text variant="micro" color="brand" style={styles.hint}>
-                {hint}
-              </Text>
-            </Pressable>
-          ) : null}
         </View>
+        {actions ? <View style={styles.actions}>{actions}</View> : null}
       </View>
+      {/* Full width under the row, not inside the name column: beside the
+          controls it wrapped onto a second line. */}
+      {hint ? (
+        <Pressable onPress={onPressAvatar} disabled={!onPressAvatar}>
+          <Text variant="micro" color="brand" style={styles.hint}>
+            {hint}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 const useStyles = makeStyles(() => ({
   header: { marginBottom: spacing.xl },
+  // On the identity row, not above it: centred against the avatar so the
+  // controls read as part of the same block as the name and the photo.
   actions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginLeft: spacing.md,
   },
   identity: { flexDirection: 'row', alignItems: 'center' },
-  text: { flex: 1, marginLeft: spacing.lg },
-  nameWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { flexShrink: 1 },
-  hint: { marginTop: spacing.sm - 2 },
+  // The name gives way, not the controls: it truncates at one line and the
+  // buttons keep their touch targets.
+  text: { flex: 1, minWidth: 0, marginLeft: spacing.md },
+  secondaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  secondary: { flexShrink: 1 },
+  hint: { marginTop: spacing.sm },
 }));

@@ -35,6 +35,14 @@ export default function RowButton({ icon, label, value, onPress }: RowButtonProp
 }
 
 const useStyles = makeStyles(() => ({
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  // The section below opens with a hairline that carries its own padding
+  // BELOW the line and none above it, so without this the line sat flush
+  // against this card (owner, 2026-09-11: "bitişik olmuş").
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
   text: { flex: 1 },
 }));

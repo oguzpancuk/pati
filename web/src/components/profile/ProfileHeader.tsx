@@ -26,23 +26,27 @@ export function ProfileHeader({
 }) {
   const identity = (
     <>
-      <UserAvatar avatarUrl={avatarUrl} name={name} size={60} />
-      <div className="grow">
+      <UserAvatar avatarUrl={avatarUrl} name={name} size={52} />
+      <div className="grow profile-identity-text">
+        {/* The name has the row to itself: sharing it with the demo chip
+            truncated even a short name once the controls joined the row. */}
+        <h1 className="profile-name">{name}</h1>
         <div className="name-with-chip">
-          <h1 className="profile-name">{name}</h1>
+          <span className="muted profile-secondary">{secondary}</span>
           {demo && <span className="demo-chip">demo</span>}
         </div>
-        <div className="muted">{secondary}</div>
-        {hint && <div className="profile-hint">{hint}</div>}
       </div>
     </>
   );
 
+  // On the identity row, not above it: on their own line the controls
+  // floated toward the top of the page with a band of nothing under them
+  // (owner, 2026-09-11). Centred against the avatar, they read as part of
+  // the same block as the name and the photo.
+  const controls = actions && <div className="profile-actions">{actions}</div>;
+
   return (
     <div className="profile-head">
-      {/* Right-aligned on its own line so the name keeps the full width on
-          both profiles. */}
-      {actions && <div className="profile-actions">{actions}</div>}
       {onPressAvatar ? (
         <div
           className="row profile-identity"
@@ -57,10 +61,17 @@ export function ProfileHeader({
           }}
         >
           {identity}
+          {controls}
         </div>
       ) : (
-        <div className="row profile-identity">{identity}</div>
+        <div className="row profile-identity">
+          {identity}
+          {controls}
+        </div>
       )}
+      {/* Full width under the row, not inside the name column: beside the
+          controls it wrapped onto a second line. */}
+      {hint && <div className="profile-hint">{hint}</div>}
     </div>
   );
 }

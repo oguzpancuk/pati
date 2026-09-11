@@ -10,16 +10,38 @@
 
 /* The header's controls sit right-aligned on their own line, so the name
    keeps the full width on your own profile and on someone else's. */
+/* On the identity row, right-aligned and centred against the avatar. */
 .profile-actions {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-left: 10px;
+  flex-shrink: 0;
 }
 
 .profile-identity {
   align-items: center;
+}
+
+/* The name gives way, not the controls: without min-width a flex child
+   refuses to shrink below its content and pushes the buttons off. */
+.profile-identity-text {
+  min-width: 0;
+}
+
+.profile-identity-text .profile-name,
+.profile-identity-text .profile-secondary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-identity-text .name-with-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .profile-head [role='button'] {
@@ -148,12 +170,16 @@
 
 /* ---- mama & su geçmişi ---- */
 
-/* The row that opens a sheet: the same hairline card, laid out as a row. */
+/* The row that opens a sheet: the same hairline card, laid out as a row.
+   The margin is the mobile twin's: the section below opens with a hairline
+   that carries its padding below the line and none above it, so without it
+   the line sat flush against this card. */
 .row-button {
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
+  margin-bottom: 18px;
   text-align: left;
   font: inherit;
   color: inherit;
@@ -295,25 +321,6 @@
 }
 
 /* ---- the shared skeleton ---- */
-
-/* The four small counts under the stat strip. Like theme.css's `.stats`,
-   minus the top hairline: it sits directly under a bordered strip here. */
-.profile-counts {
-  display: flex;
-  justify-content: space-around;
-  text-align: center;
-  margin-bottom: 14px;
-}
-
-.profile-counts strong {
-  display: block;
-  font-size: 20px;
-  font-weight: 400;
-}
-
-.profile-counts .micro {
-  margin: 2px 0 0;
-}
 
 .badge-card-title {
   font-size: 13px;

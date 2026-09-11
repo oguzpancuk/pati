@@ -1,31 +1,24 @@
 import { Link } from 'react-router-dom';
 import type { UserRank } from '../../api';
 
-export type ProfileCounts = {
-  food: number;
-  water: number;
-  animals: number;
-  friends: number;
-};
-
 /**
- * The numbers under the header, identical on both profiles: the three-cell
- * strip (puan / sıra / seviye) over the four small counts. The strip opens
- * the leaderboard — unless this account is not on it.
+ * The numbers under the header, identical on both profiles: one three-cell
+ * strip, puan / sıra / seviye, which opens the leaderboard — unless this
+ * account is not on it. The four small counts (mama · su · hayvan · arkadaş)
+ * that used to sit under it are gone; no item asked for them and the owner
+ * had them removed (2026-09-11).
  */
 export function ProfileStats({
   points,
   rank,
   level,
   demo = false,
-  counts,
 }: {
   points: number;
   rank: UserRank | null;
   level: number;
   /** Showcase account: it does not compete, so the rank cell names it. */
   demo?: boolean;
-  counts: ProfileCounts;
 }) {
   const cells = (
     <>
@@ -58,24 +51,6 @@ export function ProfileStats({
           {cells}
         </Link>
       )}
-      <div className="profile-counts">
-        {(
-          [
-            [counts.food, 'mama'],
-            [counts.water, 'su'],
-            // "hayvan", not "kayıt": the drop-history row-button a few pixels
-            // below says "N kayıt" about the food/water total, and one word
-            // could not mean both things that close together (review finding).
-            [counts.animals, 'hayvan'],
-            [counts.friends, 'arkadaş'],
-          ] as [number, string][]
-        ).map(([value, label]) => (
-          <div key={label}>
-            <strong>{value}</strong>
-            <div className="micro">{label}</div>
-          </div>
-        ))}
-      </div>
     </>
   );
 }

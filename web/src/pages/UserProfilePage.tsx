@@ -142,12 +142,6 @@ export default function UserProfilePage() {
         rank={profile.rank}
         level={profile.level?.level ?? 1}
         demo={profile.is_demo === true}
-        counts={{
-          food: profile.stats.foodCount,
-          water: profile.stats.waterCount,
-          animals: profile.stats.animalCount,
-          friends: profile.friendCount,
-        }}
       />
 
       <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
