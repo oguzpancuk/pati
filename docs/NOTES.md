@@ -3836,3 +3836,85 @@ what failed is completion. `push-gate.sh` currently gives the same answer to
 "not reviewed" and "the reviewer never answered", which turns a tool outage
 into a blocked release with no signal. A timeout that says so would separate
 them without weakening the rule.
+
+## 2026-09-11 — the owner's fifteen demo notes, in three parallel rounds
+
+71 commits, 112 files, eight `--no-ff` merges. What is worth remembering is
+less the features than how the work was cut and where the bugs actually were.
+
+**The partition held, twice.** Four tracks (profil, hayvan profili,
+harita+mesajlar, şifre) were derived by predicting each item's file set and
+clustering by overlap, and `git diff --name-only main...<branch>` showed
+**zero** files touched by more than one branch — the same on the second
+round's two agents. No merge conflict at any point. Three seams were cut
+deliberately to make that true, and all three are worth reusing: the
+forgot-password flow became a sheet on the login screen rather than a route,
+so `navigation/index.tsx` and `web/src/App.tsx` stayed with one owner; each
+track got its own stylesheet under `web/src/styles/` instead of hand-merging
+`theme.css`, which had swallowed a track once before; and the two migration
+numbers were assigned up front with the mirror into the canonical schema left
+to the main session.
+
+**That last decision caught a real error.** Track M's handoff said to mirror
+`messages.kind` into `001_init.sql`. There is no messages table in 001 — 006
+creates it — so the mirror would have described a column on a table that file
+never creates. Its own reviewer caught it. The column went into 006's
+`CREATE TABLE` body and the `CHECK` stayed in 014 alone, because a standalone
+constraint naming the column fails in 006 on a database that does not have it
+yet. Both paths were then run: production's own files (`b72adef`) took the
+current `migrate.js` twice, and a from-scratch database took it twice, and the
+two end at the same schema.
+
+**Where the bugs were.** Two security defects, both found by review rather than
+by running anything: `POST /auth/change-password` set a first password on a
+social-only account with no re-authentication at all, while account deletion
+demanded a fresh provider token for exactly that case; and mounting the
+change-password form in the settings sheet put a SECOND Google Identity
+Services client on the page, whose `initialize()` is a page-level singleton
+with one callback — so a password change could have delivered its credential
+to the delete dialog's handler. `reauthenticateWithProvider` is now one
+implementation in `backend/src/utils/providerReauth.js`, and `socialAuth.ts`
+routes the credential to the button that was actually pressed.
+
+Everything else that mattered was **visual, and only the simulator found it** —
+which is the third time this project has learned the same thing:
+
+- The care callout was drawn UNDER the animal avatars, so two of its three
+  lines were half covered. Being last among the map's children does not decide
+  this: on iOS a MarkerView is a PointAnnotation and the map stacks annotation
+  views, not React. `isSelected` did not decide it either. The avatars step
+  aside while a callout is up.
+- The settings sheet did not scroll, and what was cut off was the basemap
+  credit — the entire content of demo note 15. A `ScrollView` inside a card
+  with `maxHeight` and no `flexShrink` lays out at full content height and gets
+  clipped; no swipe brings it back. That was a bug in the shared `Sheet`, so it
+  was latent in every sheet tall enough to hit it.
+- The last-seen date rendered as "19 …" because the pill was measured inside a
+  marker whose box is deliberately the avatar's 44 pt.
+
+**Owner decisions taken during the work**, all overridable in a word: the map
+credit leaves every map surface and lives always-visible at the bottom of the
+settings sheet (option b of two); your own name is not a link, on an animal
+profile or on your own leaderboard row, on either client; a group event is a
+system message in the group rather than a new notification kind, which is what
+makes the unread count, the tab badge and the inbox ordering follow for free;
+"bakım verdiğim hayvanlar" became a horizontal gallery and "son yorumlarım"
+speech bubbles, so the two stop looking alike; and "galeriye kaydet" defaults
+ON with a visible toggle.
+
+**Deliberately not done.** Item 9 has no web half: a browser cannot write to
+the camera roll, and a photo chosen through a file input already exists on the
+device. Both clients hide it rather than imitating it with a share sheet.
+
+**A tooling note.** The `/api/auth` IP brake (120/h) is spent by a curl round
+trip of any size, which then blocks `simulator-login.sh` and
+`web/scripts/shot.mjs`, both of which log in to get a token. Minting a JWT with
+the backend's own secret and writing it straight into AsyncStorage /
+localStorage is the way through, and is what the screenshots here used. A
+`--token` option on both scripts would save the next session the detour.
+
+**Also worth knowing:** this machine's simulator had another project's Expo Go
+attached, which kept pulling itself to the front mid-screenshot. The pass moved
+to a second simulator addressed by UDID; the project's own
+`simulator-goto.sh` picks "the first booted device", which is ambiguous as soon
+as two are running.
