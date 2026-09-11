@@ -118,8 +118,20 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
   return data.conversations;
 }
 
+/**
+ * A conversation is marked read as it opens, and the tab badge re-reads the
+ * count the moment that screen is left — the two calls are often in flight
+ * together, and the server answers whichever arrives first. The count waits
+ * for any read still running (review finding): without it, leaving a slow
+ * conversation early left the badge showing messages the user had already
+ * read, until the next minute's tick.
+ */
+const readsInFlight = new Set<Promise<unknown>>();
+
 /** Every conversation's unread counts added up server-side, for the tab badge. */
 export async function fetchUnreadMessageCount(): Promise<number> {
+  // allSettled: a read that failed must not take the count down with it.
+  if (readsInFlight.size > 0) await Promise.allSettled([...readsInFlight]);
   const { data } = await apiClient.get<{ unreadCount: number }>('/messages/unread-count');
   return data.unreadCount;
 }
@@ -192,7 +204,13 @@ export async function sendMessage(id: number, body: string, replyToId?: number):
 }
 
 export async function markConversationRead(id: number): Promise<void> {
-  await apiClient.post(`/messages/conversations/${id}/read`);
+  const call = apiClient.post(`/messages/conversations/${id}/read`);
+  readsInFlight.add(call);
+  try {
+    await call;
+  } finally {
+    readsInFlight.delete(call);
+  }
 }
 
 export async function deleteMessage(messageId: number): Promise<void> {
