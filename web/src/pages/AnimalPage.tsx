@@ -731,9 +731,11 @@ export default function AnimalPage() {
             )}
             <div className="subtle" style={{ marginTop: 4 }}>
               {formatDate(v.administered_at)}
-              {v.recorded_by_name ? ' · ' : ''}
               {v.recorded_by_name && (
-                <PersonLink userId={v.recorded_by} name={v.recorded_by_name} selfId={selfId} />
+                <>
+                  {' · '}
+                  <PersonLink userId={v.recorded_by} name={v.recorded_by_name} selfId={selfId} />
+                </>
               )}
               {v.next_due_at ? ` · Sonraki doz: ${formatDate(v.next_due_at)}` : ''}
             </div>
@@ -773,11 +775,14 @@ export default function AnimalPage() {
               <div className="subtle" style={{ marginTop: 4 }}>
                 {RECORD_TYPE_LABELS[r.record_type]}
                 {r.vet_verified ? ' · veteriner onaylı' : ''}
-                {r.recorded_by_name ? ' · ' : ''}
                 {r.recorded_by_name && (
-                  <PersonLink userId={r.recorded_by} name={r.recorded_by_name} selfId={selfId} />
-                )}{' '}
-                · {r.comment_count} yorum · dokunarak kayıtları gör
+                  <>
+                    {' · '}
+                    <PersonLink userId={r.recorded_by} name={r.recorded_by_name} selfId={selfId} />
+                  </>
+                )}
+                {' · '}
+                {r.comment_count} yorum · dokunarak kayıtları gör
                 {r.status === 'recovered' && r.recovered_by_name && (
                   <>
                     {' · '}
@@ -876,8 +881,8 @@ export default function AnimalPage() {
             {!matchHit
               ? 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'
               : photoChecked
-              ? 'Eklemek istediğin hayvan bu mu?'
-              : 'Eklemek istediğin hayvan bu mu? Fotoğraf kontrol edilemedi; konumu güncellersin.'}
+                ? 'Eklemek istediğin hayvan bu mu?'
+                : 'Eklemek istediğin hayvan bu mu? Fotoğraf kontrol edilemedi; konumu güncellersin.'}
           </p>
           <div className="row">
             <button className="btn secondary grow" onClick={() => navigate(-1)}>
@@ -972,8 +977,8 @@ export default function AnimalPage() {
               i === null
                 ? i
                 : end < start
-                ? Math.min(i + 1, animal.photos.length - 1)
-                : Math.max(i - 1, 0)
+                  ? Math.min(i + 1, animal.photos.length - 1)
+                  : Math.max(i - 1, 0)
             );
           }}
         >

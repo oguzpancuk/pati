@@ -69,8 +69,8 @@ export default function AnimalLocationSheet({
           </Text>
 
           <View style={[styles.mapWrapper, { height: mapHeight }]}>
-            {/* Mounted only while open: a MapView left alive behind a closed
-                sheet keeps its GL surface and its tile requests. */}
+            {/* A Modal renders nothing while hidden, so the MapView and its
+                GL surface exist only while the sheet is up. */}
             {visible && (
               <MapView
                 style={styles.map}

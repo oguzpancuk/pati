@@ -69,8 +69,8 @@ export default function CarePhotoScreen({ route, navigation }: any) {
       const refusedSlots: number[] | null = Array.isArray(data?.photoIndexes)
         ? data.photoIndexes
         : data?.code === 'photoUnreadable' && Number.isInteger(data.photoIndex)
-        ? [data.photoIndex]
-        : null;
+          ? [data.photoIndex]
+          : null;
       if ((data?.code === 'photoRejected' || data?.code === 'photoUnreadable') && refusedSlots) {
         const refused = new Set<number>(refusedSlots);
         setPhotos((prev) => prev.map((p, i) => (refused.has(i) ? null : p)));
@@ -131,7 +131,14 @@ export default function CarePhotoScreen({ route, navigation }: any) {
           ios_backgroundColor={colors.border}
           accessibilityLabel={SAVE_TO_GALLERY_LABEL}
         />
-        <Text variant="caption" style={styles.saveLabel}>
+        {/* The label is part of the target: a 20pt switch alone is under the
+            44pt minimum (DESIGN §4). */}
+        <Text
+          variant="caption"
+          style={styles.saveLabel}
+          onPress={() => setSaveToGallery(!saveToGallery)}
+          suppressHighlighting
+        >
           {SAVE_TO_GALLERY_LABEL}
         </Text>
       </View>
