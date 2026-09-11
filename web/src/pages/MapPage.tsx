@@ -128,6 +128,9 @@ function placedAgo(iso: string): string {
  */
 function remainingLabel(iso: string): string {
   const minutes = Math.floor((new Date(iso).getTime() - Date.now()) / 60000);
+  // A row from a server that does not send expires_at yet: say nothing
+  // rather than print "NaN sa NaN dk".
+  if (!Number.isFinite(minutes)) return 'Süre bilinmiyor';
   if (minutes <= 0) return 'Süresi doldu';
   if (minutes < 60) return `${minutes} dakika kaldı`;
   const hours = Math.floor(minutes / 60);
@@ -550,7 +553,9 @@ export default function MapPage() {
       const popup = new maplibregl.Popup({
         closeButton: true,
         closeOnClick: false,
-        offset: 16,
+        // Clear of the marker: its icon is CARE_MARKER_SIZE (44) centred on
+        // the coordinate, so the popup starts just above its top edge.
+        offset: 24,
         maxWidth: '230px',
         className: 'care-popup',
       })

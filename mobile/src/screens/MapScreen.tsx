@@ -152,6 +152,9 @@ function placedAgo(iso: string): string {
  */
 function remainingLabel(iso: string): string {
   const minutes = Math.floor((new Date(iso).getTime() - Date.now()) / 60000);
+  // A row from a server that does not send expires_at yet: say nothing
+  // rather than print "NaN sa NaN dk".
+  if (!Number.isFinite(minutes)) return 'Süre bilinmiyor';
   if (minutes <= 0) return 'Süresi doldu';
   if (minutes < 60) return `${minutes} dakika kaldı`;
   const hours = Math.floor(minutes / 60);
@@ -811,9 +814,31 @@ export default function MapScreen({ navigation }: any) {
           </MarkerView>
         )}
 
+        {animalsVisible &&
+          animals.map((animal) => {
+            const at = placement.get(`animal-${animal.id}`)?.drawAt ?? animalPosition(animal);
+            return (
+              <MarkerView
+                key={`animal-${animal.id}`}
+                coordinate={[at.lng, at.lat]}
+                anchor={{ x: 0.5, y: 0.5 }}
+              >
+                {/* The avatar sits in a 42pt white disc (handoff size) so it
+                  separates from the map ground at any zoom. */}
+                <Pressable style={styles.animalMarker} onPress={() => handleAnimalPress(animal.id)}>
+                  <AnimalAvatar
+                    species={animal.species}
+                    breed={animal.breed}
+                    photoUrl={animal.cover_thumb_url}
+                    size={ANIMAL_MARKER_SIZE}
+                  />
+                </Pressable>
+              </MarkerView>
+            );
+          })}
         {/* The tapped record's callout, above its marker (demo note 13).
-            Drawn after the care layer and before the avatars so it is not
-            hidden by either. */}
+            Last of the map's children so it draws over the care layer and
+            over any avatar that shares the spot. */}
         {selectedCare && (
           <MarkerView
             coordinate={(() => {
@@ -862,29 +887,6 @@ export default function MapScreen({ navigation }: any) {
             </View>
           </MarkerView>
         )}
-
-        {animalsVisible &&
-          animals.map((animal) => {
-            const at = placement.get(`animal-${animal.id}`)?.drawAt ?? animalPosition(animal);
-            return (
-              <MarkerView
-                key={`animal-${animal.id}`}
-                coordinate={[at.lng, at.lat]}
-                anchor={{ x: 0.5, y: 0.5 }}
-              >
-                {/* The avatar sits in a 42pt white disc (handoff size) so it
-                  separates from the map ground at any zoom. */}
-                <Pressable style={styles.animalMarker} onPress={() => handleAnimalPress(animal.id)}>
-                  <AnimalAvatar
-                    species={animal.species}
-                    breed={animal.breed}
-                    photoUrl={animal.cover_thumb_url}
-                    size={ANIMAL_MARKER_SIZE}
-                  />
-                </Pressable>
-              </MarkerView>
-            );
-          })}
       </MapView>
 
       {/* The heart layer: with the map fullscreen, the point from
