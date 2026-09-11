@@ -27,9 +27,12 @@ import { makeStyles, minTouch, spacing, useTheme } from './theme';
  * flow that captures.
  *
  * When the OS refuses to let us add to the library, the capture still
- * happens: the toggle turns itself off, the user is told in Turkish, and
- * the photo is taken without being saved. Losing the photo would be a much
- * worse answer than not copying it to the gallery.
+ * happens: the photo is taken without being saved, and only then does the
+ * toggle turn itself off and the user get told in Turkish. That order
+ * matters — both refusal paths fire before the camera has opened, so a
+ * notice raised at the refusal would be claiming a photo that does not exist
+ * yet. Losing the photo would be a much worse answer than not copying it to
+ * the gallery.
  */
 
 const SAVE_TO_GALLERY_KEY = 'photoCapture.saveToGallery';
@@ -148,13 +151,20 @@ const useRowStyles = makeStyles(() => ({
   label: { flex: 1 },
 }));
 
-function refuse() {
-  setSaveToGallery(false);
+/**
+ * Told AFTER the capture, never before it: the alert is about a photo that
+ * exists, and both refusal paths fire before the camera has been opened.
+ * Announcing it early claimed a photo had been taken when none had, and on
+ * Android it put a dialog on screen at the moment the camera activity was
+ * launching over it.
+ */
+function noteGalleryRefused() {
   Alert.alert(
-    'Galeriye kaydedilemiyor',
+    'Galeriye kaydedilemedi',
     'Telefon, fotoğrafları galeriye eklememize izin vermedi. "' +
       SAVE_TO_GALLERY_LABEL +
-      '" kapatıldı; fotoğrafın yine de çekildi. İzni verdikten sonra bu ayarı tekrar açabilirsin.'
+      '" kapatıldı; fotoğrafın galeriye kopyalanmadı ama uygulamada duruyor. ' +
+      'İzni verdikten sonra bu ayarı tekrar açabilirsin.'
   );
 }
 
@@ -193,18 +203,29 @@ export async function capturePhoto(): Promise<CaptureOutcome> {
   try {
     await ensureLoaded();
     let save = saveToGallery;
+    // Set only once we KNOW it was the gallery that was refused, and acted on
+    // only once a photo exists.
+    let galleryRefused = false;
+
     if (save && !(await canAddToGallery())) {
-      refuse();
+      // Unambiguous: we asked for WRITE_EXTERNAL_STORAGE ourselves.
+      galleryRefused = true;
       save = false;
     }
 
     let result = await launchCamera({ mediaType: 'photo', saveToPhotos: save });
-    // The picker refused over the same permission (its own check, or an iOS
-    // version that gates the camera on it): drop the copy and take the
-    // photo anyway rather than losing the capture.
     if (save && result.errorCode === 'permission') {
-      refuse();
+      // `permission` does not say WHICH permission. Android answers it only
+      // for the gallery write (ImagePickerModuleImpl.launchCamera checks
+      // WRITE_EXTERNAL_STORAGE on SDK ≤ 28 and answers `others` for a denied
+      // camera), but iOS routes a camera denial through the same code
+      // whenever it checks at all. So the RETRY is the discriminator: drop
+      // the copy and ask again — a gallery refusal goes through, a camera
+      // refusal refuses again and falls out to the error below with nothing
+      // claimed about the gallery.
+      save = false;
       result = await launchCamera({ mediaType: 'photo', saveToPhotos: false });
+      galleryRefused = result.errorCode !== 'permission';
     }
     // Simulators have no camera; the gallery stands in during development
     // (the same fallback the map's drop flow uses). Never on a device.
@@ -219,6 +240,10 @@ export async function capturePhoto(): Promise<CaptureOutcome> {
         status: 'error',
         message: result.errorMessage ?? result.errorCode ?? 'Bilinmeyen hata',
       };
+    }
+    if (galleryRefused) {
+      setSaveToGallery(false);
+      noteGalleryRefused();
     }
     return { status: 'ok', photos };
   } catch (err: any) {
