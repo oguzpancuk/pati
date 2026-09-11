@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Image, Pressable, View } from 'react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
-import { LIBRARY_PICKER } from '../photoPicker';
+import { Alert, Animated, Easing, Image, Pressable, Switch, View } from 'react-native';
+import { capturePhoto, pickPhotos, SAVE_TO_GALLERY_LABEL, useSaveToGallery } from '../photoCapture';
 import {
   addAnimalPhoto,
   AnimalMatch,
@@ -104,6 +103,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
+  const { on: saveToGallery, set: setSaveToGallery } = useSaveToGallery();
   // No species preselected: the pattern and color pickers are species-bound
   // and stay hidden until this choice is made (sprint item 3 decision).
   const [species, setSpecies] = useState<Species | null>(null);
@@ -166,18 +166,31 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     setBreed(next);
   }
 
-  async function handleAddPhotos() {
-    const result = await launchImageLibrary({
-      ...LIBRARY_PICKER,
-      selectionLimit: MAX_PHOTOS - photos.length,
-    });
-    if (result.didCancel || !result.assets) return;
-    const picked = result.assets
-      .filter((a) => a.uri)
-      .map((a) => ({ uri: a.uri!, type: a.type, fileName: a.fileName }));
+  /** The picked/taken photos join the strip; any change invalidates the tokens. */
+  function addPhotos(picked: PhotoAsset[]) {
     setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
     setPhotoTokens([]);
     setPhotoIssue(null);
+  }
+
+  async function handleAddPhotos() {
+    const result = await pickPhotos(MAX_PHOTOS - photos.length);
+    if (result.status === 'cancelled') return;
+    if (result.status === 'error') {
+      Alert.alert('Fotoğraf alınamadı', result.message);
+      return;
+    }
+    addPhotos(result.photos);
+  }
+
+  async function handleTakePhoto() {
+    const result = await capturePhoto();
+    if (result.status === 'cancelled') return;
+    if (result.status === 'error') {
+      Alert.alert('Fotoğraf alınamadı', result.message);
+      return;
+    }
+    addPhotos(result.photos);
   }
 
   function removePhoto(index: number) {
@@ -268,8 +281,8 @@ export default function AddAnimalScreen({ navigation, route }: any) {
               ? 'Fotoğraflar okunamadı'
               : 'Fotoğraf okunamadı'
             : many
-              ? 'Fotoğraflar uygun görünmüyor'
-              : 'Fotoğraf uygun görünmüyor',
+            ? 'Fotoğraflar uygun görünmüyor'
+            : 'Fotoğraf uygun görünmüyor',
           `${reason} ${advice}`
         );
       } else {
@@ -595,14 +608,49 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             </Pressable>
           </View>
         ))}
+        {/* Two doors, not one (demo item 9): this screen only ever opened
+            the library, so the animal you are standing in front of had to
+            be photographed in another app first. */}
         {photos.length < MAX_PHOTOS && (
-          <Pressable style={styles.addPhoto} onPress={handleAddPhotos}>
-            <Icon name="camera" size={22} color={colors.brand} />
-            <Text variant="micro" color="brand" style={styles.addPhotoText}>
-              EKLE
-            </Text>
-          </Pressable>
+          <>
+            <Pressable
+              style={styles.addPhoto}
+              onPress={handleTakePhoto}
+              accessibilityRole="button"
+              accessibilityLabel="Fotoğraf çek"
+            >
+              <Icon name="camera" size={22} color={colors.brand} />
+              <Text variant="micro" color="brand" style={styles.addPhotoText}>
+                ÇEK
+              </Text>
+            </Pressable>
+            <Pressable
+              style={styles.addPhoto}
+              onPress={handleAddPhotos}
+              accessibilityRole="button"
+              accessibilityLabel="Galeriden seç"
+            >
+              <Icon name="plus" size={22} color={colors.brand} />
+              <Text variant="micro" color="brand" style={styles.addPhotoText}>
+                SEÇ
+              </Text>
+            </Pressable>
+          </>
         )}
+      </View>
+      {/* Beside the slots on purpose: whether a photo you take here also
+          lands in your own gallery is a decision, not a surprise. */}
+      <View style={styles.saveRow}>
+        <Switch
+          value={saveToGallery}
+          onValueChange={setSaveToGallery}
+          trackColor={{ true: colors.brand, false: colors.border }}
+          ios_backgroundColor={colors.border}
+          accessibilityLabel={SAVE_TO_GALLERY_LABEL}
+        />
+        <Text variant="caption" style={styles.saveLabel}>
+          {SAVE_TO_GALLERY_LABEL}
+        </Text>
       </View>
       {photoIssue && (
         <Text variant="caption" color="danger" style={styles.photoIssue}>
@@ -761,6 +809,14 @@ const useStyles = makeStyles(({ colors: c }) => ({
     justifyContent: 'center',
   },
   addPhotoText: { marginTop: 2 },
+  saveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  saveLabel: { flex: 1 },
   photoIssue: { marginTop: -spacing.sm, marginBottom: spacing.lg },
   locationNote: { marginBottom: spacing.lg },
   matchingWrap: {

@@ -51,6 +51,12 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Mama/su bıraktığınızı doğrulamak için bir fotoğraf çekmeniz gerekiyor.</string>
+	<!-- Only the ADD half of the library: the app writes the photo it just
+	     took, when "galeriye kaydet" is on, and never reads the library
+	     through this key. Without it iOS terminates the app the first time
+	     UIImageWriteToSavedPhotosAlbum runs. -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Uygulamada çektiğiniz fotoğrafların telefonunuzun galerisine de kaydedilmesi için izin gerekiyor.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yakınınızdaki bakım noktalarını ve hayvanları gösterebilmek, ve mama/su bıraktığınız konumu kaydedebilmek için konumunuza ihtiyacımız var.</string>
 	<key>UIAppFonts</key>
