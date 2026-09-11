@@ -62,7 +62,14 @@ export default function ReportLink({
         </Text>
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={reset}>
+      {/* Back agrees with the backdrop: it closes the sheet, and it is
+          locked the same way while a request is in flight. */}
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !busy && reset()}
+      >
         <Pressable style={styles.backdrop} onPress={() => !busy && reset()}>
           <Pressable style={styles.card} onPress={() => {}}>
             {done ? (
