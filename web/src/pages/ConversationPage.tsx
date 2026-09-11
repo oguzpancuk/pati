@@ -76,11 +76,6 @@ export default function ConversationPage() {
   }, [conversationId]);
 
   useEffect(() => {
-    // Opening the page is reading it, so the read is announced as the page
-    // opens rather than after the messages land: a user who leaves a slow
-    // conversation early would otherwise leave before it was sent, and the
-    // tab badge would re-read the count with nothing to wait for.
-    markConversationRead(conversationId).catch(() => {});
     fetchMessages(conversationId, { limit: PAGE })
       .then((page) => {
         setMessages(page.messages);
@@ -88,6 +83,13 @@ export default function ConversationPage() {
         lastId.current = page.messages.length ? page.messages[page.messages.length - 1].id : null;
         since.current = page.now;
         requestAnimationFrame(scrollToBottom);
+        // Read is announced AFTER the page lands, and it stays that way
+        // (owner, 2026-09-11): the server stamps `last_read_at = now()`, so
+        // marking first would cover a message that arrived between the mark
+        // and this render — shown on screen and still counted unread. The
+        // badge does not depend on the order any more; api/messages tells it
+        // when a read finishes, however late that is.
+        markConversationRead(conversationId).catch(() => {});
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Mesajlar alınamadı'));
   }, [conversationId, scrollToBottom]);
