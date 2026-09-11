@@ -101,6 +101,11 @@ function Shell() {
   return (
     <div className="app">
       <Outlet />
+      {/* `end` on every link: the light marks where you ARE, not which tab you
+          came through (owner, 2026-09-12). Without it /hayvanlar stayed lit
+          over an animal profile, claiming you were on the list. Mobile
+          discharges the same rule by checking whether its tab stack has moved
+          off its own screen. */}
       <nav className="tabbar">
         <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="tab-icon">
@@ -108,13 +113,13 @@ function Shell() {
           </span>
           harita
         </NavLink>
-        <NavLink to="/hayvanlar" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <NavLink to="/hayvanlar" end className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="tab-icon">
             <TabIcon d={ICONS.paw} />
           </span>
           hayvanlar
         </NavLink>
-        <NavLink to="/mesajlar" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <NavLink to="/mesajlar" end className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="tab-icon">
             <TabIcon d={ICONS.chat} />
             {unreadMessages > 0 && (
@@ -125,7 +130,7 @@ function Shell() {
           </span>
           mesajlar
         </NavLink>
-        <NavLink to="/profil" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <NavLink to="/profil" end className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="tab-icon">
             <TabIcon d={ICONS.user} />
           </span>

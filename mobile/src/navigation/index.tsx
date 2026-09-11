@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NavigationContainer, useFocusEffect, type LinkingOptions } from '@react-navigation/native';
+import {
+  getFocusedRouteNameFromRoute,
+  NavigationContainer,
+  useFocusEffect,
+  type LinkingOptions,
+} from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
@@ -288,6 +293,14 @@ const TAB_ICONS: Record<keyof MainTabParamList, IconName> = {
   Profile: 'user',
 };
 
+/** Each tab's own screen — the only place its light is on. */
+const TAB_HOME: Record<keyof MainTabParamList, keyof TabStackParamList> = {
+  Map: 'MapHome',
+  Animals: 'AnimalsHome',
+  Messages: 'MessagesHome',
+  Profile: 'ProfileHome',
+};
+
 function MainTabs() {
   const theme = useTheme();
   const tabOptions = tabBarOptions(theme);
@@ -322,12 +335,24 @@ function MainTabs() {
   );
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        ...tabOptions,
-        tabBarIcon: ({ color, size }) => (
-          <Icon name={TAB_ICONS[route.name]} size={size} color={color} />
-        ),
-      })}
+      screenOptions={({ route }) => {
+        // The light marks where you ARE, not which stack you came through
+        // (owner, 2026-09-12). Now that a pushed screen keeps the bar, a lit
+        // tab over an animal profile claimed you were on your own profile.
+        // It goes out the moment the tab shows anything but its own screen;
+        // `getFocusedRouteNameFromRoute` is undefined until the stack moves,
+        // which is exactly the at-home case.
+        const focused = getFocusedRouteNameFromRoute(route);
+        const atHome = focused === undefined || focused === TAB_HOME[route.name];
+        return {
+          ...tabOptions,
+          // The count is not a highlight and stays either way.
+          tabBarActiveTintColor: atHome ? theme.colors.brand : theme.colors.textSubtle,
+          tabBarIcon: ({ color, size }) => (
+            <Icon name={TAB_ICONS[route.name]} size={size} color={color} />
+          ),
+        };
+      }}
     >
       <Tab.Screen name="Map" component={MapTab} options={{ title: 'harita' }} />
       <Tab.Screen name="Animals" component={AnimalsTab} options={{ title: 'hayvanlar' }} />

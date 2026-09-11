@@ -259,6 +259,24 @@ affordance sits in the same place on every screen: top-left, before the title.
 Tab roots (map, animals, messages, profile) carry no back — there is nothing
 behind them.
 
+### The tab bar, and its light
+
+Owner rules, 2026-09-11 and 12, in two parts.
+
+**The bar never disappears.** Every destination is registered inside each
+tab's own stack, so a screen opened from a tab keeps the bar and back pops
+within that tab. Only a modal may cover it — and only the three flows that
+are a task rather than a place: yeni hayvan, bakım ver, yeni sohbet. On web
+this comes free, since every route renders inside the shell that draws the
+bar.
+
+**The light marks where you are, not how you got there.** A tab is lit only
+while it is showing its own screen; the moment you open anything on top of
+it, every tab goes dark and the bar is just the way out. Lit tabs over an
+animal profile claimed the reader was on the list they came through. Mobile
+tests whether the tab's stack has moved off its home route; web gives every
+tab link an exact match.
+
 ## Adding a new screen
 
 1. `<Screen>` at the root; for lists pass `padded={false}` and put the spacing
