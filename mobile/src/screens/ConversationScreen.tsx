@@ -92,16 +92,18 @@ export default function ConversationScreen({ route, navigation }: any) {
   }, [conversationId, navigation]);
 
   const loadLatest = useCallback(async () => {
-    // Opening the screen is reading it, so the read is announced as the
-    // screen opens rather than after the page lands: a user who backs out
-    // of a slow conversation would otherwise leave before it was sent, and
-    // the tab badge would re-read the count with nothing to wait for.
-    markConversationRead(conversationId).catch(() => {});
     const page = await fetchMessages(conversationId, { limit: PAGE });
     setMessages(page.messages);
     setHasMore(page.hasMore);
     lastId.current = page.messages.length ? page.messages[page.messages.length - 1].id : null;
     since.current = page.now;
+    // Marked read AFTER the page, never before. The server stamps
+    // `last_read_at = now()`, so anything that arrives in between is shown
+    // on screen and still counted unread — the badge would then hold a
+    // number for a message the user demonstrably saw. Backing out early no
+    // longer leaves the badge stale either: the read publishes the total it
+    // earned, and the tab badge follows that instead of its own poll.
+    markConversationRead(conversationId).catch(() => {});
   }, [conversationId]);
 
   const poll = useCallback(async () => {

@@ -261,23 +261,29 @@ async function listConversations(req, res, next) {
  * (owner, 2026-09-11 demo note 10). Same arithmetic as listConversations'
  * per-conversation count, summed in SQL: a badge must not cost the client
  * the whole inbox.
+ *
+ * One function, two callers: the badge's own poll and markRead, which hands
+ * the fresh total back so the badge follows the read instead of racing it.
  */
+async function totalUnreadFor(userId) {
+  const r = await pool.query(
+    `SELECT COALESCE(SUM(
+              (SELECT count(*) FROM messages x
+                WHERE x.conversation_id = m.conversation_id AND x.deleted_at IS NULL
+                  AND x.created_at >= m.joined_at
+                  AND x.sender_id IS DISTINCT FROM $1
+                  AND (m.last_read_at IS NULL OR x.created_at > m.last_read_at))
+            ), 0)::int AS count
+     FROM conversation_members m
+     WHERE m.user_id = $1`,
+    [userId]
+  );
+  return r.rows[0].count;
+}
+
 async function unreadCount(req, res, next) {
   try {
-    const userId = req.user.userId;
-    const r = await pool.query(
-      `SELECT COALESCE(SUM(
-                (SELECT count(*) FROM messages x
-                  WHERE x.conversation_id = m.conversation_id AND x.deleted_at IS NULL
-                    AND x.created_at >= m.joined_at
-                    AND x.sender_id IS DISTINCT FROM $1
-                    AND (m.last_read_at IS NULL OR x.created_at > m.last_read_at))
-              ), 0)::int AS count
-       FROM conversation_members m
-       WHERE m.user_id = $1`,
-      [userId]
-    );
-    res.json({ unreadCount: r.rows[0].count });
+    res.json({ unreadCount: await totalUnreadFor(req.user.userId) });
   } catch (err) {
     next(err);
   }
@@ -760,6 +766,14 @@ async function sendMessage(req, res, next) {
   }
 }
 
+/**
+ * The answer carries the caller's new unread TOTAL, not just an
+ * acknowledgement: the tab badge used to re-read the count on its own clock
+ * and race this write, and a barrier on the client could only ever wait for
+ * a read it had already seen start. Computed after the stamp in the same
+ * request, it is the one number that cannot disagree with what just
+ * happened.
+ */
 async function markRead(req, res, next) {
   try {
     const id = parseId(req.params.id);
@@ -769,7 +783,7 @@ async function markRead(req, res, next) {
       [id, req.user.userId]
     );
     if (updated.rows.length === 0) return res.status(404).json({ error: 'Sohbet bulunamadı' });
-    res.json({ read: true });
+    res.json({ read: true, unreadCount: await totalUnreadFor(req.user.userId) });
   } catch (err) {
     next(err);
   }

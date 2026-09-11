@@ -93,9 +93,8 @@ export default function AnimalLocationSheet({
                 zoomEnabled
                 pitchEnabled={false}
                 rotateEnabled={false}
-                // The attribution stays off the map here exactly as it is on
-                // the profile thumbnail this sheet grew out of; the map
-                // screen carries the OpenMapTiles/OSM credit.
+                // No map draws the credit any more; it is one line in the
+                // profile's settings sheet (demo note 15, map/attribution.ts).
                 attributionEnabled={false}
               >
                 <Camera

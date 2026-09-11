@@ -39,6 +39,7 @@ import AnimalLocationSheet from '../components/AnimalLocationSheet';
 import { BadgeSymbol } from '../components/badges';
 import DemoChip from '../components/DemoChip';
 import ReportLink from '../components/ReportSheet';
+import { useAuth } from '../context/AuthContext';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
   Avatar,
@@ -120,6 +121,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
     (windowWidth - spacing.lg * 2 - spacing.sm * (GRID_COLUMNS - 1)) / GRID_COLUMNS
   );
   const { celebrate } = useBadgeAwards();
+  const { user } = useAuth();
+  const myId = user?.id;
   const { animalId } = route.params;
   // When viewed from the add-animal flow as "is this the animal?", a
   // decision bar replaces the comment box. The decision returns to AddAnimal
@@ -253,19 +256,41 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
 
   /**
    * Every person named on this profile is a door to their profile (demo
-   * item 7) — your own name included. It is always a push, never a jump to
-   * the profile tab: Tabs is the bottom of MainStack, so navigating to it
-   * pops every pushed screen, taking an in-flight add-animal draft with it
-   * and leaving no way back to the animal (DESIGN.md §8). PublicProfile
-   * renders your own id fine — the server answers friendshipStatus 'self'
-   * and FriendshipButton draws nothing — which is why the leaderboard has
-   * always pushed it for your own row too. `push`, not `navigate`, so a
-   * chain like profile → animal → the same person keeps its history
-   * instead of unwinding to the screen already in the stack.
+   * item 7) — everyone except you. Your own name is plain text: tapping
+   * through to a stranger's-eye view of yourself (third-person Turkish —
+   * "Bakım verdiği hayvanlar", "Henüz yorum yapmamış.") is the odd outcome,
+   * your own profile is one tab tap away, and web says the same (owner,
+   * 2026-09-11; the two clients used to disagree here).
+   *
+   * It is always a push, never a jump to the profile tab: Tabs is the bottom
+   * of MainStack, so navigating to it pops every pushed screen, taking an
+   * in-flight add-animal draft with it and leaving no way back to the animal
+   * (DESIGN.md §8). `push`, not `navigate`, so a chain like profile → animal
+   * → the same person keeps its history instead of unwinding to the screen
+   * already in the stack.
    */
+  function isSelf(userId: number | null | undefined) {
+    return typeof userId === 'number' && userId === myId;
+  }
+
   function openProfile(userId: number | null | undefined) {
-    if (typeof userId !== 'number') return;
+    if (typeof userId !== 'number' || isSelf(userId)) return;
     navigation.push('PublicProfile', { userId });
+  }
+
+  /** A person's name inside a caption line: a link, or plain text for you. */
+  function personName(userId: number | null | undefined, name: string) {
+    if (isSelf(userId)) return <Text variant="caption">{name}</Text>;
+    return (
+      <Text
+        variant="caption"
+        color="brand"
+        onPress={() => openProfile(userId)}
+        suppressHighlighting
+      >
+        {name}
+      </Text>
+    );
   }
 
   function openCarePhotos() {
@@ -584,24 +609,37 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             <Text variant="caption">Henüz bakıcı yok. İlk bakıcı sen ol.</Text>
           </Card>
         ) : (
-          animal.carers.slice(0, visibleCarers).map((carer) => (
-            <Pressable
-              key={carer.id}
-              style={styles.carerRow}
-              onPress={() => openProfile(carer.id)}
-              accessibilityRole="button"
-              accessibilityLabel={`${carer.name} profilini aç`}
-            >
-              <Avatar uri={carer.avatar_url} name={carer.name} size={34} />
-              <Text variant="bodyStrong" numberOfLines={1} style={styles.carerName}>
-                {carer.name}
-              </Text>
-              {/* Same chip the comment authors below wear: the showcase world
-                  writes carer rows too, so a bot can be met here. */}
-              <DemoChip visible={carer.is_demo === true} />
-              <Icon name="chevronRight" size={16} color={colors.textSubtle} />
-            </Pressable>
-          ))
+          animal.carers.slice(0, visibleCarers).map((carer) => {
+            const isOwnRow = isSelf(carer.id);
+            const row = (
+              <>
+                <Avatar uri={carer.avatar_url} name={carer.name} size={34} />
+                <Text variant="bodyStrong" numberOfLines={1} style={styles.carerName}>
+                  {carer.name}
+                </Text>
+                {/* Same chip the comment authors below wear: the showcase
+                    world writes carer rows too, so a bot can be met here. */}
+                <DemoChip visible={carer.is_demo === true} />
+                {/* No chevron on your own row: it is not a door. */}
+                {!isOwnRow && <Icon name="chevronRight" size={16} color={colors.textSubtle} />}
+              </>
+            );
+            return isOwnRow ? (
+              <View key={carer.id} style={styles.carerRow}>
+                {row}
+              </View>
+            ) : (
+              <Pressable
+                key={carer.id}
+                style={styles.carerRow}
+                onPress={() => openProfile(carer.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${carer.name} profilini aç`}
+              >
+                {row}
+              </Pressable>
+            );
+          })
         )}
         <LoadMoreButton
           remaining={animal.carers.length - visibleCarers}
@@ -621,8 +659,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             zoomEnabled={false}
             pitchEnabled={false}
             rotateEnabled={false}
-            // A static thumbnail; the full map screen carries the required
-            // OpenMapTiles/OSM attribution.
+            // No map draws the credit any more; it is one line in the
+            // profile's settings sheet (demo note 15, map/attribution.ts).
             attributionEnabled={false}
           >
             <Camera defaultSettings={{ centerCoordinate: [longitude, latitude], zoomLevel: 16 }} />
@@ -684,16 +722,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               <Text variant="caption">
                 {formatDate(vaccination.administered_at)}
                 {vaccination.recorded_by_name ? ' · ' : ''}
-                {vaccination.recorded_by_name ? (
-                  <Text
-                    variant="caption"
-                    color="brand"
-                    onPress={() => openProfile(vaccination.recorded_by)}
-                    suppressHighlighting
-                  >
-                    {vaccination.recorded_by_name}
-                  </Text>
-                ) : null}
+                {vaccination.recorded_by_name
+                  ? personName(vaccination.recorded_by, vaccination.recorded_by_name)
+                  : null}
               </Text>
               {vaccination.next_due_at ? (
                 <Text variant="caption">Sonraki doz: {formatDate(vaccination.next_due_at)}</Text>
@@ -739,30 +770,16 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                   {record.description}
                 </Text>
                 <Text variant="caption">
-                  {record.recorded_by_name ? (
-                    <Text
-                      variant="caption"
-                      color="brand"
-                      onPress={() => openProfile(record.recorded_by)}
-                      suppressHighlighting
-                    >
-                      {record.recorded_by_name}
-                    </Text>
-                  ) : null}
+                  {record.recorded_by_name
+                    ? personName(record.recorded_by, record.recorded_by_name)
+                    : null}
                   {record.recorded_by_name ? ' · ' : ''}
                   {record.comment_count} yorum · dokunarak kayıtları gör
                 </Text>
                 {record.status === 'recovered' && record.recovered_by_name && (
                   <Text variant="caption">
-                    <Text
-                      variant="caption"
-                      color="brand"
-                      onPress={() => openProfile(record.recovered_by)}
-                      suppressHighlighting
-                    >
-                      {record.recovered_by_name}
-                    </Text>{' '}
-                    iyileşti olarak işaretledi
+                    {personName(record.recovered_by, record.recovered_by_name)} iyileşti olarak
+                    işaretledi
                   </Text>
                 )}
                 {/* An action phrasing on a quiet outline: the old solid-green
@@ -830,20 +847,26 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         ) : (
           comments.map((comment) => (
             <View key={comment.id} style={styles.commentRow}>
-              <Pressable
-                onPress={() => openProfile(comment.user_id)}
-                accessibilityRole="button"
-                accessibilityLabel={`${comment.user_name} profilini aç`}
-              >
+              {isSelf(comment.user_id) ? (
                 <Avatar uri={comment.avatar_url} name={comment.user_name} size={34} />
-              </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => openProfile(comment.user_id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${comment.user_name} profilini aç`}
+                >
+                  <Avatar uri={comment.avatar_url} name={comment.user_name} size={34} />
+                </Pressable>
+              )}
               <View style={styles.commentBody}>
                 <View style={styles.commentHead}>
                   <Text
                     variant="bodyStrong"
                     numberOfLines={1}
                     style={styles.commentAuthor}
-                    onPress={() => openProfile(comment.user_id)}
+                    onPress={
+                      isSelf(comment.user_id) ? undefined : () => openProfile(comment.user_id)
+                    }
                     suppressHighlighting
                   >
                     {comment.user_name}
@@ -944,7 +967,15 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </View>
       ) : null}
 
-      <Modal visible={recordModalVisible} transparent animationType="fade">
+      {/* A sheet is not a page (DESIGN §8): Android's hardware back closes
+          it instead of leaving the animal profile. Locked while the save is
+          in flight, exactly like the "Vazgeç" button below. */}
+      <Modal
+        visible={recordModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !savingRecord && setRecordModalVisible(false)}
+      >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1000,7 +1031,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={vaccineModalVisible} transparent animationType="fade">
+      <Modal
+        visible={vaccineModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !savingVaccine && setVaccineModalVisible(false)}
+      >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1044,7 +1080,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <Modal visible={!!logRecord} transparent animationType="slide">
+      <Modal
+        visible={!!logRecord}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLogRecord(null)}
+      >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text variant="heading" style={styles.modalTitle}>
@@ -1066,10 +1107,14 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                         // A sheet is not a page (DESIGN §8): the record log
                         // closes on the way out, otherwise it would sit over
                         // the profile we just pushed.
-                        onPress={() => {
-                          setLogRecord(null);
-                          openProfile(comment.user_id);
-                        }}
+                        onPress={
+                          isSelf(comment.user_id)
+                            ? undefined
+                            : () => {
+                                setLogRecord(null);
+                                openProfile(comment.user_id);
+                              }
+                        }
                         suppressHighlighting
                       >
                         {comment.user_name}

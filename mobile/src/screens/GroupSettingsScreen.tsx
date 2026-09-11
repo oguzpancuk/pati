@@ -131,7 +131,16 @@ export default function GroupSettingsScreen({ route, navigation }: any) {
         onPress: async () => {
           try {
             await leaveGroup(conversationId);
-            navigation.navigate('Tabs', { screen: 'Messages' });
+            // Leaving invalidates this screen AND the conversation behind
+            // it, so the way out is to pop past both — back to wherever the
+            // conversation was opened from (DESIGN §8). `navigate('Tabs')`
+            // would pop every pushed screen under it instead, dropping a
+            // profile or an animal the user was standing on. A deep link
+            // straight to this screen has no conversation beneath, so only
+            // this one is popped.
+            const routes = navigation.getState().routes;
+            const beneath = routes[routes.length - 2];
+            navigation.pop(beneath?.name === 'Conversation' ? 2 : 1);
           } catch (err) {
             fail('Ayrılamadın', err);
           }
