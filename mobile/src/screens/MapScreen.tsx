@@ -16,8 +16,7 @@ import {
   SymbolLayer,
 } from '@maplibre/maplibre-react-native';
 import type { Feature, Point } from 'geojson';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
-import { LIBRARY_PICKER } from '../photoPicker';
+import { capturePhoto, SaveToGalleryRow } from '../photoCapture';
 import {
   addCareAction,
   Bounds,
@@ -466,27 +465,14 @@ export default function MapScreen({ navigation }: any) {
    */
   async function handleChooseAction() {
     try {
-      let photoResult = await launchCamera({
-        mediaType: 'photo',
-        saveToPhotos: false,
-      });
-
-      // Simulators have no real camera hardware. Picking from the gallery is
-      // allowed during development so the rest of the flow can be tested;
-      // this branch never triggers on a real device.
-      if (__DEV__ && photoResult.errorCode === 'camera_unavailable') {
-        photoResult = await launchImageLibrary(LIBRARY_PICKER);
-      }
-
-      if (photoResult.didCancel) {
-        return;
-      }
-      const asset = photoResult.assets?.[0];
-      if (!asset?.uri) {
-        Alert.alert(
-          'Fotoğraf alınamadı',
-          photoResult.errorMessage ?? photoResult.errorCode ?? 'Bilinmeyen hata'
-        );
+      // Through the shared helper (demo item 9): this is the app's most-used
+      // capture, so a user who turned "galeriye kaydet" on and then drops
+      // mama must get the photo in their own gallery here too. The helper
+      // also carries the simulator fallback this flow used to carry itself.
+      const capture = await capturePhoto();
+      if (capture.status === 'cancelled') return;
+      if (capture.status === 'error') {
+        Alert.alert('Fotoğraf alınamadı', capture.message);
         return;
       }
 
@@ -494,7 +480,7 @@ export default function MapScreen({ navigation }: any) {
       // recorded yet — after "uygun görünüyor" the user confirms explicitly
       // and only then does the record get created (owner decision — the
       // check must not auto-add).
-      const photo = { uri: asset.uri, type: asset.type, fileName: asset.fileName };
+      const photo = capture.photos[0];
       setPendingPhoto(photo);
       setPhotoCheck(null);
       setRejectReason(null);
@@ -1139,6 +1125,12 @@ export default function MapScreen({ navigation }: any) {
                   herkes görsün. Kayıt şu anki konumuna düşecek.
                 </Text>
 
+                {/* Beside the capture, as on the two photo screens (demo
+                    item 9): whether the photo you are about to take also
+                    lands in your own gallery is a decision, not something
+                    the app does behind your back. */}
+                <SaveToGalleryRow style={styles.saveRow} />
+
                 <Button
                   title="Fotoğrafını çek"
                   onPress={handleChooseAction}
@@ -1295,6 +1287,10 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     marginBottom: spacing.md,
   },
   modalDesc: { marginTop: spacing.xs, marginBottom: spacing.lg },
+  // The card centres its children; the toggle row is a full-width line
+  // of its own so the label keeps its left edge and the switch stays
+  // beside it.
+  saveRow: { alignSelf: 'stretch', marginBottom: spacing.md },
   modalPhoto: {
     width: 84,
     height: 84,

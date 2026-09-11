@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Image, Pressable, Switch, View } from 'react-native';
-import { capturePhoto, pickPhotos, SAVE_TO_GALLERY_LABEL, useSaveToGallery } from '../photoCapture';
+import { Alert, Animated, Easing, Image, Pressable, View } from 'react-native';
+import { capturePhoto, pickPhotos, SaveToGalleryRow } from '../photoCapture';
 import {
   addAnimalPhoto,
   AnimalMatch,
@@ -103,7 +103,6 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
   const { celebrate } = useBadgeAwards();
-  const { on: saveToGallery, set: setSaveToGallery } = useSaveToGallery();
   // No species preselected: the pattern and color pickers are species-bound
   // and stay hidden until this choice is made (sprint item 3 decision).
   const [species, setSpecies] = useState<Species | null>(null);
@@ -640,25 +639,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       </View>
       {/* Beside the slots on purpose: whether a photo you take here also
           lands in your own gallery is a decision, not a surprise. */}
-      <View style={styles.saveRow}>
-        <Switch
-          value={saveToGallery}
-          onValueChange={setSaveToGallery}
-          trackColor={{ true: colors.brand, false: colors.border }}
-          ios_backgroundColor={colors.border}
-          accessibilityLabel={SAVE_TO_GALLERY_LABEL}
-        />
-        {/* The label is part of the target: a 20pt switch alone is under the
-            44pt minimum (DESIGN §4). */}
-        <Text
-          variant="caption"
-          style={styles.saveLabel}
-          onPress={() => setSaveToGallery(!saveToGallery)}
-          suppressHighlighting
-        >
-          {SAVE_TO_GALLERY_LABEL}
-        </Text>
-      </View>
+      <SaveToGalleryRow style={styles.saveRow} />
       {photoIssue && (
         <Text variant="caption" color="danger" style={styles.photoIssue}>
           {photoIssue}
@@ -816,14 +797,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
     justifyContent: 'center',
   },
   addPhotoText: { marginTop: 2 },
-  saveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: -spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  saveLabel: { flex: 1 },
+  saveRow: { marginTop: -spacing.sm, marginBottom: spacing.lg },
   photoIssue: { marginTop: -spacing.sm, marginBottom: spacing.lg },
   locationNote: { marginBottom: spacing.lg },
   matchingWrap: {

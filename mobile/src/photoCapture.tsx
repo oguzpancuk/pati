@@ -1,9 +1,19 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, PermissionsAndroid, Platform } from 'react-native';
+import {
+  Alert,
+  PermissionsAndroid,
+  Platform,
+  Pressable,
+  StyleProp,
+  Switch,
+  ViewStyle,
+} from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { LIBRARY_PICKER } from './photoPicker';
 import type { PhotoAsset } from './api/care';
+import { Text } from './components/ui';
+import { makeStyles, minTouch, spacing, useTheme } from './theme';
 
 /**
  * Taking a photo inside the app, in one place (demo item 9).
@@ -68,7 +78,9 @@ export function setSaveToGallery(on: boolean): void {
 
 /**
  * The toggle's state. Every mounted toggle follows the same value, which is
- * what lets a refused permission switch them all off at once.
+ * what lets a refused permission switch them all off at once. Screens draw
+ * it through `SaveToGalleryRow`; this hook is for anything that needs the
+ * value itself.
  */
 export function useSaveToGallery(): { on: boolean; set: (on: boolean) => void } {
   const [on, setOn] = useState(saveToGallery);
@@ -86,6 +98,55 @@ export function useSaveToGallery(): { on: boolean; set: (on: boolean) => void } 
   }, []);
   return { on, set: setSaveToGallery };
 }
+
+/**
+ * The toggle as it is drawn beside a photo slot, in one place: the three
+ * screens that capture (add-animal, bakım ver, the map's food/water drop)
+ * mount this and cannot drift apart in wording or in behaviour.
+ *
+ * The whole ROW is the touch target, which is what carries it over DESIGN
+ * §3's 44 pt floor — an iOS Switch is ~31 pt tall and the caption ~17 pt, so
+ * the gap between them and the few points above and below the wording used
+ * to hit nothing and the preference silently did not change.
+ */
+export function SaveToGalleryRow({ style }: { style?: StyleProp<ViewStyle> }) {
+  const styles = useRowStyles();
+  const { colors } = useTheme();
+  const { on, set } = useSaveToGallery();
+  return (
+    <Pressable
+      style={[styles.row, style]}
+      onPress={() => set(!on)}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: on }}
+      accessibilityLabel={SAVE_TO_GALLERY_LABEL}
+    >
+      <Switch
+        value={on}
+        onValueChange={set}
+        trackColor={{ true: colors.brand, false: colors.border }}
+        ios_backgroundColor={colors.border}
+        // The row already announces itself as the switch; the control inside
+        // it must not be a second stop for a screen reader.
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      />
+      <Text variant="caption" style={styles.label}>
+        {SAVE_TO_GALLERY_LABEL}
+      </Text>
+    </Pressable>
+  );
+}
+
+const useRowStyles = makeStyles(() => ({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    minHeight: minTouch,
+  },
+  label: { flex: 1 },
+}));
 
 function refuse() {
   setSaveToGallery(false);

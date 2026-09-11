@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, Switch, View } from 'react-native';
+import { Alert, Image, Pressable, View } from 'react-native';
 import { submitCarePhotos } from '../api/animals';
 import type { PhotoAsset } from '../api/care';
-import { capturePhoto, SAVE_TO_GALLERY_LABEL, useSaveToGallery } from '../photoCapture';
+import { capturePhoto, SaveToGalleryRow } from '../photoCapture';
 import { Icon } from '../components/brand';
 import { Button, Card, Screen, Text } from '../components/ui';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
@@ -26,7 +26,6 @@ export default function CarePhotoScreen({ route, navigation }: any) {
   };
   const [photos, setPhotos] = useState<(PhotoAsset | null)[]>([null, null]);
   const [sending, setSending] = useState(false);
-  const { on: saveToGallery, set: setSaveToGallery } = useSaveToGallery();
   const animalWord = species === 'dog' ? 'köpeğin' : 'kedinin';
   const displayName = name ?? (species === 'dog' ? 'Köpek' : 'Kedi');
 
@@ -123,25 +122,7 @@ export default function CarePhotoScreen({ route, navigation }: any) {
       {/* Next to the slots on purpose (demo item 9): whether the photo you
           are about to take also lands in your own gallery is a decision,
           not something the app does behind your back. */}
-      <View style={styles.saveRow}>
-        <Switch
-          value={saveToGallery}
-          onValueChange={setSaveToGallery}
-          trackColor={{ true: colors.brand, false: colors.border }}
-          ios_backgroundColor={colors.border}
-          accessibilityLabel={SAVE_TO_GALLERY_LABEL}
-        />
-        {/* The label is part of the target: a 20pt switch alone is under the
-            44pt minimum (DESIGN §4). */}
-        <Text
-          variant="caption"
-          style={styles.saveLabel}
-          onPress={() => setSaveToGallery(!saveToGallery)}
-          suppressHighlighting
-        >
-          {SAVE_TO_GALLERY_LABEL}
-        </Text>
-      </View>
+      <SaveToGalleryRow style={styles.saveRow} />
 
       <Card variant="tinted" style={styles.note}>
         <Text variant="caption">
@@ -178,13 +159,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
   slotEmpty: { borderWidth: 1, borderStyle: 'dashed', borderColor: c.borderDashed },
   slotImage: { width: '100%', height: '100%' },
   slotLabel: { marginTop: spacing.sm },
-  saveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  saveLabel: { flex: 1 },
+  saveRow: { marginTop: spacing.lg },
   note: { marginTop: spacing.xl },
   submit: { marginTop: spacing.xl, marginBottom: spacing.sm },
 }));
