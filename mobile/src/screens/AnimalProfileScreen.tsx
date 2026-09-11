@@ -39,7 +39,6 @@ import AnimalLocationSheet from '../components/AnimalLocationSheet';
 import { BadgeSymbol } from '../components/badges';
 import DemoChip from '../components/DemoChip';
 import ReportLink from '../components/ReportSheet';
-import { useAuth } from '../context/AuthContext';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
   Avatar,
@@ -121,7 +120,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
     (windowWidth - spacing.lg * 2 - spacing.sm * (GRID_COLUMNS - 1)) / GRID_COLUMNS
   );
   const { celebrate } = useBadgeAwards();
-  const { user: me } = useAuth();
   const { animalId } = route.params;
   // When viewed from the add-animal flow as "is this the animal?", a
   // decision bar replaces the comment box. The decision returns to AddAnimal
@@ -255,14 +253,19 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
 
   /**
    * Every person named on this profile is a door to their profile (demo
-   * item 7). Your own name is NOT: a stranger's view of yourself is
-   * confusing, so it opens the profile tab instead — the same rule web
-   * gets from redirecting /kullanici/<me> to /profil.
+   * item 7) — your own name included. It is always a push, never a jump to
+   * the profile tab: Tabs is the bottom of MainStack, so navigating to it
+   * pops every pushed screen, taking an in-flight add-animal draft with it
+   * and leaving no way back to the animal (DESIGN.md §8). PublicProfile
+   * renders your own id fine — the server answers friendshipStatus 'self'
+   * and FriendshipButton draws nothing — which is why the leaderboard has
+   * always pushed it for your own row too. `push`, not `navigate`, so a
+   * chain like profile → animal → the same person keeps its history
+   * instead of unwinding to the screen already in the stack.
    */
   function openProfile(userId: number | null | undefined) {
     if (typeof userId !== 'number') return;
-    if (me?.id === userId) navigation.navigate('Tabs', { screen: 'Profile' });
-    else navigation.navigate('PublicProfile', { userId });
+    navigation.push('PublicProfile', { userId });
   }
 
   function openCarePhotos() {
