@@ -3918,3 +3918,21 @@ attached, which kept pulling itself to the front mid-screenshot. The pass moved
 to a second simulator addressed by UDID; the project's own
 `simulator-goto.sh` picks "the first booted device", which is ambiguous as soon
 as two are running.
+
+### Same day — left open on purpose, after the final review
+
+Five web dialogs still close only on their own backdrop and buttons, with no
+Escape and no `popstate`: the PWA install prompt (`install.tsx`), the badge
+catalogue and the badge-award celebration (`badges.tsx`), the avatar picker
+(`ProfilePage`), the map's add chooser and confirm (`MapPage`), and the
+conversation dialog (`ConversationPage`). DESIGN §8 point 3 applies to all of
+them and the mechanism is ready — `useSheetDismiss` in
+`web/src/components/profile/Sheet.tsx`, which is not profile-specific despite
+where it lives, and takes `history: false` for a dialog nested inside a sheet.
+
+They were left out because their mobile twins were not touched in this work,
+so they are symmetric gaps rather than a disagreement this change created —
+and each wants its own check that Back closes the dialog and keeps the page.
+The seven that WERE fixed (the animal page's four, the report dialog, the
+badge ladder, the delete-account dialog) are the ones whose mobile twins
+gained `onRequestClose` here.
