@@ -193,6 +193,8 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 }
 
 const useStyles = makeStyles(() => ({
-  levelCard: { marginBottom: spacing.xl },
+  // Small on purpose: the drop-history row sits directly under the bar,
+  // and the next section's own hairline brings its spacing with it.
+  levelCard: { marginBottom: spacing.md },
   sectionTop: { marginTop: spacing.xl },
 }));

@@ -99,6 +99,9 @@ const useStyles = makeStyles(({ colors: c }) => ({
     borderWidth: 1,
     borderColor: c.border,
     paddingTop: spacing.sm,
+    // The sheet sits over the home indicator; without this the last row of a
+    // filling list ends flush against it.
+    paddingBottom: spacing.lg,
   },
   cardFill: { height: '88%' },
   grabber: {
