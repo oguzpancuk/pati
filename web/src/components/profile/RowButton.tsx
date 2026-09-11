@@ -11,12 +11,17 @@ export function RowButton({
   value?: string;
   onClick: () => void;
 }) {
+  // A band of its own, ruled above and below (owner, 2026-09-12). It used to
+  // sit flush under the level bar with a wide gap beneath it, so it read as
+  // the tail of the level block rather than as its own thing.
   return (
-    <button className="card flat row-button" onClick={onClick}>
-      {icon}
-      <strong className="grow">{label}</strong>
-      {value && <span className="subtle">{value}</span>}
-      <span className="subtle">›</span>
-    </button>
+    <div className="row-button-band">
+      <button className="card flat row-button" onClick={onClick}>
+        {icon}
+        <strong className="grow">{label}</strong>
+        {value && <span className="subtle">{value}</span>}
+        <span className="subtle">›</span>
+      </button>
+    </div>
   );
 }

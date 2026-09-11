@@ -47,28 +47,31 @@ export function ProfileHeader({
 
   return (
     <div className="profile-head">
-      {onPressAvatar ? (
-        <div
-          className="row profile-identity"
-          role="button"
-          tabIndex={0}
-          onClick={onPressAvatar}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onPressAvatar();
-            }
-          }}
-        >
-          {identity}
-          {controls}
-        </div>
-      ) : (
-        <div className="row profile-identity">
-          {identity}
-          {controls}
-        </div>
-      )}
+      {/* The controls are SIBLINGS of the clickable block, never inside it:
+          wrapping the whole row in the avatar's button meant a tap on the
+          bell also opened the avatar picker (owner, 2026-09-12). Only the
+          photo and the name open it. */}
+      <div className="row profile-identity">
+        {onPressAvatar ? (
+          <div
+            className="row grow profile-identity-open"
+            role="button"
+            tabIndex={0}
+            onClick={onPressAvatar}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onPressAvatar();
+              }
+            }}
+          >
+            {identity}
+          </div>
+        ) : (
+          <div className="row grow">{identity}</div>
+        )}
+        {controls}
+      </div>
       {/* Full width under the row, not inside the name column: beside the
           controls it wrapped onto a second line. */}
       {hint && <div className="profile-hint">{hint}</div>}

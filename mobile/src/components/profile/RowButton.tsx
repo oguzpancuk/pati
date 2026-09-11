@@ -16,33 +16,38 @@ export type RowButtonProps = {
 export default function RowButton({ icon, label, value, onPress }: RowButtonProps) {
   const styles = useStyles();
   const { colors } = useTheme();
+  // A band of its own, ruled above and below (owner, 2026-09-12). Only the
+  // top rule is drawn here: the section that follows opens with its own
+  // hairline, and the gaps on either side of the card are the same, which is
+  // what makes the two read as one band rather than a stray card.
   return (
-    <Card variant="flat" padding="md" style={styles.row} onPress={onPress}>
-      <Icon name={icon} size={20} color={colors.brand} />
-      <View style={styles.text}>
-        <Text variant="bodyStrong" numberOfLines={1}>
-          {label}
-        </Text>
-      </View>
-      {value ? (
-        <Text variant="caption" color="textSubtle">
-          {value}
-        </Text>
-      ) : null}
-      <Icon name="chevronRight" size={18} color={colors.textSubtle} />
-    </Card>
+    <View style={styles.band}>
+      <Card variant="flat" padding="md" style={styles.row} onPress={onPress}>
+        <Icon name={icon} size={20} color={colors.brand} />
+        <View style={styles.text}>
+          <Text variant="bodyStrong" numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+        {value ? (
+          <Text variant="caption" color="textSubtle">
+            {value}
+          </Text>
+        ) : null}
+        <Icon name="chevronRight" size={18} color={colors.textSubtle} />
+      </Card>
+    </View>
   );
 }
 
-const useStyles = makeStyles(() => ({
-  // The section below opens with a hairline that carries its own padding
-  // BELOW the line and none above it, so without this the line sat flush
-  // against this card (owner, 2026-09-11: "bitişik olmuş").
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+const useStyles = makeStyles(({ colors: c }) => ({
+  band: {
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
     marginBottom: spacing.lg,
   },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   text: { flex: 1 },
 }));
