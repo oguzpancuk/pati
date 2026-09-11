@@ -62,8 +62,10 @@ export default function ReportLink({
         </Text>
       </Pressable>
 
-      {/* Back agrees with the backdrop: it closes the sheet, and it is
-          locked the same way while a request is in flight. */}
+      {/* A sheet is not a page (DESIGN §8): hardware back closes it rather
+          than leaving the screen. Unlike the backdrop it is NOT locked while
+          a request is in flight — it is the OS's own way out and the last
+          one left, since the backdrop and "Vazgeç" are both disabled then. */}
       <Modal
         visible={open}
         transparent

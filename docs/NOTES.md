@@ -3951,12 +3951,19 @@ OWNING sheets stacked, closing the inner one with its own button hands its
 entry back, and the popstate that follows is picked up by the outer sheet,
 which closes too.
 
+The trigger is a close that does NOT go through `dismiss`. Dismissing the
+inner sheet closes only the inner — the outer's `onPop` runs first, sees the
+inner still on top and bails. It is a bare state setter that cascades: the
+cleanup deregisters the inner's listener before its `history.back()` is
+answered, so the surviving popstate finds the outer at `topOwningIndex()`.
+
 Reachable today only through a race on the animal page: `openLog` awaits a
 comment fetch before it sets its state, so tapping a health-record row and
 then "+ aşı ekle" during that fetch stacks the log dialog on the vaccine one;
-the log's "Kapat" then takes the half-filled vaccine form with it. The history
-side stays correct — both entries really were consumed and the counter lands
-on zero — so the damage is the lost dialog, not a stranded entry.
+the log's "Kapat" — a bare `setLogRecord(null)` — then takes the half-filled
+vaccine form with it. Routing that one button through `closeLog()` makes the
+cascade disappear WITHOUT closing the class, which is the trap: the sibling
+below survives it.
 
 Two siblings of the same assumption are unreachable from today's seven call
 sites but would not be from the seven queued above: an outer sheet closed by a
@@ -3966,3 +3973,27 @@ for a back press to be consumed once per event rather than once per listener —
 a single module-level `popstate` handler instead of one per sheet. Left alone
 here because this batch cannot reach it and the change touches every sheet;
 worth doing before the queued dialogs land.
+
+
+### Same day — three accepted windows, for the queued batch
+
+Closing a dialog mid-request is allowed now (hardware back and Escape never
+lock), and that leaves three windows nobody has closed. None is reachable
+without a slow network, and each is better than the orphaned dialog the old
+refusal produced — but they are trades, not absences.
+
+- **A duplicate health or vaccination record.** "Kaydet", then Back, then
+  reopen: the form still holds what was typed, which is the point, but the
+  first request is still out and pressing "Kaydet" again writes the record
+  twice. A submit token stops the late answer from clearing the new dialog;
+  it does not stop a second submit.
+- **A frozen-looking dialog on web.** `AnimalPage` shares one `saving` flag
+  between the record and the vaccine dialogs, so while one request is out the
+  other dialog opens with a dead backdrop, a dead Vazgeç and a dead Kaydet,
+  and nothing on screen explains it. On a phone there is no Escape key, so
+  the browser's back gesture is the only way out of that window. The shared
+  flag is also what keeps the submit token safe by preventing two concurrent
+  saves — split it and the token needs to be per dialog.
+- **A report the user never filed.** `ReportDialog` and `ReportSheet` have the
+  same late-answer shape and no token: "Gönder", Back, reopen, choose another
+  reason, and the first answer sets "Şikayetin alındı" on the reopened sheet.

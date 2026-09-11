@@ -6,8 +6,6 @@ type SheetEntry = {
   owns: boolean;
   /** Set the moment the way out is taken, before the browser answers. */
   closing: boolean;
-  /** Whether an entry was actually pushed — `owns` only says one was wanted. */
-  pushed: boolean;
   /** Set once the entry has been given back or consumed, so it is counted once. */
   released: boolean;
   close: () => void;
@@ -21,6 +19,16 @@ type SheetEntry = {
  */
 const openSheets: SheetEntry[] = [];
 let nextSheetId = 0;
+
+/**
+ * The sheet ids that currently have an entry of their own standing. Keyed by
+ * id, NOT by the entry object: StrictMode gives one browser entry two entry
+ * objects (mount, cleanup, mount) — the first adds one and the second is told
+ * the state already carries this id and skips, so a per-object flag left the
+ * live entry believing it had never added one and nothing was ever released.
+ * The id is stable across that pair; the entry object is not.
+ */
+const pushedIds = new Set<number>();
 
 /**
  * How many entries this document pushed that are STILL behind us — pushed
@@ -47,13 +55,14 @@ export function sheetEntriesPushed(): number {
  * counting in only some of them is what left the counter high after a Back
  * press, and a page whose own back arrow then walked off the site.
  */
-function releaseEntry(entry: SheetEntry) {
-  // `pushed`, not `owns`: the push is skipped when the current entry is
-  // already this sheet's — reopen after a Forward press onto it — and
-  // releasing what was never pushed drove the counter negative, where it
+function releaseEntry(entry: SheetEntry, id: number) {
+  // Only what was really added: the push is skipped when the current entry is
+  // already this sheet's — reopening after a Forward press onto it — and
+  // releasing what was never added drove the counter negative, where it
   // stayed (review, 2026-09-11).
-  if (!entry.pushed || entry.released) return;
+  if (!entry.owns || entry.released || !pushedIds.has(id)) return;
   entry.released = true;
+  pushedIds.delete(id);
   entriesPushed -= 1;
 }
 
@@ -103,7 +112,6 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
     if (!open) return;
     const entry: SheetEntry = {
       owns: history,
-      pushed: false,
       closing: false,
       released: false,
       close: () => closeRef.current(),
@@ -122,7 +130,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       // with nothing behind it, and its back button goes to the fallback root
       // instead of to the profile the sheet was standing on.
       entriesPushed += 1;
-      entry.pushed = true;
+      pushedIds.add(id);
     }
 
     const onKey = (event: KeyboardEvent) => {
@@ -136,7 +144,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       // The browser has already travelled over it — by the time this runs
       // `history.state` is the page's again, so the cleanup below cannot
       // recognise the entry as ours. Account for it here or nowhere.
-      releaseEntry(entry);
+      releaseEntry(entry, id);
       closeDownTo(index);
     };
     const dismiss = () => {
@@ -149,7 +157,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       // An owned entry is given back to the browser; the popstate that
       // follows is what actually closes the sheet.
       if (entry.owns && (window.history.state as { patiSheet?: number } | null)?.patiSheet === id) {
-        releaseEntry(entry);
+        releaseEntry(entry, id);
         window.history.back();
         return;
       }
@@ -185,7 +193,7 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
       //     genuinely behind us.
       if (openRef.current || entry.closing || !entry.owns) return;
       if ((window.history.state as { patiSheet?: number } | null)?.patiSheet !== id) return;
-      releaseEntry(entry);
+      releaseEntry(entry, id);
       window.history.back();
     };
   }, [open, history, id]);
