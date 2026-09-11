@@ -63,7 +63,10 @@ export function ProfileStats({
           [
             [counts.food, 'mama'],
             [counts.water, 'su'],
-            [counts.animals, 'kayıt'],
+            // "hayvan", not "kayıt": the drop-history row-button a few pixels
+            // below says "N kayıt" about the food/water total, and one word
+            // could not mean both things that close together (review finding).
+            [counts.animals, 'hayvan'],
             [counts.friends, 'arkadaş'],
           ] as [number, string][]
         ).map(([value, label]) => (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef } from 'react';
 import { CloseIcon } from './icons';
 
 type SheetEntry = {
@@ -111,6 +111,20 @@ export function useSheetDismiss(open: boolean, onClose: () => void, history = tr
   }, []);
 }
 
+const SheetDismissContext = createContext<(() => void) | null>(null);
+
+/**
+ * The way out of the sheet you are rendered inside, for a control that ends by
+ * unmounting the page UNDER the sheet — logging out, deleting the account.
+ * Those never reach `dismiss`: the app swaps the route's element, the sheet
+ * disappears with its popstate listener, and the history entry it pushed is
+ * stranded, so the user's next Back press is silently swallowed and a second
+ * one is needed to leave. Take the way out first, then do the thing.
+ */
+export function useSheetExit() {
+  return useContext(SheetDismissContext);
+}
+
 export function Sheet({
   open,
   onClose,
@@ -146,7 +160,9 @@ export function Sheet({
             <CloseIcon />
           </button>
         </div>
-        <div className="profile-sheet-body">{children}</div>
+        <div className="profile-sheet-body">
+          <SheetDismissContext.Provider value={dismiss}>{children}</SheetDismissContext.Provider>
+        </div>
       </div>
     </div>
   );

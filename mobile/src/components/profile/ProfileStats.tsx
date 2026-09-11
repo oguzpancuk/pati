@@ -58,7 +58,10 @@ export default function ProfileStats({
         {[
           { value: counts.food, label: 'mama' },
           { value: counts.water, label: 'su' },
-          { value: counts.animals, label: 'kayıt' },
+          // "hayvan", not "kayıt": the drop-history row-button a few pixels
+          // below says "N kayıt" about the food/water total, and one word
+          // could not mean both things that close together (review finding).
+          { value: counts.animals, label: 'hayvan' },
           { value: counts.friends, label: 'arkadaş' },
         ].map((cell) => (
           <View key={cell.label} style={styles.cell}>

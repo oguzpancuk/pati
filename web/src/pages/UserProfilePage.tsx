@@ -99,10 +99,13 @@ export default function UserProfilePage() {
     );
   }
 
-  const displayBadges =
-    profile.featuredBadges?.length > 0
-      ? profile.featuredBadges
-      : sortBadges(profile.badges.filter((b) => b.tier)).slice(0, 3);
+  // "Öne çıkan" is a claim about a CHOICE this person made. Without one we
+  // still show their strongest three, but under a heading that does not put
+  // words in their mouth (review finding).
+  const hasFeatured = (profile.featuredBadges?.length ?? 0) > 0;
+  const displayBadges = hasFeatured
+    ? profile.featuredBadges
+    : sortBadges(profile.badges.filter((b) => b.tier)).slice(0, 3);
 
   return (
     <div className="page">
@@ -150,7 +153,7 @@ export default function UserProfilePage() {
       <LevelBar level={profile.level} points={profile.points?.total ?? 0} />
 
       <BadgeBlock
-        title="öne çıkan rozetleri"
+        title={hasFeatured ? 'öne çıkan rozetleri' : 'rozetleri'}
         actionLabel="tümü"
         onAction={() => setCatalogOpen(true)}
         badges={displayBadges}

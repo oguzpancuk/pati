@@ -7,7 +7,7 @@
  */
 import '../../styles/profile.css';
 
-export { Sheet, useSheetDismiss } from './Sheet';
+export { Sheet, useSheetDismiss, useSheetExit } from './Sheet';
 export { ProfileHeader, HeaderIconButton } from './ProfileHeader';
 export { NotificationList } from './NotificationList';
 export { NotificationsSheet } from './NotificationsSheet';

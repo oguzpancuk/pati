@@ -101,10 +101,13 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     );
   }
 
-  const displayBadges =
-    profile.featuredBadges?.length > 0
-      ? profile.featuredBadges
-      : sortBadges(profile.badges.filter((b) => b.tier)).slice(0, 3);
+  // "Öne çıkan" is a claim about a CHOICE this person made. Without one we
+  // still show their strongest three, but under a heading that does not put
+  // words in their mouth (review finding).
+  const hasFeatured = (profile.featuredBadges?.length ?? 0) > 0;
+  const displayBadges = hasFeatured
+    ? profile.featuredBadges
+    : sortBadges(profile.badges.filter((b) => b.tier)).slice(0, 3);
 
   return (
     <Screen scroll>
@@ -149,7 +152,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
       </View>
 
       <BadgeBlock
-        title="Öne çıkan rozetleri"
+        title={hasFeatured ? 'Öne çıkan rozetleri' : 'Rozetleri'}
         actionLabel="tümü"
         onAction={() => setCatalogVisible(true)}
         badges={displayBadges}
@@ -193,8 +196,8 @@ export default function PublicProfileScreen({ route, navigation }: any) {
 }
 
 const useStyles = makeStyles(() => ({
-  // Small on purpose: the drop-history row sits directly under the bar,
-  // and the next section's own hairline brings its spacing with it.
+  // Matches your own profile's level bar so the two read as one layout; the
+  // badge block below brings its own hairline and spacing.
   levelCard: { marginBottom: spacing.md },
   sectionTop: { marginTop: spacing.xl },
 }));

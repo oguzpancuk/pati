@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { ThemeMode } from '../../theme';
-import { Sheet } from './Sheet';
+import { Sheet, useSheetExit } from './Sheet';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
   { key: 'system', label: 'sistem' },
@@ -97,14 +97,33 @@ export function SettingsSheet({
         </Link>
       </div>
 
-      <button className="textlink" onClick={onLogout}>
-        çıkış yap
-      </button>
+      <LogoutLink onLogout={onLogout} />
 
       {deleteAccount}
 
       {/* TODO(main): mount the map attribution line here — item 15 takes the
           OpenStreetMap credit off the map and into this sheet. */}
     </Sheet>
+  );
+}
+
+/**
+ * Signing out swaps the whole route element, so the sheet vanishes without
+ * ever reaching its own dismissal and the history entry it pushed is stranded:
+ * the user's first Back press afterwards does nothing at all. The way out is
+ * taken first, then the logout (review finding).
+ */
+function LogoutLink({ onLogout }: { onLogout: () => void }) {
+  const exitSheet = useSheetExit();
+  return (
+    <button
+      className="textlink"
+      onClick={() => {
+        exitSheet?.();
+        onLogout();
+      }}
+    >
+      çıkış yap
+    </button>
   );
 }
