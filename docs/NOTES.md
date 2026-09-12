@@ -4105,3 +4105,39 @@ the settings sheet scrolling to the OSM credit, the care callout's stacking,
 add-animal through to a candidate, picking a friend in "yeni sohbet", the
 password screens. Cold-start deep links, which were the riskiest part of the
 navigation change, were driven and do pass.
+
+## 2026-09-12 · the deploy (v39) and the badge recompute
+
+`46b81f1` is live as **v39**. The release command ran `migrate.js` and
+completed, so 013/014/015 are applied; `/health` answers `{"status":"ok"}` and
+both `pati-app.com` and `admin.pati-app.com` answer 200.
+
+015 left nothing behind: **0** awards with a `streak:` key, **0** users with
+one in `featured_badges`, and the row count still matched the pre-deploy
+snapshot (15,788) before the recompute. `user_badge_awards_pre015` is that
+snapshot; it is the way back from the whole badge change and nothing since has
+touched it.
+
+`recompute-badges.js` then ran against 2229 users and rewrote every tier:
+6,582 care awards → **14,193**, **0 demotions**. The demotion analysis said
+food and water were the risky ladders (7-9 records dropping silver→bronze,
+30-49 gold→silver) and in the event nobody was in those bands — the seeded
+world feeds far past 50 records, and the 29 real accounts have almost no care
+history at all (the busiest has two food, two water and four animals). Nobody
+lost anything, which is why the checkpoint before the real run was worth
+keeping even though it turned out to be uneventful.
+
+What changed is the shape of the demo world, not the real one: `care:feeder`
+gained 2,193 gold and `care:water` 987, because a count ladder of 1/10/50/250
+is far easier to climb than 7/30/365 consecutive days. No diamond exists yet
+anywhere.
+
+Checked live rather than inferred: the badge layer hands a real account
+`care:feeder` bronze "2 / 10 kayıt", `care:water` bronze "2 / 10 kayıt",
+`care:registrar` bronze "4 / 5 hayvan" — the owner's ladders, with the right
+units. The public login page serves the new bundle (the "Şifremi unuttum"
+link, one of this release's items, is on it).
+
+Every helper script uploaded to the machine for this (`snapshot.js`,
+`poststate.js`, the read-only breakdowns) was removed afterwards; `/app` holds
+only what the image ships.
