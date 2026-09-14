@@ -446,17 +446,17 @@ export default function AddAnimalPage() {
         );
         setPhotos((prev) => prev.filter((_, i) => !refused.has(i)));
         setPhotoTokens([]);
-        // The advice differs even though the remedy does not: an unreadable
-        // file is a FORMAT problem, and telling the user to photograph the
-        // animal again would be wrong — the photo was fine.
+        // Both remedies are a new shot — the input is camera-only (C1), so
+        // there is no other format to pick. An unreadable file still must not
+        // be told the animal was missing: the photo itself may be fine.
         const many = refused.size > 1;
         const removed = `${many ? 'Bu fotoğrafları' : 'Bu fotoğrafı'} listeden kaldırdık;`;
         setError(
           err.code === 'photoUnreadable'
-            ? `${err.message} ${removed} ${many ? 'başka biçimde yenilerini' : 'başka biçimde bir tane'} ekle.`
+            ? `${err.message} ${removed} ${many ? 'yenilerini' : 'yenisini'} çek.`
             : `${err.message} ${removed} ${species === 'dog' ? 'köpeğin' : 'kedinin'} göründüğü ${
                 many ? 'yeni fotoğraflar' : 'bir fotoğraf'
-              } ekle.`
+              } çek.`
         );
       } else {
         setError(err instanceof Error ? err.message : 'Eşleştirme yapılamadı');

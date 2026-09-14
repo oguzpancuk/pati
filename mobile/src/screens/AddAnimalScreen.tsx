@@ -256,17 +256,17 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         setPhotos((prev) => prev.filter((_, i) => !refused.has(i)));
         setPhotoTokens([]);
         setPhotoIssue(reason);
-        // The advice differs even though the remedy does not: an unreadable
-        // file is a FORMAT problem, and telling the user to photograph the
-        // animal again would be wrong — the photo was fine.
+        // Both remedies are a new shot — the camera is the only door (C1),
+        // so there is no other format to pick. An unreadable file still must
+        // not be told the animal was missing: the photo itself may be fine.
         const many = refused.size > 1;
         const removed = `${many ? 'Bu fotoğrafları' : 'Bu fotoğrafı'} listeden kaldırdık;`;
         const advice =
           data.code === 'photoUnreadable'
-            ? `${removed} ${many ? 'başka biçimde yenilerini' : 'başka biçimde bir tane'} ekle.`
+            ? `${removed} ${many ? 'yenilerini' : 'yenisini'} çek.`
             : `${removed} ${species === 'dog' ? 'köpeğin' : 'kedinin'} göründüğü ${
                 many ? 'yeni fotoğraflar' : 'bir fotoğraf'
-              } ekle.`;
+              } çek.`;
         Alert.alert(
           data.code === 'photoUnreadable'
             ? many
