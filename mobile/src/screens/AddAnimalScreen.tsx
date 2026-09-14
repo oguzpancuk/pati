@@ -27,6 +27,7 @@ import {
   Chip,
   ChoiceField,
   Input,
+  LoadingState,
   MULTI_CHOICE_SEPARATOR,
   MultiChoiceField,
   Screen,
@@ -128,6 +129,13 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   // comparison the tiers came from.
   const [photoChecked, setPhotoChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // A "Bu o" confirm in flight (sighting, then every photo's upload — seconds
+  // on a real model). The ref is the guard: a second confirm would report a
+  // second sighting (a second notification to the followers) and redeem the
+  // same tokens again (409, a false "Fotoğraflar eklenemedi"). The state
+  // swaps the results for a busy screen, so no candidate stays tappable.
+  const confirmingRef = useRef(false);
+  const [confirming, setConfirming] = useState(false);
 
   // Flow: form → (save) → matching wait → candidates → new record or an
   // existing profile. Duplicate checking used to run before the form opened,
@@ -392,26 +400,32 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   }, [confirmedAnimalId]);
 
   async function handleExistingAnimal(animalId: number, matchHit: boolean) {
+    // The first confirm finishes and opens its profile; this one is dropped.
+    if (confirmingRef.current) return;
     // Without the server's hit the confirm is a decision, not a sighting:
     // no server call, the profile opens ("bakım ver" is the way in).
     if (!location || !matchHit) {
       navigation.replace('AnimalProfile', { animalId });
       return;
     }
-    setSubmitting(true);
+    confirmingRef.current = true;
+    setConfirming(true);
     try {
       await reportSighting(animalId, location.lat, location.lng);
     } catch (err: any) {
-      setSubmitting(false);
       // Carers only: without a 'same' verdict the confirm cannot make the
       // user a carer — the decision is still made, so the profile opens
       // (web parity); "bakım ver" is the way in from there. Nothing to
       // upload either way: the photos need the rights the sighting failed
-      // to grant (an expired hit and expired tokens come together).
+      // to grant (an expired hit and expired tokens come together). The
+      // screen is replaced, so it stays busy until it goes.
       if (err?.response?.data?.code === 'carersOnly') {
         navigation.replace('AnimalProfile', { animalId });
         return;
       }
+      // Anything else keeps the user on the results, free to try again.
+      confirmingRef.current = false;
+      setConfirming(false);
       Alert.alert(
         'Güncellenemedi',
         err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
@@ -424,8 +438,15 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     // addPhoto for this very step; no client ever sent the photos, and the
     // door was removed to match — they were silently dropped until now.
     await addFlowPhotos(animalId, photoTokens);
-    setSubmitting(false);
     navigation.replace('AnimalProfile', { animalId });
+  }
+
+  if (confirming) {
+    return (
+      <Screen>
+        <LoadingState label="Kaydediliyor…" />
+      </Screen>
+    );
   }
 
   if (step === 'matching' && species) {

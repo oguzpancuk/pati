@@ -2,7 +2,8 @@
  * "Bu o — eşleştir" on a match hit: the sighting first, then the photos
  * taken for the flow go into that animal's gallery through the same
  * token-first upload as a new animal's (owner batch 2026-09-14, B1). Before
- * B1 the confirm sent only the sighting and the photos were dropped.
+ * B1 the confirm sent only the sighting and the photos were dropped. One
+ * confirm runs at a time (B1 follow-up).
  *
  * The screen's own logic runs; everything around it (the design system,
  * the camera, the network, the location) is a stand-in.
@@ -80,6 +81,7 @@ jest.mock('../src/components/ui', () => {
       ),
     ChoiceField: () => null,
     Input: () => null,
+    LoadingState: ({ label }: any) => R.createElement(T, null, label),
     MULTI_CHOICE_SEPARATOR: ', ',
     MultiChoiceField: () => null,
     Screen: Pass,
@@ -122,8 +124,12 @@ async function waitFor(check: () => boolean) {
   throw new Error('condition never held');
 }
 
-/** Form → one camera shot → match (one hit) → the confirm returns from the profile. */
-async function confirmHit(matchHit = true) {
+const candidateCards = (tree: ReactTestRenderer) =>
+  tree.root.findAll((n) => n.type === Pressable && n.props.accessibilityLabel === 'candidate')
+    .length;
+
+/** Form → one camera shot → match (one candidate) → the results list. */
+async function reachResults(matchHit: boolean) {
   const navigation = {
     replace: jest.fn(),
     navigate: jest.fn(),
@@ -144,16 +150,27 @@ async function confirmHit(matchHit = true) {
   await press(tree, 'Fotoğraf çek');
   await press(tree, 'Hayvanı kaydet');
   // The matching screen holds for MIN_MATCHING_MS before the results.
-  await waitFor(
-    () => tree.root.findAll((n) => n.props.accessibilityLabel === 'candidate').length > 0
-  );
-  await act(async () => {
-    tree.update(
-      <AddAnimalScreen
-        navigation={navigation}
-        route={{ params: { confirmedAnimalId: 42, confirmedMatchHit: matchHit } }}
-      />
-    );
+  await waitFor(() => candidateCards(tree) > 0);
+  return { tree, navigation };
+}
+
+/** The profile's "Bu o" brings the screen back with these params. */
+function returnFromProfile(
+  tree: ReactTestRenderer,
+  navigation: object,
+  params: { confirmedAnimalId?: number; confirmedMatchHit?: boolean }
+) {
+  return act(async () => {
+    tree.update(<AddAnimalScreen navigation={navigation} route={{ params }} />);
+  });
+}
+
+/** The confirm returns from the profile with the server's verdict. */
+async function confirmHit(matchHit = true) {
+  const { tree, navigation } = await reachResults(matchHit);
+  await returnFromProfile(tree, navigation, {
+    confirmedAnimalId: 42,
+    confirmedMatchHit: matchHit,
   });
   await waitFor(() => navigation.replace.mock.calls.length > 0);
   return navigation;
@@ -215,6 +232,47 @@ test('a refused sighting (the hit expired) uploads nothing and opens the profile
   const navigation = await confirmHit();
   expect(api.addAnimalPhoto).not.toHaveBeenCalled();
   expect(navigation.replace).toHaveBeenCalledWith('AnimalProfile', { animalId: 42 });
+});
+
+test('a sighting that fails for another reason says so and gives the results back', async () => {
+  api.reportSighting.mockRejectedValue({ response: { data: { error: 'Sunucu hatası.' } } });
+  const { tree, navigation } = await reachResults(true);
+  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedMatchHit: true });
+  await waitFor(() => (Alert.alert as jest.Mock).mock.calls.length > 0);
+  expect(Alert.alert).toHaveBeenCalledWith('Güncellenemedi', 'Sunucu hatası.');
+  await waitFor(() => candidateCards(tree) > 0);
+  expect(api.addAnimalPhoto).not.toHaveBeenCalled();
+  expect(navigation.replace).not.toHaveBeenCalled();
+});
+
+test('a second confirm while the first is still saving sends nothing', async () => {
+  let finishSighting!: () => void;
+  api.reportSighting.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishSighting = () => resolve({} as any);
+      })
+  );
+  api.addAnimalPhoto.mockResolvedValue({} as any);
+  const { tree, navigation } = await reachResults(true);
+  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedMatchHit: true });
+  await waitFor(() => api.reportSighting.mock.calls.length === 1);
+  // Busy: the candidates are gone, so none can be opened and confirmed again.
+  expect(candidateCards(tree)).toBe(0);
+  expect(tree.root.findAll((n) => n.props.children === 'Kaydediliyor…').length).toBeGreaterThan(0);
+  // A second confirm arrives anyway (the params cleared, then set anew).
+  await returnFromProfile(tree, navigation, {});
+  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedMatchHit: true });
+  expect(api.reportSighting).toHaveBeenCalledTimes(1);
+  expect(navigation.replace).not.toHaveBeenCalled();
+  await act(async () => {
+    finishSighting();
+  });
+  await waitFor(() => navigation.replace.mock.calls.length > 0);
+  expect(api.reportSighting).toHaveBeenCalledTimes(1);
+  expect(api.addAnimalPhoto).toHaveBeenCalledTimes(1);
+  expect(navigation.replace).toHaveBeenCalledTimes(1);
+  expect(Alert.alert).not.toHaveBeenCalled();
 });
 
 test('without a hit the confirm sends nothing at all', async () => {
