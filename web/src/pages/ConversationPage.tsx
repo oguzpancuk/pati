@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { REPORT_REASONS, ReportReason } from '@mobile/reportReasons';
 import { PageHeader } from '../components/PageHeader';
@@ -63,10 +63,38 @@ export default function ConversationPage() {
   const since = useRef<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+  // Where the list last settled and how tall it was then. A resize keeps the
+  // distance from the bottom from these, not from a distance remembered at
+  // the last scroll: content that grew since (a poll, the ⋯ menu) would make
+  // such a distance stale, while scrollTop only ever moves with a scroll.
+  const lastTop = useRef(0);
+  const lastHeight = useRef(0);
 
   const scrollToBottom = useCallback(() => {
     const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    lastTop.current = el.scrollTop;
+  }, []);
+
+  // The newest message stays directly above the composer whatever shrinks
+  // the list: the keyboard, the tab bar hiding, the reply bar (mobile gets
+  // this from its inverted FlatList). Scrolled up, the reader keeps their
+  // place measured from the bottom instead.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    lastHeight.current = el.clientHeight;
+    lastTop.current = el.scrollTop;
+    const observer = new ResizeObserver(() => {
+      const delta = el.clientHeight - lastHeight.current;
+      lastHeight.current = el.clientHeight;
+      if (delta === 0) return;
+      el.scrollTop = stickToBottom.current ? el.scrollHeight : lastTop.current - delta;
+      lastTop.current = el.scrollTop;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -115,6 +143,18 @@ export default function ConversationPage() {
     }
   }, [conversationId, scrollToBottom]);
 
+  // Content that grows while the reader is at the bottom (a polled message,
+  // the ⋯ menu under the last bubble) is pinned before it is painted; the
+  // list's own size does not change, so the observer above never sees it.
+  // `flash` is left out on purpose: a quote click starts a smooth scroll
+  // upward, and pinning on its re-render would cancel it.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el || !stickToBottom.current) return;
+    el.scrollTop = el.scrollHeight;
+    lastTop.current = el.scrollTop;
+  }, [messages, menuFor, replyTo, error, hasMore]);
+
   useEffect(() => {
     if (replyTo && messages?.some((m) => m.id === replyTo.id && m.deleted)) setReplyTo(null);
   }, [messages, replyTo]);
@@ -160,7 +200,9 @@ export default function ConversationPage() {
       setHasMore(page.hasMore);
       // Keep the viewport on the same message after the older page lands above.
       requestAnimationFrame(() => {
-        if (el) el.scrollTop = el.scrollHeight - before;
+        if (!el) return;
+        el.scrollTop = el.scrollHeight - before;
+        lastTop.current = el.scrollTop;
       });
     } catch {
       // The button stays; pressing again retries.
@@ -282,6 +324,7 @@ export default function ConversationPage() {
         onScroll={(e) => {
           const el = e.currentTarget;
           stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          lastTop.current = el.scrollTop;
         }}
         onClick={() => setMenuFor(null)}
       >
