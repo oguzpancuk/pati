@@ -349,3 +349,57 @@ Evidence: `backend/scripts/animal-social/run.sh` (zero photos → 400
 `same` verdict → 201 and the gallery grows by one, a single refused photo
 names `[0]`; the two-photo cases stay as they were), with `ai-check` and
 `storage-check` unchanged and green.
+
+## Amendment (2026-09-14): the photos a carer takes reach the gallery
+
+Owner batch of 2026-09-14, item B1: photos a user takes of an animal reach
+that animal's gallery whenever the step grants or already holds carer
+rights. Two places dropped them without a word.
+
+- **"Bu o — eşleştir" (a match hit).** The confirm sent only
+  `POST /animals/:id/sightings`, and the photos taken in the flow, with
+  their `photoTokens`, were thrown away. This was not a product rule. The
+  backend was built for the photos to follow: `addPhoto` had a match-hit
+  door, and its docstring said the flow adds its photos right after the
+  confirm. No client ever sent them, so that door was removed in 727d153
+  to match the clients. Both clients now finish the flow: after a 200
+  sighting, which makes the user a carer, they upload the flow's photos
+  through the create path's own loop. That means `POST /animals/:id/photos`
+  per photo, the token first and the file itself when the token has
+  expired. No backend change was needed: the carer rights the sighting
+  grants are what `addPhoto` checks. A refused sighting uploads nothing
+  (an expired hit usually comes with expired tokens). "Bu o — profili aç"
+  (no hit) still sends nothing, because that user is not a carer. On the
+  web the candidate's profile unmounts the form and a `File` cannot go
+  into the sessionStorage draft, so the photos wait in module memory
+  until the confirm; a full page reload loses them.
+- **"Bakım ver" by an existing carer** (`POST /animals/:id/care-photos`).
+  A carer used to get `200 {alreadyCarer: true, photos: []}` and the
+  uploads were deleted. A registrant or a confirmed matcher therefore had
+  no way left to add a photo. A carer's photos are now screened for the
+  species (the same 422 `photoRejected`) and stored through the same
+  rename/publish/insert block as a new carer's. There is no gallery
+  comparison, no second carer row, no `care` match attempt and no
+  notification. The answer is `201` with `alreadyCarer: true` and
+  `photoChecked: false`, in the new-carer shape. Both clients give a
+  carer a "fotoğraf ekle" action under the "bakım veriyorsun" state. It
+  opens the same camera-only screen or sheet with carer copy, and the
+  success text follows the server's `alreadyCarer`. The mobile deep link
+  `pati://animal/:id/care` reads the profile to pick the copy.
+- **Fail-open consequence.** With the model off or failing, every
+  non-low candidate is an `unchecked` hit and the species screen passes
+  everything. A confirm therefore now also puts unverified photos into
+  the gallery of whichever candidate the user confirms. Likewise, a
+  carer's care photo is stored unscreened when the model is down. This is
+  the same exposure as the direct upload to `addPhoto` and the non-carer
+  care step's unchecked acceptance; nothing new is trusted. Tokens remain
+  bound to user and species, not to an animal (unchanged).
+
+Evidence: `backend/scripts/animal-social/run.sh` (a carer's two care
+photos → 201, gallery +2, `uploaded_by` the carer, one carer row, no second
+attempt or notification; a refused one → 422 and the gallery unchanged);
+`backend/scripts/storage-check/run.sh` (the carer path under the bucket
+driver, a refusing bucket → 503 with nothing kept; the harness now pins the
+model off); `mobile/__tests__/addAnimalConfirm.test.tsx` (3 of 5 cases fail
+against the previous screen); and a playwright run of the web flow against
+a throwaway backend with the fake model — gallery 1 → 1 before, 1 → 3 after.
