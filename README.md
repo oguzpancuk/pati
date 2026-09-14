@@ -58,8 +58,9 @@ pati/
   you are warned exactly when you are outside one). Food and water maps are
   separate views. If the green in your area has expired, an on-device
   notification fires (requires background location; 6 h notification cooldown)
-- Animal profiles (manual, at least 2 photos, multiple-choice breed/pattern
-  lists for cats and dogs), a photo list, and nearby animals filtered by species
+- Animal profiles (manual, at least 1 photo taken in the app, multiple-choice
+  breed/pattern lists for cats and dogs), a photo list, and nearby animals
+  filtered by species
 - Animals appear on the map as round avatar markers; tapping opens the
   profile. When adding a new animal the app first shows similar nearby ones —
   confirming "it's this one" moves that animal's current location and shows it

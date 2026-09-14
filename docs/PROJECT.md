@@ -66,8 +66,8 @@ The MVP is complete and tested end to end. All of the following works:
   (the base map is never painted; absence of care is plain map + a banner)
 
 ### Animal profiles
-- Manual registration: at least 2 photos, multiple-choice breed/pattern lists
-  per species
+- Manual registration: at least 1 photo, taken with the camera in the app
+  (no gallery), multiple-choice breed/pattern lists per species
 - Adding an animal runs the match flow first: after the form, a short
   "AI matching" screen, then same-species animals within 1 km listed with a
   similarity level (high/medium/low). "It's this one" moves the animal's

@@ -1,6 +1,6 @@
 # ADR-0005: Photo checks and animal matching go through a hosted vision model, and fail open
 
-Status: accepted · Date: 2026-09-04 · Amended 2026-09-07 (provider: Gemini) and 2026-09-08 (animal photos are screened too), see the end
+Status: accepted · Date: 2026-09-04 · Amended 2026-09-07 (provider: Gemini), 2026-09-08 (animal photos are screened too; carers and the two doors) and 2026-09-14 (one camera photo), see the end
 
 ## Context
 
@@ -283,3 +283,56 @@ Evidence: `backend/scripts/animal-social/run.sh` (throwaway backend on
 3107 with the fake Gemini; field-only match mints nothing, `same` opens the
 door once, `similar` does not, the spend, carers-only refusals, the inbox
 fan-out, the badge ladder) and `backend/test/animalBadges.test.js`.
+
+## Amendment (2026-09-14): one photo, taken with the camera
+
+Owner decision (batch of 2026-09-14, item C1): add-animal and "bakım ver"
+take photos only from the camera at that moment, and one photo is enough.
+This replaces "at least two" for add-animal and "two fresh photos" for
+"bakım ver" above.
+
+- **"Bakım ver"** (`POST /animals/:id/care-photos`) takes **one or two**
+  photos (`MIN_CARE_PHOTOS = 1`, `MAX_CARE_PHOTOS = 2`, the route's multer
+  `maxCount`); zero is 400 `carePhotosRequired`, three is multer's 400
+  `LIMIT_UNEXPECTED_FILE`. Both clients send exactly one: the screen and the
+  sheet have a single camera slot, so a refusal empties that slot and no
+  `photoIndexes` mapping remains. The server keeps accepting two because app
+  builds already installed send two; a cap of one would refuse them outright.
+  A second slot was not kept: it buys only a second chance at a `same`
+  verdict, and costs two more model calls on every submission (the species
+  screen runs on each file, the face locate on each stored photo), while the
+  add-animal door already grants carer rights on one photo (`files[0]`).
+  The messages no longer name a count (`carePhotosRequired`,
+  `carePhotoMismatch`, `carersOnly`).
+- **Add-animal** needs one photo and still takes up to six (only the first
+  is compared). Mobile lost its library tile (SEÇ) and keeps the camera
+  (ÇEK → `capturePhoto`); the web input lost `multiple` and gained
+  `capture="environment"`, one shot per tap like the map's drop.
+- **Camera-only is a client rule**, exactly as the food/water drop has been.
+  The server has nothing to check it with: the resize middleware re-encodes
+  every upload and strips its EXIF before a controller runs;
+  react-native-image-picker's iOS camera path writes no capture date at all
+  (only the orientation), so a date check would refuse every iPhone app
+  photo; and EXIF is trivially forged while a library photo carries a real
+  capture date anyway. curl, DevTools or an old app build can still upload
+  any image.
+- **Where the web cannot follow.** Desktop browsers ignore `capture` and show
+  a file picker (the map drop and the care sheet already did); Firefox on
+  Android falls back to a chooser or the photo picker once its camera
+  permission is denied; Chrome on Android with the camera permission denied
+  silently does nothing. iOS Safari with a camera and Chrome on Android with
+  the permission granted open the camera directly. The iOS app in a release
+  build has no library door (`__DEV__` is false, so the simulator's library
+  stand-in for the camera never ships); the saved copy to the phone's
+  gallery (`SaveToGalleryRow`) stays — saving is not picking.
+- **Known gap, not built:** the server has no add-animal photo minimum.
+  `POST /animals/match` accepts zero photos and `POST /animals` takes none,
+  so "at least one photo" holds only in the clients, as "at least two" did.
+- **Seeded guide text** says one photo for future seeds only
+  (`scripts/seed-guides.js`); rows already written are not rewritten.
+
+Evidence: `backend/scripts/animal-social/run.sh` (zero photos → 400
+`carePhotosRequired`, three → 400 `LIMIT_UNEXPECTED_FILE`, one photo under a
+`same` verdict → 201 and the gallery grows by one, a single refused photo
+names `[0]`; the two-photo cases stay as they were), with `ai-check` and
+`storage-check` unchanged and green.
