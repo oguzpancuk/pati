@@ -21,11 +21,15 @@ import {
 } from '../api';
 import { matchHitOf } from '../api/animalSocial';
 import { AnimalAvatar } from '../avatars';
-import { isPermissionFailure } from '../addAnimalGate';
 import { useBadgeAwards } from '../badgeAwards';
 import { ChipRow } from '../components/ChipRow';
 import { PageHeader } from '../components/PageHeader';
-import { Coordinates, getCurrentLocation, describeLocationError } from '../location';
+import {
+  Coordinates,
+  getCurrentLocation,
+  describeLocationError,
+  isPermissionFailure,
+} from '../location';
 
 // One photo, taken with the camera on this page (owner batch 2026-09-14,
 // C1), as on mobile. Up to six still fit — only the first is compared.

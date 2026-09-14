@@ -1,3 +1,19 @@
+/*
+ * The location rule (owner batch 2026-09-14, C2; mobile parity): every user
+ * action that needs a location calls `getCurrentLocation` — the browser's
+ * only request, the one call that can show its prompt — and the warning
+ * comes only from that call's answer, classified by `isPermissionFailure`.
+ * `navigator.permissions.query` and the session flag below never decide an
+ * action; they only feed readers (lists, care alerts, the map's later
+ * opens), which never prompt.
+ *
+ * What no page can change: after "Engelle" (or Chrome's automatic block
+ * after repeated dismissals) the browser answers the request with a refusal
+ * and shows nothing, so the warning follows a request the user never saw.
+ * A page cannot open browser settings either; the warning's text guidance
+ * is the closest equivalent to mobile's "Ayarları aç".
+ */
+
 export interface Coordinates {
   lat: number;
   lng: number;
@@ -58,11 +74,12 @@ export function getCurrentLocation(): Promise<Coordinates> {
   });
 }
 
-// Safari has no permission query for geolocation, so the site remembers
-// the last answer it saw — for this tab's session only: iOS Safari's
-// "Allow Once" and a grant revoked in Settings both outlive a stored
-// flag, and a stale "granted" would make the list prompt on entry (review
-// finding). The Permissions API is the source everywhere else.
+// Safari before 16 has no permission query for geolocation, so the site
+// remembers the last answer it saw — for this tab's session only: iOS
+// Safari's "Allow Once" and a grant revoked in Settings both outlive a
+// stored flag, and a stale "granted" would make the list prompt on entry
+// (review finding). The Permissions API is the source everywhere else. The
+// flag only ever says "may read"; no action consults it.
 const GRANT_KEY = 'pati.locationGranted';
 
 function rememberGrant(granted: boolean) {
@@ -72,6 +89,19 @@ function rememberGrant(granted: boolean) {
   } catch {
     // Private mode / storage blocked: the list just stays newest-first.
   }
+}
+
+/**
+ * A failure the user has to fix before the location can come: denied, an
+ * insecure origin, no geolocation at all. Only these warn; a transient one
+ * (no fix yet) is the save step's problem. Every action classifies its
+ * answer with this, so they all warn for the same reasons.
+ */
+export function isPermissionFailure(err: unknown): boolean {
+  return (
+    err instanceof LocationError &&
+    (err.reason === 'denied' || err.reason === 'insecure' || err.reason === 'unsupported')
+  );
 }
 
 /** Whether the site may read the location right now — never shows a prompt. */
@@ -91,10 +121,11 @@ export async function hasLocationPermission(): Promise<boolean> {
 
 /**
  * The location when the permission is already granted, null otherwise —
- * never shows the browser's prompt. Lists use this on mount: the prompt
- * belongs to the moment the user does something that needs a location
- * (the map, the add-animal button; owner decision, 2026-09-07, mobile
- * parity), not to opening a list. A failed fix counts as "no location" too.
+ * never shows the browser's prompt. Lists, care alerts and the map's later
+ * opens use this: the prompt belongs to the moment the user does something
+ * that needs a location (an action, or the map's first open; owner
+ * decision, 2026-09-07, mobile parity), not to opening a list. A failed fix
+ * counts as "no location" too.
  */
 export async function getCurrentLocationIfPermitted(): Promise<Coordinates | null> {
   if (!(await hasLocationPermission())) return null;

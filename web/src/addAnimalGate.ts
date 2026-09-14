@@ -1,4 +1,4 @@
-import { describeLocationError, getCurrentLocation, LocationError } from './location';
+import { describeLocationError, getCurrentLocation, isPermissionFailure } from './location';
 
 /**
  * The one way into the add-animal form (owner decision, 2026-09-07, mobile
@@ -8,13 +8,6 @@ import { describeLocationError, getCurrentLocation, LocationError } from './loca
  * an insecure origin, no geolocation at all); a transient failure (no fix
  * yet) lets the form open, and the save step retries.
  */
-export function isPermissionFailure(err: unknown): boolean {
-  return (
-    err instanceof LocationError &&
-    (err.reason === 'denied' || err.reason === 'insecure' || err.reason === 'unsupported')
-  );
-}
-
 let inFlight = false;
 
 export async function gateAddAnimal(navigate: (path: string) => void): Promise<string | null> {
