@@ -4115,19 +4115,37 @@ both `pati-app.com` and `admin.pati-app.com` answer 200.
 015 left nothing behind: **0** awards with a `streak:` key and the row count
 still matching the pre-deploy snapshot (15,788) before the recompute. The
 `featured_badges` zero is the migration's own postcondition rather than
-independent evidence — it rewrites exactly those keys, so the count is
-guaranteed once it runs at all; how many people had featured a streak badge
-before is not recorded anywhere and is now unrecoverable.
+independent evidence — it rewrites exactly those keys, so a zero afterwards
+follows from it having run. (Not quite a guarantee: unlike the awards table,
+the `featured_badges` UPDATE has no defense against the release-command-
+before-cutover window, so someone who featured a streak badge in it would
+still hold the key.) How many people had featured one before is in no column
+we kept; short of a database volume snapshot, which I did not check for, it is
+gone.
 
 `user_badge_awards_pre015` is that snapshot and nothing since has touched it,
 but be precise about what it can restore: **the award rows only.**
 `users.last_points` (which `recompute-badges.js` rewrites for every user),
 `users.featured_badges` (which 015 rewrites in place) and the ladders
-themselves (`CARE_THRESHOLDS` in the code, so a v38 rollback) are not in it.
-Restoring the table alone would leave every user's points on the count ladder
-while the awards and the live rule disagree — the next badge popup would count
-points *down*, which is the defect the script's "mark seen" handling exists to
-prevent. It would also drop anything live traffic awarded after the snapshot.
+themselves (`CARE_THRESHOLDS` for food and water, `COUNT_THRESHOLDS` for the
+registrar — so, in practice, a v38 rollback) are not in it.
+
+The two ways back fail differently, and neither fails the way you would guess:
+
+- **Restoring the table alone, still on v39.** The snapshot holds `streak:`
+  keys, so `syncBadgeAwards` recognises none of the `care:` tiers a user
+  already has and celebrates every one of them again — the popup storm the
+  script's `seen_at = now()` exists to prevent. A re-run of the script then
+  aborts on its `streak:` guard. Points are fine here: `last_points` and the
+  derived total are both on the count ladder, so they agree.
+- **Rolling the image back to v38.** That restores the streak ladders, so
+  derived totals fall below the inflated `last_points` the script wrote and
+  the next real award renders its points counting *down* — the defect the
+  script's `last_points` refresh was added for, now pointed the other way. **A
+  v38 rollback has to reset `last_points` as well**; nothing does that
+  automatically.
+
+Either way, anything live traffic awarded after the snapshot is dropped.
 
 `recompute-badges.js` then ran against 2229 users and rewrote every tier:
 6,582 care awards → **14,193**, **0 demotions**. The demotion analysis said
@@ -4139,17 +4157,21 @@ was lost, which is why the checkpoint before the real run was worth keeping
 even though it turned out to be uneventful.
 
 One thing was lost, and it is not a tier: the script deletes and re-inserts,
-and the INSERT does not carry `created_at` over, so every pre-existing care
-award now reads as earned on the deploy day (with `points_before`,
-`rank_before`, `rank_after` and `level_before` null, as the script's own
-comment says). Someone who earned a gold food badge in August sees it dated
-2026-09-12.
+and the INSERT does not carry `created_at` over, so every rewritten row now
+carries the recompute's timestamp instead of the day it was earned
+(`points_before`, `rank_before`, `rank_after` and `level_before` are null too;
+the script comments on the ranks only). Nobody sees a wrong date today —
+neither client reads `createdAt`, and these rows are written `seen_at = now()`
+so they never reach the popup — but the earned-at fact is gone from the row
+and from the unseen index's ordering, and it is not recoverable from the
+snapshot either, which holds the old keys.
 
 What changed is the shape of the demo world, not the real one: `care:feeder`
 gained 2,193 gold and `care:water` 987, because a count ladder of 1/10/50/250
 is far easier to climb than 7/30/365 consecutive days. No **care** diamond
-exists yet; the recompute's breakdown says nothing about the breed, follower,
-comment, health and vaccine ladders, which it never touched.
+exists yet; the recompute's breakdown says nothing about the other user
+ladders — breed, commenter, healer, vaccinator — which it never touched, nor
+about the animal badges, which live in their own table.
 
 Checked live rather than inferred: the badge layer hands a real account
 `care:feeder` bronze "2 / 10 kayıt", `care:water` bronze "2 / 10 kayıt",
