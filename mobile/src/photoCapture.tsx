@@ -130,6 +130,7 @@ export function SaveToGalleryRow({ style }: { style?: StyleProp<ViewStyle> }) {
       <Switch
         value={on}
         onValueChange={set}
+        style={styles.switch}
         trackColor={{ true: colors.brand, false: colors.border }}
         ios_backgroundColor={colors.border}
         // The row already announces itself as the switch; the control inside
@@ -151,6 +152,11 @@ const useRowStyles = makeStyles(() => ({
     gap: spacing.md,
     minHeight: minTouch,
   },
+  // React Native lays an iOS Switch out at the classic 51 pt, but iOS 26
+  // draws the control 63 pt wide from the same origin, so the knob ran over
+  // the gap and into the label. Reserving the wider box keeps the gap on
+  // every iOS; older systems just get a little more of it.
+  switch: Platform.OS === 'ios' ? { width: 63 } : {},
   label: { flex: 1 },
 }));
 
