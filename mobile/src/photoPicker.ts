@@ -1,7 +1,10 @@
 import type { ImageLibraryOptions } from 'react-native-image-picker';
 
 /**
- * What every "pick from the library" call passes.
+ * What every "pick from the library" call passes. Since 2026-09-14 (owner
+ * batch, C1) that is avatar upload and the development-only simulator
+ * stand-in for the camera (`capturePhoto` under `__DEV__`); add-animal
+ * and "bakım ver" take their photos with the camera only.
  *
  * `compatible` makes PHPicker hand us a JPEG rather than the asset's native
  * representation. The default is `automatic`, which is Apple's discretion —
@@ -10,8 +13,8 @@ import type { ImageLibraryOptions } from 'react-native-image-picker';
  * (measured 2026-09-10, iOS 26.5). But the server now REFUSES a file it
  * cannot decode, in order not to publish a photo's GPS EXIF, and sharp's
  * prebuilt binary cannot read HEIC. So an iOS version where `automatic`
- * chose the native representation would turn add-animal and avatar upload
- * into a hard 400 for every iPhone shooting in High Efficiency.
+ * chose the native representation would turn avatar upload into a hard 400
+ * for every iPhone shooting in High Efficiency.
  *
  * This turns the measured behaviour into a contract. The camera path needs
  * nothing: react-native-image-picker writes camera captures through

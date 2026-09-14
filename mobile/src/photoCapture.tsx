@@ -228,7 +228,9 @@ export async function capturePhoto(): Promise<CaptureOutcome> {
       galleryRefused = result.errorCode !== 'permission';
     }
     // Simulators have no camera; the gallery stands in during development
-    // (the same fallback the map's drop flow uses). Never on a device.
+    // (the same fallback the map's drop flow uses). Never in a release
+    // build, where `__DEV__` is false: the flows that capture (food/water
+    // drop, add-animal, bakım ver) have no library door on a device.
     if (__DEV__ && result.errorCode === 'camera_unavailable') {
       result = await launchImageLibrary(LIBRARY_PICKER);
     }
@@ -244,29 +246,6 @@ export async function capturePhoto(): Promise<CaptureOutcome> {
     if (galleryRefused) {
       setSaveToGallery(false);
       noteGalleryRefused();
-    }
-    return { status: 'ok', photos };
-  } catch (err: any) {
-    return { status: 'error', message: err?.message ?? 'Bilinmeyen hata' };
-  }
-}
-
-/**
- * Pick photos already on the phone. Nothing is saved anywhere — they are
- * where the user keeps them — so the preference plays no part here.
- */
-export async function pickPhotos(selectionLimit?: number): Promise<CaptureOutcome> {
-  try {
-    const result = await launchImageLibrary(
-      selectionLimit === undefined ? LIBRARY_PICKER : { ...LIBRARY_PICKER, selectionLimit }
-    );
-    if (result.didCancel) return { status: 'cancelled' };
-    const photos = toAssets(result.assets ?? []);
-    if (photos.length === 0) {
-      return {
-        status: 'error',
-        message: result.errorMessage ?? result.errorCode ?? 'Bilinmeyen hata',
-      };
     }
     return { status: 'ok', photos };
   } catch (err: any) {

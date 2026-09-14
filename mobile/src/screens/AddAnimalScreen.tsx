@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Image, Pressable, View } from 'react-native';
-import { capturePhoto, pickPhotos, SaveToGalleryRow } from '../photoCapture';
+import { capturePhoto, SaveToGalleryRow } from '../photoCapture';
 import {
   addAnimalPhoto,
   AnimalMatch,
@@ -43,7 +43,10 @@ import {
 } from '../taxonomy';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
 
-const MIN_PHOTOS = 2;
+// One photo, taken with the camera on this screen (owner batch 2026-09-14,
+// C1): the animal is in front of the user, so there is no library door. Up
+// to six still fit — only the first is compared, the rest help the gallery.
+const MIN_PHOTOS = 1;
 const MAX_PHOTOS = 6;
 
 /**
@@ -165,21 +168,11 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     setBreed(next);
   }
 
-  /** The picked/taken photos join the strip; any change invalidates the tokens. */
-  function addPhotos(picked: PhotoAsset[]) {
-    setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+  /** A taken photo joins the strip; any change invalidates the tokens. */
+  function addPhotos(taken: PhotoAsset[]) {
+    setPhotos((prev) => [...prev, ...taken].slice(0, MAX_PHOTOS));
     setPhotoTokens([]);
     setPhotoIssue(null);
-  }
-
-  async function handleAddPhotos() {
-    const result = await pickPhotos(MAX_PHOTOS - photos.length);
-    if (result.status === 'cancelled') return;
-    if (result.status === 'error') {
-      Alert.alert('Fotoğraf alınamadı', result.message);
-      return;
-    }
-    addPhotos(result.photos);
   }
 
   async function handleTakePhoto() {
@@ -205,7 +198,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       return;
     }
     if (photos.length < MIN_PHOTOS) {
-      Alert.alert('Fotoğraf gerekli', `En az ${MIN_PHOTOS} fotoğraf eklemelisin.`);
+      Alert.alert('Fotoğraf gerekli', 'En az bir fotoğraf çekmelisin.');
       return;
     }
 
@@ -253,7 +246,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         // could not decode the file at all, so it refused the batch rather
         // than store something whose EXIF it cannot strip. Either way the
         // offending photo leaves the strip, the reason stays under it, and
-        // the user picks another — there is no "add anyway".
+        // the user takes another — there is no "add anyway".
         const refused = new Set<number>(
           Array.isArray(data.photoIndexes) && data.photoIndexes.length > 0
             ? data.photoIndexes
@@ -592,7 +585,7 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       />
 
       <Text variant="micro" style={styles.label}>
-        fotoğraflar (en az {MIN_PHOTOS})
+        fotoğraf (en az bir)
       </Text>
       <View style={styles.photoRow}>
         {photos.map((photo, index) => (
@@ -607,34 +600,21 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             </Pressable>
           </View>
         ))}
-        {/* Two doors, not one (demo item 9): this screen only ever opened
-            the library, so the animal you are standing in front of had to
-            be photographed in another app first. */}
+        {/* The camera only (owner batch 2026-09-14, C1): the animal is
+            registered from a photo taken here and now, like "bakım ver" and
+            the map's food/water drop. The library door (SEÇ) is gone. */}
         {photos.length < MAX_PHOTOS && (
-          <>
-            <Pressable
-              style={styles.addPhoto}
-              onPress={handleTakePhoto}
-              accessibilityRole="button"
-              accessibilityLabel="Fotoğraf çek"
-            >
-              <Icon name="camera" size={22} color={colors.brand} />
-              <Text variant="micro" color="brand" style={styles.addPhotoText}>
-                ÇEK
-              </Text>
-            </Pressable>
-            <Pressable
-              style={styles.addPhoto}
-              onPress={handleAddPhotos}
-              accessibilityRole="button"
-              accessibilityLabel="Galeriden seç"
-            >
-              <Icon name="plus" size={22} color={colors.brand} />
-              <Text variant="micro" color="brand" style={styles.addPhotoText}>
-                SEÇ
-              </Text>
-            </Pressable>
-          </>
+          <Pressable
+            style={styles.addPhoto}
+            onPress={handleTakePhoto}
+            accessibilityRole="button"
+            accessibilityLabel="Fotoğraf çek"
+          >
+            <Icon name="camera" size={22} color={colors.brand} />
+            <Text variant="micro" color="brand" style={styles.addPhotoText}>
+              ÇEK
+            </Text>
+          </Pressable>
         )}
       </View>
       {/* Beside the slots on purpose: whether a photo you take here also

@@ -415,9 +415,10 @@ export interface CarePhotoResult {
 }
 
 /**
- * "Bakım ver": two fresh photos of the animal, screened for the species and
- * compared by the model with this animal's own gallery. A match makes the
- * user a carer and puts the photos in the gallery; a miss is a 422
+ * "Bakım ver": a fresh camera photo of the animal (the screen sends one; the
+ * server takes up to two), screened for the species and compared by the
+ * model with this animal's own gallery. A match makes the user a carer and
+ * puts the photo in the gallery; a miss is a 422
  * `carePhotoMismatch` with a Turkish message, a wrong species a
  * `photoRejected` with `photoIndexes`. The AI fails open (ADR-0005).
  */
@@ -435,7 +436,8 @@ export async function submitCarePhotos(
   }
   const { data } = await apiClient.post<CarePhotoResult>(`/animals/${animalId}/care-photos`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    // Two uploads and up to two comparisons with the whole gallery.
+    // An upload, the species screen and a comparison with the whole gallery
+    // (twice each should an older caller send two photos).
     timeout: 90000,
   });
   return data;

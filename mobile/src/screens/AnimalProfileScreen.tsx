@@ -108,7 +108,7 @@ const CARER_PREVIEW = 5;
 // the small spacing step.
 const GRID_COLUMNS = 3;
 // The hero shows two rows at most (review finding): every accepted "bakım
-// ver" adds two photos, so an unbounded grid would push the name and the
+// ver" adds a photo, so an unbounded grid would push the name and the
 // action pair below the fold on a well-cared-for animal. The last tile
 // carries "+N" and opens the viewer on the rest.
 const HERO_PHOTOS = GRID_COLUMNS * 2;
@@ -574,7 +574,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </View>
 
         {/* Follow vs. care (P6 item 8): "takip et" has no condition and
-            toggles; "bakım ver" is the two-photo step, after which the
+            toggles; "bakım ver" is the camera-photo step, after which the
             carer view (records, chat) opens. Hidden in match review — the
             decision bar below is the only action there. */}
         {!matchReview && (
@@ -836,7 +836,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         {!matchReview && !animal.isCarer && (
           <Card variant="flat" padding="md" style={styles.doorCard}>
             <Text variant="caption" center style={styles.doorText}>
-              Yorum yazmak bakıcılara açık. İki yeni fotoğrafla sen de katıl.
+              Yorum yazmak bakıcılara açık. Yeni bir fotoğrafla sen de katıl.
             </Text>
             <Button
               title="bakım ver"
