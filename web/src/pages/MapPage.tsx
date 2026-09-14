@@ -258,6 +258,21 @@ export default function MapPage() {
   const dropAskInFlightRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The warning a location answer put up (the banner, and the drop sheet,
+  // both show `error`). A later fix makes exactly that text stale — the
+  // sheet must not say "Konum izni verilmedi…" right after a grant — while
+  // an error set meanwhile (an upload that failed) stays.
+  const locationWarningRef = useRef<string | null>(null);
+  function warnAboutLocation(text: string) {
+    locationWarningRef.current = text;
+    setError(text);
+  }
+  function clearLocationWarning() {
+    const stale = locationWarningRef.current;
+    if (stale === null) return;
+    locationWarningRef.current = null;
+    setError((current) => (current === stale ? null : current));
+  }
   const [zoomHint, setZoomHint] = useState(false);
   const [actionsFailed, setActionsFailed] = useState(false);
   // A failed status lookup is not a missing location: the sheet says which.
@@ -402,11 +417,12 @@ export default function MapPage() {
     if (!map) return;
     try {
       const loc = await getCurrentLocation();
+      clearLocationWarning();
       setMyLocation(loc);
       placeUserDot(loc);
       map.flyTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM, duration: 500 });
     } catch (err) {
-      setError(describeLocationError(err));
+      warnAboutLocation(describeLocationError(err));
       setStatusFailed(await hasLocationPermission());
     }
   }
@@ -848,11 +864,13 @@ export default function MapPage() {
         const map = mapRef.current;
         const center = map && map.getZoom() >= DROP_FALLBACK_MIN_ZOOM ? map.getCenter() : null;
         if (!center) {
-          throw new Error(
-            `${describeLocationError(
-              err
-            )} Kaydı bırakmak için haritayı sokak seviyesine yakınlaştır.`
-          );
+          const warning = `${describeLocationError(
+            err
+          )} Kaydı bırakmak için haritayı sokak seviyesine yakınlaştır.`;
+          // Shown by the catch below; a later fix clears it like any
+          // location warning.
+          locationWarningRef.current = warning;
+          throw new Error(warning);
         }
         usedFallback = describeLocationError(err);
         return { lat: center.lat, lng: center.lng };
@@ -934,11 +952,12 @@ export default function MapPage() {
     dropAskInFlightRef.current = true;
     try {
       const loc = await getCurrentLocation();
+      clearLocationWarning();
       setMyLocation(loc);
       placeUserDot(loc);
     } catch (err) {
       if (isPermissionFailure(err)) {
-        setError(
+        warnAboutLocation(
           `${describeLocationError(err)} Konum olmadan bırakmak için haritayı sokak ` +
             'seviyesine yakınlaştır; kayıt haritanın ortasına düşer.'
         );
@@ -1046,7 +1065,7 @@ export default function MapPage() {
                   setChooserOpen(false);
                   if (choice.key === 'animal') {
                     const refused = await gateAddAnimal(navigate);
-                    if (refused) setError(refused);
+                    if (refused) warnAboutLocation(refused);
                   } else {
                     openDrop(choice.key);
                   }
