@@ -753,7 +753,12 @@ export default function AddAnimalPage() {
       <div className="label">fotoğraf (en az bir)</div>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         {photos.map((_p, i) => (
-          <span key={i} className="round" style={{ width: 64, height: 64, position: 'relative' }}>
+          // Not `.round`: its overflow clip hid the × that sits over the
+          // corner. The image rounds itself, like mobile's strip.
+          <span
+            key={i}
+            style={{ width: 64, height: 64, position: 'relative', lineHeight: 0, flexShrink: 0 }}
+          >
             <img
               src={photoUrls[i]}
               alt=""
