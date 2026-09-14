@@ -48,6 +48,47 @@ async function uploadAnimalPhoto(animalId: number, photo: File, token?: string) 
   return addAnimalPhoto(animalId, photo);
 }
 
+/**
+ * The flow's photos into a gallery the user holds carer rights on: the
+ * animal just created, or the existing one "Bu o — eşleştir" confirmed.
+ * Never throws — the record or the sighting already stands, so a photo that
+ * fails only earns the alert on the way to the profile.
+ */
+async function addFlowPhotos(animalId: number, photos: File[], tokens: string[]) {
+  const failures: string[] = [];
+  await Promise.all(
+    photos.map((photo, i) =>
+      uploadAnimalPhoto(animalId, photo, tokens[i]).catch((err) => {
+        failures.push(err instanceof Error ? err.message : 'Bir hata oluştu');
+      })
+    )
+  );
+  if (failures.length > 0) {
+    window.alert(
+      `${failures.length === photos.length ? 'Fotoğraflar' : 'Bazı fotoğraflar'} eklenemedi: ${
+        failures[0]
+      } Fotoğrafı daha sonra profilden ekleyebilirsin.`
+    );
+  }
+}
+
+/**
+ * The photos (and their match tokens) of a form that left for a candidate's
+ * profile. Opening the candidate unmounts this page, and a File cannot go
+ * into the sessionStorage draft, so they wait here in module memory for
+ * "Bu o — eşleştir" to bring the page back (owner batch 2026-09-14, B1). A
+ * full page reload loses them, like the rest of the page's state; any other
+ * return to the form drops them too, since the form then starts without
+ * photos.
+ */
+let heldPhotos: { photos: File[]; tokens: string[] } | null = null;
+
+function takeHeldPhotos() {
+  const held = heldPhotos;
+  heldPhotos = null;
+  return held;
+}
+
 // The server usually responds instantly; show the "AI matching" screen for
 // at least this long so the user perceives that a scan happened (same as
 // mobile).
@@ -76,7 +117,8 @@ const REASON_LABEL: Record<SimilarityReason, string> = {
 
 // Leaving the page via "view profile" kills the form state; text fields and
 // the location are written here and read back on return. Photos (File) can't
-// be serialized so they don't survive — they must be re-added on return.
+// be serialized so they don't survive — they must be re-added on return
+// (only the confirm gets them back, from heldPhotos).
 const DRAFT_KEY = 'pati.yeniHayvanTaslak';
 
 interface Draft {
@@ -304,7 +346,15 @@ export default function AddAnimalPage() {
   // the form when there is none.
   const [locationBlocked, setLocationBlocked] = useState<string | null>(null);
   const [locationAttempt, setLocationAttempt] = useState(0);
+  // Mounted to finish "Bu o" from a candidate's profile (router state):
+  // the page only reports and leaves, with the draft's location — asking
+  // for a fresh one would put a prompt or the refusal card in front of a
+  // step that needs neither.
+  const [confirming, setConfirming] = useState(
+    () => routerLocation.state?.confirmedAnimalId != null
+  );
   useEffect(() => {
+    if (confirming) return;
     let alive = true;
     getCurrentLocation()
       .then(() => alive && setLocationBlocked(null))
@@ -316,7 +366,7 @@ export default function AddAnimalPage() {
     return () => {
       alive = false;
     };
-  }, [locationAttempt]);
+  }, [locationAttempt, confirming]);
   const [busy, setBusy] = useState(false);
 
   // Flow: form → (save) → matching wait → candidates → new record or an
@@ -328,27 +378,63 @@ export default function AddAnimalPage() {
   const [location, setLocation] = useState<Coordinates | null>(draft?.location ?? null);
 
   // The profile's "that's the one — match" button drops us here via router
-  // state: report the sighting, return to the profile. The location was kept
-  // in the draft.
+  // state: report the sighting, add the flow's photos, return to the
+  // profile. The location was kept in the draft, the photos in heldPhotos.
   const confirmedAnimalId: number | undefined = routerLocation.state?.confirmedAnimalId;
   // Without the server's hit the confirm is a decision, not a sighting:
   // no server call, the profile opens ("bakım ver" is the way in).
   const confirmedMatchHit: boolean = routerLocation.state?.confirmedMatchHit === true;
+  // Once per mount: StrictMode runs a mount effect twice in development,
+  // which would report the sighting twice.
+  const confirmStarted = useRef(false);
   useEffect(() => {
-    if (!confirmedAnimalId) return;
-    // State'i temizle ki yenilemede ikinci kez tetiklenmesin.
+    if (!confirmedAnimalId) {
+      // Any other arrival starts the form without photos (see heldPhotos).
+      heldPhotos = null;
+      return;
+    }
+    if (confirmStarted.current) return;
+    confirmStarted.current = true;
+    // Clear the router state so a reload does not confirm a second time.
     navigate('.', { replace: true, state: null });
     const loc = readDraft()?.location;
-    sessionStorage.removeItem(DRAFT_KEY);
-    (async () => {
-      try {
-        if (loc && confirmedMatchHit) await reportSighting(confirmedAnimalId, loc.lat, loc.lng);
-      } catch {
-        // Even if the sighting fails to record, taking the user to the
-        // profile is right; the match decision is made, not worth breaking
-        // the flow with an error.
-      }
+    const held = takeHeldPhotos();
+    const openProfile = () => {
+      sessionStorage.removeItem(DRAFT_KEY);
       navigate(`/hayvanlar/${confirmedAnimalId}`, { replace: true });
+    };
+    (async () => {
+      if (loc && confirmedMatchHit) {
+        try {
+          await reportSighting(confirmedAnimalId, loc.lat, loc.lng);
+        } catch (err) {
+          // Carers only: without a 'same' verdict the confirm cannot make
+          // the user a carer — the decision is still made, so the profile
+          // opens (mobile parity) and nothing is uploaded: the photos need
+          // the rights the sighting failed to grant.
+          if (err instanceof ApiError && err.code === 'carersOnly') {
+            openProfile();
+            return;
+          }
+          // Anything else is shown, not swallowed. Mobile keeps the user on
+          // the results with an alert; the results did not survive the trip
+          // here, so the form comes back with its photos and the reason,
+          // and saving it matches again.
+          if (held) {
+            setPhotos(held.photos);
+            setPhotoTokens([]);
+          }
+          setError(`Güncellenemedi: ${err instanceof Error ? err.message : 'Bir hata oluştu'}`);
+          setConfirming(false);
+          return;
+        }
+        // The sighting made the user a carer, so the flow's photos join the
+        // animal's gallery exactly as they would a new one's (B1). The
+        // server once had a match-hit door on addPhoto for this very step;
+        // no client ever sent the photos, and they were silently dropped.
+        if (held) await addFlowPhotos(confirmedAnimalId, held.photos, held.tokens);
+      }
+      openProfile();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmedAnimalId]);
@@ -492,23 +578,9 @@ export default function AddAnimalPage() {
     // The record exists from here on: a photo that fails still lands the
     // user on the profile (with the reason), never back on a form whose
     // save would register the animal twice.
-    const failures: string[] = [];
-    await Promise.all(
-      photos.map((photo, i) =>
-        uploadAnimalPhoto(animal.id, photo, tokens[i]).catch((err) => {
-          failures.push(err instanceof Error ? err.message : 'Bir hata oluştu');
-        })
-      )
-    );
+    await addFlowPhotos(animal.id, photos, tokens);
     setBusy(false);
     sessionStorage.removeItem(DRAFT_KEY);
-    if (failures.length > 0) {
-      window.alert(
-        `${failures.length === photos.length ? 'Fotoğraflar' : 'Bazı fotoğraflar'} eklenemedi: ${
-          failures[0]
-        } Fotoğrafı daha sonra profilden ekleyebilirsin.`
-      );
-    }
     navigate(`/hayvanlar/${animal.id}`, { replace: true });
     celebrate(animal);
   }
@@ -517,6 +589,7 @@ export default function AddAnimalPage() {
   function reviewCandidate(animal: AnimalMatch) {
     const toSave: Draft = { species, breed, colors: colorChoices, name, markings, location };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(toSave));
+    heldPhotos = { photos, tokens: photoTokens };
     // eslesme=1: the server logged a hit for this candidate, so "that's
     // the one" reports a sighting and makes the user a carer; kontrol=0:
     // no model looked at the photo (the hint differs).
@@ -529,6 +602,14 @@ export default function AddAnimalPage() {
 
   /** No direct sighting report from the candidate list without a "that's the
       one" decision; the review happens on the profile, same flow as mobile. */
+
+  if (confirming) {
+    return (
+      <div className="page center-page">
+        <p className="muted">Kaydediliyor…</p>
+      </div>
+    );
+  }
 
   if (locationBlocked) {
     return (
