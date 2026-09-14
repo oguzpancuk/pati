@@ -325,6 +325,19 @@ This replaces "at least two" for add-animal and "two fresh photos" for
   build has no library door (`__DEV__` is false, so the simulator's library
   stand-in for the camera never ships); the saved copy to the phone's
   gallery (`SaveToGalleryRow`) stays — saving is not picking.
+- **The Android app asks for the camera itself.** The manifest declares
+  `CAMERA`, and react-native-image-picker refuses `launchCamera` for an app
+  that declares it without holding it — it answers `others` with an English
+  sentence and never asks. While add-animal still had its library tile that
+  refusal had a way around; with the camera as the only door it would have
+  made registering an animal impossible on a fresh Android install (review
+  finding, read from the library source). `capturePhoto` now requests
+  `CAMERA` before the camera opens, and a refusal gets a Turkish alert with
+  "Ayarları aç" instead of the library's text (`__tests__/photoCapture.test.ts`).
+  iOS needs no such step: `UIImagePickerController` raises the system camera
+  sheet itself. The web has no equivalent to build: the browser asks for the
+  camera on its own, and a refusal there ends as described above. Not yet
+  run on an Android device or emulator.
 - **Known gap, not built:** the server has no add-animal photo minimum.
   `POST /animals/match` accepts zero photos and `POST /animals` takes none,
   so "at least one photo" holds only in the clients, as "at least two" did.
