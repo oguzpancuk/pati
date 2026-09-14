@@ -2,6 +2,21 @@ import { Alert, Linking, PermissionsAndroid, Platform } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import { check, PERMISSIONS, request, RESULTS } from 'react-native-permissions';
 
+/*
+ * The location rule (owner batch 2026-09-14, C2): every user action that
+ * needs a location asks the platform first — `ensureLocationPermission`, or
+ * `getCurrentLocation`, which starts with it — and the "Konum izni gerekli"
+ * alert answers only that request's refusal, never a status read or a stored
+ * flag. Lists and background jobs read (`hasLocationPermission`,
+ * `getCurrentLocationIfPermitted`) and never prompt.
+ *
+ * What no app can change: after a permanent refusal (iOS "İzin Verme",
+ * Android "bir daha sorma" on 10 and older or a second denial on 11+) the
+ * platform answers the request without showing anything, so the alert
+ * follows a request the user never saw. Its "Ayarları aç" button is the only
+ * way back, and the closest this gets to asking again.
+ */
+
 /**
  * The one location failure the user can actually fix: the app lacks the
  * permission. Screens catch this to offer the Settings shortcut instead of a
@@ -41,11 +56,22 @@ export interface Coordinates {
   lng: number;
 }
 
+/**
+ * Android asks for precise and approximate together: on targetSdk 31+ some
+ * Android 12 releases ignore a FINE-only request and answer "never ask
+ * again" without a dialog — the warning-without-a-prompt this rule exists to
+ * end. The answer still needs FINE: a record lands where the user stands and
+ * the care circles are 100 m, which an approximate fix (kilometres wide)
+ * cannot place. RN
+ * leaves already-granted permissions out of the dialog, so after an
+ * "Approximate" grant the next request carries FINE alone again — a platform
+ * residual this call cannot reach.
+ */
 async function requestAndroidPermission(): Promise<boolean> {
-  const granted = await PermissionsAndroid.request(
-    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-  );
-  return granted === PermissionsAndroid.RESULTS.GRANTED;
+  const { ACCESS_FINE_LOCATION: FINE, ACCESS_COARSE_LOCATION: COARSE } =
+    PermissionsAndroid.PERMISSIONS;
+  const answers = await PermissionsAndroid.requestMultiple([FINE, COARSE]);
+  return answers[FINE] === PermissionsAndroid.RESULTS.GRANTED;
 }
 
 // iOS has no way to read the location status through the geolocation
@@ -93,27 +119,35 @@ export async function hasLocationPermission(): Promise<boolean> {
 
 /**
  * The location when the permission is already granted, null otherwise —
- * never shows the system prompt. Lists use this on mount: the prompt
- * belongs to the moment the user does something that needs a location
- * (the map, the add-animal button; owner decision, 2026-09-07), not to
- * opening a list. A failed fix counts as "no location" too.
+ * never shows the system prompt. Lists, the care-alerts job and the map's
+ * later focuses use this: the prompt belongs to the moment the user does
+ * something that needs a location (an action, or the map's first open;
+ * owner decision, 2026-09-07), not to opening a list. It reads the position
+ * directly: `getCurrentLocation` starts with a request, and a reader must
+ * never make one. A failed fix counts as "no location" too.
  */
 export async function getCurrentLocationIfPermitted(): Promise<Coordinates | null> {
   if (!(await hasLocationPermission())) return null;
   try {
-    return await getCurrentLocation();
+    return await readPosition();
   } catch {
     return null;
   }
 }
 
 /**
- * Permission preflight for flow entry points (the add-animal button, the
- * map's drop button): resolves when the app may read the location, shows
- * the system prompt right here when the user has not been asked yet, and
- * throws LocationPermissionError when the permission is refused — just
- * now, earlier in Settings, or because location services are off. Callers
- * answer the error with the Settings alert.
+ * The request every location action starts with (the add-animal button and
+ * screen, the map's drop tile, and through `getCurrentLocation` the locate
+ * button and both saves): resolves when the app may read the location,
+ * shows the system prompt right here when the platform still allows one,
+ * and throws LocationPermissionError on the answer — refused just now,
+ * earlier in Settings, or location services off. Callers answer the error
+ * with the Settings alert.
+ *
+ * iOS reads the status first only to skip a no-op: react-native-permissions'
+ * `request()` shows the sheet only while the status is undetermined and
+ * otherwise returns that same status, so asking on BLOCKED would change
+ * nothing the user sees.
  */
 export async function ensureLocationPermission(): Promise<void> {
   if (Platform.OS === 'android') {
@@ -129,14 +163,19 @@ export async function ensureLocationPermission(): Promise<void> {
   throw new LocationPermissionError();
 }
 
+/**
+ * A fresh fix for a user action: the permission request comes first on both
+ * platforms. On iOS the geolocation library would otherwise raise the sheet
+ * itself with its 15 s timeout already running, and a slow answer turned
+ * into a timeout error instead of the permission alert.
+ */
 export async function getCurrentLocation(): Promise<Coordinates> {
-  if (Platform.OS === 'android') {
-    const granted = await requestAndroidPermission();
-    if (!granted) {
-      throw new LocationPermissionError();
-    }
-  }
+  await ensureLocationPermission();
+  return readPosition();
+}
 
+/** The position read itself — asks nothing; callers decide about the permission. */
+function readPosition(): Promise<Coordinates> {
   return new Promise((resolve, reject) => {
     Geolocation.getCurrentPosition(
       (position) => {
