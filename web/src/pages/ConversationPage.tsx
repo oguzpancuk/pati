@@ -109,7 +109,24 @@ export default function ConversationPage() {
           ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
         return;
       }
-      el.scrollTop = stickToBottom.current ? el.scrollHeight : lastTop.current - delta;
+      const target = stickToBottom.current
+        ? el.scrollHeight - el.clientHeight
+        : lastTop.current - delta;
+      if (delta > 0 && Math.abs(el.scrollTop - target) < 1) {
+        // iOS WebKit clamps scrollTop during layout when the list grows (the
+        // keyboard closing) but leaves the native scroller where it was: a
+        // blank band sits under the newest message until the next touch
+        // (seen in the iPhone simulator's Safari, 2026-09-14). Writing the
+        // value it already reports is a no-op, so move a pixel and settle
+        // on the next frame.
+        el.scrollTop = target - 1;
+        requestAnimationFrame(() => {
+          el.scrollTop = target;
+          lastTop.current = el.scrollTop;
+        });
+        return;
+      }
+      el.scrollTop = target;
       lastTop.current = el.scrollTop;
     });
     observer.observe(el);
