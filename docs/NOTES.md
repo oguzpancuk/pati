@@ -892,13 +892,13 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   elsewhere). New launch-sprint item added to pick a new bundle id.
 - First real-device install shipped with the temporary id
   `com.oguzpancuk.pati` (free Personal Team `5J62WM72AV`), Release config →
-  talks to production (client.ts now switches on __DEV__; release builds
+  talks to production (client.ts now switches on **DEV**; release builds
   previously pointed at localhost, which on a phone is the phone).
 - Device-build recipe: enable Developer Mode on the phone (Settings →
   Privacy & Security), then
   `xcodebuild -workspace StrayMobile.xcworkspace -scheme StrayMobile
-  -configuration Release -destination 'id=<xcodebuild device id>'
-  -allowProvisioningUpdates build` (the xcodebuild destination id differs
+-configuration Release -destination 'id=<xcodebuild device id>'
+-allowProvisioningUpdates build` (the xcodebuild destination id differs
   from devicectl's UUID — read it from xcodebuild's own error listing),
   then `xcrun devicectl device install app` + `... process launch`. First
   launch needs Settings → General → VPN & Device Management → trust the
@@ -991,8 +991,8 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
 - **Schema:** `user_identities (provider, subject)` plus a nullable
   `users.password_hash`. Production needs
   `scripts/migrate-social-auth-20260902.js` once — `CREATE TABLE IF NOT
-  EXISTS` cannot alter the existing users table.
-- **The curl check caught a real hole.** With an *unverified* provider
+EXISTS` cannot alter the existing users table.
+- **The curl check caught a real hole.** With an _unverified_ provider
   e-mail the code skipped the link-by-e-mail lookup, then hit the unique
   e-mail constraint on insert, and the 23505 fallback handed back the
   existing account — an account takeover by anyone who could put someone
@@ -1000,7 +1000,7 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
   `backend/scripts/social-auth-check/run.sh` (a local issuer whose signing
   key the checks control; 41 assertions by the end of the day).
   **code-reviewer then found the other half**, which the first fix missed:
-  when the address was still *free*, an unverified e-mail created an account
+  when the address was still _free_, an unverified e-mail created an account
   that then OWNED that address, and the real owner's first verified sign-in
   merged them into it — two people, one account, both with sessions. The
   rule is now one sentence: an unverified provider e-mail neither links nor
@@ -1008,7 +1008,7 @@ root+admin 200, bundle index-BPjWCPFn.js carries the confirm step,
 - **Passwordless accounts ripple further than expected**: password login
   would have thrown on a NULL hash (it now names the provider instead),
   account deletion needed a second proof-of-identity path (sign in with the
-  provider again; the token must match *that* user's identity row), and the
+  provider again; the token must match _that_ user's identity row), and the
   deletion must drop `user_identities` — otherwise the same Apple id walks
   back into the anonymized, suspended account on the next tap.
 - **Both clients hide what they cannot do**: the button row renders only
@@ -1076,7 +1076,7 @@ Two code-reviewer passes and an evaluator-qa pass on top of the first S7
 commit. Every finding below was reproduced by the agent, not argued.
 
 - **The e-mail linking rule needed proof on BOTH sides.** Round one caught
-  half: an unverified provider e-mail on a *free* address created an account
+  half: an unverified provider e-mail on a _free_ address created an account
   that then owned the address, so the real owner's first verified sign-in
   merged them into the squatter's account. Round two caught the mirror
   image: `POST /auth/register` confirms nothing, so a squatter can register
@@ -1169,7 +1169,7 @@ the gap was not academic:
   case-insensitively (login prefers an exact match, so older rows are
   unaffected). Knock-on it also found: `make-admin.js` matches with
   `lower(email)` and no limit, so a case-variant pair — which S7 would have
-  produced routinely — meant promoting *both* rows to admin. It now refuses
+  produced routinely — meant promoting _both_ rows to admin. It now refuses
   ambiguous matches and names them.
 - **The crash guard's real invariant was held together by prose.**
   `googleAvailable()` compares the server's id to the compiled-in one, but
@@ -1191,7 +1191,6 @@ written in response to a review are the commits most worth re-reviewing —
 two of the three defects that round found had been left behind by an earlier
 fix.
 
-
 ## 2026-09-02 — fourth and fifth review rounds: the product findings
 
 Both rounds were mostly about a push-gate hook written this session and then
@@ -1209,7 +1208,7 @@ S7 itself:
   belonging to a different account. It is `ORDER BY email_verified DESC, id`
   now: the linkable row wins.
 - **The login tie-break could lock someone out silently.** After
-  normalisation it compared against the *normalised* address, so with a
+  normalisation it compared against the _normalised_ address, so with a
   pre-existing `Ali@x.com` / `ali@x.com` pair the owner of the capitalised
   one had their password checked against the other row's hash — correct
   password, permanent "invalid e-mail or password", no support signal. The
@@ -1256,7 +1255,7 @@ S7 itself:
 ## 2026-09-02 — seventh review round, on the squashed S7 commit
 
 - **The check harness could report green for code it never ran.** `run.sh`
-  waited for *something* to answer `/health` on 3101, never for its own
+  waited for _something_ to answer `/health` on 3101, never for its own
   process. With a stale backend holding the port, ours died with
   `EADDRINUSE`, the assertions ran against the old process, and the script
   printed ALL CHECKS PASSED — reviewer reproduced it. A first fix checked
@@ -1284,7 +1283,7 @@ The owner asked for a confirmation mail on e-mail registration, "a link
 that completes the registration, or whatever the modern standard is". Built
 as a **six-digit code typed into the registering session**, not a link: a
 link verifies whoever clicks it, and people click "confirm your e-mail"
-mails they never asked for — which would hand a squatter a *proven* account
+mails they never asked for — which would hand a squatter a _proven_ account
 on someone else's address, exactly what ADR-0003 links into. The code has
 to be typed into the app that holds the password, so proving an address
 needs mailbox and password both.
@@ -1355,11 +1354,11 @@ things around it; all fixed, and the harness now asserts each.
   Grandfathered accounts keep the ADR-0003 refusal. The S7 harness's
   "unproven account" steps therefore needed accounts that are unproven but
   NOT pending — the kind the API can no longer create — so `backdate.js
-  grandfather` builds them; without it those steps were now testing the
+grandfather` builds them; without it those steps were now testing the
   provider takeover instead of the linking refusal.
 - Smaller: `markVerified` is guarded on the pending flag (a session whose
   row was retired mid-verification gets 401, not a proven account for the
-  replacer); the resend cooldown runs *before* the hourly limiter so a
+  replacer); the resend cooldown runs _before_ the hourly limiter so a
   double tap costs one 429 rather than one of six resends; the fifth wrong
   guess says the code is spent; limiter 429s carry `retryAfter` and both
   clients mirror it; a tombstone clears the pending flag and its code row;
@@ -1454,7 +1453,7 @@ then. Rollback reference: image `deployment-01M1BM856N8K1MP4ZEXGZSGAVP`
   one clause; step 10 now reads the users id sequence before and after the
   link (`last-user-id.js`), which is the only thing that tells the two paths
   apart.
-- Harness lesson: in development registration is *pending* (the dev mail
+- Harness lesson: in development registration is _pending_ (the dev mail
   transport), so the "grandfathered" fixture has to be made explicitly with
   `backdate.js … grandfather` — a rewrite of step 10 that dropped that call
   passed for a different reason (the pending row was taken over) until the
@@ -1532,7 +1531,7 @@ the first without the second would switch the buttons off in production.
   it runs in. `git archive ad247b2` into a scratch directory gave an image
   of exactly the pushed commit — no half-finished dependency, no `.env`.
 - **Observed afterwards:** `pati-app.com/api/auth/providers` → `apple:
-  enabled false`, `google: enabled true` with both client ids — now coming
+enabled false`, `google: enabled true` with both client ids — now coming
   from Fly secrets, not from a baked file; `/app/.env` is gone from the
   image (`ls` fails on the machine); the production login page shows the
   Google button only (screenshots before/after in the session). Release
@@ -1549,7 +1548,7 @@ the first without the second would switch the buttons off in production.
   default (`AI_MODEL`). The ROADMAP §1 plan — DINOv2 embeddings in a Python
   service plus pgvector — is retired, not deferred; the ADR says why.
 - **Care photos: check first, confirm with a token.** `POST
-  /care-actions/check` (multipart) runs the check and answers `verdict`
+/care-actions/check` (multipart) runs the check and answers `verdict`
   (approved / unavailable) plus a 15-minute `photoToken` signed over the
   stored file, user and action type; `POST /care-actions` takes the token
   instead of a file, refuses a replay (409, the photo URL is already on a
@@ -1589,7 +1588,7 @@ the first without the second would switch the buttons off in production.
   simulator with a gallery pick): approved, rejected, and the results list
   with "Fotoğrafta aynı hayvan · yüksek benzerlik" on both clients; the
   simulator's confirm wrote care action 22464 with `ai_check.verdict =
-  approved`, and its match request carried 9 images.
+approved`, and its match request carried 9 images.
 - **NOT verified: the real model.** There is no Anthropic key on this
   machine, so every verdict above came from the fake. Accuracy — does Opus
   approve a real bowl of kibble, reject a selfie, and tell two tabbies
@@ -1685,7 +1684,7 @@ the first without the second would switch the buttons off in production.
   (care 6–8 s, comparison 9–12 s), so it is the default now; the id stays
   configuration.
 - Probed the thinking knob with a scratch script: `thinkingConfig:
-  {thinkingBudget: 0}` is accepted by both models (thought tokens drop to
+{thinkingBudget: 0}` is accepted by both models (thought tokens drop to
   zero); `thinkingLevel: "minimal"` is refused by 3.8 and unknown as a
   top-level field. The care check now runs with thinking off; the
   comparison keeps the default.
@@ -1714,14 +1713,14 @@ Eleven photos in `~/Desktop/pati_ornek` (bowls of food, water dishes, a
 cat drinking from a tap, a winter poster with "1 kap su / 1 kap mama"
 text, five cats — two of them the same cat), `gemini-3.5-flash`:
 
-| photo | claim | verdict | reason (model's own words) |
-| --- | --- | --- | --- |
-| mama-1 (cat eating kibble) | food | approved (food) | "Kuru mamasını afiyetle yiyen bir dostumuz görünüyor." |
-| mama 2 (bowl + water behind) | food | approved (both) | "Mamalıkta kuru mama ve arkada su kabı görünüyor." |
-| su1 (cat drinking from a dish) | food | **rejected (water)** | "Fotoğrafta mama yerine su kabı ve su içen bir kedi görünüyor." |
-| su2 (water dish) | food | **rejected (water)** | "Fotoğrafta sokak hayvanları için su kabı görünüyor." |
-| kedi_a (a cat, no bowl) | food | approved (animal_only) | "Fotoğrafta sevimli bir dostumuz görünüyor…" |
-| room / person at a computer / waterfall (the morning's photos, carried over — not re-run) | food | rejected (unrelated) | sensible one-liners |
+| photo                                                                                     | claim | verdict                | reason (model's own words)                                      |
+| ----------------------------------------------------------------------------------------- | ----- | ---------------------- | --------------------------------------------------------------- |
+| mama-1 (cat eating kibble)                                                                | food  | approved (food)        | "Kuru mamasını afiyetle yiyen bir dostumuz görünüyor."          |
+| mama 2 (bowl + water behind)                                                              | food  | approved (both)        | "Mamalıkta kuru mama ve arkada su kabı görünüyor."              |
+| su1 (cat drinking from a dish)                                                            | food  | **rejected (water)**   | "Fotoğrafta mama yerine su kabı ve su içen bir kedi görünüyor." |
+| su2 (water dish)                                                                          | food  | **rejected (water)**   | "Fotoğrafta sokak hayvanları için su kabı görünüyor."           |
+| kedi_a (a cat, no bowl)                                                                   | food  | approved (animal_only) | "Fotoğrafta sevimli bir dostumuz görünüyor…"                    |
+| room / person at a computer / waterfall (the morning's photos, carried over — not re-run) | food  | rejected (unrelated)   | sensible one-liners                                             |
 
 Matching: kedi-d1 against d2 (same cat), b, c, a → **same, different,
 different, different**; kedi_a against b, c, d1 → all different. Every
@@ -1742,13 +1741,14 @@ Also learned: `gemini-3.5-flash-lite` refuses `thinkingConfig` (400), and
 Decision pending with the owner: Google's paid tier (fractions of a cent
 per photo, no data-use clause) or checks off; the code is the same either
 way, only the key's billing changes.
+
 - **Owner decision (2026-09-07): Google's paid tier.** Billing goes on the
   same AI Studio key, the code and the default model stay as they are; once
   billing is on, the daily cap goes away and paid traffic is outside the
   free tier's data-use clause (the privacy text still has to name Google
   as a processor before the key reaches production). Owner-side steps:
   enable billing on the key in AI Studio, then `fly secrets set
-  GEMINI_API_KEY=…` per docs/DEPLOYMENT.md.
+GEMINI_API_KEY=…` per docs/DEPLOYMENT.md.
 
 ### Paid tier, third run (2026-09-07 evening): the remaining eight checks
 
@@ -1786,6 +1786,7 @@ Rollback reference: image `deployment-01M1NSHF7BT4GT5G2NKFGHJ7R1` (v26).
 QA's docs nits (the ADR's original Decision text and the 004 header still
 say Claude/ANTHROPIC_API_KEY; superseded by the amendment) are left for
 the next docs touch.
+
 - Addendum, same evening: CI on `3848507` was green (`gh run` started
   08:23Z, green 08:26Z, before the 08:29Z deploy), so the CI-before-deploy
   rule held; the
@@ -1825,7 +1826,7 @@ the next docs touch.
   (20) is still unexercised — it would need 21 animals in one cell. 92.
 - Harness/gate observation for the maya layer (upstream candidate,
   2026-09-07 · `.claude/hooks/review-mark.sh` · the marker records HEAD
-  when a review *finishes*, not the range it reviewed): a reviewer
+  when a review _finishes_, not the range it reviewed): a reviewer
   started on commit X that finishes after commit Y was made marks Y as
   reviewed. Seen twice today. The mark should be the reviewed range's
   tip, passed in by the agent prompt or read from its transcript.
@@ -1885,7 +1886,7 @@ the next docs touch.
   is the picture in detail and list, model down → photo saved without a
   thumbnail; 108 assertions. KVKK text now says every animal photo is sent
   (three purposes). Backfill: `backfill-face-thumbs.js --apply
-  [--animals ids]` — production will have nothing to backfill after P1.
+[--animals ids]` — production will have nothing to backfill after P1.
 - Cost: one extra Gemini call per animal photo (2–6 per registration),
   fractions of a cent; the upload takes ~2–3 s longer, uploads run in
   parallel from both clients.
@@ -1916,7 +1917,7 @@ the next docs touch.
   the iOS sheet was already up when "Ekle" was tapped and the tap landed on
   the sheet's backdrop. That is exactly the "asked on entering the page"
   behaviour the owner ruled out.
-- Fix: a screen may only *read* the permission, never ask. iOS gives no
+- Fix: a screen may only _read_ the permission, never ask. iOS gives no
   way to read the status through the geolocation library (its
   `requestAuthorization` callbacks fire only on a change), so
   `react-native-permissions` 4.1.5 is in (Podfile: `setup_permissions`
@@ -1971,7 +1972,7 @@ the next docs touch.
   request "in flight" for ten minutes and re-presents it on the next
   launch ("Authorization request ignored because another authorization
   effort is already in flight" in `log show --predicate 'process ==
-  "locationd"'`). Answer the sheet before resetting, or the next run tests
+"locationd"'`). Answer the sheet before resetting, or the next run tests
   the old prompt. Also `simulator-goto.sh` returned exit 1 when called
   without a screenshot path (the trailing `[ -n "$OUT" ] &&` under
   `set -e`); fixed.
@@ -1981,7 +1982,7 @@ the next docs touch.
 ## 2026-09-07 (night) — v28 release failed: an index in 001 on a column 005 adds
 
 - `fly deploy` v28 aborted in the release command: `column "face_score"
-  does not exist`. 001 re-runs first on every deploy and carried the
+does not exist`. 001 re-runs first on every deploy and carried the
   `idx_animal_photos_animal (animal_id, face_score …)` index; production's
   `animal_photos` gets that column only when 005 runs, four files later.
   The 004 jti index had taught this lesson already and was kept out of 001
@@ -1999,7 +2000,7 @@ the next docs touch.
 
 - `fly deploy` v29 on `3643d3c` after v28's migration failure: release
   command applied 005 (`Applying 005_face_thumbs.sql … Migrations
-  complete`), machine healthy, `/health` ok, web and admin 200. Carries
+complete`), machine healthy, `/health` ok, web and admin 200. Carries
   whole-circle matching with the high/medium filter, the nearest-first
   animals list, face cut-outs, the add-animal permission gate on both
   clients and the purge script. Range deployed: `3848507..3643d3c`.
@@ -2034,7 +2035,7 @@ the next docs touch.
   PWA.
 - **Animal photos are now screened for the species** (ADR-0005, second
   amendment): `checkAnimalPhoto` next to the care check; `POST
-  /animals/match` takes the form's whole photo set, screens each (in
+/animals/match` takes the form's whole photo set, screens each (in
   parallel, before the comparison), refuses with `photoIndex`, and hands
   back one `photoToken` per photo that `POST /animals/:id/photos` redeems
   — the care scheme without the jti column (single use is a read on the
@@ -2050,21 +2051,21 @@ the next docs touch.
   playwright on the dev server with the fake in reject mode — the second
   of two photos refused, the strip down to one, the reason above the
   form; approve mode — `POST /animals/match` then two `POST
-  /animals/:id/photos` with `photoToken` bodies, profile reached; the map
+/animals/:id/photos` with `photoToken` bodies, profile reached; the map
   sheet refused → "Yeniden çek" fires the file chooser → second photo
   approved. Simulator: same refusal alert and caption on add-animal, the
   picker reopening from the rejected drop sheet. Screenshots in the
   session scratchpad. tsc ×2 clean.
 - **The verification code never arrives on production — not code.**
   `RESEND_API_KEY` is set and the boot log says `mail: Resend (from: Pati
-  <noreply@pati-app.com>)`, but `resend._domainkey.pati-app.com` and
+<noreply@pati-app.com>)`, but `resend._domainkey.pati-app.com` and
   `send.pati-app.com` answer NXDOMAIN: the domain was never verified in
   Resend, so every send is a 403 (`verification mail to user N failed:
-  Resend answered 403` in the Fly log; the client shows the "Yeni bir kod
+Resend answered 403` in the Fly log; the client shows the "Yeni bir kod
   iste" text and the resend answers 502). Fix is owner-side: publish the
   DKIM TXT and the SPF/MX pair Resend lists for `pati-app.com`, wait for
   "Verified", register once more. A Resend-side probe over `fly ssh
-  console` was refused by the session's permission classifier; the DNS
+console` was refused by the session's permission classifier; the DNS
   answer is the evidence.
 - Review round (code-reviewer, same day): the one important finding was a
   regression it is right about — the match step used to delete its
@@ -2101,8 +2102,7 @@ the next docs touch.
   limited to the foreign-key failure (`23503`) — after any other failure
   a concurrent redeem of the same token may already own the file, and
   renaming it would hand the sweeper a file a gallery references; and the
-  fileFilter comment no longer implies the log line went away with the
-  500. Fourth round on that commit: APPROVE. Reviewed range for the push:
+  fileFilter comment no longer implies the log line went away with the 500. Fourth round on that commit: APPROVE. Reviewed range for the push:
   `710e247..HEAD`.
 
 ## 2026-09-08 — eleventh deploy note (v30): species screening and the web retake fix live
@@ -2110,10 +2110,10 @@ the next docs touch.
 - Owner: "push ve deploy". Pushed `3643d3c..9165179` (7 commits, every one
   reviewed: four code-reviewer rounds, the last two APPROVE), then
   `fly deploy --app pati-app --ha=false` → v30: `release_command …
-  completed successfully` (no migration in the range; `migrate.js` a
+completed successfully` (no migration in the range; `migrate.js` a
   no-op on production's schema), `Machine 7843d59f197e98 is now in a good
-  state`, `/health` ok, web and admin 200, boot log `mail: Resend`, `ai:
-  gemini-3.5-flash (photo checks and photo matching on)`. Full battery
+state`, `/health` ok, web and admin 200, boot log `mail: Resend`, `ai:
+gemini-3.5-flash (photo checks and photo matching on)`. Full battery
   (bundle and builds included) green on the exact commit; evaluator-qa
   PASS — harness 161/161, the web add-animal refusal and the map retake
   driven with playwright, the token create observed on the wire; the
@@ -2277,7 +2277,7 @@ the next docs touch.
   last admin hands over to the longest-standing member); 5-second
   foreground polling (focus-gated on mobile, visibility-gated on web);
   messages are reportable into content_reports as `target_type
-  'message'` (006 replaces the check constraint idempotently; the admin
+'message'` (006 replaces the check constraint idempotently; the admin
   queue shows them). Decisions taken during review: a member added later
   sees history only from their `joined_at` on; rename is `PUT`.
 - Schema (006): conversations (`direct_key` partial unique index for the
@@ -2400,6 +2400,7 @@ the next docs touch.
   and an unbroken quoted word clamped inside the bubble (measured in
   headless Chromium by the reviewer); post-merge screenshots of a
   conversation on both clients from main.
+
 ## 2026-09-09 — P7 Track C′ merged: carers follow, care notification, badge ladder
 
 - Merged `track/animal-social-2` into main with `--no-ff` (107ea46; seven
@@ -2697,8 +2698,7 @@ the next docs touch.
   `getCanonicalRank` for `users.last_rank` and award rows. `getMe` only
   refreshes the snapshot when the viewer is looking at the canonical board.
   Verified: profile and board now read 2619/3367 together with the showcase
-  on and 419/1166 together with it off, while the stored snapshot stays
-  2619.
+  on and 419/1166 together with it off, while the stored snapshot stays 2619.
 - Round two also caught that the avatar response was still missing
   `recentComments`, `commentCount` and `email_verification_pending` — the
   same defect class one field over. Both responses now have identical key
@@ -2938,7 +2938,7 @@ the next docs touch.
   decode (HEIC on the prebuilt binaries, a corrupt upload) is left exactly
   as it arrived.
 - Baking the EXIF rotation in was the part worth thinking about. The face
-  box the model returns is on a 0–1000 grid of the image *as sent*, and it
+  box the model returns is on a 0–1000 grid of the image _as sent_, and it
   was sent rotated; now the stored pixels are the rotated ones too, so the
   later `sharp(...).rotate()` calls become no-ops on our own files and the
   box still describes the pixels it is cut from. Older files, still
@@ -2968,8 +2968,7 @@ the next docs touch.
   403 `carersOnly` whosever token they hold. Verified pre-existing by
   running the harness against `2faf1c4` with tonight's work stashed. The
   assertion now pins the gate, and a new pair pins what it was really
-  about — a carer redeeming a token issued to somebody else is still a
-  400. The harness does exit non-zero; it was a `| tail` in the earlier
+  about — a carer redeeming a token issued to somebody else is still a 400. The harness does exit non-zero; it was a `| tail` in the earlier
   run that hid it, which is worth remembering when reading a harness.
 
 ### Same night — the location override, and the last uncapped endpoint
@@ -3034,7 +3033,7 @@ Thirteen findings on the two photo commits; twelve are fixed, one is
 scoped and written down instead.
 
 - **The resizer deleted uppercase-extension uploads.** `IMG_4821.JPG` and
-  `IMG_4821.jpg` are two different strings and the *same file* on a
+  `IMG_4821.jpg` are two different strings and the _same file_ on a
   case-insensitive filesystem: the code wrote the resized bytes to the
   lowercase name and then unlinked "the original", which was the same
   inode. Silent data loss on macOS — where this project's screenshot
@@ -3377,7 +3376,7 @@ Verified against production afterwards:
   The boot line on its own is also weaker evidence than it looks:
   `describe()` prints `disk (…)` whenever ANY of the four `S3_*` variables
   is missing, not only when all are. What settles it is `fly secrets list
-  -a pati-app`, which shows none of the four (and `fly.toml`'s `[env]` has
+-a pati-app`, which shows none of the four (and `fly.toml`'s `[env]` has
   no `S3_*` either).
   Mail (Resend) and the photo AI (Gemini) report configured, as before.
 - `/gizlilik` and `/kosullar` open, no console errors.
@@ -3668,7 +3667,7 @@ Three stale comments were the round's smallest findings and the most
 characteristic: the allowlist's rationale still described fail-open, the
 test file's header still stated the inverted contract, and the middleware
 claimed a property of react-native-image-picker when what had been measured
-was narrower. A comment stating a false *why* is a trap for the next
+was narrower. A comment stating a false _why_ is a trap for the next
 reader, which is this project's own rule.
 
 Last, the multi-photo refusal now carries `photoIndex` and `code:
@@ -3788,6 +3787,7 @@ Union, and the only thing making that true is the bucket's EU jurisdiction,
 reached through the `.eu.` host. Repointing that variable at a non-EU
 bucket silently turns a public commitment false — so a change there is a
 change to `web/src/legal.ts` too.
+
 ### 2026-09-10 → 11 — where this leaves things
 
 For whoever picks this up next, because the day covered a lot.
@@ -3941,7 +3941,6 @@ The seven that WERE fixed (the animal page's four, the report dialog, the
 badge ladder, the delete-account dialog) are the ones whose mobile twins
 gained `onRequestClose` here.
 
-
 ### Same day — one known limit in the sheet stack, for whoever adds the next dialog
 
 `onPop` in `web/src/components/profile/Sheet.tsx` decides what a back press
@@ -3973,7 +3972,6 @@ for a back press to be consumed once per event rather than once per listener —
 a single module-level `popstate` handler instead of one per sheet. Left alone
 here because this batch cannot reach it and the change touches every sheet;
 worth doing before the queued dialogs land.
-
 
 ### Same day — three accepted windows, for the queued batch
 
@@ -4140,7 +4138,7 @@ The two ways back fail differently, and neither fails the way you would guess:
   derived total are both on the count ladder, so they agree.
 - **Rolling the image back to v38.** That restores the streak ladders, so
   derived totals fall below the inflated `last_points` the script wrote and an
-  award earned right then would render its points counting *down* — the defect
+  award earned right then would render its points counting _down_ — the defect
   the script's `last_points` refresh was added for, now pointed the other way.
   It heals itself: `buildMeResponse` calls `refreshRankSnapshot` with the
   derived total on every `/users/me`, and both clients fetch that at start-up,
@@ -4189,3 +4187,124 @@ link, one of this release's items, is on it).
 Every helper script uploaded to the machine for this (`snapshot.js`,
 `poststate.js`, the read-only breakdowns) was removed afterwards; `/app` holds
 only what the image ships.
+
+## 2026-09-14 · owner batch: two bugs (B1, B2), two changes (C1, C2)
+
+Plan and done-when in ROADMAP "Owner batch of 2026-09-14". Everything landed on
+`main` as `bb6bd69..HEAD`, on both clients; nothing pushed or deployed.
+
+**B1 — "Bu o — eşleştir" and "bakım ver" did not add the new photos.** Nothing
+in the upload path was broken. Two places dropped photos without a word:
+
+- On a match hit both clients sent only `POST /animals/:id/sightings`; the
+  flow's photos and their `photoTokens` were thrown away. This was not an
+  owner decision: `addPhoto` once had a match-hit door and said the flow adds
+  its photos after the confirm, but no client ever did, so 727d153 removed the
+  door to match the clients. Both clients now run the create path's upload
+  loop after a 200 sighting (token first, the file when the token expired). No
+  backend change for this half. Web holds the `File`s in module memory across
+  the candidate's profile (a page reload loses them) and, since a web logout
+  keeps the tab, only for the account that took them.
+- `submitCarePhotos` answered an existing carer `200 {alreadyCarer, photos: []}`
+  and deleted the uploads, and carers had no photo entry at all. A carer's
+  photos are now species-screened and stored (shared `storeCarePhotos`, no
+  comparison, no carer row, no notification), and both profiles show
+  "fotoğraf ekle" under "bakım veriyorsun", opening the camera screen/sheet in
+  carer mode.
+- Follow-ups from review: one confirm at a time (mobile busy state, web
+  confirm replaces the review in history); an expired hit says
+  "Eşleşmenin süresi doldu…" before the profile opens; an existing carer's
+  confirm without a hit is a real confirm too (the server already let carers
+  report a sighting). ADR-0005 amended.
+- Evidence: a web playwright e2e against a throwaway fake-model backend —
+  gallery 1 → 1 on the old build, 1 → 3 after (both photos by the matcher),
+  carer add 3 → 4; jest `addAnimalConfirm` (8 cases, fails-before shown);
+  animal-social 134/0, storage-check 48/0 with a new carer-path bucket case.
+
+**C1 — one photo, camera only.** Add-animal takes 1–6 photos from the camera
+(the library tile is gone), "bakım ver" one camera slot. The server accepts
+1–2 care photos so installed app builds that send two keep working; its
+messages no longer name a count. Camera-only is a client rule, like the map's
+drop: desktop browsers ignore `capture` and show a file picker, Firefox Android
+falls back to a chooser after a camera refusal, and nothing server-side can
+tell (EXIF is stripped by the resize and absent from iOS captures). Review
+found that the Android app never requested `CAMERA` at runtime, so with the
+library gone add-animal would have been impossible on Android:
+`capturePhoto` now asks first and explains a refusal with "Ayarları aç"
+(jest only — no Android SDK on this machine). Known gap kept: the server has
+no add-animal photo minimum. Guide comments already in the database still say
+"2 fotoğraf"; only the seed text changed.
+
+**C2 — every location action asks before it warns.** The rule: an action calls
+the platform's request and the warning comes only from that answer; lists and
+background jobs only read. What actually changed: Android asks for FINE and
+COARSE together (some Android 12 releases ignore FINE alone and show no dialog —
+exactly "a warning without a prompt"); `getCurrentLocation` asks before the
+GPS read; the mobile map asks on its first focus per app session instead of
+every focus (Android's two-denial limit); the web "Mama/Su bıraktım" tile asks
+instead of reading `permissions.query`, and a later grant clears the stale
+refusal text. The web map still asks on every open: a "once per session"
+variant was reverted because browsers that grant for the page but keep
+reporting `prompt` (iOS Safari's default "Ask") lost the location on every
+return to the map. A "don't ask again at confirm after a tile refusal" variant
+was reverted too — it let a stored refusal decide the warning.
+
+Platform limit, stated in both `location.ts` files: after iOS "İzin Verme",
+Android "bir daha sorma" (or two denials on 11+) or a browser "Engelle", no
+platform shows the prompt again; the "Ayarları aç" alert / settings text is
+the closest equivalent. Seen on iOS (iPhone Air simulator, fresh install):
+"Ekle" → system sheet → "İzin Verme" → "Konum izni gerekli"; "Ekle" again →
+the alert with no sheet. Which device the owner saw the warning on is still
+an open question.
+
+**B2 — mobile web chat jumped when the keyboard opened.** Reproduced in Mobile
+Safari (iOS 26.5 simulator): the shell is sized to the layout viewport, so
+Safari panned the whole app up to reveal the composer, and the 15px input
+added a focus zoom that stayed after the keyboard closed. Fix, web only
+(`keyboardViewport.ts`, mounted by the conversation page): pin `.app` to the
+visual viewport while a soft keyboard is up, hide the tab bar while typing,
+16px composer (and 16px `.field` inputs on touch screens), keep the list
+anchored to its newest message across resizes, `interactive-widget=
+resizes-content` for Android. The same Safari afterwards: header in place, no
+zoom, newest message on the composer, tab bar hidden. It also showed a
+keyboard-sized blank band under the newest message after closing the keyboard
+(WebKit clamps `scrollTop` without moving the native scroller); a one-pixel
+nudge in the resize anchor fixed it, re-checked twice. Chromium harness 40/40.
+
+Not verified anywhere: Android (no SDK or emulator here) — the camera request,
+FINE+COARSE, the map once-per-session ask, `interactive-widget`; real iPhones;
+the mobile tap flows for "fotoğraf ekle" → send and the busy/expired confirm
+(jest only — sending would call the real model from :3000); a Safari
+hardware-keyboard edge where only the accessory bar shows and the page can
+still pan (the pin's >120 px gate does not fire).
+
+Divergences: web input 16px vs native 15px; web hides the tab bar while
+typing (native Android shows it); web holds match photos only until a reload;
+the web drop sheet opens at once and keeps text guidance after a refusal while
+mobile waits and keeps the sheet closed; the web map asks on every open,
+mobile once per session.
+
+Process notes:
+
+- Review rounds: each item had one code-reviewer round (C1 and B2 then one
+  fix round each), one polish round for the minors, a final two-reviewer
+  pass (both APPROVE, four minors), and a last review over the four commits
+  after it (APPROVE, two nits left as they are: the chat's one-pixel nudge
+  settles on a target computed a frame earlier, so a quote tap inside that
+  frame can be stopped; and a web draft saved by the pre-deploy bundle has
+  no account id, so a confirm across the deploy opens the profile without a
+  sighting, once per tab).
+- **Real Gemini calls were made once**: storage-check's throwaway backend
+  inherited `backend/.env`'s key and sent two species checks. Every harness
+  that boots a backend now either points `AI_BASE_URL` at the fake or blanks
+  the key and refuses to run unless the boot line says "ai: NOT CONFIGURED".
+- `messaging-check` fails one of 99 checks ("admin-deleted flag") — test
+  drift from the group system messages (5f3f6eb), unrelated to this batch.
+- Another project's session (juno, Expo Go) was using the iPhone 17 and 17 Pro
+  simulators; the Safari and C2 checks ran on a separately booted iPhone Air.
+  The soft keyboard needs ⌘K in the Simulator ("Connect Hardware Keyboard" is
+  on).
+- Throwaway rows left in the local `stray-db` (not deleted without the
+  owner's yes): users `*@example.test` created by the investigation and the
+  checks (bug1-_, skeptic-_, b1-carer/b1-visitor, b2-chat-_, b2ios-_,
+  c2-location-_, fototest-_), animals 51810–51814, 51840 and DMs 5580–5582.

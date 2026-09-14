@@ -815,7 +815,7 @@ screen is titled "kedi profili" / "köpek profili"; (7) bigger animal
 photos, a tap-to-open viewer, likes with a count (a badge source);
 (8) follow vs. care: "takip et" (no condition; followers only like photos
 and get notified on comments, sightings, health and vaccination records)
-and "bakım ver" (two fresh photos, AI-matched against the animal's photos,
+and "bakım ver" (two fresh photos — one since 2026-09-14 C1 — AI-matched against the animal's photos,
 then full carer rights); everyone else can only like photos. Follower and
 carer counts become animal badges.
 
@@ -1173,7 +1173,7 @@ appears — a conflict means the partition was wrong and the owner arbitrates.
 
 ---
 
-## 🐞 Owner batch of 2026-09-14 — two bugs, two changes
+## 🐞 Owner batch of 2026-09-14 — two bugs, two changes — ✅ done (not deployed)
 
 | #   | Item                                                                                          | Kind   |
 | --- | --------------------------------------------------------------------------------------------- | ------ |
@@ -1196,3 +1196,9 @@ without the owner's per-instance yes.
 **Stop when:** the four items are done and reported, or an item fails its
 battery twice in a row (park it with a note), or B1 does not reproduce locally
 and needs production evidence (report and ask).
+
+**Status (2026-09-14):** all four landed on `main` on both clients, battery
+green on a clean HEAD, code-reviewer over the whole range. Evidence, the
+platform limits and what stays unverified (Android, real devices) are in
+NOTES "2026-09-14 · owner batch". Open for the owner: which device showed the
+location warning without a prompt, and approval to publish and deploy.
