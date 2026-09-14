@@ -667,7 +667,9 @@ function carersOnly(res, what) {
 // model judged at all — see matchHitsOf; a field-only match, a 'similar'
 // or an 'unsure' opens nothing, and the clients then open the profile
 // without a sighting). That logged hit, fresh, stands as the care-photo
-// step would and makes the reporter a carer.
+// step would and makes the reporter a carer. The flow's photos are not
+// part of this request: after a 200 the clients redeem their match tokens
+// through addPhoto, as the create path does (B1, 2026-09-14).
 async function reportSighting(req, res, next) {
   try {
     const { lat, lng } = req.body;
@@ -806,10 +808,12 @@ async function createAnimal(req, res, next) {
  * Two ways in: a photoToken from the match step (both apps' add-animal
  * flow), or a direct upload, which is screened here so that no client can
  * put an unscreened photo in a gallery. Carers only (owner decision,
- * 2026-09-08): the add-animal flow adds no photo to an EXISTING animal
- * after "that's the one" — it reports a sighting, which makes the user a
- * carer through the match-hit door, and opens the profile — so there is
- * no door here; the care-photo step is the way in.
+ * 2026-09-08), and no door of its own: the add-animal flow calls it for a
+ * NEW animal after the create, and for an EXISTING one after "Bu o —
+ * eşleştir" once the sighting has made the user a carer (both clients
+ * since 2026-09-14, owner batch B1 — the client half of the flow the
+ * match-hit door here was first built for). Everyone else goes through
+ * the care-photo step.
  */
 async function addPhoto(req, res, next) {
   const photoToken = req.body?.photoToken;
@@ -935,6 +939,12 @@ async function attachFaceThumb(row, file, species, base) {
  * Turkish. Without a key, or without an answer, the match is accepted
  * (ADR-0005: the AI fails open) — as is an animal with no photo to
  * compare against, whose first carer photos then become that gallery.
+ *
+ * An existing carer's photos are screened and stored too, with no
+ * comparison, no second carer row, no match attempt and no announcement:
+ * that is the clients' "fotoğraf ekle". Until 2026-09-14 (owner batch, B1)
+ * a carer got 200 with no photos and the uploads were deleted, so a
+ * registrant or a confirmed matcher had no way left to add one.
  */
 // Both clients send ONE camera photo since 2026-09-14 (owner batch, C1);
 // the server still takes two because app builds already in users' hands
@@ -960,10 +970,10 @@ async function submitCarePhotos(req, res, next) {
         .status(400)
         .json({ error: 'Hayvanın yeni bir fotoğrafı gerekli.', code: 'carePhotosRequired' });
     }
-    if (await isCarer(req.user.userId, animalId)) {
-      return res.json({ matched: true, alreadyCarer: true, photoChecked: false, photos: [] });
-    }
+    const alreadyCarer = await isCarer(req.user.userId, animalId);
 
+    // Every sender's photos are screened, a carer's included: a carer's
+    // direct upload (addPhoto) is screened the same way.
     const checks = await Promise.all(files.map((f) => ai.checkAnimalPhoto(f.path, animal.species)));
     const photoIndexes = checks.flatMap((c, i) => (c.verdict === 'rejected' ? [i] : []));
     if (photoIndexes.length > 0) {
@@ -973,110 +983,64 @@ async function submitCarePhotos(req, res, next) {
       });
     }
 
-    // Every gallery photo is a candidate (best face first, so the cap in
-    // ai.js keeps the clearest ones); a candidate's id is the photo's.
-    const gallery = await pool.query(
-      `SELECT id, url FROM animal_photos WHERE animal_id = $1
-       ORDER BY face_score DESC NULLS LAST, created_at DESC`,
-      [animalId]
-    );
-    const candidates = gallery.rows
-      .map((p) => ({ id: p.id, filePath: ai.uploadPathFromUrl(p.url, UPLOADS_DIR) }))
-      .filter((c) => c.filePath);
-
     let photoChecked = false;
-    let same = false;
-    if (gallery.rows.length > 0 && candidates.length === 0) {
-      // Rows without a file: a volume swap, a sweep, a seeded database. The
-      // match then passes unchecked, which is worth a line in the log.
-      console.warn(
-        `[care] animal ${animalId}: none of ${gallery.rows.length} gallery photo(s) is on disk; accepting unchecked`
+    let becameCarer = false;
+    // The comparison is what grants carer rights; a carer already holds
+    // them, so their photos skip it (and cost no comparison calls).
+    if (!alreadyCarer) {
+      // Every gallery photo is a candidate (best face first, so the cap in
+      // ai.js keeps the clearest ones); a candidate's id is the photo's.
+      const gallery = await pool.query(
+        `SELECT id, url FROM animal_photos WHERE animal_id = $1
+         ORDER BY face_score DESC NULLS LAST, created_at DESC`,
+        [animalId]
       );
-    }
-    if (ai.isConfigured() && candidates.length > 0) {
-      for (const file of files) {
-        const verdicts = await ai.compareAnimalPhotos(file.path, candidates, animal.species);
-        if (!verdicts) continue;
-        photoChecked = true;
-        if ([...verdicts.values()].includes('same')) {
-          same = true;
-          break;
+      const candidates = gallery.rows
+        .map((p) => ({ id: p.id, filePath: ai.uploadPathFromUrl(p.url, UPLOADS_DIR) }))
+        .filter((c) => c.filePath);
+
+      let same = false;
+      if (gallery.rows.length > 0 && candidates.length === 0) {
+        // Rows without a file: a volume swap, a sweep, a seeded database. The
+        // match then passes unchecked, which is worth a line in the log.
+        console.warn(
+          `[care] animal ${animalId}: none of ${gallery.rows.length} gallery photo(s) is on disk; accepting unchecked`
+        );
+      }
+      if (ai.isConfigured() && candidates.length > 0) {
+        for (const file of files) {
+          const verdicts = await ai.compareAnimalPhotos(file.path, candidates, animal.species);
+          if (!verdicts) continue;
+          photoChecked = true;
+          if ([...verdicts.values()].includes('same')) {
+            same = true;
+            break;
+          }
         }
       }
-    }
-    if (photoChecked && !same) {
-      return res.status(422).json({
-        error:
-          'Fotoğraf bu hayvana benzemiyor. Hayvanın net göründüğü yeni bir fotoğraf çekip tekrar dener misin?',
-        code: 'carePhotoMismatch',
-        photoChecked: true,
-      });
+      if (photoChecked && !same) {
+        return res.status(422).json({
+          error:
+            'Fotoğraf bu hayvana benzemiyor. Hayvanın net göründüğü yeni bir fotoğraf çekip tekrar dener misin?',
+          code: 'carePhotoMismatch',
+          photoChecked: true,
+        });
+      }
+
+      // Two submissions racing past the isCarer read above both land here;
+      // the second finds the row in place and announces nothing.
+      becameCarer = await addCarer(pool, req.user.userId, animalId);
+      await pool.query(
+        `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity)
+         VALUES ($1, $2, 'care', $3)`,
+        [animalId, req.user.userId, photoChecked ? 'same' : null]
+      );
     }
 
-    // Two submissions racing past the isCarer read above both land here;
-    // the second finds the row in place and announces nothing.
-    const becameCarer = await addCarer(pool, req.user.userId, animalId);
-    await pool.query(
-      `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity)
-       VALUES ($1, $2, 'care', $3)`,
-      [animalId, req.user.userId, photoChecked ? 'same' : null]
-    );
-
-    // The photos join the gallery: they are the evidence of the match and,
-    // for an animal without one, its first pictures. Pending files become
-    // plain ones the moment a row is about to own them (see redeemPhotoToken).
+    // The photos join the gallery: for a new carer they are the evidence of
+    // the match and, for an animal without one, its first pictures.
     const base = `${req.protocol}://${req.get('host')}/uploads/`;
-    const photos = [];
-    // Every file is renamed and published BEFORE the first row is written.
-    // Doing it inside the insert loop meant a bucket that refused the
-    // SECOND photo of two left the user a carer looking at an error, with photo
-    // one already in the gallery and its file stranded under a final name
-    // the pending sweeper never looks at — and the obvious client retry
-    // then added photo one twice (review finding).
-    const finalNames = files.map((f) => pendingToFinal(f.filename));
-    try {
-      for (let i = 0; i < files.length; i += 1) {
-        await fs.promises.rename(files[i].path, path.join(UPLOADS_DIR, finalNames[i]));
-        await storage.publish(finalNames[i]);
-      }
-    } catch (err) {
-      // Back under the pending prefix — which is exactly where `finally`
-      // expects them, so they are unlinked on the way out — and out of the
-      // bucket, since nothing will ever reference them.
-      for (const name of finalNames) {
-        await fs.promises
-          .rename(path.join(UPLOADS_DIR, name), path.join(UPLOADS_DIR, `${PENDING_PREFIX}${name}`))
-          .catch(() => {});
-        storage.remove(name);
-      }
-      throw err;
-    }
-    // `owned` grows as rows take ownership: a failure below must clean up
-    // the files NOBODY owns yet and leave the rest alone. Without it a
-    // database blip after the publish loop left the files under their
-    // final names — which the pending sweeper never looks at — plus their
-    // objects in the bucket, forever, per attempt (second review round).
-    let owned = 0;
-    try {
-      for (const finalName of finalNames) {
-        const inserted = await pool.query(
-          'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
-          [animalId, `${base}${finalName}`, req.user.userId]
-        );
-        owned += 1;
-        const row = inserted.rows[0];
-        await attachFaceThumb(row, finalName, animal.species, base);
-        photos.push({ ...row, like_count: 0, liked_by_me: false });
-      }
-    } catch (err) {
-      for (const name of finalNames.slice(owned)) {
-        await fs.promises
-          .rename(path.join(UPLOADS_DIR, name), path.join(UPLOADS_DIR, `${PENDING_PREFIX}${name}`))
-          .catch(() => {});
-        storage.remove(name);
-      }
-      throw err;
-    }
+    const photos = await storeCarePhotos(files, animal, req.user.userId, base);
     keepFiles = true;
 
     // Announced once the photos are in the gallery, so the profile a
@@ -1085,18 +1049,21 @@ async function submitCarePhotos(req, res, next) {
       await notifyAnimalEventSafe({ animalId, kind: 'care', actorId: req.user.userId });
     }
     const animalBadges = await syncAnimalBadgesSafe(animalId);
-    const carerCount = (
-      await pool.query('SELECT count(*)::int AS count FROM user_animal_care WHERE animal_id = $1', [
-        animalId,
-      ])
-    ).rows[0].count;
+    const counts = (
+      await pool.query(
+        `SELECT (SELECT count(*) FROM user_animal_care WHERE animal_id = $1)::int AS carers,
+                EXISTS (SELECT 1 FROM animal_followers WHERE animal_id = $1 AND user_id = $2) AS following`,
+        [animalId, req.user.userId]
+      )
+    ).rows[0];
     res.status(201).json({
       matched: true,
-      alreadyCarer: false,
+      alreadyCarer,
       photoChecked,
       photos,
-      carerCount,
-      following: true,
+      carerCount: counts.carers,
+      // A new carer follows (addCarer); an existing one may have unfollowed.
+      following: counts.following,
       followerCount: await followerCount(animalId),
       animalBadges,
     });
@@ -1107,6 +1074,69 @@ async function submitCarePhotos(req, res, next) {
     // path is a no-op, so the loop is safe after a partial success too.
     if (!keepFiles) for (const file of files) fs.unlink(file.path, () => {});
   }
+}
+
+/**
+ * Moves the care-photo uploads (still under the pending prefix) into the
+ * animal's gallery and returns the new rows. Pending files become plain
+ * ones the moment a row is about to own them (see redeemPhotoToken). On a
+ * failure it has already put back under the pending prefix — and out of
+ * the bucket — every file no row owns, then throws; the caller's `finally`
+ * unlinks those. Shared by a new carer's and an existing carer's photos.
+ */
+async function storeCarePhotos(files, animal, userId, base) {
+  const photos = [];
+  // Every file is renamed and published BEFORE the first row is written.
+  // Doing it inside the insert loop meant a bucket that refused the
+  // SECOND photo of two left the user a carer looking at an error, with photo
+  // one already in the gallery and its file stranded under a final name
+  // the pending sweeper never looks at — and the obvious client retry
+  // then added photo one twice (review finding).
+  const finalNames = files.map((f) => pendingToFinal(f.filename));
+  try {
+    for (let i = 0; i < files.length; i += 1) {
+      await fs.promises.rename(files[i].path, path.join(UPLOADS_DIR, finalNames[i]));
+      await storage.publish(finalNames[i]);
+    }
+  } catch (err) {
+    // Back under the pending prefix — which is exactly where `finally`
+    // expects them, so they are unlinked on the way out — and out of the
+    // bucket, since nothing will ever reference them.
+    for (const name of finalNames) {
+      await fs.promises
+        .rename(path.join(UPLOADS_DIR, name), path.join(UPLOADS_DIR, `${PENDING_PREFIX}${name}`))
+        .catch(() => {});
+      storage.remove(name);
+    }
+    throw err;
+  }
+  // `owned` grows as rows take ownership: a failure below must clean up
+  // the files NOBODY owns yet and leave the rest alone. Without it a
+  // database blip after the publish loop left the files under their
+  // final names — which the pending sweeper never looks at — plus their
+  // objects in the bucket, forever, per attempt (second review round).
+  let owned = 0;
+  try {
+    for (const finalName of finalNames) {
+      const inserted = await pool.query(
+        'INSERT INTO animal_photos (animal_id, url, uploaded_by) VALUES ($1, $2, $3) RETURNING id, url, thumb_url, face_score, uploaded_by, created_at',
+        [animal.id, `${base}${finalName}`, userId]
+      );
+      owned += 1;
+      const row = inserted.rows[0];
+      await attachFaceThumb(row, finalName, animal.species, base);
+      photos.push({ ...row, like_count: 0, liked_by_me: false });
+    }
+  } catch (err) {
+    for (const name of finalNames.slice(owned)) {
+      await fs.promises
+        .rename(path.join(UPLOADS_DIR, name), path.join(UPLOADS_DIR, `${PENDING_PREFIX}${name}`))
+        .catch(() => {});
+      storage.remove(name);
+    }
+    throw err;
+  }
+  return photos;
 }
 
 async function isCarer(userId, animalId) {

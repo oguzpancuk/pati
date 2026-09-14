@@ -4,7 +4,7 @@
 # (docker: stray-db).
 #
 # State: registers one throwaway account (depo-<stamp>@example.com) and
-# deletes it on the way out. Its uploads live in the throwaway UPLOADS
+# deletes it on the way out, with the one throwaway animal it registers. Its uploads live in the throwaway UPLOADS
 # directory run.sh made, never in the dev server's own.
 set -uo pipefail
 API=${API:-http://localhost:3109/api}
@@ -130,6 +130,29 @@ code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/999999999/care
 check "care-photos refuses the batch too -> 400" 400 "$code"
 check "…with the same code" photoUnreadable "$(j .code)"
 check "…and the slot to empty" 1 "$(j .photoIndex)"
+
+echo "== a carer's care photo goes to the bucket; a refusal keeps nothing"
+# The existing-carer path of POST /care-photos stores photos since
+# 2026-09-14 (owner batch, B1) through the same rename/publish/insert
+# helper as a new carer's. No model here, so the screening fails open.
+code=$(post_auth animals "$JWT" '{"species":"cat","name":"Depo Kedisi","lat":-35.5,"lng":-155.5}')
+check "an animal -> 201 (its registrant is a carer)" 201 "$code"
+ANIMAL=$(j .id)
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$ANIMAL/care-photos" -H "Authorization: Bearer $JWT" -F "photos=@$PHOTO;type=image/jpeg")
+check "the carer's care photo -> 201, stored" "201 true 1" "$code $(j .alreadyCarer) $(j '.photos | length')"
+CARE=$(basename "$(j '.photos[0].url')")
+check "…the object is in the bucket" yes "$(has_key "$CARE")"
+check "…and cached on disk" yes "$([ -f "$UPLOADS/$CARE" ] && echo yes || echo no)"
+curl -s -o /dev/null "$BUCKET/__refuse"
+before_keys=$(keys | grep -c .)
+before_final=$(ls "$UPLOADS" | grep -vc '^pending-')
+code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$ANIMAL/care-photos" -H "Authorization: Bearer $JWT" -F "photos=@$PHOTO;type=image/jpeg")
+check "with the bucket refusing -> 503" 503 "$code"
+check "…nothing new in the bucket" "$before_keys" "$(keys | grep -c .)"
+check "…the gallery still holds one photo" 1 "$(psql_db "SELECT count(*) FROM animal_photos WHERE animal_id=$ANIMAL")"
+check "…and no file left under a final name" "$before_final" "$(ls "$UPLOADS" | grep -vc '^pending-')"
+curl -s -o /dev/null "$BUCKET/__accept"
+psql_db "DELETE FROM animals WHERE id=$ANIMAL" >/dev/null
 
 echo "== a real image with a hostile name still cannot be served as html"
 # The other half of the defence: this one DOES decode, so it is stored —

@@ -155,8 +155,22 @@ check "GET shows A as carer AND follower" "true true" "$(j .isCarer) $(j .isFoll
 code=$(get "notifications?limit=5" "$B"); check "B: one unread, kind care, from A" "1 care Bakıcı A" "$(j .unreadCount) $(j '.notifications[0].kind') $(j '.notifications[0].payload.actorName')"
 code=$(get "notifications/unread-count" "$D"); check "D (registrant) hears it too" "1" "$(j .unreadCount)"
 code=$(get "notifications/unread-count" "$A"); check "A is not told about itself" "0" "$(j .unreadCount)"
-code=$(care_photos $ANIMAL "$A" 2); check "A again -> alreadyCarer" "200 true" "$code $(j .alreadyCarer)"
-check "serial second submission (isCarer exit) announces nothing: one care row for B from A" "1" "$(psql_db "SELECT count(*) FROM notifications WHERE user_id=$B_ID AND kind='care' AND actor_id=$A_ID")"
+# An existing carer's photos are kept (owner batch 2026-09-14, B1): screened,
+# stored, never compared — the fake still says 'different' to everything,
+# so a comparison would have refused them. Until B1 this answered 200 with
+# no photos and deleted the uploads.
+code=$(get "animals/$ANIMAL" "$A"); A_GALLERY=$(j '.photos | length')
+code=$(care_photos $ANIMAL "$A" 2); check "A (carer) again -> 201 alreadyCarer, unchecked, 2 photos" "201 true false 2" "$code $(j .alreadyCarer) $(j .photoChecked) $(j '.photos | length')"
+check "…both uploaded by A" "$A_ID" "$(j '[.photos[].uploaded_by] | unique | map(tostring) | join(",")')"
+check "…the answer mirrors the new-carer shape (2 carers, following, 3 followers)" "2 true 3 true" "$(j .carerCount) $(j .following) $(j .followerCount) $(j '.animalBadges | type == "array"')"
+check "…and the files are on disk under their final names" "yes" "$(for u in $(j '.photos[].url'); do [ -f "uploads/$(basename "$u")" ] || echo missing; done | grep -q missing && echo no || echo yes)"
+code=$(get "animals/$ANIMAL" "$A"); check "A: gallery grew by 2, still one carer row" "$((A_GALLERY+2)) 1" "$(j '.photos | length') $(psql_db "SELECT count(*) FROM user_animal_care WHERE user_id=$A_ID AND animal_id=$ANIMAL")"
+check "serial second submission announces nothing: one care row for B from A" "1" "$(psql_db "SELECT count(*) FROM notifications WHERE user_id=$B_ID AND kind='care' AND actor_id=$A_ID")"
+check "…and logs no second care attempt" "1" "$(psql_db "SELECT count(*) FROM animal_match_attempts WHERE user_id=$A_ID AND animal_id=$ANIMAL AND kind='care'")"
+control '{"mode":"reject"}'
+code=$(care_photos $ANIMAL "$A" 1); check "A (carer), species screening refuses -> 422 photoRejected [0]" "422 photoRejected [0]" "$code $(j .code) $(jq -c .photoIndexes $BODY)"
+code=$(get "animals/$ANIMAL" "$A"); check "…gallery unchanged" "$((A_GALLERY+2))" "$(j '.photos | length')"
+control '{"mode":"match","verdicts":["different","different","different","different","different","different","different","different"]}'
 code=$(care_photos $ANIMAL "$B" 2); check "B: model says different -> 422 miss" "422 carePhotoMismatch" "$code $(j .code)"
 check "miss is Turkish" "true" "$(j '.error | test("benzemiyor")')"
 control '{"mode":"reject"}'

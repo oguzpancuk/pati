@@ -74,8 +74,9 @@ router.get('/:id/comments', requireAuth, listComments);
 router.post('/:id/comments', requireAuth, limits.comments, addComment);
 // "Takip et" toggles a follower row; "bakım ver" is the care-photo step:
 // one or two fresh photos (the clients send one), screened and compared
-// with this animal's gallery, then carer rights. Pending files like the match step's — the miss path
-// deletes them, the match path renames them into the gallery.
+// with this animal's gallery, then carer rights — an existing carer's are
+// only screened ("fotoğraf ekle"). Pending files like the match step's —
+// the miss path deletes them, the stored path renames them into the gallery.
 router.post('/:id/follow', requireAuth, limits.follows, followAnimal);
 router.delete('/:id/follow', requireAuth, limits.follows, unfollowAnimal);
 router.post('/:id/photos/:photoId/like', requireAuth, limits.photoLikes, likePhoto);

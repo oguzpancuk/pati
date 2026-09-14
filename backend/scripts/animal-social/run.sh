@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end check of the animal profile's social layer (ROADMAP P6,
-# track C): photo likes, follow, the care-photo step (match and miss), the
-# carers-only refusals, the add-animal door, the inbox, the animal badges
+# track C): photo likes, follow, the care-photo step (match, miss, and a
+# carer's own photos), the carers-only refusals, the add-animal door, the inbox, the animal badges
 # and the device tokens — against a real backend.
 #
 #   bash backend/scripts/animal-social/run.sh

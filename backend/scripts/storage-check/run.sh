@@ -35,9 +35,14 @@ node scripts/storage-check/fake-bucket.js "$BUCKET_PORT" "$BUCKET_NAME" >/tmp/pa
 BUCKET_PID=$!
 
 # A throwaway uploads directory, so the assertions can count files and
-# clear the cache without touching the dev server's own photos.
+# clear the cache without touching the dev server's own photos. The model
+# is pinned off: a blank key wins over backend/.env (dotenv never overrides
+# a variable that is set), so the carer care-photo case screens nothing
+# instead of sending test images to a paid API — a first run of that case
+# without this line did exactly that (2026-09-14).
 MAIL_OUTBOX_FILE="$OUTBOX" \
 AUTH_RATE_LIMIT=200 \
+GEMINI_API_KEY= \
 UPLOADS_DIR="$UPLOADS" \
 S3_ENDPOINT="$BUCKET" \
 S3_BUCKET="$BUCKET_NAME" \
@@ -50,6 +55,10 @@ source scripts/check-lib.sh
 wait_for_ours "$BUCKET_PORT" "$BUCKET_PID" "fake bucket" "$BUCKET/__keys" /tmp/pati-fake-bucket.log || exit 1
 wait_for_ours "$PORT" "$API_PID" "backend" "http://localhost:$PORT/health" /tmp/pati-storage-api.log || exit 1
 
+# No model may answer here (see GEMINI_API_KEY above).
+grep -q "^ai: NOT CONFIGURED" /tmp/pati-storage-api.log || {
+  echo "the backend booted with a model configured:"; grep '^ai:' /tmp/pati-storage-api.log; exit 1
+}
 # The driver must have announced itself; a disk-mode boot would make every
 # assertion below vacuous.
 grep -q "^photos: s3 " /tmp/pati-storage-api.log || {
