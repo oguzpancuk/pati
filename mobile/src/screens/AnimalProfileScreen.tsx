@@ -131,7 +131,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const matchReview: boolean = !!route.params?.matchReview;
   // The server's decision for this candidate (matchHit): with it the
   // confirm reports a sighting and makes the user a carer; without it the
-  // bar only opens the profile. photoChecked tells the hint apart.
+  // bar only opens the profile, unless the viewer already is a carer (see
+  // confirmReports). photoChecked tells the hint apart.
   const matchHit: boolean = !!route.params?.matchHit;
   const photoChecked: boolean = route.params?.photoChecked !== false;
   const [animal, setAnimal] = useState<AnimalDetail | null>(null);
@@ -452,6 +453,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   }
 
   const displayName = animal.name ?? (animal.species === 'cat' ? 'Kedi' : 'Köpek');
+  // A carer's confirm reports too, hit or not: the server lets a carer
+  // report a sighting and add photos without one, so "Bu o" must not drop
+  // the photos a carer took in the flow (B1 follow-up).
+  const confirmReports = matchHit || animal.isCarer;
   const latitude = animal.location.coordinates[1];
   const longitude = animal.location.coordinates[0];
   // Recovered records are closed; the server rejects comments on them too,
@@ -928,7 +933,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       {matchReview ? (
         <View style={styles.composer}>
           <Text variant="caption" center style={styles.reviewHint}>
-            {!matchHit
+            {!confirmReports
               ? 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'
               : photoChecked
               ? 'Eklemek istediğin hayvan bu mu?'
@@ -942,11 +947,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               style={styles.reviewButton}
             />
             <Button
-              title={matchHit ? 'Bu o — eşleştir' : 'Bu o — profili aç'}
+              title={confirmReports ? 'Bu o — eşleştir' : 'Bu o — profili aç'}
               onPress={() =>
                 navigation.navigate('AddAnimal', {
                   confirmedAnimalId: animalId,
-                  confirmedMatchHit: matchHit,
+                  confirmedSighting: confirmReports,
                 })
               }
               icon={<Icon name="check" size={18} color={colors.textOnBrand} />}

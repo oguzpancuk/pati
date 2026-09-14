@@ -385,9 +385,11 @@ export default function AddAnimalPage() {
   // state: report the sighting, add the flow's photos, return to the
   // profile. The location was kept in the draft, the photos in heldPhotos.
   const confirmedAnimalId: number | undefined = routerLocation.state?.confirmedAnimalId;
-  // Without the server's hit the confirm is a decision, not a sighting:
-  // no server call, the profile opens ("bakım ver" is the way in).
-  const confirmedMatchHit: boolean = routerLocation.state?.confirmedMatchHit === true;
+  // The profile's verdict on the confirm: report a sighting and add the
+  // photos (the server's hit, or the viewer already a carer). Neither: the
+  // confirm is a decision, not a sighting — no server call, the profile
+  // opens ("bakım ver" is the way in).
+  const confirmedSighting: boolean = routerLocation.state?.confirmedSighting === true;
   // Once per mount: StrictMode runs a mount effect twice in development,
   // which would report the sighting twice.
   const confirmStarted = useRef(false);
@@ -408,7 +410,7 @@ export default function AddAnimalPage() {
       navigate(`/hayvanlar/${confirmedAnimalId}`, { replace: true });
     };
     (async () => {
-      if (loc && confirmedMatchHit) {
+      if (loc && confirmedSighting) {
         try {
           await reportSighting(confirmedAnimalId, loc.lat, loc.lng);
         } catch (err) {
@@ -437,8 +439,9 @@ export default function AddAnimalPage() {
           setConfirming(false);
           return;
         }
-        // The sighting made the user a carer, so the flow's photos join the
-        // animal's gallery exactly as they would a new one's (B1). The
+        // The sighting made (or found) the user a carer, so the flow's
+        // photos join the animal's gallery exactly as they would a new
+        // one's (B1). The
         // server once had a match-hit door on addPhoto for this very step;
         // no client ever sent the photos, and they were silently dropped.
         if (held) await addFlowPhotos(confirmedAnimalId, held.photos, held.tokens);

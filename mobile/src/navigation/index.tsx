@@ -95,8 +95,9 @@ export type TabStackParamList = {
   // add-animal draft survives a trip to a match candidate: the candidate is
   // pushed ABOVE the modal in the same stack rather than replacing it.
   // confirmedAnimalId: set when returning from the match review via "that's
-  // the one". confirmedMatchHit: whether the confirm may report a sighting.
-  AddAnimal: { confirmedAnimalId?: number; confirmedMatchHit?: boolean } | undefined;
+  // the one". confirmedSighting: whether the confirm reports a sighting and
+  // adds the flow's photos (a match hit, or the viewer already a carer).
+  AddAnimal: { confirmedAnimalId?: number; confirmedSighting?: boolean } | undefined;
   // carer: opened as the carer's "fotoğraf ekle"; a deep link leaves it
   // (and often species and name) out, and the screen reads the profile.
   CarePhotos: { animalId: number; species?: 'cat' | 'dog'; name?: string | null; carer?: boolean };

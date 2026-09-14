@@ -226,7 +226,8 @@ export default function AnimalPage() {
   const matchReview = searchParams.get('inceleme') === '1';
   // The server's decision for this candidate (matchHit, `eslesme`): with
   // it the confirm reports a sighting and makes the user a carer; without
-  // it the bar only opens the profile. `kontrol=0`: no model looked.
+  // it the bar only opens the profile, unless the viewer already is a carer
+  // (see confirmReports). `kontrol=0`: no model looked.
   const matchHit = searchParams.get('eslesme') === '1';
   const photoChecked = searchParams.get('kontrol') !== '0';
   const animalId = Number(id);
@@ -600,6 +601,10 @@ export default function AnimalPage() {
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
   const carers = animal.carers;
   const selfId = me?.id;
+  // A carer's confirm reports too, hit or not: the server lets a carer
+  // report a sighting and add photos without one, so "Bu o" must not drop
+  // the photos a carer took in the flow (B1 follow-up).
+  const confirmReports = matchHit || animal.isCarer === true;
 
   // The grid always fills to a multiple of 3: real tiles + dashed "photo"
   // placeholders — even an empty profile invites.
@@ -956,7 +961,7 @@ export default function AnimalPage() {
            state. */
         <div className="card" style={{ position: 'sticky', bottom: 0 }}>
           <p className="muted" style={{ margin: '0 0 8px', textAlign: 'center' }}>
-            {!matchHit
+            {!confirmReports
               ? 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'
               : photoChecked
                 ? 'Eklemek istediğin hayvan bu mu?'
@@ -979,11 +984,11 @@ export default function AnimalPage() {
               onClick={() =>
                 navigate('/hayvanlar/yeni', {
                   replace: true,
-                  state: { confirmedAnimalId: animalId, confirmedMatchHit: matchHit },
+                  state: { confirmedAnimalId: animalId, confirmedSighting: confirmReports },
                 })
               }
             >
-              {matchHit ? '✓ Bu o — eşleştir' : 'Bu o — profili aç'}
+              {confirmReports ? '✓ Bu o — eşleştir' : 'Bu o — profili aç'}
             </button>
           </div>
         </div>

@@ -390,21 +390,24 @@ export default function AddAnimalScreen({ navigation, route }: any) {
   }, []);
 
   const confirmedAnimalId: number | undefined = route.params?.confirmedAnimalId;
-  const confirmedMatchHit: boolean = !!route.params?.confirmedMatchHit;
+  // The profile's verdict on the confirm: report a sighting and add the
+  // photos (the server's hit, or the viewer already a carer), or only open
+  // the profile.
+  const confirmedSighting: boolean = !!route.params?.confirmedSighting;
   useEffect(() => {
     if (confirmedAnimalId) {
-      navigation.setParams({ confirmedAnimalId: undefined, confirmedMatchHit: undefined });
-      handleExistingAnimal(confirmedAnimalId, confirmedMatchHit);
+      navigation.setParams({ confirmedAnimalId: undefined, confirmedSighting: undefined });
+      handleExistingAnimal(confirmedAnimalId, confirmedSighting);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmedAnimalId]);
 
-  async function handleExistingAnimal(animalId: number, matchHit: boolean) {
+  async function handleExistingAnimal(animalId: number, sighting: boolean) {
     // The first confirm finishes and opens its profile; this one is dropped.
     if (confirmingRef.current) return;
-    // Without the server's hit the confirm is a decision, not a sighting:
+    // Neither a hit nor a carer: the confirm is a decision, not a sighting —
     // no server call, the profile opens ("bakım ver" is the way in).
-    if (!location || !matchHit) {
+    if (!location || !sighting) {
       navigation.replace('AnimalProfile', { animalId });
       return;
     }
@@ -436,11 +439,11 @@ export default function AddAnimalScreen({ navigation, route }: any) {
       );
       return;
     }
-    // The sighting made the user a carer, so the photos taken for this
-    // flow join the animal's gallery exactly as they would a new one's
-    // (owner batch 2026-09-14, B1). The server once had a match-hit door on
-    // addPhoto for this very step; no client ever sent the photos, and the
-    // door was removed to match — they were silently dropped until now.
+    // The sighting made (or found) the user a carer, so the photos taken
+    // for this flow join the animal's gallery exactly as they would a new
+    // one's (owner batch 2026-09-14, B1). The server once had a match-hit
+    // door on addPhoto for this very step; no client ever sent the photos,
+    // and the door was removed to match — they were silently dropped.
     await addFlowPhotos(animalId, photoTokens);
     navigation.replace('AnimalProfile', { animalId });
   }

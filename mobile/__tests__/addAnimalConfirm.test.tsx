@@ -2,8 +2,9 @@
  * "Bu o — eşleştir" on a match hit: the sighting first, then the photos
  * taken for the flow go into that animal's gallery through the same
  * token-first upload as a new animal's (owner batch 2026-09-14, B1). Before
- * B1 the confirm sent only the sighting and the photos were dropped. One
- * confirm runs at a time (B1 follow-up).
+ * B1 the confirm sent only the sighting and the photos were dropped. The
+ * same holds for a viewer who already is a carer of a candidate that is not
+ * a hit, and one confirm runs at a time (B1 follow-up).
  *
  * The screen's own logic runs; everything around it (the design system,
  * the camera, the network, the location) is a stand-in.
@@ -158,19 +159,22 @@ async function reachResults(matchHit: boolean) {
 function returnFromProfile(
   tree: ReactTestRenderer,
   navigation: object,
-  params: { confirmedAnimalId?: number; confirmedMatchHit?: boolean }
+  params: { confirmedAnimalId?: number; confirmedSighting?: boolean }
 ) {
   return act(async () => {
     tree.update(<AddAnimalScreen navigation={navigation} route={{ params }} />);
   });
 }
 
-/** The confirm returns from the profile with the server's verdict. */
-async function confirmHit(matchHit = true) {
+/**
+ * The confirm returns from the profile. `sighting` is the profile's verdict
+ * (a hit, or the viewer already a carer); `matchHit` the server's.
+ */
+async function confirmHit(matchHit = true, sighting = matchHit) {
   const { tree, navigation } = await reachResults(matchHit);
   await returnFromProfile(tree, navigation, {
     confirmedAnimalId: 42,
-    confirmedMatchHit: matchHit,
+    confirmedSighting: sighting,
   });
   await waitFor(() => navigation.replace.mock.calls.length > 0);
   return navigation;
@@ -242,10 +246,20 @@ test('a refused sighting (the hit expired) says so, uploads nothing and opens th
   );
 });
 
+test('a confirm the profile marks as a sighting without a hit (an existing carer) adds the photo too', async () => {
+  api.reportSighting.mockResolvedValue({} as any);
+  api.addAnimalPhoto.mockResolvedValue({} as any);
+  const navigation = await confirmHit(false, true);
+  expect(api.reportSighting).toHaveBeenCalledWith(42, 40.99, 29.03);
+  expect(api.addAnimalPhoto).toHaveBeenCalledWith(42, { photoToken: 'token-1' });
+  expect(navigation.replace).toHaveBeenCalledWith('AnimalProfile', { animalId: 42 });
+  expect(Alert.alert).not.toHaveBeenCalled();
+});
+
 test('a sighting that fails for another reason says so and gives the results back', async () => {
   api.reportSighting.mockRejectedValue({ response: { data: { error: 'Sunucu hatası.' } } });
   const { tree, navigation } = await reachResults(true);
-  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedMatchHit: true });
+  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedSighting: true });
   await waitFor(() => (Alert.alert as jest.Mock).mock.calls.length > 0);
   expect(Alert.alert).toHaveBeenCalledWith('Güncellenemedi', 'Sunucu hatası.');
   await waitFor(() => candidateCards(tree) > 0);
@@ -263,14 +277,14 @@ test('a second confirm while the first is still saving sends nothing', async () 
   );
   api.addAnimalPhoto.mockResolvedValue({} as any);
   const { tree, navigation } = await reachResults(true);
-  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedMatchHit: true });
+  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedSighting: true });
   await waitFor(() => api.reportSighting.mock.calls.length === 1);
   // Busy: the candidates are gone, so none can be opened and confirmed again.
   expect(candidateCards(tree)).toBe(0);
   expect(tree.root.findAll((n) => n.props.children === 'Kaydediliyor…').length).toBeGreaterThan(0);
   // A second confirm arrives anyway (the params cleared, then set anew).
   await returnFromProfile(tree, navigation, {});
-  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedMatchHit: true });
+  await returnFromProfile(tree, navigation, { confirmedAnimalId: 42, confirmedSighting: true });
   expect(api.reportSighting).toHaveBeenCalledTimes(1);
   expect(navigation.replace).not.toHaveBeenCalled();
   await act(async () => {
