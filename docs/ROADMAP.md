@@ -1170,3 +1170,29 @@ evaluator-qa before any deploy.
 **Stop when:** the fifteen items are done and reported, or a track's battery
 fails twice in a row (park it with a note, merge the rest), or a merge conflict
 appears — a conflict means the partition was wrong and the owner arbitrates.
+
+---
+
+## 🐞 Owner batch of 2026-09-14 — two bugs, two changes
+
+| #   | Item                                                                                          | Kind   |
+| --- | --------------------------------------------------------------------------------------------- | ------ |
+| B1  | "Bu o — eşleştir" and "bakım ver" on an existing animal do not add the new photos             | bug    |
+| B2  | Mobile web chat: opening the keyboard makes the messages jump up                               | bug    |
+| C1  | Add-animal and "bakım ver" accept a single photo, and only a photo taken now (no gallery)      | change |
+| C2  | Without location permission, every location action asks again before showing the warning     | change |
+
+Plan: a read-only investigation of all four (root cause for the bugs, every
+call site for the changes, each verified by an independent skeptic), then
+the items land serially on `main`, each on BOTH clients.
+
+**Done when:** B1 has a backend/end-to-end check that fails before and passes
+after; B2 has a web measurement of the message list around a keyboard-sized
+viewport shrink plus a screenshot (and the stated limit of emulation); C1 and
+C2 have screenshots on both clients; `bash .claude/hooks/verify.sh` is green on
+a clean committed HEAD; code-reviewer covers the range. No push or deploy
+without the owner's per-instance yes.
+
+**Stop when:** the four items are done and reported, or an item fails its
+battery twice in a row (park it with a note), or B1 does not reproduce locally
+and needs production evidence (report and ask).
