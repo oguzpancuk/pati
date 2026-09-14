@@ -96,6 +96,15 @@ export function useKeyboardViewport(): void {
       root.style.removeProperty('--vv-height');
     };
 
+    // iOS 26.0 can leave the visual viewport panned (offsetTop > 0) after
+    // the keyboard has closed; scroll back so the unpinned shell is not drawn
+    // under a stale offset. A zoomed reader's pan is their own.
+    const resetStaleOffset = () => {
+      if (Math.abs(vv.scale - 1) < SCALE_TOLERANCE && (vv.offsetTop > 0 || window.scrollY > 0)) {
+        window.scrollTo(0, 0);
+      }
+    };
+
     const update = () => {
       frame = 0;
       const field = document.activeElement;
@@ -103,12 +112,7 @@ export function useKeyboardViewport(): void {
       const unzoomed = Math.abs(vv.scale - 1) < SCALE_TOLERANCE;
       if (focusLeft) {
         focusLeft = false;
-        // iOS 26.0 can leave the visual viewport panned (offsetTop > 0) after
-        // the keyboard has closed; scroll back so the unpinned shell is not
-        // drawn under a stale offset. A zoomed reader's pan is their own.
-        if (!typing && unzoomed && (vv.offsetTop > 0 || window.scrollY > 0)) {
-          window.scrollTo(0, 0);
-        }
+        if (!typing) resetStaleOffset();
       }
       if (root.clientWidth !== baseWidth) {
         baseWidth = root.clientWidth;
@@ -155,6 +159,9 @@ export function useKeyboardViewport(): void {
       vv.removeEventListener('scroll', schedule);
       document.removeEventListener('focusin', schedule);
       document.removeEventListener('focusout', onFocusOut);
+      // The tap that leaves the page usually blurred the field first, and
+      // the frame that would have reset the offset was just cancelled.
+      if (focusLeft || pinned) resetStaleOffset();
       unpin();
     };
   }, []);
