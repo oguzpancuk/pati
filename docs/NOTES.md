@@ -4139,11 +4139,15 @@ The two ways back fail differently, and neither fails the way you would guess:
   aborts on its `streak:` guard. Points are fine here: `last_points` and the
   derived total are both on the count ladder, so they agree.
 - **Rolling the image back to v38.** That restores the streak ladders, so
-  derived totals fall below the inflated `last_points` the script wrote and
-  the next real award renders its points counting *down* — the defect the
-  script's `last_points` refresh was added for, now pointed the other way. **A
-  v38 rollback has to reset `last_points` as well**; nothing does that
-  automatically.
+  derived totals fall below the inflated `last_points` the script wrote and an
+  award earned right then would render its points counting *down* — the defect
+  the script's `last_points` refresh was added for, now pointed the other way.
+  It heals itself: `buildMeResponse` calls `refreshRankSnapshot` with the
+  derived total on every `/users/me`, and both clients fetch that at start-up,
+  so the inflation is gone the first time a profile loads. The exposure is
+  only the user who earns a badge inside that window. Resetting `last_points`
+  by hand closes it, but it is not what stands between you and a correct
+  state.
 
 Either way, anything live traffic awarded after the snapshot is dropped.
 
@@ -4162,9 +4166,12 @@ carries the recompute's timestamp instead of the day it was earned
 (`points_before`, `rank_before`, `rank_after` and `level_before` are null too;
 the script comments on the ranks only). Nobody sees a wrong date today —
 neither client reads `createdAt`, and these rows are written `seen_at = now()`
-so they never reach the popup — but the earned-at fact is gone from the row
-and from the unseen index's ordering, and it is not recoverable from the
-snapshot either, which holds the old keys.
+so they never reach the popup, which is also why they are outside the unseen
+index. The fact is gone from the row, not from the database: the snapshot is a
+`SELECT *` copy, so for anything that existed before the deploy the original
+date is one key rename away (015 spells the mapping out). Only the tiers the
+recompute newly created have no earlier date, which is correct by
+definition.
 
 What changed is the shape of the demo world, not the real one: `care:feeder`
 gained 2,193 gold and `care:water` 987, because a count ladder of 1/10/50/250
