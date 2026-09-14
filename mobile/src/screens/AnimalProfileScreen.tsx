@@ -301,6 +301,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       animalId,
       species: animal.species,
       name: animal.name,
+      carer: animal.isCarer,
     });
   }
 
@@ -576,7 +577,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         {/* Follow vs. care (P6 item 8): "takip et" has no condition and
             toggles; "bakım ver" is the camera-photo step, after which the
             carer view (records, chat) opens. Hidden in match review — the
-            decision bar below is the only action there. */}
+            decision bar below is the only action there. A carer gets
+            "fotoğraf ekle" under the pair (owner batch 2026-09-14, B1):
+            three pills do not fit a phone's width with these labels. */}
         {!matchReview && (
           <View style={styles.actionRow}>
             <Button
@@ -610,6 +613,16 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 onPress={openCarePhotos}
                 icon={<Icon name="camera" size={16} color={colors.textOnBrand} />}
                 style={styles.actionButton}
+              />
+            )}
+            {animal.isCarer && (
+              <Button
+                title="fotoğraf ekle"
+                variant="secondary"
+                size="sm"
+                onPress={openCarePhotos}
+                icon={<Icon name="camera" size={16} color={colors.brand} />}
+                style={styles.actionWide}
               />
             )}
           </View>
@@ -1225,12 +1238,15 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   actionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     // The first section adds its own top margin; xl here on top of that
     // left a hole under the pair once the photos moved above the header.
     marginBottom: spacing.xs,
   },
   actionButton: { flex: 1 },
+  // A line of its own under the follow/carer pair.
+  actionWide: { flexBasis: '100%' },
   // Mirrors Button's `success` variant at size sm (pill, 1pt ring).
   carerState: {
     flexDirection: 'row',

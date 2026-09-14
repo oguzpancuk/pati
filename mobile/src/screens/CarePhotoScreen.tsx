@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Image, Pressable } from 'react-native';
-import { submitCarePhotos } from '../api/animals';
+import { AnimalDetail, fetchAnimal, submitCarePhotos } from '../api/animals';
 import type { PhotoAsset } from '../api/care';
 import { capturePhoto, SaveToGalleryRow } from '../photoCapture';
 import { Icon } from '../components/brand';
@@ -19,19 +19,53 @@ import { makeStyles, radius, spacing, useTheme } from '../theme';
  * still takes two for app builds already installed, but a second slot
  * would only buy a second chance at the model's verdict for two more model
  * calls, and the add-animal door already grants carer rights on one photo.
+ *
+ * Carer mode (owner batch 2026-09-14, B1): a carer's photo is screened and
+ * stored with no comparison — the profile's "fotoğraf ekle". The profile
+ * passes `carer`; a deep link (`pati://animal/:id/care`) does not, so the
+ * screen reads the profile for it. Either way the result alert follows the
+ * server's `alreadyCarer`, which is the truth when the two disagree.
  */
 export default function CarePhotoScreen({ route, navigation }: any) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const { animalId, species, name } = route.params as {
+  const params = route.params as {
     animalId: number;
-    species: 'cat' | 'dog';
+    species?: 'cat' | 'dog';
     name?: string | null;
+    carer?: boolean;
   };
+  const { animalId } = params;
+  // Only a deep link lands here without `carer` (and usually without the
+  // name). Best effort: until the profile answers, or if it never does,
+  // the copy is the "bakım ver" one — the result alert follows the server.
+  const [profile, setProfile] = useState<AnimalDetail | null>(null);
+  const carer = params.carer ?? profile?.isCarer;
+  const species = params.species ?? profile?.species;
+  const name = params.name ?? profile?.name;
   const [photo, setPhoto] = useState<PhotoAsset | null>(null);
   const [sending, setSending] = useState(false);
   const animalWord = species === 'dog' ? 'köpeğin' : 'kedinin';
   const displayName = name ?? (species === 'dog' ? 'Köpek' : 'Kedi');
+
+  // The stack's title says "bakım ver"; a carer is adding a photo.
+  useEffect(() => {
+    if (carer) navigation.setOptions({ title: 'fotoğraf ekle' });
+  }, [carer, navigation]);
+
+  useEffect(() => {
+    if (params.carer !== undefined) return;
+    let alive = true;
+    fetchAnimal(animalId)
+      .then((animal) => {
+        if (alive) setProfile(animal);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animalId]);
 
   async function takePhoto() {
     const result = await capturePhoto();
@@ -51,10 +85,12 @@ export default function CarePhotoScreen({ route, navigation }: any) {
     setSending(true);
     try {
       const result = await submitCarePhotos(animalId, [photo]);
+      // The profile refetches on focus, so the gallery shows the photo
+      // once the alert takes the user back.
       Alert.alert(
-        result.alreadyCarer ? 'Zaten bakıcısın' : 'Artık bakıcısın',
+        result.alreadyCarer ? 'Fotoğraf eklendi' : 'Artık bakıcısın',
         result.alreadyCarer
-          ? `${displayName} için zaten bakım veriyorsun.`
+          ? 'Çektiğin fotoğraf galeriye eklendi.'
           : `${
               result.photoChecked ? 'Fotoğraf eşleşti. ' : ''
             }${displayName} için artık yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin. Takip de ediyorsun: haberleri sana gelir.`,
@@ -87,9 +123,13 @@ export default function CarePhotoScreen({ route, navigation }: any) {
 
   return (
     <Screen scroll>
-      <Text variant="heading">{displayName} için bakım ver</Text>
+      <Text variant="heading">
+        {carer ? `${displayName} için fotoğraf ekle` : `${displayName} için bakım ver`}
+      </Text>
       <Text variant="body" color="textBody" style={styles.lead}>
-        {`Şu an yanındaysan ${animalWord} net göründüğü yeni bir fotoğraf çek. Fotoğraf bu hayvanın kayıtlı fotoğraflarıyla karşılaştırılır; eşleşince bakıcısı olursun.`}
+        {carer
+          ? `Şu an yanındaysan ${animalWord} net göründüğü yeni bir fotoğraf çek; galerisine eklenir.`
+          : `Şu an yanındaysan ${animalWord} net göründüğü yeni bir fotoğraf çek. Fotoğraf bu hayvanın kayıtlı fotoğraflarıyla karşılaştırılır; eşleşince bakıcısı olursun.`}
       </Text>
 
       <Pressable
@@ -115,12 +155,15 @@ export default function CarePhotoScreen({ route, navigation }: any) {
           not something the app does behind your back. */}
       <SaveToGalleryRow style={styles.saveRow} />
 
-      <Card variant="tinted" style={styles.note}>
-        <Text variant="caption">
-          Bakıcılar yorum yazabilir, görülme bildirebilir, sağlık ve aşı kaydı ekleyebilir. Sadece
-          haber almak istiyorsan "takip et" yeter.
-        </Text>
-      </Card>
+      {/* What carer rights buy — news to someone who already holds them. */}
+      {!carer && (
+        <Card variant="tinted" style={styles.note}>
+          <Text variant="caption">
+            Bakıcılar yorum yazabilir, görülme bildirebilir, sağlık ve aşı kaydı ekleyebilir. Sadece
+            haber almak istiyorsan "takip et" yeter.
+          </Text>
+        </Card>
+      )}
 
       <Button
         title="Fotoğrafı gönder"

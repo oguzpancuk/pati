@@ -404,6 +404,7 @@ export async function unfollowAnimal(animalId: number): Promise<FollowState> {
 
 export interface CarePhotoResult {
   matched: true;
+  /** A carer's photos skip the comparison and are stored after the species screen (B1). */
   alreadyCarer: boolean;
   /** false when the model was off, did not answer, or the gallery had nothing to compare. */
   photoChecked: boolean;
@@ -421,7 +422,9 @@ export interface CarePhotoResult {
  * model with this animal's own gallery. A match makes the user a carer and
  * puts the photo in the gallery; a miss is a 422
  * `carePhotoMismatch` with a Turkish message, a wrong species a
- * `photoRejected` with `photoIndexes`. The AI fails open (ADR-0005).
+ * `photoRejected` with `photoIndexes`. An existing carer's photo is
+ * screened and stored with no comparison (`alreadyCarer`, "fotoğraf ekle").
+ * The AI fails open (ADR-0005).
  */
 export async function submitCarePhotos(
   animalId: number,

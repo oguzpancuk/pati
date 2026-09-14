@@ -97,7 +97,9 @@ export type TabStackParamList = {
   // confirmedAnimalId: set when returning from the match review via "that's
   // the one". confirmedMatchHit: whether the confirm may report a sighting.
   AddAnimal: { confirmedAnimalId?: number; confirmedMatchHit?: boolean } | undefined;
-  CarePhotos: { animalId: number; species: 'cat' | 'dog'; name?: string | null };
+  // carer: opened as the carer's "fotoğraf ekle"; a deep link leaves it
+  // (and often species and name) out, and the screen reads the profile.
+  CarePhotos: { animalId: number; species?: 'cat' | 'dog'; name?: string | null; carer?: boolean };
   NewConversation: undefined;
   // The swipeable full-screen viewer over the profile's photos (P6 item 7).
   AnimalPhotos: { animalId: number; photos: AnimalPhoto[]; index?: number };
