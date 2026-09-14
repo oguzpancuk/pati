@@ -32,16 +32,26 @@ IDP_PID=$!
 # AUTH_RATE_LIMIT: the checks make more credential-shaped requests from one
 # IP in a minute than the production brake allows (30 per 15 min); the
 # override is honoured outside production only (app.js).
+#
+# The model is pinned off: nothing here needs it, and a blank key wins over
+# backend/.env's real one (dotenv never overrides a variable that is set),
+# so no request of this harness can reach a paid API (storage-check, 2026-09-14).
 MAIL_OUTBOX_FILE="$OUTBOX" \
 AUTH_RATE_LIMIT=200 \
 GOOGLE_CLIENT_IDS="web-client.apps.googleusercontent.com" \
 GOOGLE_WEB_CLIENT_ID="web-client.apps.googleusercontent.com" \
 GOOGLE_JWKS_URL="$IDP/google/keys" GOOGLE_ISSUER="$IDP_ISS/google" \
+GEMINI_API_KEY= \
 PORT=$PORT node src/server.js >/tmp/pati-ev-api.log 2>&1 &
 API_PID=$!
 
 source scripts/check-lib.sh
 wait_for_ours "$IDP_PORT" "$IDP_PID" "dev IdP" "$IDP/google/keys" /tmp/pati-ev-idp.log || exit 1
 wait_for_ours "$PORT" "$API_PID" "backend" "http://localhost:$PORT/health" /tmp/pati-ev-api.log || exit 1
+
+# No model may answer here (see GEMINI_API_KEY above).
+grep -q "^ai: NOT CONFIGURED" /tmp/pati-ev-api.log || {
+  echo "the backend booted with a model configured:"; grep '^ai:' /tmp/pati-ev-api.log; exit 1
+}
 
 bash scripts/email-verification-check/checks.sh

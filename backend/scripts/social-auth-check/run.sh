@@ -33,17 +33,27 @@ IDP_PID=$!
 # The client ids below are fictional on purpose: what is being checked is that
 # the token's audience must match whatever this deployment was configured
 # with, not the ids themselves.
+#
+# The model is pinned off: nothing here needs it, and a blank key wins over
+# backend/.env's real one (dotenv never overrides a variable that is set),
+# so no request of this harness can reach a paid API (storage-check, 2026-09-14).
 APPLE_CLIENT_IDS="com.oguzpancuk.pati,com.oguzpancuk.pati.web" \
 APPLE_JWKS_URL="$IDP/apple/keys" APPLE_ISSUER="$IDP_ISS/apple" \
 GOOGLE_CLIENT_IDS="ios-client.apps.googleusercontent.com,web-client.apps.googleusercontent.com" \
 GOOGLE_WEB_CLIENT_ID="web-client.apps.googleusercontent.com" \
 GOOGLE_IOS_CLIENT_ID="ios-client.apps.googleusercontent.com" \
 GOOGLE_JWKS_URL="$IDP/google/keys" GOOGLE_ISSUER="$IDP_ISS/google" \
+GEMINI_API_KEY= \
 PORT=$PORT node src/server.js >/tmp/pati-social-check-api.log 2>&1 &
 API_PID=$!
 
 source scripts/check-lib.sh
 wait_for_ours "$IDP_PORT" "$IDP_PID" "dev IdP" "$IDP/google/keys" /tmp/pati-dev-idp.log || exit 1
 wait_for_ours "$PORT" "$API_PID" "backend" "http://localhost:$PORT/health" /tmp/pati-social-check-api.log || exit 1
+
+# No model may answer here (see GEMINI_API_KEY above).
+grep -q "^ai: NOT CONFIGURED" /tmp/pati-social-check-api.log || {
+  echo "the backend booted with a model configured:"; grep '^ai:' /tmp/pati-social-check-api.log; exit 1
+}
 
 bash scripts/social-auth-check/checks.sh
