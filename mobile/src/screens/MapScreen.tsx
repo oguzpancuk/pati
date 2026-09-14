@@ -40,6 +40,7 @@ import {
   distanceMeters,
   ensureLocationPermission,
   getCurrentLocation,
+  getCurrentLocationIfPermitted,
   hasLocationPermission,
   LocationPermissionError,
 } from '../location';
@@ -67,6 +68,12 @@ import { hitSlop, makeStyles, mapColors, radius, spacing, useTheme } from '../th
 // location the map opens on the whole world; the locate button and the
 // first fix take it to the user.
 const WORLD_CENTER: [number, number] = [20, 20];
+// The map asks for the location when it opens (owner decision, 2026-09-07)
+// — once per app session. A tab switch refocuses the map, and on Android
+// every refocus used to re-request: two "İzin verme" answers there made the
+// refusal permanent before the user had tapped a single action (C2). Later
+// focuses read without asking; the actions still ask every time.
+let askedOnOpenThisSession = false;
 // A pan fires a settle per gesture; the viewport refetch waits this long
 // for the map to stand still.
 const VIEWPORT_REFRESH_MS = 350;
@@ -301,14 +308,16 @@ export default function MapScreen({ navigation }: any) {
   }, [loadActionsIn]);
 
   const load = useCallback(
-    async (known?: Coordinates) => {
+    async (known?: Coordinates, ask = false) => {
       // Overlapping loads (a refocus during a slow first load, a drop right
       // after) race: without the sequence check, whichever response lands
       // LAST paints the map and the bottom sheet.
       const seq = ++loadSeqRef.current;
       setLoading(true);
       try {
-        const loc = known ?? (await getCurrentLocation().catch(() => null));
+        const loc =
+          known ??
+          (await (ask ? getCurrentLocation() : getCurrentLocationIfPermitted()).catch(() => null));
         if (seq !== loadSeqRef.current) return null;
         // The records follow the viewport, not a fixed box (worldwide).
         loadActionsForViewport();
@@ -329,7 +338,7 @@ export default function MapScreen({ navigation }: any) {
         // No fix: drop the last place's verdict, and tell the two reasons
         // apart — a denied permission is "we don't know where you are", a
         // granted one that produced no fix is a failed lookup (review
-        // finding). `getCurrentLocation` throws for both.
+        // finding). Both come back here as no location.
         const granted = await hasLocationPermission().catch(() => false);
         if (seq === loadSeqRef.current) {
           setStatuses(null);
@@ -353,7 +362,9 @@ export default function MapScreen({ navigation }: any) {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      const ask = !askedOnOpenThisSession;
+      askedOnOpenThisSession = true;
+      load(undefined, ask);
     }, [load])
   );
 
@@ -596,7 +607,7 @@ export default function MapScreen({ navigation }: any) {
    * `myLocation` effects). */
   async function locateMe() {
     try {
-      await ensureLocationPermission();
+      // The request comes first inside getCurrentLocation (C2).
       const loc = await getCurrentLocation();
       setMyLocation(loc);
       cameraRef.current?.setCamera({
