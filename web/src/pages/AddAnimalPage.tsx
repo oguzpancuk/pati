@@ -21,6 +21,7 @@ import {
 } from '../api';
 import { matchHitOf } from '../api/animalSocial';
 import { AnimalAvatar } from '../avatars';
+import { useAuth } from '../auth';
 import { useBadgeAwards } from '../badgeAwards';
 import { ChipRow } from '../components/ChipRow';
 import { PageHeader } from '../components/PageHeader';
@@ -83,14 +84,16 @@ async function addFlowPhotos(animalId: number, photos: File[], tokens: string[])
  * "Bu o — eşleştir" to bring the page back (owner batch 2026-09-14, B1). A
  * full page reload loses them, like the rest of the page's state; any other
  * return to the form drops them too, since the form then starts without
- * photos.
+ * photos. They belong to the account that took them: a web logout keeps the
+ * tab and its history, so another account pressing back to the review must
+ * not confirm with them.
  */
-let heldPhotos: { photos: File[]; tokens: string[] } | null = null;
+let heldPhotos: { ownerId: number; photos: File[]; tokens: string[] } | null = null;
 
-function takeHeldPhotos() {
+function takeHeldPhotos(userId: number | undefined) {
   const held = heldPhotos;
   heldPhotos = null;
-  return held;
+  return held && held.ownerId === userId ? held : null;
 }
 
 // The server usually responds instantly; show the "AI matching" screen for
@@ -133,12 +136,15 @@ interface Draft {
   name: string;
   markings: string;
   location: Coordinates | null;
+  /** The account that left the form; another account ignores the draft. */
+  ownerId?: number;
 }
 
-function readDraft(): Draft | null {
+function readDraft(userId: number | undefined): Draft | null {
   try {
     const raw = sessionStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as Draft) : null;
+    const draft = raw ? (JSON.parse(raw) as Draft) : null;
+    return draft && draft.ownerId === userId ? draft : null;
   } catch {
     return null;
   }
@@ -312,9 +318,10 @@ export default function AddAnimalPage() {
   const { celebrate } = useBadgeAwards();
   const routerLocation = useLocation();
   const fileRef = useRef<HTMLInputElement>(null);
+  const { me } = useAuth();
 
   // If a draft exists on return from the profile review, the form opens from it.
-  const [draft] = useState(readDraft);
+  const [draft] = useState(() => readDraft(me?.id));
   // No species preselected: the pattern and color pickers are species-bound
   // and stay hidden until this choice is made (sprint item 3 decision).
   const [species, setSpecies] = useState<Species | null>(draft?.species ?? null);
@@ -403,8 +410,8 @@ export default function AddAnimalPage() {
     confirmStarted.current = true;
     // Clear the router state so a reload does not confirm a second time.
     navigate('.', { replace: true, state: null });
-    const loc = readDraft()?.location;
-    const held = takeHeldPhotos();
+    const loc = readDraft(me?.id)?.location;
+    const held = takeHeldPhotos(me?.id);
     const openProfile = () => {
       sessionStorage.removeItem(DRAFT_KEY);
       navigate(`/hayvanlar/${confirmedAnimalId}`, { replace: true });
@@ -599,9 +606,17 @@ export default function AddAnimalPage() {
 
   /** Tapping a candidate opens its profile in review mode; stash the draft and go. */
   function reviewCandidate(animal: AnimalMatch) {
-    const toSave: Draft = { species, breed, colors: colorChoices, name, markings, location };
+    const toSave: Draft = {
+      species,
+      breed,
+      colors: colorChoices,
+      name,
+      markings,
+      location,
+      ownerId: me?.id,
+    };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(toSave));
-    heldPhotos = { photos, tokens: photoTokens };
+    heldPhotos = me ? { ownerId: me.id, photos, tokens: photoTokens } : null;
     // eslesme=1: the server logged a hit for this candidate, so "that's
     // the one" reports a sighting and makes the user a carer; kontrol=0:
     // no model looked at the photo (the hint differs).
