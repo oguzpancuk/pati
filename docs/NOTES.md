@@ -4112,25 +4112,44 @@ navigation change, were driven and do pass.
 completed, so 013/014/015 are applied; `/health` answers `{"status":"ok"}` and
 both `pati-app.com` and `admin.pati-app.com` answer 200.
 
-015 left nothing behind: **0** awards with a `streak:` key, **0** users with
-one in `featured_badges`, and the row count still matched the pre-deploy
-snapshot (15,788) before the recompute. `user_badge_awards_pre015` is that
-snapshot; it is the way back from the whole badge change and nothing since has
-touched it.
+015 left nothing behind: **0** awards with a `streak:` key and the row count
+still matching the pre-deploy snapshot (15,788) before the recompute. The
+`featured_badges` zero is the migration's own postcondition rather than
+independent evidence — it rewrites exactly those keys, so the count is
+guaranteed once it runs at all; how many people had featured a streak badge
+before is not recorded anywhere and is now unrecoverable.
+
+`user_badge_awards_pre015` is that snapshot and nothing since has touched it,
+but be precise about what it can restore: **the award rows only.**
+`users.last_points` (which `recompute-badges.js` rewrites for every user),
+`users.featured_badges` (which 015 rewrites in place) and the ladders
+themselves (`CARE_THRESHOLDS` in the code, so a v38 rollback) are not in it.
+Restoring the table alone would leave every user's points on the count ladder
+while the awards and the live rule disagree — the next badge popup would count
+points *down*, which is the defect the script's "mark seen" handling exists to
+prevent. It would also drop anything live traffic awarded after the snapshot.
 
 `recompute-badges.js` then ran against 2229 users and rewrote every tier:
 6,582 care awards → **14,193**, **0 demotions**. The demotion analysis said
 food and water were the risky ladders (7-9 records dropping silver→bronze,
 30-49 gold→silver) and in the event nobody was in those bands — the seeded
 world feeds far past 50 records, and the 29 real accounts have almost no care
-history at all (the busiest has two food, two water and four animals). Nobody
-lost anything, which is why the checkpoint before the real run was worth
-keeping even though it turned out to be uneventful.
+history at all (the busiest has two food, two water and four animals). No tier
+was lost, which is why the checkpoint before the real run was worth keeping
+even though it turned out to be uneventful.
+
+One thing was lost, and it is not a tier: the script deletes and re-inserts,
+and the INSERT does not carry `created_at` over, so every pre-existing care
+award now reads as earned on the deploy day (with `points_before`,
+`rank_before`, `rank_after` and `level_before` null, as the script's own
+comment says). Someone who earned a gold food badge in August sees it dated
+2026-09-12.
 
 What changed is the shape of the demo world, not the real one: `care:feeder`
 gained 2,193 gold and `care:water` 987, because a count ladder of 1/10/50/250
-is far easier to climb than 7/30/365 consecutive days. No diamond exists yet
-anywhere.
+is far easier to climb than 7/30/365 consecutive days. No **care** diamond
+exists yet; the recompute's breakdown says nothing about the breed, follower,
+comment, health and vaccine ladders, which it never touched.
 
 Checked live rather than inferred: the badge layer hands a real account
 `care:feeder` bronze "2 / 10 kayıt", `care:water` bronze "2 / 10 kayıt",
