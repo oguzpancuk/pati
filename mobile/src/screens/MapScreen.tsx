@@ -72,7 +72,10 @@ const WORLD_CENTER: [number, number] = [20, 20];
 // — once per app session. A tab switch refocuses the map, and on Android
 // every refocus used to re-request: two "İzin verme" answers there made the
 // refusal permanent before the user had tapped a single action (C2). Later
-// focuses read without asking; the actions still ask every time.
+// focuses read without asking, which the OS permission check answers
+// exactly; the actions still ask every time. The web map asks on every open
+// instead: a browser may grant the page yet keep reporting 'prompt' to the
+// Permissions API, so a read-only return there could lose the location.
 let askedOnOpenThisSession = false;
 // A pan fires a settle per gesture; the viewport refetch waits this long
 // for the map to stand still.

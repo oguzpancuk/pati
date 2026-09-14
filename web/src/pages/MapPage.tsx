@@ -35,7 +35,6 @@ import {
 } from '../api';
 import {
   getCurrentLocation,
-  getCurrentLocationIfPermitted,
   describeLocationError,
   hasLocationPermission,
   isPermissionFailure,
@@ -68,13 +67,6 @@ const VIEWPORT_REFRESH_MS = 350;
 // Below this zoom the map centre is not a place: a drop without a location
 // is refused instead of landing in the middle of a continent.
 const DROP_FALLBACK_MIN_ZOOM = 14;
-// The map asks for the location when it opens (owner decision, 2026-09-07)
-// — once per page session, like mobile's once per app session (C2). Coming
-// back to the map from another tab reads without asking: every re-ask of a
-// dismissed prompt counts toward Chrome's automatic block, which would make
-// the refusal permanent before the user tapped a single action. The actions
-// still ask every time.
-let askedOnOpenThisSession = false;
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 // Animals are drawn only near the user (500 m, owner decision 2026-09-08 —
 // was 200 m) and from neighbourhood scale on (15 — was 17; overlapping
@@ -603,24 +595,30 @@ export default function MapPage() {
     mapRef.current = map;
     setMapReady(true);
 
-    const ask = !askedOnOpenThisSession;
-    askedOnOpenThisSession = true;
-    (ask ? getCurrentLocation() : getCurrentLocationIfPermitted())
-      .catch(() => null)
-      .then(async (loc) => {
+    // The map asks for the location every time it opens (owner decision,
+    // 2026-09-07); a page that already holds the permission gets no prompt,
+    // only the fix. Mobile asks only on the first open of an app session
+    // (C2), because there every re-request on a tab focus counts toward
+    // Android's two-denial limit and the OS permission check is exact. Web
+    // keeps asking: a later open that only read when the Permissions API
+    // said 'granted' would lose the location wherever a browser grants the
+    // page but goes on reporting 'prompt' — the likely shape of iOS Safari's
+    // default per-site "Ask", the phone this PWA is most used on.
+    getCurrentLocation()
+      .then((loc) => {
         // The location can arrive after leaving the page; guard against the
         // map having been removed.
         if (mapRef.current !== map) return;
-        if (loc) {
-          setMyLocation(loc);
-          map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
-          placeUserDot(loc);
-          return;
-        }
+        setMyLocation(loc);
+        map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
+        placeUserDot(loc);
+      })
+      .catch(async () => {
         // Without a location the map stays on the world view. A granted
         // permission that produced no fix is a failed lookup, a refused
         // one is "we don't know where you are" — the sheet says which
         // (mobile does the same with hasLocationPermission).
+        if (mapRef.current !== map) return;
         setStatusFailed(await hasLocationPermission());
       });
 

@@ -4,8 +4,11 @@
  * only request, the one call that can show its prompt — and the warning
  * comes only from that call's answer, classified by `isPermissionFailure`.
  * `navigator.permissions.query` and the session flag below never decide an
- * action; they only feed readers (lists, care alerts, the map's later
- * opens), which never prompt.
+ * action; they only feed readers (lists, care alerts), which never prompt.
+ * The map asks on every open (a granted page sees no prompt), unlike
+ * mobile's once per app session: a read-only return would trust the
+ * Permissions API, which a browser may leave at 'prompt' after a grant
+ * (see MapPage).
  *
  * What no page can change: after "Engelle" (or Chrome's automatic block
  * after repeated dismissals) the browser answers the request with a refusal
@@ -121,11 +124,13 @@ export async function hasLocationPermission(): Promise<boolean> {
 
 /**
  * The location when the permission is already granted, null otherwise —
- * never shows the browser's prompt. Lists, care alerts and the map's later
- * opens use this: the prompt belongs to the moment the user does something
- * that needs a location (an action, or the map's first open; owner
- * decision, 2026-09-07, mobile parity), not to opening a list. A failed fix
- * counts as "no location" too.
+ * never shows the browser's prompt. Lists and care alerts use this: the
+ * prompt belongs to the moment the user does something that needs a
+ * location (an action, or opening the map; owner decision, 2026-09-07,
+ * mobile parity), not to opening a list. A failed fix counts as "no
+ * location" too. It trusts `hasLocationPermission`, so it can miss a grant
+ * the Permissions API does not report — acceptable for a list, not for the
+ * map.
  */
 export async function getCurrentLocationIfPermitted(): Promise<Coordinates | null> {
   if (!(await hasLocationPermission())) return null;
