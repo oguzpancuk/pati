@@ -19,8 +19,12 @@ import { useEffect } from 'react';
  *  - a focused text field: the keyboard belongs to it;
  *  - scale ≈ 1: a pinch-zoomed viewport is also "shorter" and must not pin
  *    (the 16px inputs keep iOS from zooming on focus, see theme.css);
- *  - the visual viewport clearly shorter than the layout: a browser that
- *    honours resizes-content shrinks both, and nothing needs pinning there.
+ *  - the visual viewport clearly shorter than the tallest layout seen at
+ *    this width. Safari keeps the layout and shrinks only the visual
+ *    viewport. A browser that honours resizes-content shrinks both, so the
+ *    layout of a moment ago is the only witness to its keyboard; pinning
+ *    there moves nothing, but it still hides the tab bar, which would
+ *    otherwise sit between the composer and the keyboard.
  *
  * Scoped to the page that mounts it (ConversationPage), because the shell's
  * other pages scroll inside `.page`, and moving the shell down by the pan
@@ -80,6 +84,10 @@ export function useKeyboardViewport(): void {
     let frame = 0;
     let focusLeft = false;
     let pinned: { top: number; height: number; field: Element } | null = null;
+    // A rotation starts over; a keyboard that is up during it goes unseen
+    // until it closes once at the new width.
+    let baseWidth = root.clientWidth;
+    let baseHeight = root.clientHeight;
 
     const unpin = () => {
       pinned = null;
@@ -102,7 +110,13 @@ export function useKeyboardViewport(): void {
           window.scrollTo(0, 0);
         }
       }
-      if (!typing || !unzoomed || root.clientHeight - vv.height <= KEYBOARD_MIN_PX) {
+      if (root.clientWidth !== baseWidth) {
+        baseWidth = root.clientWidth;
+        baseHeight = root.clientHeight;
+      } else {
+        baseHeight = Math.max(baseHeight, root.clientHeight);
+      }
+      if (!typing || !unzoomed || baseHeight - vv.height <= KEYBOARD_MIN_PX) {
         if (pinned) unpin();
         return;
       }
