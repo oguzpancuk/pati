@@ -666,7 +666,9 @@ function carersOnly(res, what) {
 // with a photo the model judged the SAME animal as this one (or that no
 // model judged at all — see matchHitsOf; a field-only match, a 'similar'
 // or an 'unsure' opens nothing, and the clients then open the profile
-// without a sighting). That logged hit, fresh, stands as the care-photo
+// without a sighting — unless the viewer already is a carer, who reports
+// through the carer door below with or without a hit). That logged hit,
+// fresh, stands as the care-photo
 // step would and makes the reporter a carer. The flow's photos are not
 // part of this request: after a 200 the clients redeem their match tokens
 // through addPhoto, as the create path does (B1, 2026-09-14).

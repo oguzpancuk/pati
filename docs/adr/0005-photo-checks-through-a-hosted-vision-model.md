@@ -368,8 +368,13 @@ rights. Two places dropped them without a word.
   per photo, the token first and the file itself when the token has
   expired. No backend change was needed: the carer rights the sighting
   grants are what `addPhoto` checks. A refused sighting uploads nothing
-  (an expired hit usually comes with expired tokens). "Bu o — profili aç"
-  (no hit) still sends nothing, because that user is not a carer. On the
+  (an expired hit usually comes with expired tokens), and the clients now
+  say so ("Eşleşmenin süresi doldu…") before opening the profile. Without a
+  hit the button reads "Bu o — profili aç" and sends nothing, because that
+  user is not a carer — unless the viewer already is one: a carer may
+  report a sighting without a hit (`reportSighting` lets carers in) and add
+  photos, so for them the button is "Bu o — eşleştir" and runs the same
+  confirm, moving the animal to them and adding the photos. On the
   web the candidate's profile unmounts the form and a `File` cannot go
   into the sessionStorage draft, so the photos wait in module memory
   until the confirm; a full page reload loses them.
