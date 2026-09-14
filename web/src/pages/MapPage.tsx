@@ -256,12 +256,6 @@ export default function MapPage() {
   // A second tile tap while the browser is still answering must not stack
   // a second request.
   const dropAskInFlightRef = useRef(false);
-  // The tile's permission refusal in this opening of the drop sheet. The
-  // confirm then goes straight to the map-centre fallback instead of asking
-  // again: within one drop that request would show nothing new, or a prompt
-  // the user just dismissed — and each dismissal counts toward Chrome's
-  // automatic block. Cleared on every opening, which asks again.
-  const dropRefusalRef = useRef<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The warning a location answer put up (the banner, and the drop sheet,
@@ -863,13 +857,7 @@ export default function MapPage() {
       // the spot they're looking at anyway. The mobile app requires the real
       // location; web is more lenient (see docs/NOTES.md).
       let usedFallback: string | null = null;
-      // Refused at the tile in this opening: no second request, straight to
-      // the fallback below (see dropRefusalRef).
-      const tileRefusal = dropRefusalRef.current;
-      const located: Promise<Coordinates> = tileRefusal
-        ? Promise.reject(tileRefusal)
-        : getCurrentLocation();
-      loc = await located.catch((err) => {
+      loc = await getCurrentLocation().catch((err) => {
         // The map centre stands in for a fix only while the map is zoomed
         // into a street (worldwide, one pixel can be hundreds of km — a
         // record at the centre of a world view would be nonsense).
@@ -946,7 +934,6 @@ export default function MapPage() {
     setPendingPhoto(null);
     setDropType(type);
     setConfirmOpen(true);
-    dropRefusalRef.current = null;
     askForDropLocation();
   }
 
@@ -970,7 +957,6 @@ export default function MapPage() {
       placeUserDot(loc);
     } catch (err) {
       if (isPermissionFailure(err)) {
-        dropRefusalRef.current = err;
         warnAboutLocation(
           `${describeLocationError(err)} Konum olmadan bırakmak için haritayı sokak ` +
             'seviyesine yakınlaştır; kayıt haritanın ortasına düşer.'
