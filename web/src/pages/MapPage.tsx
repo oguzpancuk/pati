@@ -35,8 +35,10 @@ import {
 } from '../api';
 import {
   getCurrentLocation,
+  getCurrentLocationIfPermitted,
   describeLocationError,
   hasLocationPermission,
+  isPermissionFailure,
   Coordinates,
 } from '../location';
 import { resolvedThemeName } from '../theme';
@@ -66,6 +68,13 @@ const VIEWPORT_REFRESH_MS = 350;
 // Below this zoom the map centre is not a place: a drop without a location
 // is refused instead of landing in the middle of a continent.
 const DROP_FALLBACK_MIN_ZOOM = 14;
+// The map asks for the location when it opens (owner decision, 2026-09-07)
+// — once per page session, like mobile's once per app session (C2). Coming
+// back to the map from another tab reads without asking: every re-ask of a
+// dismissed prompt counts toward Chrome's automatic block, which would make
+// the refusal permanent before the user tapped a single action. The actions
+// still ask every time.
+let askedOnOpenThisSession = false;
 const ACTION_CIRCLE_RADIUS_METERS = 100;
 // Animals are drawn only near the user (500 m, owner decision 2026-09-08 —
 // was 200 m) and from neighbourhood scale on (15 — was 17; overlapping
@@ -252,6 +261,9 @@ export default function MapPage() {
   // must not let the stale timer flip a fresh sheet to a photo-less
   // "approved" (review finding). Bumped on open, cancel, and dismiss.
   const aiCheckRunRef = useRef(0);
+  // A second tile tap while the browser is still answering must not stack
+  // a second request.
+  const dropAskInFlightRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoomHint, setZoomHint] = useState(false);
@@ -591,21 +603,24 @@ export default function MapPage() {
     mapRef.current = map;
     setMapReady(true);
 
-    getCurrentLocation()
-      .then((loc) => {
+    const ask = !askedOnOpenThisSession;
+    askedOnOpenThisSession = true;
+    (ask ? getCurrentLocation() : getCurrentLocationIfPermitted())
+      .catch(() => null)
+      .then(async (loc) => {
         // The location can arrive after leaving the page; guard against the
         // map having been removed.
         if (mapRef.current !== map) return;
-        setMyLocation(loc);
-        map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
-        placeUserDot(loc);
-      })
-      .catch(async () => {
+        if (loc) {
+          setMyLocation(loc);
+          map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
+          placeUserDot(loc);
+          return;
+        }
         // Without a location the map stays on the world view. A granted
         // permission that produced no fix is a failed lookup, a refused
         // one is "we don't know where you are" — the sheet says which
         // (mobile does the same with hasLocationPermission).
-        if (mapRef.current !== map) return;
         setStatusFailed(await hasLocationPermission());
       });
 
@@ -894,23 +909,8 @@ export default function MapPage() {
     }
   }
 
-  /** A tile pressed: surface the denied-permission guidance, open the sheet for that type. */
-  async function openDrop(type: CareType) {
-    // Mobile parity, browser-shaped: the browser can't open OS settings,
-    // so a denied permission surfaces the guidance text inside the modal
-    // up front (web still allows dropping at the map center by design —
-    // see docs/NOTES.md).
-    try {
-      const perm = await navigator.permissions?.query({ name: 'geolocation' });
-      if (perm?.state === 'denied') {
-        setError(
-          'Konum izni verilmedi. Tarayıcı ayarlarından bu siteye konum izni verebilirsin; ' +
-            'vermezsen haritayı sokak seviyesine yakınlaştır, kayıt haritanın ortasına düşsün.'
-        );
-      }
-    } catch {
-      // Permissions API unavailable (older Safari): behave as before.
-    }
+  /** A tile pressed: open the sheet for that type and ask for the location beside it. */
+  function openDrop(type: CareType) {
     // A leftover 'approved' from the previous run would skip the confirm
     // content (state resets on open, not on close — see handleConfirmDrop).
     aiCheckRunRef.current++;
@@ -918,6 +918,36 @@ export default function MapPage() {
     setPendingPhoto(null);
     setDropType(type);
     setConfirmOpen(true);
+    askForDropLocation();
+  }
+
+  /**
+   * The tile is an action, so it asks the browser (C2, mobile parity): the
+   * prompt comes with the sheet, and the guidance answers only a refusal of
+   * this request — it used to come from `permissions.query` with no request
+   * at all. Two deliberate differences from mobile: the sheet opens at once
+   * rather than after the answer (the browser's only request is a whole fix,
+   * which can take seconds after a grant; mobile's is the bare permission),
+   * and it stays open after a refusal, because web can still drop at the map
+   * centre (see docs/NOTES.md).
+   */
+  async function askForDropLocation() {
+    if (dropAskInFlightRef.current) return;
+    dropAskInFlightRef.current = true;
+    try {
+      const loc = await getCurrentLocation();
+      setMyLocation(loc);
+      placeUserDot(loc);
+    } catch (err) {
+      if (isPermissionFailure(err)) {
+        setError(
+          `${describeLocationError(err)} Konum olmadan bırakmak için haritayı sokak ` +
+            'seviyesine yakınlaştır; kayıt haritanın ortasına düşer.'
+        );
+      }
+    } finally {
+      dropAskInFlightRef.current = false;
+    }
   }
 
   // The status line reads both types at once; unknown counts as missing
