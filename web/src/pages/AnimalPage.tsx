@@ -969,10 +969,16 @@ export default function AnimalPage() {
             <button className="btn secondary grow" onClick={backToMatches}>
               Geri dön
             </button>
+            {/* The confirm takes this review's place in history (mobile
+                parity: the confirm pops the review there). A pushed confirm
+                left the review one browser back away while "Kaydediliyor…"
+                was still reporting, and "Bu o" again there reported a second
+                sighting (a second notification to the followers). */}
             <button
               className="btn grow"
               onClick={() =>
                 navigate('/hayvanlar/yeni', {
+                  replace: true,
                   state: { confirmedAnimalId: animalId, confirmedMatchHit: matchHit },
                 })
               }
