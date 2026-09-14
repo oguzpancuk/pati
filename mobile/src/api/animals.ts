@@ -322,7 +322,8 @@ export async function addVaccination(
 }
 
 // Reports a sighting of a registered animal: moves its current location here
-// and adds the reporter to the care list.
+// and adds the reporter to the care list. The add-animal flow then adds its
+// photos with addAnimalPhoto, as a carer (B1).
 export async function reportSighting(animalId: number, lat: number, lng: number): Promise<Animal> {
   const { data } = await apiClient.post<Animal>(`/animals/${animalId}/sightings`, { lat, lng });
   return data;

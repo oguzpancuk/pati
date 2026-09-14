@@ -316,15 +316,27 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     // The record exists from here on: a photo that fails still lands the
     // user on the profile (with the reason), never back on a form whose
     // save would register the animal twice.
+    await addFlowPhotos(animal.id, tokens);
+    setSubmitting(false);
+    navigation.replace('AnimalProfile', { animalId: animal.id });
+    celebrate(animal);
+  }
+
+  /**
+   * The flow's photos into a gallery the user holds carer rights on: the
+   * animal just created, or the existing one "Bu o — eşleştir" confirmed.
+   * Never throws — the record or the sighting already stands, so a photo
+   * that fails only earns the alert on the way to the profile.
+   */
+  async function addFlowPhotos(animalId: number, tokens: string[]) {
     const failures: string[] = [];
     await Promise.all(
       photos.map((photo, i) =>
-        uploadAnimalPhoto(animal.id, photo, tokens[i]).catch((err: any) => {
+        uploadAnimalPhoto(animalId, photo, tokens[i]).catch((err: any) => {
           failures.push(err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
         })
       )
     );
-    setSubmitting(false);
     if (failures.length > 0) {
       Alert.alert(
         failures.length === photos.length
@@ -333,8 +345,6 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         `${failures[0]} Fotoğrafı daha sonra profilden ekleyebilirsin.`
       );
     }
-    navigation.replace('AnimalProfile', { animalId: animal.id });
-    celebrate(animal);
   }
 
   // Tapping a candidate opens the profile in "review" mode: let the user
@@ -391,11 +401,13 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     setSubmitting(true);
     try {
       await reportSighting(animalId, location.lat, location.lng);
-      navigation.replace('AnimalProfile', { animalId });
     } catch (err: any) {
+      setSubmitting(false);
       // Carers only: without a 'same' verdict the confirm cannot make the
       // user a carer — the decision is still made, so the profile opens
-      // (web parity); "bakım ver" is the way in from there.
+      // (web parity); "bakım ver" is the way in from there. Nothing to
+      // upload either way: the photos need the rights the sighting failed
+      // to grant (an expired hit and expired tokens come together).
       if (err?.response?.data?.code === 'carersOnly') {
         navigation.replace('AnimalProfile', { animalId });
         return;
@@ -404,9 +416,16 @@ export default function AddAnimalScreen({ navigation, route }: any) {
         'Güncellenemedi',
         err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu'
       );
-    } finally {
-      setSubmitting(false);
+      return;
     }
+    // The sighting made the user a carer, so the photos taken for this
+    // flow join the animal's gallery exactly as they would a new one's
+    // (owner batch 2026-09-14, B1). The server once had a match-hit door on
+    // addPhoto for this very step; no client ever sent the photos, and the
+    // door was removed to match — they were silently dropped until now.
+    await addFlowPhotos(animalId, photoTokens);
+    setSubmitting(false);
+    navigation.replace('AnimalProfile', { animalId });
   }
 
   if (step === 'matching' && species) {
