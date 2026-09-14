@@ -1904,17 +1904,19 @@ strong {
   color: #ff8a65;
 }
 
-/* The two camera slots of the care-photo sheet. */
+/* The care-photo sheet's camera slot: one since 2026-09-14 (C1), across
+   the sheet at 4:3 like mobile's — a full-width square pushed the send
+   button out of a phone-height sheet. */
 .care-slots {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 10px;
   margin: 12px 0;
 }
 
 .care-slot {
   position: relative;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 3;
   border: none;
   border-radius: var(--radius);
   overflow: hidden;

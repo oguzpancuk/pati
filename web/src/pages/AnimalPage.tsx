@@ -239,13 +239,14 @@ export default function AnimalPage() {
   // The badge ladder (P7 item 3) opens from a header chip; the tapped key
   // is the highlighted row.
   const [ladderKey, setLadderKey] = useState<string | null>(null);
-  // "Bakım ver" (P6 item 8): the two-photo sheet.
+  // "Bakım ver" (P6 item 8): the camera-photo sheet — one slot since
+  // 2026-09-14 (C1), as on mobile; the server still takes two for older apps.
   const [careOpen, setCareOpen] = useState(false);
-  const [carePhotos, setCarePhotos] = useState<(File | null)[]>([null, null]);
+  const [carePhoto, setCarePhoto] = useState<File | null>(null);
   const [careError, setCareError] = useState<string | null>(null);
   const [careDone, setCareDone] = useState<string | null>(null);
   const [careSending, setCareSending] = useState(false);
-  const careInputs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const careInput = useRef<HTMLInputElement>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [commentTotal, setCommentTotal] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -475,43 +476,38 @@ export default function AnimalPage() {
   }
 
   function openCare() {
-    setCarePhotos([null, null]);
+    setCarePhoto(null);
     setCareError(null);
     setCareDone(null);
     setCareOpen(true);
   }
 
   async function sendCarePhotos() {
-    const ready = carePhotos.filter((p): p is File => !!p);
-    if (ready.length < 2 || !animal) return;
+    if (!carePhoto || !animal) return;
     setCareSending(true);
     setCareError(null);
     try {
-      const result = await submitCarePhotos(animalId, ready);
+      const result = await submitCarePhotos(animalId, [carePhoto]);
       setCareDone(
         result.alreadyCarer
           ? 'Zaten bakım veriyorsun.'
           : `${
-              result.photoChecked ? 'Fotoğraflar eşleşti — artık' : 'Artık'
+              result.photoChecked ? 'Fotoğraf eşleşti — artık' : 'Artık'
             } bakıcısın. Yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin. Takip de ediyorsun: haberleri sana gelir.`
       );
       await load();
     } catch (err) {
       // Two codes, one remedy: `photoRejected` is the model saying it sees
       // no animal, `photoUnreadable` is the server saying it cannot decode
-      // the file at all. Either way the offending slot empties so the
-      // retake is obvious — without this the slot stayed filled and the
-      // next send reproduced the same error (review finding).
+      // the file at all. Either way the slot empties so the retake is
+      // obvious — without this the slot stayed filled and the next send
+      // reproduced the same error (review finding). With one photo sent,
+      // any refusal is about that photo: no index to map.
       if (
         err instanceof ApiError &&
         (err.code === 'photoRejected' || err.code === 'photoUnreadable')
       ) {
-        const listed = err.data.photoIndexes as number[] | undefined;
-        const refused = new Set(
-          listed ??
-            (Number.isInteger(err.data.photoIndex) ? [err.data.photoIndex as number] : [0, 1])
-        );
-        setCarePhotos((prev) => prev.map((p, i) => (refused.has(i) ? null : p)));
+        setCarePhoto(null);
       }
       setCareError(err instanceof Error ? err.message : 'Gönderilemedi');
     } finally {
@@ -601,7 +597,7 @@ export default function AnimalPage() {
   // The grid always fills to a multiple of 3: real tiles + dashed "photo"
   // placeholders — even an empty profile invites.
   // The hero shows two rows at most (review finding): every accepted
-  // "bakım ver" adds two photos, so an unbounded grid would push the name
+  // "bakım ver" adds a photo, so an unbounded grid would push the name
   // and the action pair below the fold. The last tile carries "+N" and
   // opens the viewer on the rest.
   const heroPhotos = animal.photos.slice(0, HERO_PHOTOS);
@@ -695,7 +691,7 @@ export default function AnimalPage() {
       </div>
 
       {/* Follow vs. care (P6 item 8): "takip et" has no condition and
-          toggles; "bakım ver" is the two-photo step. Hidden in match review. */}
+          toggles; "bakım ver" is the camera-photo step. Hidden in match review. */}
       {!matchReview && (
         <div className="row animal-actions">
           <button
@@ -896,7 +892,7 @@ export default function AnimalPage() {
           instead of a sticky bar (P8 review). */}
       {!matchReview && !animal.isCarer && (
         <div className="card flat carer-door">
-          <p className="muted">Yorum yazmak bakıcılara açık. İki yeni fotoğrafla sen de katıl.</p>
+          <p className="muted">Yorum yazmak bakıcılara açık. Yeni bir fotoğrafla sen de katıl.</p>
           <button className="btn small full" onClick={openCare}>
             📷 bakım ver
           </button>
@@ -1129,41 +1125,35 @@ export default function AnimalPage() {
               <>
                 <p className="muted" style={{ marginTop: 0 }}>
                   Şu an yanındaysan {animal.species === 'dog' ? 'köpeğin' : 'kedinin'} net göründüğü
-                  iki yeni fotoğraf çek. Fotoğraflar bu hayvanın kayıtlı fotoğraflarıyla
+                  yeni bir fotoğraf çek. Fotoğraf bu hayvanın kayıtlı fotoğraflarıyla
                   karşılaştırılır; eşleşince bakıcısı olursun.
                 </p>
                 <div className="care-slots">
-                  {carePhotos.map((file, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={`care-slot ${file ? '' : 'empty'}`}
-                      onClick={() => careInputs[i].current?.click()}
-                      aria-label={
-                        file ? `${i + 1}. fotoğrafı yeniden çek` : `${i + 1}. fotoğrafı çek`
-                      }
-                    >
-                      {file ? (
-                        <img src={URL.createObjectURL(file)} alt="" />
-                      ) : (
-                        <span>📷 {i + 1}. fotoğraf</span>
-                      )}
-                      {/* `capture`: the camera on a phone, the picker on a desktop. */}
-                      <input
-                        ref={careInputs[i]}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        hidden
-                        onChange={(e) => {
-                          const picked = e.target.files?.[0] ?? null;
-                          if (picked)
-                            setCarePhotos((prev) => prev.map((p, j) => (j === i ? picked : p)));
-                          e.target.value = '';
-                        }}
-                      />
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    className={`care-slot ${carePhoto ? '' : 'empty'}`}
+                    onClick={() => careInput.current?.click()}
+                    aria-label={carePhoto ? 'Fotoğrafı yeniden çek' : 'Fotoğraf çek'}
+                  >
+                    {carePhoto ? (
+                      <img src={URL.createObjectURL(carePhoto)} alt="" />
+                    ) : (
+                      <span>📷 Fotoğraf çek</span>
+                    )}
+                    {/* `capture`: the camera on a phone, the picker on a desktop. */}
+                    <input
+                      ref={careInput}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      hidden
+                      onChange={(e) => {
+                        const picked = e.target.files?.[0] ?? null;
+                        if (picked) setCarePhoto(picked);
+                        e.target.value = '';
+                      }}
+                    />
+                  </button>
                 </div>
                 {careError && <div className="error">{careError}</div>}
                 <p className="subtle">
@@ -1172,10 +1162,10 @@ export default function AnimalPage() {
                 </p>
                 <button
                   className="btn full"
-                  disabled={careSending || carePhotos.some((p) => !p)}
+                  disabled={careSending || !carePhoto}
                   onClick={sendCarePhotos}
                 >
-                  {careSending ? 'Gönderiliyor…' : 'Fotoğrafları gönder'}
+                  {careSending ? 'Gönderiliyor…' : 'Fotoğrafı gönder'}
                 </button>
                 <button
                   className="btn ghost full"

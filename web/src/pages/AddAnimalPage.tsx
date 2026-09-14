@@ -27,7 +27,9 @@ import { ChipRow } from '../components/ChipRow';
 import { PageHeader } from '../components/PageHeader';
 import { Coordinates, getCurrentLocation, describeLocationError } from '../location';
 
-const MIN_PHOTOS = 2;
+// One photo, taken with the camera on this page (owner batch 2026-09-14,
+// C1), as on mobile. Up to six still fit — only the first is compared.
+const MIN_PHOTOS = 1;
 const MAX_PHOTOS = 6;
 
 /**
@@ -387,7 +389,7 @@ export default function AddAnimalPage() {
       return;
     }
     if (photos.length < MIN_PHOTOS) {
-      setError(`En az ${MIN_PHOTOS} fotoğraf eklemelisin.`);
+      setError('En az bir fotoğraf çekmelisin.');
       return;
     }
     setError(null);
@@ -435,7 +437,7 @@ export default function AddAnimalPage() {
         // could not decode the file at all, so it refused the batch rather
         // than store something whose EXIF it cannot strip. Either way the
         // offending photo leaves the strip, the reason stays above the form,
-        // and the user picks another — no "add anyway".
+        // and the user takes another — no "add anyway".
         const listed = err.data.photoIndexes;
         const refused = new Set<number>(
           Array.isArray(listed) && listed.length > 0
@@ -748,7 +750,7 @@ export default function AddAnimalPage() {
         />
       </label>
 
-      <div className="label">fotoğraflar (en az {MIN_PHOTOS})</div>
+      <div className="label">fotoğraf (en az bir)</div>
       <div className="row" style={{ flexWrap: 'wrap' }}>
         {photos.map((_p, i) => (
           <span key={i} className="round" style={{ width: 64, height: 64, position: 'relative' }}>
@@ -789,17 +791,20 @@ export default function AddAnimalPage() {
         ))}
         {photos.length < MAX_PHOTOS && (
           <button className="btn secondary small" onClick={() => fileRef.current?.click()}>
-            📷 Ekle
+            📷 Çek
           </button>
         )}
       </div>
-      {/* `multiple`, no `capture`: several gallery photos in one pass, like
-          the mobile picker — capture forced the camera and single-shot. */}
+      {/* `capture`, no `multiple` (C1): one shot with the camera per tap, like
+          the map's drop and the care sheet — a phone opens the camera with no
+          library door. Desktop browsers ignore `capture` and show a file
+          picker; nothing on the web can stop that, and the server cannot
+          tell a taken photo from a picked one (ADR-0005, 2026-09-14). */}
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
-        multiple
+        capture="environment"
         hidden
         onChange={(e) => {
           const picked = Array.from(e.target.files ?? []);

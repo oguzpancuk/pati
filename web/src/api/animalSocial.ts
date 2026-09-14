@@ -88,8 +88,9 @@ export interface CarePhotoResult {
 }
 
 /**
- * "Bakım ver": two fresh photos, screened for the species and compared
- * with this animal's own gallery. A miss is a 422 `carePhotoMismatch`
+ * "Bakım ver": a fresh camera photo (the sheet sends one; the server takes
+ * up to two), screened for the species and compared with this animal's
+ * own gallery. A miss is a 422 `carePhotoMismatch`
  * (Turkish message), a wrong species `photoRejected` with `photoIndexes`.
  */
 export function submitCarePhotos(animalId: number, photos: File[]) {
