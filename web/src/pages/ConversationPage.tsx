@@ -19,6 +19,7 @@ import {
   withDeleted,
 } from '../api/messages';
 import { UserAvatar } from '../avatars';
+import { useKeyboardViewport } from '../keyboardViewport';
 import '../styles/messages.css';
 
 const PAGE = 50;
@@ -69,6 +70,7 @@ export default function ConversationPage() {
   // such a distance stale, while scrollTop only ever moves with a scroll.
   const lastTop = useRef(0);
   const lastHeight = useRef(0);
+  useKeyboardViewport();
 
   const scrollToBottom = useCallback(() => {
     const el = listRef.current;

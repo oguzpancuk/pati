@@ -49,3 +49,33 @@
   line-height: 17px;
   text-align: center;
 }
+
+/* ---- the keyboard in a conversation (B2) -------------------------- */
+
+/* keyboardViewport.ts sets `data-keyboard` and the two variables only while
+   a soft keyboard is up on the conversation page. The shell then covers
+   exactly what the user can see, even while iOS keeps the page panned:
+   the header at the top, the composer on the keyboard. `top`, never
+   `transform`, so the sheet below keeps the viewport as its containing
+   block. */
+html[data-keyboard] .app {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-height, 100%);
+}
+
+/* Hidden while typing, as on the native iOS app, where the keyboard covers
+   it; above the keyboard it would only take room from the conversation. */
+html[data-keyboard] .tabbar {
+  display: none;
+}
+
+/* The report sheet opens over the same visible area, not the full page
+   the keyboard hides the bottom of. */
+html[data-keyboard] .backdrop {
+  top: var(--vv-top, 0px);
+  bottom: auto;
+  height: var(--vv-height, 100%);
+}
