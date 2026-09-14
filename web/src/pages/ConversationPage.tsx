@@ -25,6 +25,11 @@ import '../styles/messages.css';
 const PAGE = 50;
 const AVATAR = 28;
 const FLASH_MS = 1500;
+const STICK_PX = 40;
+
+function atBottom(el: HTMLElement) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
+}
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -70,6 +75,11 @@ export default function ConversationPage() {
   // such a distance stale, while scrollTop only ever moves with a scroll.
   const lastTop = useRef(0);
   const lastHeight = useRef(0);
+  // The message a quote click is scrolling to, until its flash ends. Any
+  // scrollTop write stops a smooth scroll where it is, and the tap on a
+  // quote can also close the keyboard or the ⋯ menu, which resize or
+  // re-render the list while that scroll is still running.
+  const jumpTarget = useRef<number | null>(null);
   useKeyboardViewport();
 
   const scrollToBottom = useCallback(() => {
@@ -92,6 +102,13 @@ export default function ConversationPage() {
       const delta = el.clientHeight - lastHeight.current;
       lastHeight.current = el.clientHeight;
       if (delta === 0) return;
+      if (jumpTarget.current !== null) {
+        // Re-aim the jump at the resized list rather than anchoring it.
+        document
+          .getElementById(`msg-${jumpTarget.current}`)
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
       el.scrollTop = stickToBottom.current ? el.scrollHeight : lastTop.current - delta;
       lastTop.current = el.scrollTop;
     });
@@ -163,7 +180,12 @@ export default function ConversationPage() {
 
   useEffect(() => {
     if (!flash) return;
-    const t = window.setTimeout(() => setFlash(null), FLASH_MS);
+    const t = window.setTimeout(() => {
+      // The jump is over; anchoring resumes from wherever the reader is now.
+      jumpTarget.current = null;
+      if (listRef.current) stickToBottom.current = atBottom(listRef.current);
+      setFlash(null);
+    }, FLASH_MS);
     return () => window.clearTimeout(t);
   }, [flash]);
 
@@ -230,6 +252,7 @@ export default function ConversationPage() {
       // sent id would skip a reply that landed in between. The poll dedups
       // the echo and pulls anything missed (review finding).
       poll();
+      jumpTarget.current = null;
       stickToBottom.current = true;
       requestAnimationFrame(scrollToBottom);
     } catch (err) {
@@ -261,6 +284,10 @@ export default function ConversationPage() {
   function jumpTo(id: number) {
     const el = document.getElementById(`msg-${id}`);
     if (!el) return;
+    // Before the scroll starts: the same click closes the ⋯ menu, whose
+    // re-render would pin a reader who is still at the bottom.
+    jumpTarget.current = id;
+    stickToBottom.current = false;
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     setFlash({ id, at: Date.now() });
   }
@@ -325,7 +352,8 @@ export default function ConversationPage() {
         className="msg-list"
         onScroll={(e) => {
           const el = e.currentTarget;
-          stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          // A jump's first frames still read as "at the bottom".
+          stickToBottom.current = jumpTarget.current === null && atBottom(el);
           lastTop.current = el.scrollTop;
         }}
         onClick={() => setMenuFor(null)}
