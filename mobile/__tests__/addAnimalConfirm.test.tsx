@@ -227,11 +227,19 @@ test('a photo that fails still lands on the profile, with the reason', async () 
   expect(navigation.replace).toHaveBeenCalledWith('AnimalProfile', { animalId: 42 });
 });
 
-test('a refused sighting (the hit expired) uploads nothing and opens the profile', async () => {
+test('a refused sighting (the hit expired) says so, uploads nothing and opens the profile', async () => {
   api.reportSighting.mockRejectedValue({ response: { data: { code: 'carersOnly' } } });
   const navigation = await confirmHit();
   expect(api.addAnimalPhoto).not.toHaveBeenCalled();
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'Eşleşmenin süresi doldu',
+    'Bakıcısı olmak için profilden “bakım ver” ile yeni bir fotoğraf çek.'
+  );
   expect(navigation.replace).toHaveBeenCalledWith('AnimalProfile', { animalId: 42 });
+  // The user is told before the profile replaces the screen.
+  expect((Alert.alert as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+    navigation.replace.mock.invocationCallOrder[0]
+  );
 });
 
 test('a sighting that fails for another reason says so and gives the results back', async () => {

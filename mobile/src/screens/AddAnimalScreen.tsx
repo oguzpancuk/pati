@@ -413,13 +413,17 @@ export default function AddAnimalScreen({ navigation, route }: any) {
     try {
       await reportSighting(animalId, location.lat, location.lng);
     } catch (err: any) {
-      // Carers only: without a 'same' verdict the confirm cannot make the
-      // user a carer — the decision is still made, so the profile opens
-      // (web parity); "bakım ver" is the way in from there. Nothing to
-      // upload either way: the photos need the rights the sighting failed
-      // to grant (an expired hit and expired tokens come together). The
-      // screen is replaced, so it stays busy until it goes.
+      // Carers only: the hit expired (15 minutes) before the confirm. The
+      // decision is still made, so the profile opens (web parity) — after
+      // saying why the user is not a carer, since the flow's photos are not
+      // uploaded: they need the rights the sighting failed to grant (an
+      // expired hit and expired tokens come together). The screen is
+      // replaced, so it stays busy until it goes.
       if (err?.response?.data?.code === 'carersOnly') {
+        Alert.alert(
+          'Eşleşmenin süresi doldu',
+          'Bakıcısı olmak için profilden “bakım ver” ile yeni bir fotoğraf çek.'
+        );
         navigation.replace('AnimalProfile', { animalId });
         return;
       }

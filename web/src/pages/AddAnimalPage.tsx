@@ -412,11 +412,16 @@ export default function AddAnimalPage() {
         try {
           await reportSighting(confirmedAnimalId, loc.lat, loc.lng);
         } catch (err) {
-          // Carers only: without a 'same' verdict the confirm cannot make
-          // the user a carer — the decision is still made, so the profile
-          // opens (mobile parity) and nothing is uploaded: the photos need
-          // the rights the sighting failed to grant.
+          // Carers only: the hit expired (15 minutes) before the confirm.
+          // The decision is still made, so the profile opens (mobile
+          // parity) — after saying why the user is not a carer, since
+          // nothing is uploaded: the photos need the rights the sighting
+          // failed to grant. An alert, like the photo failures on this same
+          // way to the profile.
           if (err instanceof ApiError && err.code === 'carersOnly') {
+            window.alert(
+              'Eşleşmenin süresi doldu. Bakıcısı olmak için profilden “bakım ver” ile yeni bir fotoğraf çek.'
+            );
             openProfile();
             return;
           }
