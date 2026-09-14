@@ -76,6 +76,7 @@ export const unfollowAnimal = (animalId: number) =>
 
 export interface CarePhotoResult {
   matched: true;
+  /** A carer's photos skip the comparison and are stored after the species screen (B1). */
   alreadyCarer: boolean;
   /** false when the model was off, did not answer, or the gallery had nothing to compare. */
   photoChecked: boolean;
@@ -92,6 +93,8 @@ export interface CarePhotoResult {
  * up to two), screened for the species and compared with this animal's
  * own gallery. A miss is a 422 `carePhotoMismatch`
  * (Turkish message), a wrong species `photoRejected` with `photoIndexes`.
+ * An existing carer's photo is screened and stored with no comparison
+ * (`alreadyCarer`, "fotoğraf ekle").
  */
 export function submitCarePhotos(animalId: number, photos: File[]) {
   const form = new FormData();

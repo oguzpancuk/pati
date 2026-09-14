@@ -246,6 +246,10 @@ export default function AnimalPage() {
   const [careError, setCareError] = useState<string | null>(null);
   const [careDone, setCareDone] = useState<string | null>(null);
   const [careSending, setCareSending] = useState(false);
+  // Opened as a carer's "fotoğraf ekle" (owner batch 2026-09-14, B1): fixed
+  // when the sheet opens, so the reload after a new carer's success does
+  // not flip the heading under the "Artık bakıcısın" answer.
+  const [careAsCarer, setCareAsCarer] = useState(false);
   const careInput = useRef<HTMLInputElement>(null);
   const [comments, setComments] = useState<AnimalComment[]>([]);
   const [commentTotal, setCommentTotal] = useState(0);
@@ -479,6 +483,7 @@ export default function AnimalPage() {
     setCarePhoto(null);
     setCareError(null);
     setCareDone(null);
+    setCareAsCarer(animal?.isCarer === true);
     setCareOpen(true);
   }
 
@@ -488,9 +493,11 @@ export default function AnimalPage() {
     setCareError(null);
     try {
       const result = await submitCarePhotos(animalId, [carePhoto]);
+      // The server's answer decides the text: a carer's photo is stored
+      // without a comparison, whichever way the sheet was opened.
       setCareDone(
         result.alreadyCarer
-          ? 'Zaten bakım veriyorsun.'
+          ? 'Fotoğraf eklendi.'
           : `${
               result.photoChecked ? 'Fotoğraf eşleşti — artık' : 'Artık'
             } bakıcısın. Yorum yazabilir, sağlık ve aşı kaydı ekleyebilirsin. Takip de ediyorsun: haberleri sana gelir.`
@@ -691,7 +698,9 @@ export default function AnimalPage() {
       </div>
 
       {/* Follow vs. care (P6 item 8): "takip et" has no condition and
-          toggles; "bakım ver" is the camera-photo step. Hidden in match review. */}
+          toggles; "bakım ver" is the camera-photo step. Hidden in match review.
+          A carer gets "fotoğraf ekle" under the pair (B1): three buttons do
+          not fit a phone's width with these labels (mobile parity). */}
       {!matchReview && (
         <div className="row animal-actions">
           <button
@@ -711,6 +720,11 @@ export default function AnimalPage() {
           ) : (
             <button className="btn small grow" onClick={openCare}>
               📷 bakım ver
+            </button>
+          )}
+          {animal.isCarer && (
+            <button className="btn small secondary animal-action-wide" onClick={openCare}>
+              📷 fotoğraf ekle
             </button>
           )}
         </div>
@@ -1113,7 +1127,9 @@ export default function AnimalPage() {
       {careOpen && (
         <div className="backdrop" onClick={() => !careSending && closeCare()}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <h2>{displayName} için bakım ver</h2>
+            <h2>
+              {displayName} için {careAsCarer ? 'fotoğraf ekle' : 'bakım ver'}
+            </h2>
             {careDone ? (
               <>
                 <p className="muted">{careDone}</p>
@@ -1125,8 +1141,10 @@ export default function AnimalPage() {
               <>
                 <p className="muted" style={{ marginTop: 0 }}>
                   Şu an yanındaysan {animal.species === 'dog' ? 'köpeğin' : 'kedinin'} net göründüğü
-                  yeni bir fotoğraf çek. Fotoğraf bu hayvanın kayıtlı fotoğraflarıyla
-                  karşılaştırılır; eşleşince bakıcısı olursun.
+                  yeni bir fotoğraf çek
+                  {careAsCarer
+                    ? '; galerisine eklenir.'
+                    : '. Fotoğraf bu hayvanın kayıtlı fotoğraflarıyla karşılaştırılır; eşleşince bakıcısı olursun.'}
                 </p>
                 <div className="care-slots">
                   <button
@@ -1156,10 +1174,13 @@ export default function AnimalPage() {
                   </button>
                 </div>
                 {careError && <div className="error">{careError}</div>}
-                <p className="subtle">
-                  Bakıcılar yorum yazabilir, görülme bildirebilir, sağlık ve aşı kaydı ekleyebilir.
-                  Sadece haber almak istiyorsan "takip et" yeter.
-                </p>
+                {/* What carer rights buy — news to someone who already holds them. */}
+                {!careAsCarer && (
+                  <p className="subtle">
+                    Bakıcılar yorum yazabilir, görülme bildirebilir, sağlık ve aşı kaydı
+                    ekleyebilir. Sadece haber almak istiyorsan "takip et" yeter.
+                  </p>
+                )}
                 <button
                   className="btn full"
                   disabled={careSending || !carePhoto}

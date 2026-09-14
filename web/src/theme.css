@@ -1652,6 +1652,12 @@ strong {
 .animal-actions {
   margin: 14px 0 6px;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* A carer's "fotoğraf ekle" (B1): its own line under the follow/carer pair. */
+.animal-action-wide {
+  flex-basis: 100%;
 }
 
 .animal-actions .tag {
