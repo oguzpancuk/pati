@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Alert,
+  Linking,
   PermissionsAndroid,
   Platform,
   Pressable,
@@ -45,6 +46,8 @@ export const SAVE_TO_GALLERY_LABEL = 'Çektiklerimi galeriye de kaydet';
 
 export type CaptureOutcome =
   | { status: 'ok'; photos: PhotoAsset[] }
+  // No photo, and nothing left for the caller to say: the user backed out,
+  // or the helper has already explained a refused camera itself.
   | { status: 'cancelled' }
   | { status: 'error'; message: string };
 
@@ -189,6 +192,45 @@ async function canAddToGallery(): Promise<boolean> {
   return answer === PermissionsAndroid.RESULTS.GRANTED;
 }
 
+/**
+ * Android only. The manifest declares CAMERA, and an app that declares it may
+ * not fire the camera intent until the user has granted it:
+ * react-native-image-picker checks and answers `others` with an English
+ * sentence before any camera opens (ImagePickerModuleImpl.launchCamera,
+ * Utils.isCameraPermissionFulfilled) — it never asks. With the library door
+ * gone from add-animal (C1) that refusal was the end of the road, so the
+ * asking is ours, right before the camera. iOS needs nothing here:
+ * UIImagePickerController raises the system camera sheet itself.
+ */
+async function canUseCamera(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  const permission = PermissionsAndroid.PERMISSIONS.CAMERA;
+  if (await PermissionsAndroid.check(permission)) return true;
+  const answer = await PermissionsAndroid.request(permission, {
+    title: 'Kamera izni',
+    message: 'Hayvanın fotoğrafını o an uygulamanın içinden çekebilmen için kamera izni gerekiyor.',
+    buttonPositive: 'İzin ver',
+    buttonNegative: 'Vazgeç',
+  });
+  return answer === PermissionsAndroid.RESULTS.GRANTED;
+}
+
+/**
+ * A refusal must not look like a broken button, and after "bir daha sorma"
+ * the request above shows nothing at all — Settings is the only way back,
+ * so the alert leads there (the same shape as the location alert).
+ */
+function alertCameraRefused() {
+  Alert.alert(
+    'Kamera izni gerekli',
+    'Fotoğraflar uygulamanın içinden çekiliyor; bunun için kamera izni gerekli. İzni Ayarlar’dan verebilirsin.',
+    [
+      { text: 'Vazgeç', style: 'cancel' },
+      { text: 'Ayarları aç', onPress: () => Linking.openSettings() },
+    ]
+  );
+}
+
 function toAssets(assets: { uri?: string; type?: string; fileName?: string }[]): PhotoAsset[] {
   return assets
     .filter((a): a is { uri: string; type?: string; fileName?: string } => !!a.uri)
@@ -201,6 +243,12 @@ function toAssets(assets: { uri?: string; type?: string; fileName?: string }[]):
  */
 export async function capturePhoto(): Promise<CaptureOutcome> {
   try {
+    // The camera before the gallery: a user who refuses the camera must not
+    // first be asked about saving a photo that will never be taken.
+    if (!(await canUseCamera())) {
+      alertCameraRefused();
+      return { status: 'cancelled' };
+    }
     await ensureLoaded();
     let save = saveToGallery;
     // Set only once we KNOW it was the gallery that was refused, and acted on
