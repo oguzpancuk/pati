@@ -479,6 +479,17 @@ strong {
   outline: none;
 }
 
+/* iOS Safari zooms the page into a focused field whose text is under 16px
+   and leaves it zoomed after the keyboard closes. Touch screens get 16; a
+   mouse keeps the design's 15.5. */
+@media (pointer: coarse) {
+  .field input,
+  .field textarea,
+  .field select {
+    font-size: 16px;
+  }
+}
+
 /* Section micro label: 10.5px, wide spacing, LOWERcase. */
 .label,
 .micro {
@@ -1580,7 +1591,10 @@ strong {
   border-radius: 22px;
   padding: 10px 16px;
   font: inherit;
-  font-size: 15px;
+  /* 16, not mobile's 15: iOS Safari zooms the page into a focused field
+     whose text is smaller, and a zoomed page defeats the keyboard pinning
+     (keyboardViewport.ts). */
+  font-size: 16px;
   line-height: 1.35;
   color: var(--text);
 }
