@@ -476,7 +476,7 @@ const MARKINGS = [
 const INTRO_COMMENTS = [
   '🤖 Bu kayıt bir örnek: pati rehber ekibi, uygulamanın nasıl kullanıldığını göstermek için ekledi. Sen de sokağındaki dostları fotoğraflayıp kaydedebilirsin.',
   '🤖 Merhaba! Ben bir rehber hesabıyım. Bu hayvan kaydı gerçek değil; mahallende gördüğün dostları böyle kaydedebileceğini göstermek için burada.',
-  '🤖 Örnek kayıt: pati ekibi ekledi. Hayvanı kaydederken 2 fotoğraf ve tür/desen seçmek yeterli — konum otomatik alınıyor.',
+  '🤖 Örnek kayıt: pati ekibi ekledi. Hayvanı kaydederken bir fotoğraf çekip tür/desen seçmek yeterli — konum otomatik alınıyor.',
 ];
 const FOLLOWUP_COMMENTS = [
   'Bugün mama bıraktım; haritadaki turuncu butonla sen de işaretleyebilirsin, bölge yeşile döner. 🤖',

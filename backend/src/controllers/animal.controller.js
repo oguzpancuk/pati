@@ -654,7 +654,7 @@ async function addCarer(db, userId, animalId) {
 
 function carersOnly(res, what) {
   return res.status(403).json({
-    error: `${what} için bu hayvanın bakıcısı olmalısın. "Bakım ver" ile iki yeni fotoğraf çekerek katılabilirsin.`,
+    error: `${what} için bu hayvanın bakıcısı olmalısın. "Bakım ver" ile yeni bir fotoğraf çekerek katılabilirsin.`,
     code: CARERS_ONLY,
   });
 }
@@ -927,16 +927,23 @@ async function attachFaceThumb(row, file, species, base) {
 }
 
 /**
- * "Bakım ver": two fresh photos of the animal, screened for the species
- * and compared by the model with THIS animal's own gallery (the same
- * comparison the add-animal match runs, restricted to one animal). A
- * "same" verdict on either photo makes the user a carer and puts both
- * photos in the gallery; the model saying otherwise is a miss, in
+ * "Bakım ver": one or two fresh photos of the animal, screened for the
+ * species and compared by the model with THIS animal's own gallery (the
+ * same comparison the add-animal match runs, restricted to one animal). A
+ * "same" verdict on any photo makes the user a carer and puts every sent
+ * photo in the gallery; the model saying otherwise is a miss, in
  * Turkish. Without a key, or without an answer, the match is accepted
  * (ADR-0005: the AI fails open) — as is an animal with no photo to
  * compare against, whose first carer photos then become that gallery.
  */
-const CARE_PHOTO_COUNT = 2;
+// Both clients send ONE camera photo since 2026-09-14 (owner batch, C1);
+// the server still takes two because app builds already in users' hands
+// send two, and multer would refuse them outright under a cap of one.
+// "Taken with the camera, now" is a client rule: the resize middleware
+// strips EXIF before this runs, iOS camera captures carry no capture date,
+// and EXIF is forgeable anyway (ADR-0005 amendment, 2026-09-14).
+const MIN_CARE_PHOTOS = 1;
+const MAX_CARE_PHOTOS = 2;
 
 async function submitCarePhotos(req, res, next) {
   const files = req.files?.photos ?? [];
@@ -946,10 +953,12 @@ async function submitCarePhotos(req, res, next) {
     const animal = (await pool.query('SELECT id, species FROM animals WHERE id = $1', [animalId]))
       .rows[0];
     if (!animal) return res.status(404).json({ error: 'Hayvan bulunamadı' });
-    if (files.length !== CARE_PHOTO_COUNT) {
+    // The upper bound is multer's (maxCount on the route); this is the
+    // floor, plus a guard should the two ever drift apart.
+    if (files.length < MIN_CARE_PHOTOS || files.length > MAX_CARE_PHOTOS) {
       return res
         .status(400)
-        .json({ error: 'Hayvanın iki yeni fotoğrafı gerekli.', code: 'carePhotosRequired' });
+        .json({ error: 'Hayvanın yeni bir fotoğrafı gerekli.', code: 'carePhotosRequired' });
     }
     if (await isCarer(req.user.userId, animalId)) {
       return res.json({ matched: true, alreadyCarer: true, photoChecked: false, photos: [] });
@@ -998,7 +1007,7 @@ async function submitCarePhotos(req, res, next) {
     if (photoChecked && !same) {
       return res.status(422).json({
         error:
-          'Bu fotoğraflar bu hayvana benzemiyor. Hayvanın net göründüğü iki yeni fotoğraf çekip tekrar dener misin?',
+          'Fotoğraf bu hayvana benzemiyor. Hayvanın net göründüğü yeni bir fotoğraf çekip tekrar dener misin?',
         code: 'carePhotoMismatch',
         photoChecked: true,
       });
@@ -1018,9 +1027,9 @@ async function submitCarePhotos(req, res, next) {
     // plain ones the moment a row is about to own them (see redeemPhotoToken).
     const base = `${req.protocol}://${req.get('host')}/uploads/`;
     const photos = [];
-    // Both files are renamed and published BEFORE the first row is written.
+    // Every file is renamed and published BEFORE the first row is written.
     // Doing it inside the insert loop meant a bucket that refused the
-    // SECOND photo left the user a carer looking at an error, with photo
+    // SECOND photo of two left the user a carer looking at an error, with photo
     // one already in the gallery and its file stranded under a final name
     // the pending sweeper never looks at — and the obvious client retry
     // then added photo one twice (review finding).
@@ -1044,7 +1053,7 @@ async function submitCarePhotos(req, res, next) {
     }
     // `owned` grows as rows take ownership: a failure below must clean up
     // the files NOBODY owns yet and leave the rest alone. Without it a
-    // database blip after the publish loop left both files under their
+    // database blip after the publish loop left the files under their
     // final names — which the pending sweeper never looks at — plus their
     // objects in the bucket, forever, per attempt (second review round).
     let owned = 0;
@@ -1476,5 +1485,5 @@ module.exports = {
   likePhoto,
   unlikePhoto,
   submitCarePhotos,
-  CARE_PHOTO_COUNT,
+  MAX_CARE_PHOTOS,
 };

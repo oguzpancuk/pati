@@ -43,9 +43,14 @@ del() { local b="${3:-}"; [ -z "$b" ] && b='{}'; curl -s -o "$BODY" -w '%{http_c
 get() { curl -s -o "$BODY" -w '%{http_code}' "$API/$1" -H "Authorization: Bearer $2"; }
 control() { curl -s -o /dev/null -X POST "$FAKE/control" -H 'Content-Type: application/json' -d "$1"; }
 j() { jq -r "$1" "$BODY"; }
-care_photos() { # animal token nphotos
-  if [ "$3" = 1 ]; then curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$1/care-photos" -H "Authorization: Bearer $2" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg";
-  else curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$1/care-photos" -H "Authorization: Bearer $2" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg" -F "photos=@$FIXTURES/b.jpg;type=image/jpeg"; fi; }
+care_photos() { # animal token nphotos (0..3; the fixtures alternate a, b)
+  local form=() i
+  for ((i = 0; i < $3; i++)); do
+    if [ $((i % 2)) = 0 ]; then form+=(-F "photos=@$FIXTURES/a.jpg;type=image/jpeg"); else form+=(-F "photos=@$FIXTURES/b.jpg;type=image/jpeg"); fi
+  done
+  # Zero photos is still a multipart request, the shape a client sends.
+  [ "$3" = 0 ] && form=(-F "note=none")
+  curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/$1/care-photos" -H "Authorization: Bearer $2" "${form[@]}"; }
 photo_match() { # token → POST /animals/match with one photo and the animal's fields
   local code=$(curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/animals/match" -H "Authorization: Bearer $1" -F "lat=$LAT" -F "lng=$LNG" -F "species=$SPECIES" -F "breed=$BREED" -F "color=$COLOR" -F "photos=@$FIXTURES/a.jpg;type=image/jpeg")
   # The token names the final file; on disk it waits under the pending prefix.
@@ -133,7 +138,11 @@ echo "== care-photo step"
 # Order matters here: A's care photos are the first files on disk for this
 # animal and get a face thumb, which is what makes the cover comparable
 # for the miss/match cases that follow (and for the door section).
-code=$(care_photos $ANIMAL "$B" 1); check "one photo -> 400" "400 carePhotosRequired" "$code $(j .code)"
+# One photo is the clients' shape since 2026-09-14 (C1), two the shape of
+# app builds already installed; the route takes 1..2 and nothing else.
+code=$(care_photos $ANIMAL "$B" 0); check "zero photos -> 400 carePhotosRequired" "400 carePhotosRequired" "$code $(j .code)"
+check "…in Turkish, naming no count" "true" "$(j '.error | test("yeni bir fotoğrafı")')"
+code=$(care_photos $ANIMAL "$B" 3); check "three photos -> 400 LIMIT_UNEXPECTED_FILE" "400 LIMIT_UNEXPECTED_FILE" "$code $(j .code)"
 code=$(get "animals/$ANIMAL" "$A"); BEFORE=$(j '.photos | length')
 control '{"mode":"match","verdicts":["different","different","different","different","different","different","different","different"]}'
 code=$(care_photos $ANIMAL "$A" 2); check "A: no gallery file on disk -> accepted unchecked (fail open)" "201 true false 2" "$code $(j .matched) $(j .photoChecked) $(j '.photos | length')"
@@ -152,9 +161,11 @@ code=$(care_photos $ANIMAL "$B" 2); check "B: model says different -> 422 miss" 
 check "miss is Turkish" "true" "$(j '.error | test("benzemiyor")')"
 control '{"mode":"reject"}'
 code=$(care_photos $ANIMAL "$B" 2); check "species screening refuses -> 422 photoRejected [0,1]" "422 photoRejected [0,1]" "$code $(j .code) $(jq -c .photoIndexes $BODY)"
+code=$(care_photos $ANIMAL "$B" 1); check "…and a single refused photo names slot [0]" "422 photoRejected [0]" "$code $(j .code) $(jq -c .photoIndexes $BODY)"
 control '{"mode":"match","verdicts":["different","same","different","different","different","different","different","different"]}'
-code=$(care_photos $ANIMAL "$C" 2); check "C: model says same -> 201 matched, checked" "201 true true 2" "$code $(j .matched) $(j .photoChecked) $(j '.photos | length')"
-code=$(get "animals/$ANIMAL" "$C"); check "C is a carer" "true" "$(j .isCarer)"
+code=$(get "animals/$ANIMAL" "$C"); C_BEFORE=$(j '.photos | length')
+code=$(care_photos $ANIMAL "$C" 1); check "C: ONE photo, model says same -> 201 matched, checked, 1 photo" "201 true true 1" "$code $(j .matched) $(j .photoChecked) $(j '.photos | length')"
+code=$(get "animals/$ANIMAL" "$C"); check "C is a carer, gallery grew by 1" "true $((C_BEFORE+1))" "$(j .isCarer) $(j '.photos | length')"
 # 009 is a one-shot backfill: a carer who unfollows stays unfollowed when
 # the deploy applies the file again (migrate.js runs every file each time).
 code=$(del "animals/$ANIMAL/follow" "$C"); check "C (carer) unfollows -> 200" 200 "$code"

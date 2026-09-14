@@ -22,7 +22,7 @@ const {
   likePhoto,
   unlikePhoto,
   submitCarePhotos,
-  CARE_PHOTO_COUNT,
+  MAX_CARE_PHOTOS,
 } = require('../controllers/animal.controller');
 
 const router = express.Router();
@@ -73,8 +73,8 @@ router.post('/:id/vaccinations', requireAuth, limits.healthRecords, addVaccinati
 router.get('/:id/comments', requireAuth, listComments);
 router.post('/:id/comments', requireAuth, limits.comments, addComment);
 // "Takip et" toggles a follower row; "bakım ver" is the care-photo step:
-// two fresh photos, screened and compared with this animal's gallery, then
-// carer rights. Pending files like the match step's — the miss path
+// one or two fresh photos (the clients send one), screened and compared
+// with this animal's gallery, then carer rights. Pending files like the match step's — the miss path
 // deletes them, the match path renames them into the gallery.
 router.post('/:id/follow', requireAuth, limits.follows, followAnimal);
 router.delete('/:id/follow', requireAuth, limits.follows, unfollowAnimal);
@@ -84,7 +84,7 @@ router.post(
   '/:id/care-photos',
   requireAuth,
   limits.matchAnimals,
-  pendingUpload.fields([{ name: 'photos', maxCount: CARE_PHOTO_COUNT }]),
+  pendingUpload.fields([{ name: 'photos', maxCount: MAX_CARE_PHOTOS }]),
   resizeUploads(),
   submitCarePhotos
 );
