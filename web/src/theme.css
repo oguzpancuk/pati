@@ -1609,8 +1609,12 @@ strong {
   border-radius: 50%;
   background: var(--brand);
   color: var(--text-on-brand);
-  font-size: 24px;
-  line-height: 1;
+  /* The glyph is an SVG whose ink is centred in its own box; the grid puts
+     that box on the disc's centre, with no padding or line box to skew it. */
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 0;
   cursor: pointer;
 }
 .msg-send:disabled {

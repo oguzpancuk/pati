@@ -1,13 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  AppState,
-  FlatList,
-  Modal,
-  Pressable,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, AppState, FlatList, Modal, Pressable, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -33,6 +25,7 @@ import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme'
 const PAGE = 50;
 const AVATAR = 28;
 const FLASH_MS = 1500;
+const SEND_GLYPH = 20;
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
@@ -465,7 +458,9 @@ export default function ConversationScreen({ route, navigation }: any) {
                 accessibilityLabel="Gönder"
                 style={[styles.send, (!draft.trim() || sending) && styles.sendOff]}
               >
-                <Icon name="chevronRight" size={20} color={colors.textOnBrand} />
+                <View style={styles.sendGlyph}>
+                  <Icon name="chevronRight" size={SEND_GLYPH} color={colors.textOnBrand} />
+                </View>
               </Pressable>
             </View>
           </>
@@ -675,6 +670,12 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     justifyContent: 'center',
     marginLeft: spacing.sm,
   },
+  // The chevron's ink (x 8.9–16.7 of its 24-unit box, stroke included)
+  // is centred 0.8 units right of the box's centre — drawn for list rows,
+  // where it leans towards the edge it points at. Alone in a disc that
+  // read as off-centre (owner, 2026-09-15), so the send glyph moves back
+  // by those 0.8 units at its own size.
+  sendGlyph: { transform: [{ translateX: -(SEND_GLYPH * 0.8) / 24 }] },
   sendOff: { backgroundColor: c.disabled },
   blocked: { paddingVertical: spacing.sm },
   backdrop: {

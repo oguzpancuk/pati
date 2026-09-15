@@ -551,7 +551,23 @@ export default function ConversationPage() {
                 disabled={!draft.trim() || sending}
                 aria-label="Gönder"
               >
-                ›
+                {/* Mobile's Icon chevron at its size and stroke, drawn 0.8
+                    units left of the Icon set's path so the ink is centred
+                    in the disc: a text "›" sat 2.75 px low (owner,
+                    2026-09-15). */}
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
               </button>
             </div>
           </form>
