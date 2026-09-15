@@ -544,6 +544,13 @@ strong {
   font-weight: 600;
 }
 
+/* A warning's way forward under its text (the location retry). */
+.banner-action {
+  display: flex;
+  width: fit-content;
+  margin-top: 8px;
+}
+
 .row {
   display: flex;
   align-items: center;

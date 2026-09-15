@@ -6,7 +6,14 @@ import { Animal, fetchAnimals } from '../api';
 import { badgesOf } from '../api/animalSocial';
 import { AnimalAvatar } from '../avatars';
 import { BadgeSymbol } from '../badges';
-import { Coordinates, getCurrentLocationIfPermitted } from '../location';
+import {
+  Coordinates,
+  getCurrentLocationIfPermitted,
+  LOCATION_RETRY_LABEL,
+  retryLocationByReload,
+  takeLocationRetry,
+  type LocationRefusal,
+} from '../location';
 
 // No radius (owner decision, 2026-09-07, same as mobile): every animal,
 // nearest first; a page is about a screenful and the next one loads when
@@ -25,6 +32,8 @@ export default function AnimalsPage() {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [filter, setFilter] = useState<Filter>('');
   const [error, setError] = useState<string | null>(null);
+  // The refusal "+ Yeni" put up; its retry shows while `error` is its text.
+  const [addRefusal, setAddRefusal] = useState<LocationRefusal | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -81,6 +90,25 @@ export default function AnimalsPage() {
     };
   }, [filter]);
 
+  /** "+ Yeni": the form opens only with a location (see gateAddAnimal). */
+  async function addAnimal(retried = false) {
+    const refused = await gateAddAnimal(navigate, retried);
+    setAddRefusal(refused);
+    if (refused) setError(refused.text);
+  }
+
+  // A "Konum iznini tekrar iste" reloaded the page to get here: "+ Yeni"
+  // runs again, its request now one the browser can prompt for. Once per
+  // mount — StrictMode runs a mount effect twice in development, and taking
+  // removes the intent.
+  const retryTaken = useRef(false);
+  useEffect(() => {
+    if (retryTaken.current) return;
+    retryTaken.current = true;
+    if (takeLocationRetry()?.action === 'add-animal') addAnimal(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-load when the sentinel under the list scrolls into view; the ref
   // always points at the latest loadMore so the observer sees fresh state.
   loadMoreRef.current = () => {
@@ -102,13 +130,7 @@ export default function AnimalsPage() {
         <h1 style={{ margin: 0 }}>Hayvanlar</h1>
         {/* The location prompt fires on this click; without a location the
             form does not open (owner decision, 2026-09-07). */}
-        <button
-          className="btn small"
-          onClick={async () => {
-            const refused = await gateAddAnimal(navigate);
-            if (refused) setError(refused);
-          }}
-        >
+        <button className="btn small" onClick={() => addAnimal()}>
           + Yeni
         </button>
       </div>
@@ -135,6 +157,15 @@ export default function AnimalsPage() {
       </div>
 
       {error && <div className="error">{error}</div>}
+      {addRefusal?.canRetry && error === addRefusal.text && (
+        <button
+          className="btn secondary full"
+          style={{ marginBottom: 12 }}
+          onClick={() => retryLocationByReload({ action: 'add-animal' })}
+        >
+          {LOCATION_RETRY_LABEL}
+        </button>
+      )}
       {loading && <p className="muted">Yükleniyor…</p>}
       {!loading && animals.length === 0 && (
         <div className="card flat">

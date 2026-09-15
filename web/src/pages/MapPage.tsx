@@ -36,9 +36,13 @@ import {
 import {
   getCurrentLocation,
   describeLocationError,
+  describeLocationRefusal,
   hasLocationPermission,
-  isPermissionFailure,
+  LOCATION_RETRY_LABEL,
+  retryLocationByReload,
+  takeLocationRetry,
   Coordinates,
+  type LocationRetryIntent,
 } from '../location';
 import { resolvedThemeName } from '../theme';
 import { useBadgeAwards } from '../badgeAwards';
@@ -263,16 +267,26 @@ export default function MapPage() {
   // sheet must not say "Konum izni verilmedi…" right after a grant — while
   // an error set meanwhile (an upload that failed) stays.
   const locationWarningRef = useRef<string | null>(null);
-  function warnAboutLocation(text: string) {
+  // The "Konum iznini tekrar iste" a refusal's warning offers, tied to the
+  // warning's text: it shows only while `error` is still that text, so an
+  // error set meanwhile never carries another action's reload button.
+  const [locationRetry, setLocationRetry] = useState<{
+    text: string;
+    intent: LocationRetryIntent;
+  } | null>(null);
+  function warnAboutLocation(text: string, retry: LocationRetryIntent | null = null) {
     locationWarningRef.current = text;
     setError(text);
+    setLocationRetry(retry ? { text, intent: retry } : null);
   }
   function clearLocationWarning() {
     const stale = locationWarningRef.current;
     if (stale === null) return;
     locationWarningRef.current = null;
     setError((current) => (current === stale ? null : current));
+    setLocationRetry((current) => (current?.text === stale ? null : current));
   }
+  const retryOffer = locationRetry && error === locationRetry.text ? locationRetry.intent : null;
   const [zoomHint, setZoomHint] = useState(false);
   const [actionsFailed, setActionsFailed] = useState(false);
   // A failed status lookup is not a missing location: the sheet says which.
@@ -411,8 +425,8 @@ export default function MapPage() {
 
   /** The locate button (owner, P7 item 11): a fresh fix, dot and ring
    * follow, then fly there; animals and statuses refetch through the
-   * `myLocation` effects. */
-  async function locateMe() {
+   * `myLocation` effects. `retried`: the request a retry reloaded for. */
+  async function locateMe(retried = false) {
     const map = mapRef.current;
     if (!map) return;
     try {
@@ -422,8 +436,18 @@ export default function MapPage() {
       placeUserDot(loc);
       map.flyTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM, duration: 500 });
     } catch (err) {
-      warnAboutLocation(describeLocationError(err));
+      const refusal = describeLocationRefusal(err, '', retried);
+      if (refusal) warnAboutLocation(refusal.text, refusal.canRetry ? { action: 'locate' } : null);
+      else warnAboutLocation(describeLocationError(err));
       setStatusFailed(await hasLocationPermission());
+    }
+  }
+
+  /** The chooser's "Yeni hayvan": the form opens only with a location. */
+  async function addAnimalFromMap(retried = false) {
+    const refused = await gateAddAnimal(navigate, retried);
+    if (refused) {
+      warnAboutLocation(refused.text, refused.canRetry ? { action: 'add-animal' } : null);
     }
   }
 
@@ -611,6 +635,12 @@ export default function MapPage() {
     mapRef.current = map;
     setMapReady(true);
 
+    // A "Konum iznini tekrar iste" reloaded the page to get here: the action
+    // it was offered for runs again (below), its request now one the browser
+    // can prompt for. Taken here, not in an effect: this runs once per real
+    // mount (the frame above), and taking removes the intent.
+    const retry = takeLocationRetry();
+
     // The map asks for the location every time it opens (owner decision,
     // 2026-09-07); a page that already holds the permission gets no prompt,
     // only the fix. Mobile asks only on the first open of an app session
@@ -637,6 +667,11 @@ export default function MapPage() {
         if (mapRef.current !== map) return;
         setStatusFailed(await hasLocationPermission());
       });
+    // Beside the map's own request, not instead of it (the map asks on every
+    // open): both wait on the page's one decision, so a prompt shows once.
+    if (retry?.action === 'drop') openDrop(retry.type, true);
+    else if (retry?.action === 'locate') locateMe(true);
+    else if (retry?.action === 'add-animal') addAnimalFromMap(true);
 
     return () => {
       scheme.removeEventListener('change', onScheme);
@@ -926,7 +961,7 @@ export default function MapPage() {
   }
 
   /** A tile pressed: open the sheet for that type and ask for the location beside it. */
-  function openDrop(type: CareType) {
+  function openDrop(type: CareType, retried = false) {
     // A leftover 'approved' from the previous run would skip the confirm
     // content (state resets on open, not on close — see handleConfirmDrop).
     aiCheckRunRef.current++;
@@ -934,7 +969,7 @@ export default function MapPage() {
     setPendingPhoto(null);
     setDropType(type);
     setConfirmOpen(true);
-    askForDropLocation();
+    askForDropLocation(type, retried);
   }
 
   /**
@@ -945,9 +980,10 @@ export default function MapPage() {
    * rather than after the answer (the browser's only request is a whole fix,
    * which can take seconds after a grant; mobile's is the bare permission),
    * and it stays open after a refusal, because web can still drop at the map
-   * centre (see docs/NOTES.md).
+   * centre (see docs/NOTES.md). A refusal offers to ask again by reload
+   * (location.ts); `retried` marks the request that reload came back for.
    */
-  async function askForDropLocation() {
+  async function askForDropLocation(type: CareType, retried: boolean) {
     if (dropAskInFlightRef.current) return;
     dropAskInFlightRef.current = true;
     try {
@@ -956,11 +992,14 @@ export default function MapPage() {
       setMyLocation(loc);
       placeUserDot(loc);
     } catch (err) {
-      if (isPermissionFailure(err)) {
-        warnAboutLocation(
-          `${describeLocationError(err)} Konum olmadan bırakmak için haritayı sokak ` +
-            'seviyesine yakınlaştır; kayıt haritanın ortasına düşer.'
-        );
+      const refusal = describeLocationRefusal(
+        err,
+        'Konum olmadan bırakmak için haritayı sokak seviyesine yakınlaştır; kayıt haritanın ' +
+          'ortasına düşer.',
+        retried
+      );
+      if (refusal) {
+        warnAboutLocation(refusal.text, refusal.canRetry ? { action: 'drop', type } : null);
       }
     } finally {
       dropAskInFlightRef.current = false;
@@ -990,7 +1029,19 @@ export default function MapPage() {
       <div ref={mapEl} className="map-root" />
 
       <div className="map-top">
-        {error && <div className="banner">{error}</div>}
+        {error && (
+          <div className="banner">
+            {error}
+            {retryOffer && (
+              <button
+                className="btn small secondary banner-action"
+                onClick={() => retryLocationByReload(retryOffer)}
+              >
+                {LOCATION_RETRY_LABEL}
+              </button>
+            )}
+          </div>
+        )}
         {actionsFailed && <div className="zoom-hint">Kayıtlar yüklenemedi</div>}
         {zoomHint && <div className="zoom-hint">Hayvanları görmek için yakınlaştır</div>}
         {/* The add-to-home-screen invite: hidden when opened from the home
@@ -1003,7 +1054,7 @@ export default function MapPage() {
         className="map-locate"
         aria-label="Konumuma git"
         style={{ bottom: 'calc(178px + env(safe-area-inset-bottom))' }}
-        onClick={locateMe}
+        onClick={() => locateMe()}
       >
         <svg
           width="22"
@@ -1064,8 +1115,7 @@ export default function MapPage() {
                 onClick={async () => {
                   setChooserOpen(false);
                   if (choice.key === 'animal') {
-                    const refused = await gateAddAnimal(navigate);
-                    if (refused) warnAboutLocation(refused);
+                    await addAnimalFromMap();
                   } else {
                     openDrop(choice.key);
                   }
@@ -1232,6 +1282,17 @@ export default function MapPage() {
                 {/* Upload failures must be visible HERE: the page-level
                     banner sits behind the backdrop (review finding). */}
                 {error && <div className="error">{error}</div>}
+                {/* The sheet's own refusal only: another action's warning
+                    must not reload into a different action from here. */}
+                {retryOffer?.action === 'drop' && retryOffer.type === dropType && (
+                  <button
+                    className="btn secondary full"
+                    style={{ marginBottom: 12 }}
+                    onClick={() => retryLocationByReload(retryOffer)}
+                  >
+                    {LOCATION_RETRY_LABEL}
+                  </button>
+                )}
                 <p className="muted">
                   {typeLabel === 'mama' ? 'Mamayı' : 'Suyu'} bırak ve fotoğrafını çek, haritada
                   herkes görsün. Kayıt şu anki konumuna düşecek.
