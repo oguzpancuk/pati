@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -148,6 +149,22 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   useEffect(() => {
     if (composerReveal > 0) scrollRef.current?.scrollToEnd({ animated: true });
   }, [composerReveal]);
+  // iOS: the focus-time scroll (on the field below) only reaches the end if
+  // the scroll view already has its keyboard inset. A keyboard that comes up
+  // after that scroll has run (the software keyboard shown while the field
+  // already has focus, as when a hardware keyboard goes away) finds the page
+  // at the inset-less end, and RN's native handler then brings only the
+  // caret line to the keyboard's top edge. UIKit posts did-show after the
+  // will-change-frame that sets the inset, so this scroll reaches the real
+  // end whichever came first.
+  const composerFocused = useRef(false);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+    const subscription = Keyboard.addListener('keyboardDidShow', () => {
+      if (composerFocused.current) scrollRef.current?.scrollToEnd({ animated: true });
+    });
+    return () => subscription.remove();
+  }, []);
   // The badge ladder (P7 item 3) opens from a header chip; the tapped key
   // is the highlighted row.
   const [ladderKey, setLadderKey] = useState<string | null>(null);
@@ -976,11 +993,22 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 // rect to the keyboard's top edge, not the field
                 // (RCTBaseTextInputView), which can leave the field's lower
                 // padding and the send button under the keyboard. The end of
-                // the scroll shows the whole row. Android's window resize
-                // keeps a focused field on screen by itself.
+                // the scroll shows the whole row; the keyboardDidShow listener
+                // above repeats it once the inset is in place. Android's
+                // window resize keeps a focused field on screen by itself.
                 onFocus={
                   Platform.OS === 'ios'
-                    ? () => scrollRef.current?.scrollToEnd({ animated: true })
+                    ? () => {
+                        composerFocused.current = true;
+                        scrollRef.current?.scrollToEnd({ animated: true });
+                      }
+                    : undefined
+                }
+                onBlur={
+                  Platform.OS === 'ios'
+                    ? () => {
+                        composerFocused.current = false;
+                      }
                     : undefined
                 }
                 multiline

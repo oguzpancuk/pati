@@ -3,15 +3,16 @@
  * it sits in the scroll view after the comments and scrolls away with the
  * page, where it used to be a bar pinned under the page. The screen asks the
  * scroll view for the iOS keyboard inset, and it scrolls to the end, where
- * the composer shows, when its field takes focus on iOS and after a sent
- * comment has been rendered. The match review's decision bar stays pinned.
+ * the composer shows, when its field takes focus on iOS, again once the iOS
+ * keyboard has shown while the field has focus, and after a sent comment has
+ * been rendered. The match review's decision bar stays pinned.
  *
  * The screen's own logic runs; the design system, the map, the network and
  * the contexts around it are stand-ins. What iOS does with the inset and the
  * scroll is the simulator's check, not something jest can observe.
  */
 import React from 'react';
-import { Platform, Pressable, TextInput } from 'react-native';
+import { EmitterSubscription, Keyboard, Platform, Pressable, TextInput } from 'react-native';
 import { act, create, ReactTestInstance, ReactTestRenderer } from 'react-test-renderer';
 import AnimalProfileScreen from '../src/screens/AnimalProfileScreen';
 import * as animalsApi from '../src/api/animals';
@@ -177,10 +178,20 @@ const BEFORE = [
 const SENT = comment(4, 'akşam yine uğradım');
 
 let sent = false;
+// The keyboard listeners the screen registered, by event type.
+let keyboardListeners: Record<string, () => void>;
+const removeKeyboardListener = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
   sent = false;
+  keyboardListeners = {};
+  jest.spyOn(Keyboard, 'addListener').mockImplementation((eventType, listener) => {
+    keyboardListeners[eventType] = listener as () => void;
+    // why: the screen only calls remove(); a real EmitterSubscription needs
+    // an emitter this test has no use for.
+    return { remove: removeKeyboardListener } as unknown as EmitterSubscription;
+  });
   api.fetchAnimal.mockResolvedValue(animal as any);
   api.fetchAnimalComments.mockImplementation(async () =>
     sent
@@ -191,6 +202,11 @@ beforeEach(() => {
     sent = true;
     return SENT as any;
   });
+});
+
+afterEach(() => {
+  // Also puts back Platform.OS where a case replaced it.
+  jest.restoreAllMocks();
 });
 
 async function render(params: object = {}) {
@@ -301,11 +317,45 @@ describe('the animal profile comment composer', () => {
     expect(mockScrollToEnd).toHaveBeenCalledWith({ animated: true });
   });
 
+  it('scrolls to the end again once the iOS keyboard has shown over the focused field', async () => {
+    jest.replaceProperty(Platform, 'OS', 'ios');
+    const tree = await render();
+    const didShow = keyboardListeners.keyboardDidShow;
+    expect(didShow).toBeDefined();
+
+    // A keyboard for something else (a modal's field) leaves the page alone.
+    act(() => didShow());
+    expect(mockScrollToEnd).not.toHaveBeenCalled();
+
+    // The field took focus before the keyboard came up: the focus-time
+    // scroll ran without the inset, so the did-show one has to run too.
+    const [input] = composerInputs(tree.root);
+    await act(async () => {
+      input.props.onFocus();
+    });
+    mockScrollToEnd.mockClear();
+    act(() => didShow());
+    expect(mockScrollToEnd).toHaveBeenCalledTimes(1);
+    expect(mockScrollToEnd).toHaveBeenCalledWith({ animated: true });
+
+    // Once the field lets go, a later keyboard is not the composer's.
+    await act(async () => {
+      input.props.onBlur();
+    });
+    mockScrollToEnd.mockClear();
+    act(() => didShow());
+    expect(mockScrollToEnd).not.toHaveBeenCalled();
+
+    act(() => tree.unmount());
+    expect(removeKeyboardListener).toHaveBeenCalled();
+  });
+
   it('leaves a focused field to the window resize on Android', async () => {
     jest.replaceProperty(Platform, 'OS', 'android');
     const tree = await render();
     const [input] = composerInputs(tree.root);
     expect(input.props.onFocus).toBeUndefined();
+    expect(keyboardListeners.keyboardDidShow).toBeUndefined();
   });
 
   it('keeps the match review decision pinned outside the scroll view, with no composer', async () => {
