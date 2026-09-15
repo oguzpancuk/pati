@@ -264,6 +264,15 @@ export default function AnimalPage() {
   const [draft, setDraft] = useState('');
   const [linkedRecord, setLinkedRecord] = useState<HealthRecord | null>(null);
   const [sending, setSending] = useState(false);
+  // The composer scrolls with the chat (owner, 2026-09-15), so a sent
+  // comment's new row pushes it down, and the reload can shorten the list
+  // above it. Bumped after a send; the effect runs once that render is
+  // committed and brings the composer back into view.
+  const composerRef = useRef<HTMLFormElement>(null);
+  const [composerReveal, setComposerReveal] = useState(0);
+  useEffect(() => {
+    if (composerReveal > 0) composerRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [composerReveal]);
 
   const [recordOpen, setRecordOpen] = useState(false);
   const [recordType, setRecordType] = useState<'illness' | 'injury'>('illness');
@@ -351,6 +360,7 @@ export default function AnimalPage() {
       setDraft('');
       setLinkedRecord(null);
       await load();
+      setComposerReveal((n) => n + 1);
       celebrate(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gönderilemedi');
@@ -1002,17 +1012,10 @@ export default function AnimalPage() {
           </div>
         </div>
       ) : animal.isCarer ? (
-        /* Fixed comment row (handoff): cream input + gradient send button. */
-        <form
-          onSubmit={sendComment}
-          style={{
-            position: 'sticky',
-            bottom: 0,
-            background: 'var(--background)',
-            padding: '10px 0 4px',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
+        /* The comment row (handoff): cream input + gradient send button. It
+           belongs to the chat and scrolls away with it (owner, 2026-09-15):
+           pinned to the bottom, it covered every section above the chat. */
+        <form ref={composerRef} onSubmit={sendComment}>
           {openRecords.length > 0 && (
             <ChipRow style={{ margin: '0 0 8px' }}>
               <button
@@ -1036,14 +1039,7 @@ export default function AnimalPage() {
           )}
           <div className="row">
             <input
-              className="grow"
-              style={{
-                border: 'none',
-                borderRadius: 16,
-                padding: '13px 14px',
-                background: 'var(--surface-alt)',
-                fontSize: 14,
-              }}
+              className="grow animal-composer-input"
               placeholder="Yorum yaz…"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

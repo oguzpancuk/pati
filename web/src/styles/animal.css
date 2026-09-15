@@ -135,3 +135,24 @@
   line-height: 16px;
   white-space: nowrap;
 }
+
+/* ----------------------------------------- the chat's comment composer */
+
+/* The cream input next to the send button. The form around it is plain
+   content at the end of the chat (owner, 2026-09-15), not a sticky bar. */
+.animal-composer-input {
+  border: none;
+  border-radius: 16px;
+  padding: 13px 14px;
+  background: var(--surface-alt);
+  font-size: 14px;
+}
+
+/* iOS Safari zooms the page into a focused field whose text is under 16px
+   and leaves it zoomed after the keyboard closes. Touch screens get 16, as
+   .field does in theme.css; a mouse keeps the design's 14. */
+@media (pointer: coarse) {
+  .animal-composer-input {
+    font-size: 16px;
+  }
+}
