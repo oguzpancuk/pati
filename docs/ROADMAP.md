@@ -1202,3 +1202,21 @@ green on a clean HEAD, code-reviewer over the whole range. Evidence, the
 platform limits and what stays unverified (Android, real devices) are in
 NOTES "2026-09-14 · owner batch". Open for the owner: which device showed the
 location warning without a prompt, and approval to publish and deploy.
+
+---
+
+## 🐞 Owner follow-ups of 2026-09-15 — ✅ done (not deployed)
+
+| #   | Item                                                                                   | Clients        |
+| --- | -------------------------------------------------------------------------------------- | -------------- |
+| K   | Native iOS: the keyboard covered part of "Mesaj yaz…" (and "Yorum yaz…")                | mobile         |
+| S   | A carer's "fotoğraf ekle" moves from a button into the photo grid's empty slot          | mobile + web   |
+| C3  | The animal profile's "Yorum yaz…" scrolls with the page instead of staying pinned       | mobile + web   |
+
+**Done when:** K — composer fully above the soft keyboard on the iPhone 17 Pro
+simulator; S — the add tile on both clients (iOS screenshot, web screenshots for
+0/3/5/6+ photos and a non-carer), slot helper under jest; C3 — composer out of
+view at the top of the page and fully above the keyboard when focused (iOS),
+web geometry check before/after; battery green on a clean HEAD; code-reviewer
+over the range. All met — details in NOTES "2026-09-15".
+

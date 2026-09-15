@@ -4308,3 +4308,57 @@ Process notes:
   owner's yes): users `*@example.test` created by the investigation and the
   checks (bug1-_, skeptic-_, b1-carer/b1-visitor, b2-chat-_, b2ios-_,
   c2-location-_, fototest-_), animals 51810–51814, 51840 and DMs 5580–5582.
+
+## 2026-09-15 · owner follow-ups: keyboard, add tile, pinned comment composer
+
+The owner ran the app on a rebuilt simulator (the iOS 26.5 runtime had been
+deleted and re-downloaded; a new "pati iPhone 17 Pro" device was created and
+the app built from scratch) and came back with three notes.
+
+**K — native iOS composers sat partly under the keyboard.** Both
+`KeyboardAvoidingView`s used a hard-coded `keyboardVerticalOffset` (88 in
+ConversationScreen, 90 on the animal profile). RN 0.74 subtracts that offset
+from the keyboard's window position and compares it with the view's
+parent-relative frame, so it must equal the distance from the window top to
+the view's origin — 116 pt on an iPhone 17 Pro (62 pt safe area + a 54 pt iOS
+26 bar), which left the composer 28 pt under the keyboard (measured from the
+screenshot). `useHeaderHeight()` would not have fixed it: native-stack only
+estimates the header in JS (101 pt here). `KeyboardInsetView` measures its
+own window frame instead and pads by exactly the covered part; the arithmetic
+and the wiring are under jest. Seen on the simulator: "Mesaj yaz…" fully above
+the keyboard. Same bug class, not fixed: Login, Register and VerifyEmail wrap
+a zero-offset `KeyboardAvoidingView` inside a top-safe-area `Screen`, so they
+avoid 62 pt too little — not composers, and each needs its own layout look.
+
+**S — "fotoğraf ekle" lives in the photo grid.** The carer's button is gone; a
+carer (outside match review) sees the photos, then one add tile, then dashed
+placeholders completing the row. With 6+ photos the add tile keeps the last
+cell and "+N" moves to the fifth photo. One pure helper
+(`mobile/src/animalPhotoSlots.ts`, imported by web through `@mobile`) with 17
+jest cases decides the cells. Web's placeholders had lost their dashed frame
+to a later `border: none`; restored. The tile's label tracking was tightened
+after a font-metrics calculation showed it overflowing a 375 pt phone (computed,
+not seen on such a device). Seen: iOS add tile on a 0-photo animal opening
+"Pamuk B1 için fotoğraf ekle"; web screenshots for 0/3/4/5/6/8 photos, a
+non-carer and match review.
+
+**C3 — the comment composer scrolled nowhere.** Web's form was
+`position: sticky; bottom: 0` and covered the vaccination card; mobile's sat
+outside the ScrollView as a bottom bar. Both now sit after the comments in the
+"sohbet" section and scroll away with the page; the match-review decision bar
+stays pinned. Web's input is 16px on touch screens (iOS focus zoom), 14px with
+a mouse. Mobile uses the ScrollView's `automaticallyAdjustKeyboardInsets` plus a
+scroll to the end on focus, repeated on `keyboardDidShow` while the composer is
+focused — review found that a keyboard appearing after focus (⌘K, a hardware
+keyboard going away) otherwise stops RN's native inset at the caret line with
+"Gönder" under the keyboard. Seen on iOS: no composer at the top of the page,
+the composer after the comments, and with the keyboard up the whole row plus
+the footer above it. Web: composer below the fold at scrollTop 0 (was pinned),
+visible after the last comment; a text comment still sends.
+
+Review rounds: K+S one review (APPROVE with a "needs the iOS screenshot" major)
+and one fix round; C3 one review (the keyboard-order major) and one fix round;
+one review over the fix and this note.
+
+Left behind: five short test comments by b1-carer on local animal 51840. Not
+verified anywhere: Android (no SDK here) and real devices.
