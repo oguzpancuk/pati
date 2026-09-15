@@ -32,6 +32,7 @@ import {
   unfollowAnimal,
 } from '../api/animals';
 import { bumpLadderValue, headerBadges, setLadderValue } from '../animalBadges';
+import { animalPhotoSlots, PHOTO_GRID_COLUMNS } from '../animalPhotoSlots';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
 import AnimalBadgeLadderModal from '../components/AnimalBadgeLadderModal';
@@ -105,21 +106,15 @@ const RECORD_PREVIEW = 2;
 // The carer rows are compact (avatar + name), but a well-known animal can
 // have dozens; five is a glance, the rest sit behind "load more".
 const CARER_PREVIEW = 5;
-// The photo grid: three square tiles per row (P6 item 7), the gutter is
-// the small spacing step.
-const GRID_COLUMNS = 3;
-// The hero shows two rows at most (review finding): every accepted "bakım
-// ver" adds a photo, so an unbounded grid would push the name and the
-// action pair below the fold on a well-cared-for animal. The last tile
-// carries "+N" and opens the viewer on the rest.
-const HERO_PHOTOS = GRID_COLUMNS * 2;
 
 export default function AnimalProfileScreen({ route, navigation }: any) {
   const styles = useStyles();
   const { name: themeName, colors } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
+  // Three square tiles a row (animalPhotoSlots); the gutter is the small
+  // spacing step.
   const tileSize = Math.floor(
-    (windowWidth - spacing.lg * 2 - spacing.sm * (GRID_COLUMNS - 1)) / GRID_COLUMNS
+    (windowWidth - spacing.lg * 2 - spacing.sm * (PHOTO_GRID_COLUMNS - 1)) / PHOTO_GRID_COLUMNS
   );
   const { celebrate } = useBadgeAwards();
   const { user } = useAuth();
@@ -463,16 +458,21 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   // Recovered records are closed; the server rejects comments on them too,
   // so they never appear in the selectable list.
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
+  // Match review offers one decision, so its grid adds nothing.
+  const photoSlots = animalPhotoSlots(animal.photos.length, animal.isCarer && !matchReview);
 
   return (
     <KeyboardInsetView style={styles.flex}>
       <Screen scroll>
         {/* The photos open the profile (owner, 2026-09-09 — the avatar is
             gone with them): square tiles, three a row, each with its like
-            count; a tap opens the swipeable viewer. The last row fills with
-            dashed "fotoğraf" placeholders — even an empty profile invites. */}
+            count; a tap opens the swipeable viewer. A carer's next cell is
+            the "fotoğraf ekle" tile (owner, 2026-09-15: the slot, not a
+            button), and the last row fills with dashed "fotoğraf"
+            placeholders — even an empty profile invites. The cell counts
+            come from animalPhotoSlots, shared with the web page. */}
         <View style={styles.photoGrid}>
-          {animal.photos.slice(0, HERO_PHOTOS).map((photo, i) => (
+          {animal.photos.slice(0, photoSlots.shown).map((photo, i) => (
             <Pressable
               key={photo.id}
               style={[styles.photoTile, { width: tileSize, height: tileSize }]}
@@ -482,10 +482,10 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               accessibilityLabel={`Fotoğraf ${i + 1}, ${photo.like_count ?? 0} beğeni`}
             >
               <Image source={{ uri: photo.url }} style={styles.photoImage} />
-              {i === HERO_PHOTOS - 1 && animal.photos.length > HERO_PHOTOS ? (
+              {i === photoSlots.shown - 1 && photoSlots.more > 0 ? (
                 <View style={styles.photoMore}>
                   <Text variant="heading" style={styles.photoMoreText}>
-                    +{animal.photos.length - HERO_PHOTOS}
+                    +{photoSlots.more}
                   </Text>
                 </View>
               ) : null}
@@ -501,14 +501,30 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               </View>
             </Pressable>
           ))}
-          {Array.from({
-            length: (() => {
-              const shown = Math.min(animal.photos.length, HERO_PHOTOS);
-              return (
-                (GRID_COLUMNS - (shown % GRID_COLUMNS)) % GRID_COLUMNS || (shown ? 0 : GRID_COLUMNS)
-              );
-            })(),
-          }).map((_, i) => (
+          {photoSlots.add && (
+            /* The placeholder's frame, made a door: the brand-coloured
+               camera and label tell it apart from the inert cells. It
+               opens the care screen in carer mode, as "bakım ver" does
+               for everyone else. */
+            <Pressable
+              style={({ pressed }) => [
+                styles.photoTile,
+                styles.photoPlaceholder,
+                styles.photoAdd,
+                pressed && styles.photoAddPressed,
+                { width: tileSize, height: tileSize },
+              ]}
+              onPress={openCarePhotos}
+              accessibilityRole="button"
+              accessibilityLabel="Fotoğraf ekle"
+            >
+              <Icon name="camera" size={22} color={colors.brand} />
+              <Text variant="micro" color="brand" center>
+                fotoğraf ekle
+              </Text>
+            </Pressable>
+          )}
+          {Array.from({ length: photoSlots.placeholders }).map((_, i) => (
             <View
               key={`ph-${i}`}
               style={[
@@ -579,9 +595,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         {/* Follow vs. care (P6 item 8): "takip et" has no condition and
             toggles; "bakım ver" is the camera-photo step, after which the
             carer view (records, chat) opens. Hidden in match review — the
-            decision bar below is the only action there. A carer gets
-            "fotoğraf ekle" under the pair (owner batch 2026-09-14, B1):
-            three pills do not fit a phone's width with these labels. */}
+            decision bar below is the only action there. A carer adds
+            photos from the grid's add tile above, not from a button here. */}
         {!matchReview && (
           <View style={styles.actionRow}>
             <Button
@@ -615,16 +630,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 onPress={openCarePhotos}
                 icon={<Icon name="camera" size={16} color={colors.textOnBrand} />}
                 style={styles.actionButton}
-              />
-            )}
-            {animal.isCarer && (
-              <Button
-                title="fotoğraf ekle"
-                variant="secondary"
-                size="sm"
-                onPress={openCarePhotos}
-                icon={<Icon name="camera" size={16} color={colors.brand} />}
-                style={styles.actionWide}
               />
             )}
           </View>
@@ -1240,15 +1245,12 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   actionRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
     // The first section adds its own top margin; xl here on top of that
     // left a hole under the pair once the photos moved above the header.
     marginBottom: spacing.xs,
   },
   actionButton: { flex: 1 },
-  // A line of its own under the follow/carer pair.
-  actionWide: { flexBasis: '100%' },
   // Mirrors Button's `success` variant at size sm (pill, 1pt ring).
   carerState: {
     flexDirection: 'row',
@@ -1303,6 +1305,10 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderStyle: 'dashed',
     borderColor: c.borderDashed,
   },
+  // A carer's add tile (animalPhotoSlots): the placeholder frame with the
+  // camera over its label.
+  photoAdd: { gap: spacing.xs, paddingHorizontal: spacing.xs },
+  photoAddPressed: { backgroundColor: c.brandTint },
   sectionTop: { marginTop: spacing.xl },
   seenAt: { marginTop: spacing.sm },
   carerRow: {
