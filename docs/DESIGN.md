@@ -21,19 +21,19 @@ The palette matches the web client's tokens (`web/src/theme.css`) one to one.
 **There are two palettes** (`lightPalette` / `darkPalette`) with identical
 token names.
 
-| Token | Light | Dark | Where |
-| --- | --- | --- | --- |
-| `gradStart` → `gradEnd` | `#F4581C` → `#F9A052` | same | The gradient — ONLY logo, primary button, progress bar, selected chip |
-| `brand` | `#E05E2B` | `#F9824E` | Flat accent: links, active icons, micro labels |
-| `brandDark` | `#C94F20` | `#E0693A` | Pressed states |
-| `brandSoft` / `brandTint` | `#FFE9DA` / `#FFF3EA` | `#47301F` / `#33241A` | Accent as light/dark surface |
-| `background` / `surface` | `#FFFFFF` | `#161412` | Screens are pure white / warm charcoal |
-| `surfaceAlt` / `cream` | `#FFF6EC` / `#FFF3E7` | `#241F19` / `#2A231B` | Comment input / photo placeholder fills |
-| `text` / `textBody` / `textMuted` / `textSubtle` | `#21201E` / `#4A4744` / `#8A8580` / `#B5AFA8` | `#F3EEE8` / `#CFC8C0` / `#9B948C` / `#6E675F` | Charcoal text tiers |
-| `border` / `borderStrong` / `borderDashed` | `#F6E8DA` / `#F3E4D4` / `#EFD9C4` | `#2B2620` / `#363028` / `#453B30` | Hairlines: card / input / dashed photo frame |
-| `success` | `#34A853` | `#4CC46B` | "cared" on the map, recovered |
-| `danger` | `#E24C4C` | `#FF7B6B` | "needs care", errors |
-| `warning` | `#F5B841` | `#F5B841` | In treatment |
+| Token                                            | Light                                         | Dark                                          | Where                                                                 |
+| ------------------------------------------------ | --------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------- |
+| `gradStart` → `gradEnd`                          | `#F4581C` → `#F9A052`                         | same                                          | The gradient — ONLY logo, primary button, progress bar, selected chip |
+| `brand`                                          | `#E05E2B`                                     | `#F9824E`                                     | Flat accent: links, active icons, micro labels                        |
+| `brandDark`                                      | `#C94F20`                                     | `#E0693A`                                     | Pressed states                                                        |
+| `brandSoft` / `brandTint`                        | `#FFE9DA` / `#FFF3EA`                         | `#47301F` / `#33241A`                         | Accent as light/dark surface                                          |
+| `background` / `surface`                         | `#FFFFFF`                                     | `#161412`                                     | Screens are pure white / warm charcoal                                |
+| `surfaceAlt` / `cream`                           | `#FFF6EC` / `#FFF3E7`                         | `#241F19` / `#2A231B`                         | Comment input / photo placeholder fills                               |
+| `text` / `textBody` / `textMuted` / `textSubtle` | `#21201E` / `#4A4744` / `#8A8580` / `#B5AFA8` | `#F3EEE8` / `#CFC8C0` / `#9B948C` / `#6E675F` | Charcoal text tiers                                                   |
+| `border` / `borderStrong` / `borderDashed`       | `#F6E8DA` / `#F3E4D4` / `#EFD9C4`             | `#2B2620` / `#363028` / `#453B30`             | Hairlines: card / input / dashed photo frame                          |
+| `success`                                        | `#34A853`                                     | `#4CC46B`                                     | "cared" on the map, recovered                                         |
+| `danger`                                         | `#E24C4C`                                     | `#FF7B6B`                                     | "needs care", errors                                                  |
+| `warning`                                        | `#F5B841`                                     | `#F5B841`                                     | In treatment                                                          |
 
 The dark theme is not in the handoff; it is derived as a **warm charcoal**
 variant of the same discipline (a cold gray dark theme doesn't read as the
@@ -84,6 +84,7 @@ App.tsx
   `StyleSheet.create` is not used directly: it runs at module load, so colors
   froze when the theme changed. `makeStyles` builds the sheet once per theme
   and caches it — no recomputation per render.
+
 - **Occasional colors in JSX** (`<Icon color={...}>`) come from
   `const { colors } = useTheme()`.
 
@@ -104,17 +105,17 @@ variant is the replacement for uppercase section headings).
 (`fontFamily: 'Quicksand-Medium'`); combining both makes Android synthesize a
 faux bold and the text breaks. Use `<Text variant="...">` instead:
 
-| Variant | Size/line | Where |
-| --- | --- | --- |
-| `display` | 28/35 Medium | Celebration popup, single-line hero |
-| `title` | 25/32 Medium | Screen title, names |
-| `heading` | 21/27 Medium | Bottom-sheet / card heading |
-| `subheading` | 16/21 SemiBold | List-row title |
-| `body` / `bodyStrong` | 14/20 Medium/SemiBold | Body copy |
-| `caption` / `captionStrong` | 12.5/17 | Secondary line |
-| `label` / `micro` | 10.5/14 SemiBold, .24em spacing, lowercase | In-box input label / section micro label |
-| `stat` | 26/32 Regular | Large numerals in the stat strip |
-| `tab` | 10/13 SemiBold, spaced | Bottom tab labels |
+| Variant                     | Size/line                                  | Where                                    |
+| --------------------------- | ------------------------------------------ | ---------------------------------------- |
+| `display`                   | 28/35 Medium                               | Celebration popup, single-line hero      |
+| `title`                     | 25/32 Medium                               | Screen title, names                      |
+| `heading`                   | 21/27 Medium                               | Bottom-sheet / card heading              |
+| `subheading`                | 16/21 SemiBold                             | List-row title                           |
+| `body` / `bodyStrong`       | 14/20 Medium/SemiBold                      | Body copy                                |
+| `caption` / `captionStrong` | 12.5/17                                    | Secondary line                           |
+| `label` / `micro`           | 10.5/14 SemiBold, .24em spacing, lowercase | In-box input label / section micro label |
+| `stat`                      | 26/32 Regular                              | Large numerals in the stat strip         |
+| `tab`                       | 10/13 SemiBold, spaced                     | Bottom tab labels                        |
 
 ### Why are the font files in the repo?
 
@@ -155,20 +156,20 @@ two copies will drift.
 
 Screens import these via `import { ... } from '../components/ui'`.
 
-| Component | Purpose |
-| --- | --- |
-| `Text` | All text goes through here; takes `variant` + `color` |
-| `Button` | `primary` (the app's only gradient fill) / `secondary` / `ghost` / `danger` / `success` (outline), `sm/md/lg`, `loading`, `icon` |
-| `Card` | `flat` (default: white + hairline) / `tinted` (cream); `raised` is an alias of flat — nothing casts a card shadow |
-| `Screen` | Theme background + safe area + optional scroll/refresh |
-| `Input` | The label lives **inside** the box (10.5pt lowercase micro label over the value); border turns accent on focus |
-| `Chip` | Filter pill; the selected state carries the gradient |
-| `Tag` | Status as a colored dot + lowercase text — no filled pills |
-| `Banner` | In-screen status box (colored strip on the left edge) |
-| `Avatar` | Round profile image; initials when there is no photo |
-| `SectionHeader` | Section title + "see all" link on the right |
-| `EmptyState` / `LoadingState` | Shared empty-list and loading states |
-| `Divider` | In-card divider |
+| Component                     | Purpose                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `Text`                        | All text goes through here; takes `variant` + `color`                                                                            |
+| `Button`                      | `primary` (the app's only gradient fill) / `secondary` / `ghost` / `danger` / `success` (outline), `sm/md/lg`, `loading`, `icon` |
+| `Card`                        | `flat` (default: white + hairline) / `tinted` (cream); `raised` is an alias of flat — nothing casts a card shadow                |
+| `Screen`                      | Theme background + safe area + optional scroll/refresh                                                                           |
+| `Input`                       | The label lives **inside** the box (10.5pt lowercase micro label over the value); border turns accent on focus                   |
+| `Chip`                        | Filter pill; the selected state carries the gradient                                                                             |
+| `Tag`                         | Status as a colored dot + lowercase text — no filled pills                                                                       |
+| `Banner`                      | In-screen status box (colored strip on the left edge)                                                                            |
+| `Avatar`                      | Round profile image; initials when there is no photo                                                                             |
+| `SectionHeader`               | Section title + "see all" link on the right                                                                                      |
+| `EmptyState` / `LoadingState` | Shared empty-list and loading states                                                                                             |
+| `Divider`                     | In-card divider                                                                                                                  |
 
 ## 5. Brand components — `mobile/src/components/brand/`
 
@@ -198,8 +199,15 @@ Screens import these via `import { ... } from '../components/ui'`.
 transitions flash a white background that clashes with ours. All three
 (`navigationTheme`, `screenOptions`, `tabBarOptions`) are functions taking the
 theme — as static objects, header and tab colors would freeze on theme change.
-The tab bar gets no fixed height: `bottom-tabs` adds the bottom safe area
-itself, and a fixed height clips labels on notched phones.
+The tab bar's height is computed from the bottom safe-area inset
+(`tabBarGeometry`, owner 2026-09-15): the icon and label sit centred between
+the hairline and the screen edge, with the inset capped at the 18 pt that
+clear the home indicator and never less than 8 pt under the labels. On an
+iPhone 17 Pro that is 76 pt (bottom-tabs' own was 79, with a 30 pt empty band
+under the labels); with no inset, 56. Never a constant height — one that
+ignores the inset clips the labels on notched phones. Landscape phones keep
+the library's compact side-by-side bar. Web's `.tabbar` applies the same rule
+with `env(safe-area-inset-bottom)`.
 
 ## 7. App icon and launch screen
 
@@ -211,13 +219,13 @@ cd mobile && npm run icons     # requires Chromium (Playwright)
 
 `scripts/generate-icons.mjs` writes:
 
-| Output | What |
-| --- | --- |
-| `ios/.../AppIcon.appiconset/icon-*.png` | 40–1024 px, gradient logo on white, **no alpha** (the App Store rejects transparency) |
-| `ios/.../LaunchLogo.imageset/*` | Launch-screen logo, transparent ground |
-| `android/.../mipmap-*/ic_launcher.png` | Classic icon (Android ≤ 7) |
-| `android/.../mipmap-*/ic_launcher_round.png` | Round variant, transparent corners |
-| `android/.../mipmap-*/ic_launcher_foreground.png` | Adaptive-icon foreground |
+| Output                                            | What                                                                                  |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `ios/.../AppIcon.appiconset/icon-*.png`           | 40–1024 px, gradient logo on white, **no alpha** (the App Store rejects transparency) |
+| `ios/.../LaunchLogo.imageset/*`                   | Launch-screen logo, transparent ground                                                |
+| `android/.../mipmap-*/ic_launcher.png`            | Classic icon (Android ≤ 7)                                                            |
+| `android/.../mipmap-*/ic_launcher_round.png`      | Round variant, transparent corners                                                    |
+| `android/.../mipmap-*/ic_launcher_foreground.png` | Adaptive-icon foreground                                                              |
 
 Android 8+ uses **adaptive icons**: background from
 `values/colors.xml → ic_launcher_background`, foreground from the PNG above.
@@ -225,6 +233,7 @@ Launchers crop the foreground with their own mask, so the logo is drawn small
 enough to fit the 66 dp safe zone of the 108 dp canvas.
 
 Launch screens:
+
 - **iOS:** `LaunchScreen.storyboard` — white ground, centered gradient logo,
   no text (launch storyboards render before custom fonts register, so any
   text would fall back to the system font). Drawn natively, so colors can't

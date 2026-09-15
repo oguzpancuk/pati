@@ -10,6 +10,7 @@ import {
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { linkingConfig } from './linking';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaFrame, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import {
   fonts,
@@ -316,7 +317,13 @@ const TAB_HOME: Record<keyof MainTabParamList, keyof TabStackParamList> = {
 
 function MainTabs() {
   const theme = useTheme();
-  const tabOptions = tabBarOptions(theme);
+  const insets = useSafeAreaInsets();
+  // The same frame bottom-tabs reads when it picks a label position.
+  const frame = useSafeAreaFrame();
+  const tabOptions = tabBarOptions(theme, {
+    bottomInset: insets.bottom,
+    landscape: frame.width > frame.height,
+  });
   // The unread total on the messages tab (owner, 2026-09-11 demo note 10),
   // polled once a minute for the whole signed-in session. It used to stop
   // while a pushed screen was up, because the root stack blurred the tabs —
@@ -402,7 +409,6 @@ function MainTabs() {
 function badgeLabel(count: number) {
   return count > 99 ? '99+' : String(count);
 }
-
 
 /**
  * The tabs ARE the root. Nothing sits above them: every destination and every

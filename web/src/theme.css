@@ -226,12 +226,22 @@ strong {
   text-align: center;
 }
 
-/* Bottom tab bar: hairline top rule, lowercase labels, thin icons */
+/* Bottom tab bar: hairline top rule, lowercase labels, thin icons.
+   The icon and label sit centred between the hairline and the screen edge,
+   the same rule as mobile's tabBarGeometry (owner, 2026-09-15). Installed as
+   a PWA on an iPhone the whole 34px safe area used to go under the labels,
+   so they rode 15px above the bar's middle. The gap below is now that inset
+   capped at the 18px that clear the home indicator, never less than 8px, and
+   the same gap goes above the icon, hairline included. Only the capped inset
+   is the bar's own padding: the rest stays inside the links, so a tap at the
+   very bottom of a browser tab bar still lands on a tab. */
 .tabbar {
+  --tabbar-inset: min(env(safe-area-inset-bottom, 0px), 18px);
+  --tabbar-gap: max(var(--tabbar-inset), 8px);
   display: flex;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--tabbar-inset);
 }
 
 .tabbar a {
@@ -240,10 +250,13 @@ strong {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 9px 0 7px;
+  padding: calc(var(--tabbar-gap) - 1px) 0 calc(var(--tabbar-gap) - var(--tabbar-inset));
   text-decoration: none;
   color: var(--text-subtle);
   font-size: 10px;
+  /* Stated rather than the font's "normal", so the group is the same 38px
+     (22 icon + 3 gap + 13 label) whichever face loads. */
+  line-height: 13px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: lowercase;
