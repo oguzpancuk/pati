@@ -37,11 +37,12 @@ function formatTime(iso: string) {
 
 /**
  * One conversation (mobile parity: ConversationScreen): the newest page,
- * older pages on demand, a 5-second poll while the tab is visible. Each
- * bubble has a "⋯" for reply, delete (own, or any as a group admin) and
- * report — the web stand-in for mobile's long press. A reply's quote sits
- * above the bubble and scrolls to its source on click; the sender's avatar
- * marks the first bubble of a run (P7 items 6–7).
+ * older pages on demand, a 5-second poll while the tab is visible. A click
+ * on a bubble opens its options under it — reply, delete (own, or any as a
+ * group admin) and report — as a tap does on mobile. A reply's quote sits
+ * above the bubble and scrolls to its source on click, without opening the
+ * options; the sender's avatar marks the first bubble of a run (P7 items
+ * 6–7).
  */
 export default function ConversationPage() {
   const { id } = useParams();
@@ -71,13 +72,13 @@ export default function ConversationPage() {
   const stickToBottom = useRef(true);
   // Where the list last settled and how tall it was then. A resize keeps the
   // distance from the bottom from these, not from a distance remembered at
-  // the last scroll: content that grew since (a poll, the ⋯ menu) would make
-  // such a distance stale, while scrollTop only ever moves with a scroll.
+  // the last scroll: content that grew since (a poll, the options row) would
+  // make such a distance stale, while scrollTop only ever moves with a scroll.
   const lastTop = useRef(0);
   const lastHeight = useRef(0);
   // The message a quote click is scrolling to, until its flash ends. Any
   // scrollTop write stops a smooth scroll where it is, and the tap on a
-  // quote can also close the keyboard or the ⋯ menu, which resize or
+  // quote can also close the keyboard or the options row, which resize or
   // re-render the list while that scroll is still running.
   const jumpTarget = useRef<number | null>(null);
   useKeyboardViewport();
@@ -180,8 +181,8 @@ export default function ConversationPage() {
   }, [conversationId, scrollToBottom]);
 
   // Content that grows while the reader is at the bottom (a polled message,
-  // the ⋯ menu under the last bubble) is pinned before it is painted; the
-  // list's own size does not change, so the observer above never sees it.
+  // the options row under the last bubble) is pinned before it is painted;
+  // the list's own size does not change, so the observer above never sees it.
   // `flash` is left out on purpose: a quote click starts a smooth scroll
   // upward, and pinning on its re-render would cancel it.
   useLayoutEffect(() => {
@@ -301,7 +302,7 @@ export default function ConversationPage() {
   function jumpTo(id: number) {
     const el = document.getElementById(`msg-${id}`);
     if (!el) return;
-    // Before the scroll starts: the same click closes the ⋯ menu, whose
+    // Before the scroll starts: the same click closes the options row, whose
     // re-render would pin a reader who is still at the bottom.
     jumpTarget.current = id;
     stickToBottom.current = false;
@@ -374,6 +375,13 @@ export default function ConversationPage() {
           lastTop.current = el.scrollTop;
         }}
         onClick={() => setMenuFor(null)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape' || menuFor === null) return;
+          // Focus inside the row would drop to the page with it; it goes
+          // back to the bubble the row belongs to.
+          document.querySelector<HTMLButtonElement>(`#msg-${menuFor} .msg-hit`)?.focus();
+          setMenuFor(null);
+        }}
       >
         {error && <div className="error">{error}</div>}
         {messages === null && !error && <p className="muted">Yükleniyor…</p>}
@@ -389,7 +397,7 @@ export default function ConversationPage() {
         )}
         {messages?.map((m, i) => {
           // The conversation's own lines (demo note 12): centred, muted, no
-          // avatar, no bubble — and no "⋯", so neither the reply, the
+          // avatar, no bubble — and no options, so neither the reply, the
           // delete nor the report sheet can reach one.
           if (m.kind === 'system') {
             return (
@@ -406,6 +414,8 @@ export default function ConversationPage() {
           const canReply = !m.deleted && canSend;
           const canDelete = !m.deleted && (mine || isAdmin);
           const canReport = !m.deleted && !mine;
+          const hasOptions = canReply || canDelete || canReport;
+          const menuOpen = menuFor === m.id;
           const avatar = firstOfRun ? (
             <span className="msg-avatar">
               <UserAvatar avatarUrl={m.sender?.avatar_url} name={m.sender?.name} size={AVATAR} />
@@ -423,13 +433,37 @@ export default function ConversationPage() {
                 <div
                   className={`msg-bubble${mine ? ' mine' : ''}${m.deleted ? ' deleted' : ''}${
                     flashId === m.id ? ' flash' : ''
-                  }`}
+                  }${hasOptions ? ' has-options' : ''}`}
+                  // A click anywhere on the bubble opens its options (owner,
+                  // 2026-09-15; they had a dots button in the corner). The
+                  // pointer lands on the text or on the covering button
+                  // below; either way it arrives here, once.
+                  onClick={
+                    hasOptions
+                      ? (e) => {
+                          e.stopPropagation();
+                          // A click that ends a text selection in the bubble
+                          // is the reader copying, not asking for options.
+                          const sel = window.getSelection();
+                          if (sel && !sel.isCollapsed && e.currentTarget.contains(sel.anchorNode)) {
+                            return;
+                          }
+                          setMenuFor(menuOpen ? null : m.id);
+                        }
+                      : undefined
+                  }
                 >
                   {m.replyTo && (
                     <button
                       type="button"
                       className={`msg-quote${m.replyTo.deleted ? ' deleted' : ''}`}
-                      onClick={() => jumpTo(m.replyTo!.id)}
+                      onClick={(e) => {
+                        // The quote jumps and never also opens the options;
+                        // it still closes a row left open elsewhere.
+                        e.stopPropagation();
+                        setMenuFor(null);
+                        jumpTo(m.replyTo!.id);
+                      }}
                       aria-label="Alıntılanan mesaja git"
                     >
                       <span className="micro msg-quote-name">
@@ -450,22 +484,27 @@ export default function ConversationPage() {
                     <span className="msg-body">{m.body}</span>
                   )}
                   <span className="msg-time">{formatTime(m.createdAt)}</span>
-                  {(canReply || canDelete || canReport) && (
+                  {hasOptions && (
+                    /* Keyboard and screen-reader access to the same options:
+                       a real button stretched under the bubble's content, so
+                       it takes the focus ring and the clicks on the padding
+                       while the text above it stays selectable. Its click
+                       bubbles to the handler on the bubble. */
                     <button
                       type="button"
-                      className="msg-more"
+                      className="msg-hit"
                       aria-label="Mesaj seçenekleri"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuFor(menuFor === m.id ? null : m.id);
-                      }}
-                    >
-                      ⋯
-                    </button>
+                      aria-expanded={menuOpen}
+                      aria-controls={menuOpen ? `msg-menu-${m.id}` : undefined}
+                    />
                   )}
                 </div>
-                {menuFor === m.id && (
-                  <div className="msg-menu" onClick={(e) => e.stopPropagation()}>
+                {menuOpen && (
+                  <div
+                    id={`msg-menu-${m.id}`}
+                    className="msg-menu"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {canReply && (
                       <button type="button" className="link" onClick={() => reply(m)}>
                         yanıtla

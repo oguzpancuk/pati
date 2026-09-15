@@ -1452,8 +1452,10 @@ strong {
 }
 .msg-bubble {
   position: relative;
-  /* Room on the outer side for the "⋯" options button. */
-  padding: 8px 28px 6px 12px;
+  /* Its own stacking context, so the options button below can sit under the
+     text (z-index -1) without dropping behind the bubble's background. */
+  isolation: isolate;
+  padding: 8px 12px 6px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface-alt);
@@ -1464,7 +1466,11 @@ strong {
 .msg-bubble.mine {
   background: var(--brand-tint);
   border-color: var(--brand-soft);
-  padding: 8px 12px 6px 28px;
+}
+/* A click on the bubble opens its options; no grey flash on a phone tap. */
+.msg-bubble.has-options {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 .msg-bubble.deleted {
   background: var(--surface);
@@ -1522,21 +1528,23 @@ strong {
   font-size: 10.5px;
   color: var(--text-subtle);
 }
-.msg-more {
+/* The keyboard's and the screen reader's way to a bubble's options: an
+   empty button over the whole bubble, under its text. Its focus ring is the
+   bubble's outline. */
+.msg-hit {
   position: absolute;
-  top: 2px;
-  right: 4px;
+  inset: 0;
+  z-index: -1;
+  margin: 0;
+  padding: 0;
   border: none;
+  border-radius: inherit;
   background: none;
-  color: var(--text-subtle);
-  font-size: 14px;
-  line-height: 1;
-  padding: 2px 4px;
   cursor: pointer;
 }
-.msg-bubble.mine .msg-more {
-  right: auto;
-  left: 4px;
+.msg-hit:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 .msg-menu {
   display: flex;

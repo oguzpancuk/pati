@@ -31,12 +31,29 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** What VoiceOver/TalkBack reads for a bubble, which is one element: who, the quote, the text, the time. */
+function bubbleLabel(m: Message, mine: boolean) {
+  const who = mine ? 'Sen' : m.sender?.name ?? 'silinmiş kullanıcı';
+  const quote = m.replyTo
+    ? `yanıt: ${m.replyTo.sender?.name ?? 'silinmiş kullanıcı'}, ${
+        m.replyTo.deleted ? 'Bu mesaj silindi' : m.replyTo.excerpt
+      }`
+    : null;
+  const text = m.deleted
+    ? m.deletedBySender === false
+      ? 'Yönetici bu mesajı sildi'
+      : 'Bu mesaj silindi'
+    : m.body;
+  return `${who}: ${[quote, text, formatTime(m.createdAt)].filter(Boolean).join(', ')}`;
+}
+
 /**
  * One conversation: the newest page, older pages as you scroll up, a
  * 5-second poll while the app is in front (ROADMAP P6 item 4 — no push in
- * this batch). Long-press a bubble to reply to it (the quote shows above
- * the composer and, once sent, above the bubble; tapping a quote jumps to
- * its source), delete it (yours, or any as a group admin) or report it.
+ * this batch). Tap (or long-press) a bubble for its options: reply to it
+ * (the quote shows above the composer and, once sent, above the bubble;
+ * tapping a quote jumps to its source instead of opening the options),
+ * delete it (yours, or any as a group admin) or report it.
  * The sender's avatar sits beside the first bubble of a run (P7 items 6–7).
  */
 export default function ConversationScreen({ route, navigation }: any) {
@@ -239,9 +256,10 @@ export default function ConversationScreen({ route, navigation }: any) {
     }
   }
 
-  function onLongPress(m: Message) {
+  function openOptions(m: Message) {
     // A system line has no sender to reply to, delete or report; it renders
-    // without a Pressable, and this is the second lock on that door.
+    // without a Pressable, and this is the second lock on that door. A
+    // deleted bubble's Pressable carries no handler either.
     if (m.deleted || m.kind === 'system') return;
     const mine = !!myId && m.sender?.id === myId;
     const admin = detail?.kind === 'group' && detail.role === 'admin';
@@ -272,7 +290,9 @@ export default function ConversationScreen({ route, navigation }: any) {
     if (!mine) actions.push({ text: 'Şikayet et', onPress: () => setReporting(m) });
     if (actions.length === 0) return;
     actions.push({ text: 'Vazgeç', style: 'cancel' });
-    Alert.alert('Mesaj', m.body ?? undefined, actions);
+    // Android closes on a tap outside, like the web menu; an iOS alert has
+    // no such dismissal and closes on "Vazgeç".
+    Alert.alert('Mesaj', m.body ?? undefined, actions, { cancelable: true });
   }
 
   const isGroup = detail?.kind === 'group';
@@ -317,7 +337,7 @@ export default function ConversationScreen({ route, navigation }: any) {
           }}
           renderItem={({ item, index }) => {
             // The conversation's own lines (demo note 12): centred, muted,
-            // no avatar, no bubble — and no long press, so neither the
+            // no avatar, no bubble — and no Pressable, so neither the
             // reply, the delete nor the report sheet can reach one.
             if (item.kind === 'system') {
               return (
@@ -345,6 +365,11 @@ export default function ConversationScreen({ route, navigation }: any) {
             ) : (
               <View style={styles.avatarGap} />
             );
+            const open = item.deleted ? undefined : () => openOptions(item);
+            const a11yActions = [
+              ...(open ? [{ name: 'activate' }] : []),
+              ...(item.replyTo ? [{ name: 'quote', label: 'Alıntılanan mesaja git' }] : []),
+            ];
             return (
               <View style={[styles.line, mine ? styles.lineMine : styles.lineTheirs]}>
                 {mine ? null : avatar}
@@ -355,8 +380,27 @@ export default function ConversationScreen({ route, navigation }: any) {
                     </Text>
                   ) : null}
                   <Pressable
-                    onLongPress={() => onLongPress(item)}
+                    // A tap opens the options (owner, 2026-09-15); the long
+                    // press that used to be the only way stays. A deleted
+                    // bubble has none, so it takes neither.
+                    onPress={open}
+                    onLongPress={open}
                     delayLongPress={300}
+                    accessibilityRole={open ? 'button' : undefined}
+                    accessibilityLabel={bubbleLabel(item, mine)}
+                    accessibilityHint={open ? 'Seçenekleri açar' : undefined}
+                    // The bubble is one accessibility element, which hides
+                    // the quote inside it from VoiceOver, so the jump rides
+                    // along as a named action. `activate` is answered here
+                    // because without it iOS simulates a touch at the
+                    // bubble's centre — on a reply, often the quote.
+                    accessibilityActions={a11yActions}
+                    onAccessibilityAction={({ nativeEvent }) => {
+                      if (nativeEvent.actionName === 'activate') open?.();
+                      if (nativeEvent.actionName === 'quote' && item.replyTo) {
+                        jumpTo(item.replyTo.id);
+                      }
+                    }}
                     style={[
                       styles.bubble,
                       mine ? styles.bubbleMine : styles.bubbleTheirs,
@@ -366,8 +410,10 @@ export default function ConversationScreen({ route, navigation }: any) {
                   >
                     {item.replyTo ? (
                       <Pressable
+                        // The inner Pressable takes the touch, so a tap here
+                        // jumps and never also opens the bubble's options.
                         onPress={() => jumpTo(item.replyTo!.id)}
-                        onLongPress={() => onLongPress(item)}
+                        onLongPress={open}
                         delayLongPress={300}
                         style={styles.quote}
                         accessibilityLabel="Alıntılanan mesaja git"

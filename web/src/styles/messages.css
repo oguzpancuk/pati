@@ -33,7 +33,7 @@
 /* ---- a group event is a message, not a bubble (note 12) ------------ */
 
 /* A system row is the conversation speaking: centred, muted, no avatar, no
-   bubble and no "⋯" menu — nothing to report, delete or reply to. */
+   bubble and no options — nothing to report, delete or reply to. */
 .msg-system {
   /* The list is a block, so `align-self` does nothing here and the box would
      stretch to the full 86% whatever the text is — a grey band instead of a
