@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -40,7 +40,7 @@ import AnimalBadgeLadderModal from '../components/AnimalBadgeLadderModal';
 import AnimalLocationSheet from '../components/AnimalLocationSheet';
 import { BadgeSymbol } from '../components/badges';
 import DemoChip from '../components/DemoChip';
-import ReportLink from '../components/ReportSheet';
+import ReportLink, { ReportSheet } from '../components/ReportSheet';
 import { useAuth } from '../context/AuthContext';
 import { useBadgeAwards } from '../context/BadgeAwardContext';
 import {
@@ -60,7 +60,7 @@ import {
 import { Icon } from '../components/brand';
 import { mergeById } from '../paging';
 import { conditionsFor, VACCINE_TYPES } from '../taxonomy';
-import { fonts, makeStyles, radius, spacing, useTheme } from '../theme';
+import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme';
 
 const RECORD_TYPE_LABELS: Record<HealthRecordType, string> = {
   illness: 'Hastalık',
@@ -140,10 +140,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const [sending, setSending] = useState(false);
   // The composer is content at the end of the chat, not a bar pinned over
   // the page (owner, 2026-09-15), so the screen scrolls it into view itself:
-  // the only things below it are the report footer and the content padding,
-  // so the end of the scroll is always a place where it shows. A sent
-  // comment's new row pushes it down (and the reload can shorten the list
-  // above it); the bump runs the scroll once that render is committed.
+  // nothing but the content padding is below it (the animal's report moved
+  // to the header), so the end of the scroll is always a place where it
+  // shows. A sent comment's new row pushes it down (and the reload can
+  // shorten the list above it); the bump runs the scroll once that render is
+  // committed.
   const scrollRef = useRef<ScrollView>(null);
   const [composerReveal, setComposerReveal] = useState(0);
   useEffect(() => {
@@ -193,6 +194,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const [followBusy, setFollowBusy] = useState(false);
   // The last-seen thumbnail opens a real, pannable map (demo item 8).
   const [locationOpen, setLocationOpen] = useState(false);
+  // The animal's report sheet, opened from the header flag. `?report=1`
+  // (dev/QA deep link) opens it once the profile has loaded.
+  const [reportOpen, setReportOpen] = useState<boolean>(!!route.params?.report);
 
   // "kedi profili" / "köpek profili" (P6 item 6): the species is known only
   // after the load, so the stack's default title stands until then.
@@ -201,6 +205,34 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
     if (species)
       navigation.setOptions({ title: species === 'cat' ? 'kedi profili' : 'köpek profili' });
   }, [navigation, species]);
+
+  // Reporting the animal is the header's right-hand control (owner,
+  // 2026-09-15): at the page's end it sat under the comment composer, which
+  // is where the page should end. A flag in the round header disc the
+  // conversation screen uses, its glyph in the muted text colour rather than
+  // the brand's: there without asking to be pressed, yet above the 3:1 a
+  // glyph that is the control's only sign needs (the old link's subtle
+  // colour is not, on white). Not offered before the profile has
+  // loaded, nor in match review, which hides every secondary action so the
+  // decision bar is the only one. The styles object changes identity on a
+  // theme flip (makeStyles caches per theme name), so it sits in the deps.
+  const loaded = animal !== null;
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () =>
+        loaded && !matchReview ? (
+          <Pressable
+            hitSlop={hitSlop}
+            onPress={() => setReportOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Şikayet et"
+            style={styles.headButton}
+          >
+            <Icon name="flag" size={18} color={colors.textMuted} />
+          </Pressable>
+        ) : null,
+    });
+  }, [navigation, loaded, matchReview, colors.textMuted, styles.headButton]);
 
   const load = useCallback(async () => {
     try {
@@ -1023,16 +1055,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             </View>
           </View>
         ) : null}
-
-        {/* Reporting exists but sells nothing: the last thing on the page,
-            under a hairline. The ?report=1 deep link still opens it. */}
-        <View style={styles.footer}>
-          <ReportLink
-            targetType="animal"
-            targetId={animal.id}
-            initialOpen={!!route.params?.report}
-          />
-        </View>
       </Screen>
 
       {/* The match review's decision stays pinned under the page: it is the
@@ -1257,6 +1279,12 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           </View>
         </View>
       </Modal>
+      <ReportSheet
+        visible={reportOpen && !matchReview}
+        onClose={() => setReportOpen(false)}
+        targetType="animal"
+        targetId={animal.id}
+      />
       <AnimalBadgeLadderModal
         visible={ladderKey !== null}
         onClose={() => setLadderKey(null)}
@@ -1429,13 +1457,18 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   recoverButton: { marginTop: spacing.md },
   doorCard: { marginBottom: spacing.md },
   doorText: { marginBottom: spacing.md },
-  footer: {
-    marginTop: spacing.xxl,
-    marginBottom: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: c.border,
+  // The header's report control: the conversation screen's round header
+  // disc (owner, P8 item 4), so the header's right slot has one shape.
+  headButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: c.surface,
+    borderWidth: 1,
+    borderColor: c.border,
     alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.float,
   },
   commentRow: { flexDirection: 'row', marginBottom: spacing.lg },
   commentBody: { flex: 1, marginLeft: spacing.md },

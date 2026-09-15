@@ -5,7 +5,9 @@
  * scroll view for the iOS keyboard inset, and it scrolls to the end, where
  * the composer shows, when its field takes focus on iOS, again once the iOS
  * keyboard has shown while the field has focus, and after a sent comment has
- * been rendered. The match review's decision bar stays pinned.
+ * been rendered. The match review's decision bar stays pinned. With the
+ * animal's report moved to the header's flag (owner, 2026-09-15), the
+ * composer is the last thing on the page.
  *
  * The screen's own logic runs; the design system, the map, the network and
  * the contexts around it are stand-ins. What iOS does with the inset and the
@@ -53,12 +55,17 @@ jest.mock('../src/components/AnimalLocationSheet', () => () => null);
 jest.mock('../src/components/DemoChip', () => () => null);
 jest.mock('../src/components/badges', () => ({ BadgeSymbol: () => null }));
 jest.mock('../src/components/brand', () => ({ Icon: () => null }));
-// The report links mark where they are: the animal's is the page's footer.
+// The report links mark where they are; the sheet shows whether it is open.
 jest.mock('../src/components/ReportSheet', () => {
   const { View: V } = require('react-native');
   const R = require('react');
-  // why `any`: only targetType is read.
-  return ({ targetType }: any) => R.createElement(V, { testID: `report:${targetType}` });
+  // why `any`: only targetType and visible are read.
+  return {
+    __esModule: true,
+    default: ({ targetType }: any) => R.createElement(V, { testID: `report:${targetType}` }),
+    ReportSheet: ({ targetType, visible }: any) =>
+      R.createElement(V, { testID: `reportSheet:${targetType}`, visible }),
+  };
 });
 
 jest.mock('../src/context/AuthContext', () => ({ useAuth: () => ({ user: { id: 7 } }) }));
@@ -209,8 +216,10 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+let navigation: { setOptions: jest.Mock; navigate: jest.Mock; push: jest.Mock };
+
 async function render(params: object = {}) {
-  const navigation = { setOptions: jest.fn(), navigate: jest.fn(), push: jest.fn() };
+  navigation = { setOptions: jest.fn(), navigate: jest.fn(), push: jest.fn() };
   let tree!: ReactTestRenderer;
   await act(async () => {
     tree = create(
@@ -223,6 +232,22 @@ async function render(params: object = {}) {
   return tree;
 }
 
+/** What the header's right slot shows now: the last headerRight handed over. */
+function headerRight(): ReactTestRenderer | null {
+  const calls = navigation.setOptions.mock.calls.filter(([o]) => 'headerRight' in o);
+  const element = calls[calls.length - 1]?.[0].headerRight();
+  if (!element) return null;
+  let header!: ReactTestRenderer;
+  act(() => {
+    header = create(element);
+  });
+  return header;
+}
+
+const reportSheetOpen = (tree: ReactTestRenderer) =>
+  tree.root.find((n) => typeof n.type === 'string' && n.props.testID === 'reportSheet:animal').props
+    .visible;
+
 const screenOf = (tree: ReactTestRenderer) =>
   tree.root.find((n) => n.props.testID === 'screen' && typeof n.type === 'string');
 
@@ -233,7 +258,7 @@ const hasText = (tree: ReactTestRenderer, text: string) =>
   tree.root.findAll((n) => typeof n.type === 'string' && n.props.children === text).length > 0;
 
 describe('the animal profile comment composer', () => {
-  it('sits in the scroll view after the last comment and before the report footer', async () => {
+  it('sits in the scroll view after the last comment, as the last thing on the page', async () => {
     const tree = await render();
     const screen = screenOf(tree);
     const [input] = composerInputs(screen);
@@ -245,11 +270,14 @@ describe('the animal profile comment composer', () => {
     const lastComment = tree.root.find(
       (n) => typeof n.type === 'string' && n.props.children === 'kabı yıkadım'
     );
-    const footer = tree.root.find(
-      (n) => typeof n.type === 'string' && n.props.testID === 'report:animal'
-    );
     expect(order.indexOf(lastComment)).toBeLessThan(order.indexOf(input));
-    expect(order.indexOf(input)).toBeLessThan(order.indexOf(footer));
+    // No report link for the animal is left in the page; the last child of
+    // the scroll view is the composer.
+    expect(
+      tree.root.findAll((n) => typeof n.type === 'string' && n.props.testID === 'report:animal')
+    ).toHaveLength(0);
+    const children = screen.children as ReactTestInstance[];
+    expect(children[children.length - 1].findAll((n) => n === input)).toHaveLength(1);
 
     // The record chips ride along, and a tap on one keeps the keyboard.
     const chip = screen.find(
@@ -366,5 +394,41 @@ describe('the animal profile comment composer', () => {
     );
     const inScreen = screenOf(tree).findAll((n) => n === back);
     expect(inScreen).toHaveLength(0);
+  });
+});
+
+describe('the animal profile report action', () => {
+  it('is a flag in the header that opens the animal report sheet', async () => {
+    const tree = await render();
+    expect(reportSheetOpen(tree)).toBe(false);
+    const header = headerRight();
+    const flag = header!.root.find(
+      (n) => n.type === Pressable && n.props.accessibilityLabel === 'Şikayet et'
+    );
+    await act(async () => {
+      flag.props.onPress();
+    });
+    expect(reportSheetOpen(tree)).toBe(true);
+    // The per-comment links stay in the chat.
+    expect(
+      tree.root.findAll((n) => typeof n.type === 'string' && n.props.testID === 'report:comment')
+    ).toHaveLength(BEFORE.length);
+  });
+
+  it('is not offered before the profile has loaded', async () => {
+    api.fetchAnimal.mockReturnValue(new Promise(() => {}));
+    await render();
+    expect(headerRight()).toBeNull();
+  });
+
+  it('opens on its own for the ?report=1 deep link', async () => {
+    const tree = await render({ report: true });
+    expect(reportSheetOpen(tree)).toBe(true);
+  });
+
+  it('is hidden in match review, with the other secondary actions', async () => {
+    const tree = await render({ matchReview: true, matchHit: true, report: true });
+    expect(headerRight()).toBeNull();
+    expect(reportSheetOpen(tree)).toBe(false);
   });
 });

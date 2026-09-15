@@ -28,7 +28,8 @@ export type IconName =
   | 'star'
   | 'logout'
   | 'refresh'
-  | 'settings';
+  | 'settings'
+  | 'flag';
 
 export type IconProps = {
   name: IconName;
@@ -157,6 +158,14 @@ const PATHS: Record<IconName, (color: string, sw: number) => React.ReactNode> = 
     <>
       <Path d="M19.4 12a7.4 7.4 0 1 1-2.2-5.3" />
       <Path d="M18 3.6v3.6h-3.6" />
+    </>
+  ),
+  // The report action's mark: a pole with a waving flag. Web draws the same
+  // paths inline (web/src/pages/AnimalPage.tsx).
+  flag: () => (
+    <>
+      <Path d="M6 20.4V4.2" />
+      <Path d="M6 4.8c2.2-1.2 4.4-1.2 6.6 0s4.2 1.2 6.4 0v8.4c-2.2 1.2-4.2 1.2-6.4 0s-4.4-1.2-6.6 0" />
     </>
   ),
   settings: () => (

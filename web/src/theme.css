@@ -1743,13 +1743,6 @@ strong {
 }
 
 /* The report link closes the page under a hairline, centred and faint. */
-.animal-footer {
-  margin: 32px 0 12px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  text-align: center;
-}
-
 /* A chip that opens the ladder (P7 item 3): a button in the chip's clothes. */
 .animal-badge.tappable {
   cursor: pointer;

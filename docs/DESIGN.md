@@ -181,10 +181,10 @@ Screens import these via `import { ... } from '../components/ui'`.
   .14em spacing, slight overlap). Tops the auth screens; no tagline.
 - **`Gradient`** — the brand gradient as an absolutely positioned SVG layer
   (no extra native dependency). Use it only in the four allowed places.
-- **`Icon`** — a 21-icon set with thin strokes and round caps (`pin`, `paw`,
+- **`Icon`** — a 22-icon set with thin strokes and round caps (`pin`, `paw`,
   `user`, `users`, `plus`, `trophy`, `food`, `water`, `heart`, `chat`,
   `camera`, `health`, `bell`, `chevronRight`, `close`, `check`, `crosshair`,
-  `star`, `logout`, `refresh`, `settings`). **Use this instead of emoji:**
+  `star`, `logout`, `refresh`, `settings`, `flag`). **Use this instead of emoji:**
   emoji render differently per device and can't take the brand color.
   A glyph whose strokes reach the edge of the 24×24 box is clipped at small
   sizes; `VIEW_BOXES` gives such an icon its own viewBox, inset by the stroke

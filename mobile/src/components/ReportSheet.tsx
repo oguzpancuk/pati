@@ -15,17 +15,47 @@ export default function ReportLink({
   targetType,
   targetId,
   style,
-  initialOpen = false,
 }: {
   targetType: ReportTargetType;
   targetId: number;
   style?: object;
-  /** Dev/QA: open the sheet on mount (deep link `?report=1`); never set in product flows. */
-  initialOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Pressable onPress={() => setOpen(true)} hitSlop={hitSlop} style={style}>
+        <Text variant="caption" color="textSubtle">
+          şikayet et
+        </Text>
+      </Pressable>
+      <ReportSheet
+        visible={open}
+        onClose={() => setOpen(false)}
+        targetType={targetType}
+        targetId={targetId}
+      />
+    </>
+  );
+}
+
+/**
+ * The sheet itself, for a surface whose way in is not the text link — the
+ * animal profile's header flag. It keeps its own form state and clears it on
+ * every way out, so the next opening starts empty.
+ */
+export function ReportSheet({
+  visible,
+  onClose,
+  targetType,
+  targetId,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  targetType: ReportTargetType;
+  targetId: number;
 }) {
   const styles = useStyles();
   const { colors } = useTheme();
-  const [open, setOpen] = useState(initialOpen);
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,11 +63,11 @@ export default function ReportLink({
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
-    setOpen(false);
     setReason(null);
     setDetails('');
     setError(null);
     setDone(false);
+    onClose();
   }
 
   async function submit() {
@@ -56,18 +86,12 @@ export default function ReportLink({
 
   return (
     <>
-      <Pressable onPress={() => setOpen(true)} hitSlop={hitSlop} style={style}>
-        <Text variant="caption" color="textSubtle">
-          şikayet et
-        </Text>
-      </Pressable>
-
       {/* A sheet is not a page (DESIGN §8): hardware back closes it rather
           than leaving the screen. Unlike the backdrop it is NOT locked while
           a request is in flight — it is the OS's own way out and the last
           one left, since the backdrop and "Vazgeç" are both disabled then. */}
       <Modal
-        visible={open}
+        visible={visible}
         transparent
         animationType="fade"
         // Unlike the backdrop, hardware back does NOT wait for `busy`: the

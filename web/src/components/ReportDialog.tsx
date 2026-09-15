@@ -21,6 +21,43 @@ export function ReportLink({
   style?: React.CSSProperties;
 }) {
   const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="subtle"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, ...style }}
+        onClick={() => setOpen(true)}
+      >
+        şikayet et
+      </button>
+      <ReportDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        targetType={targetType}
+        targetId={targetId}
+      />
+    </>
+  );
+}
+
+/**
+ * The sheet itself, for a surface whose way in is not the text link — the
+ * animal page's header flag. It keeps its own form state and clears it on
+ * every way out, so the next opening starts empty. It stays mounted while
+ * closed: the sheet's history entry is handed back when `open` turns false.
+ */
+export function ReportDialog({
+  open,
+  onClose,
+  targetType,
+  targetId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  targetType: ReportTargetType;
+  targetId: number;
+}) {
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,11 +65,11 @@ export function ReportLink({
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
-    setOpen(false);
     setReason(null);
     setDetails('');
     setError(null);
     setDone(null);
+    onClose();
   }
 
   async function submit() {
@@ -53,15 +90,6 @@ export function ReportLink({
 
   return (
     <>
-      <button
-        type="button"
-        className="subtle"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, ...style }}
-        onClick={() => setOpen(true)}
-      >
-        şikayet et
-      </button>
-
       {open && (
         <div className="backdrop" onClick={() => !busy && dismiss()}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>

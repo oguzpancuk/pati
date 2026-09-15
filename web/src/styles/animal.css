@@ -6,6 +6,34 @@
  * reason — only this page mounts it.
  */
 
+/* ------------------------------------------------ the header's report flag */
+
+/* The conversation header's round control (.msg-head-btn, owner P8 item 4),
+   so the header's right slot keeps one shape; the glyph is muted rather than
+   brand-coloured, as reporting must exist but sell nothing — muted, not
+   subtle, because the glyph is the control's only sign and subtle falls
+   under 3:1 on white. */
+.animal-report-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-float);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.animal-report-btn:hover {
+  color: var(--text);
+}
+
 /* ---------------------------------------------- the carers list (item 7) */
 
 .animal-carer-row {

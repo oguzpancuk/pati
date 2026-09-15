@@ -32,7 +32,7 @@ import { BadgeSymbol } from '../badges';
 import { AnimalBadgeLadder } from '../components/AnimalBadgeLadder';
 import { AnimalLocationDialog } from '../components/AnimalLocationDialog';
 import { MiniMap } from '../components/MiniMap';
-import { ReportLink } from '../components/ReportDialog';
+import { ReportDialog, ReportLink } from '../components/ReportDialog';
 import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { ChipRow } from '../components/ChipRow';
@@ -259,6 +259,8 @@ export default function AnimalPage() {
   const [visibleCarers, setVisibleCarers] = useState(CARER_PREVIEW);
   // The last-seen thumbnail opens a real, pannable map (demo item 8).
   const [locationOpen, setLocationOpen] = useState(false);
+  // The animal's report sheet, opened from the header flag.
+  const [reportOpen, setReportOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [draft, setDraft] = useState('');
@@ -631,6 +633,39 @@ export default function AnimalPage() {
       <PageHeader
         title={animal.species === 'cat' ? 'kedi profili' : 'köpek profili'}
         fallback="/hayvanlar"
+        /* Reporting the animal is the header's right-hand control (owner,
+           2026-09-15): at the page's end it sat under the comment composer,
+           which is where the page should end. A flag in the conversation
+           header's round disc, muted rather than brand-coloured. Match
+           review hides it with the other secondary actions (mobile parity). */
+        action={
+          matchReview ? undefined : (
+            <button
+              type="button"
+              className="animal-report-btn"
+              aria-label="Şikayet et"
+              title="Şikayet et"
+              onClick={() => setReportOpen(true)}
+            >
+              {/* The brand icon set's `flag` (mobile components/brand/Icon). */}
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M6 20.4V4.2" />
+                <path d="M6 4.8c2.2-1.2 4.4-1.2 6.6 0s4.2 1.2 6.4 0v8.4c-2.2 1.2-4.2 1.2-6.4 0s-4.4-1.2-6.6 0" />
+              </svg>
+            </button>
+          )
+        }
       />
 
       {error && <div className="error">{error}</div>}
@@ -1051,11 +1086,12 @@ export default function AnimalPage() {
         </form>
       ) : null}
 
-      {/* Reporting exists but sells nothing: the last thing on the page,
-          under a hairline. */}
-      <div className="animal-footer">
-        <ReportLink targetType="animal" targetId={animal.id} />
-      </div>
+      <ReportDialog
+        open={reportOpen && !matchReview}
+        onClose={() => setReportOpen(false)}
+        targetType="animal"
+        targetId={animal.id}
+      />
 
       {viewerPhoto && viewerIndex !== null && (
         <div
