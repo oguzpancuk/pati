@@ -27,6 +27,7 @@ import {
 import { AnimalAvatar, UserAvatar } from '../avatars';
 import { useAuth } from '../auth';
 import { bumpLadderValue, headerBadges, setLadderValue } from '@mobile/animalBadges';
+import { animalPhotoSlots } from '@mobile/animalPhotoSlots';
 import { BadgeSymbol } from '../badges';
 import { AnimalBadgeLadder } from '../components/AnimalBadgeLadder';
 import { AnimalLocationDialog } from '../components/AnimalLocationDialog';
@@ -214,8 +215,6 @@ function CarerRow({ carer, selfId }: { carer: Carer; selfId?: number }) {
   );
 }
 
-// Two rows; the rest live in the viewer behind the "+N" tile.
-const HERO_PHOTOS = 6;
 export default function AnimalPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -606,14 +605,14 @@ export default function AnimalPage() {
   // the photos a carer took in the flow (B1 follow-up).
   const confirmReports = matchHit || animal.isCarer === true;
 
-  // The grid always fills to a multiple of 3: real tiles + dashed "photo"
-  // placeholders — even an empty profile invites.
-  // The hero shows two rows at most (review finding): every accepted
-  // "bakım ver" adds a photo, so an unbounded grid would push the name
-  // and the action pair below the fold. The last tile carries "+N" and
-  // opens the viewer on the rest.
-  const heroPhotos = animal.photos.slice(0, HERO_PHOTOS);
-  const photoSlots = Math.max(3, Math.ceil(heroPhotos.length / 3) * 3);
+  // The grid's cells come from animalPhotoSlots (shared with mobile): at
+  // most two rows of photos, a carer's add tile after them, dashed
+  // placeholders filling the row. Match review offers one decision, so its
+  // grid adds nothing.
+  const photoSlots = animalPhotoSlots(
+    animal.photos.length,
+    animal.isCarer === true && !matchReview
+  );
   const viewerPhoto = viewerIndex === null ? null : animal.photos[viewerIndex] ?? null;
 
   return (
@@ -628,30 +627,45 @@ export default function AnimalPage() {
 
       {/* The photos open the page (owner, 2026-09-09 — the avatar is gone
           with them): square tiles, three a row, each with its like count; a
-          click opens the swipeable viewer. */}
+          click opens the swipeable viewer. A carer's next cell is the
+          "fotoğraf ekle" tile (owner, 2026-09-15: the slot, not a button);
+          the last row fills with dashed "fotoğraf" placeholders. */}
       <div className="animal-photo-grid">
-        {Array.from({ length: photoSlots }).map((_, i) => {
-          const p = heroPhotos[i];
-          return p ? (
-            <button
-              key={p.id}
-              type="button"
-              className="animal-photo-tile"
-              onClick={() => setViewerIndex(i)}
-              aria-label={`Fotoğraf ${i + 1}, ${p.like_count} beğeni`}
-            >
-              <img src={p.url} alt="" />
-              {i === HERO_PHOTOS - 1 && animal.photos.length > HERO_PHOTOS && (
-                <span className="photo-more">+{animal.photos.length - HERO_PHOTOS}</span>
-              )}
-              <span className={`photo-like ${p.liked_by_me ? 'mine' : ''}`}>♥ {p.like_count}</span>
-            </button>
-          ) : (
-            <div key={`ph-${i}`} className="animal-photo-tile photo-ph">
-              fotoğraf
-            </div>
-          );
-        })}
+        {animal.photos.slice(0, photoSlots.shown).map((p, i) => (
+          <button
+            key={p.id}
+            type="button"
+            className="animal-photo-tile"
+            onClick={() => setViewerIndex(i)}
+            aria-label={`Fotoğraf ${i + 1}, ${p.like_count} beğeni`}
+          >
+            <img src={p.url} alt="" />
+            {i === photoSlots.shown - 1 && photoSlots.more > 0 && (
+              <span className="photo-more">+{photoSlots.more}</span>
+            )}
+            <span className={`photo-like ${p.liked_by_me ? 'mine' : ''}`}>♥ {p.like_count}</span>
+          </button>
+        ))}
+        {photoSlots.add && (
+          /* The placeholder's frame, made a door: it opens the care sheet
+             in carer mode, as "bakım ver" does for everyone else. */
+          <button
+            type="button"
+            className="animal-photo-tile photo-ph photo-add"
+            onClick={openCare}
+            aria-label="Fotoğraf ekle"
+          >
+            <span className="photo-add-icon" aria-hidden="true">
+              📷
+            </span>
+            fotoğraf ekle
+          </button>
+        )}
+        {Array.from({ length: photoSlots.placeholders }).map((_, i) => (
+          <div key={`ph-${i}`} className="animal-photo-tile photo-ph">
+            fotoğraf
+          </div>
+        ))}
       </div>
 
       {/* Identity under the photos (owner, 2026-09-09): no avatar — the
@@ -704,8 +718,8 @@ export default function AnimalPage() {
 
       {/* Follow vs. care (P6 item 8): "takip et" has no condition and
           toggles; "bakım ver" is the camera-photo step. Hidden in match review.
-          A carer gets "fotoğraf ekle" under the pair (B1): three buttons do
-          not fit a phone's width with these labels (mobile parity). */}
+          A carer adds photos from the grid's add tile above, not from a
+          button here (mobile parity). */}
       {!matchReview && (
         <div className="row animal-actions">
           <button
@@ -725,11 +739,6 @@ export default function AnimalPage() {
           ) : (
             <button className="btn small grow" onClick={openCare}>
               📷 bakım ver
-            </button>
-          )}
-          {animal.isCarer && (
-            <button className="btn small secondary animal-action-wide" onClick={openCare}>
-              📷 fotoğraf ekle
             </button>
           )}
         </div>

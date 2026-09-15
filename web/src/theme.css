@@ -1668,12 +1668,6 @@ strong {
 .animal-actions {
   margin: 14px 0 6px;
   gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* A carer's "fotoğraf ekle" (B1): its own line under the follow/carer pair. */
-.animal-action-wide {
-  flex-basis: 100%;
 }
 
 .animal-actions .tag {
@@ -1809,6 +1803,28 @@ strong {
   min-height: 0;
   border: 1.5px dashed var(--border-dashed);
   cursor: default;
+}
+
+/* A carer's add tile (animalPhotoSlots): the placeholder frame with the
+   camera over a brand-coloured label, so it reads as the one live cell. */
+.animal-photo-tile.photo-add {
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px;
+  color: var(--brand);
+  letter-spacing: 0.08em;
+  text-align: center;
+  cursor: pointer;
+}
+
+.animal-photo-tile.photo-add:active {
+  background: var(--brand-tint);
+}
+
+.photo-add-icon {
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 /* The "+N" veil on the last hero tile (the gallery is capped at two rows). */
