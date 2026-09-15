@@ -519,7 +519,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               accessibilityLabel="Fotoğraf ekle"
             >
               <Icon name="camera" size={22} color={colors.brand} />
-              <Text variant="micro" color="brand" center>
+              <Text variant="micro" color="brand" center style={styles.photoAddLabel}>
                 fotoğraf ekle
               </Text>
             </Pressable>
@@ -1309,6 +1309,12 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   // camera over its label.
   photoAdd: { gap: spacing.xs, paddingHorizontal: spacing.xs },
   photoAddPressed: { backgroundColor: c.brandTint },
+  // With micro's 2.5 pt tracking "fotoğraf ekle" adds up to 99.4 pt
+  // (Quicksand SemiBold advances), more than the 99 pt a 375 pt phone's tile
+  // leaves it, so it would break onto a second line there. Web's tile tracks
+  // 0.8 (0.08em of 10 px); at that it adds up to 77.3 pt, inside the 80 pt
+  // even a 320 pt phone leaves.
+  photoAddLabel: { letterSpacing: 0.8 },
   sectionTop: { marginTop: spacing.xl },
   seenAt: { marginTop: spacing.sm },
   carerRow: {
