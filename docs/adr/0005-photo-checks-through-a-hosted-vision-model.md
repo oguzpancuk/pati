@@ -391,6 +391,7 @@ rights. Two places dropped them without a word.
   opens the same camera-only screen or sheet with carer copy, and the
   success text follows the server's `alreadyCarer`. The mobile deep link
   `pati://animal/:id/care` reads the profile to pick the copy.
+  *Amended 2026-09-15 (owner): the action moved into the photo grid's first empty slot, the "fotoğraf ekle" add tile (e5efa93 mobile, bc2f73d web).*
 - **Fail-open consequence.** With the model off or failing, every
   non-low candidate is an `unchecked` hit and the species screen passes
   everything. A confirm therefore now also puts unverified photos into
