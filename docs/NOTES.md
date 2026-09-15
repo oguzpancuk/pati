@@ -4400,7 +4400,8 @@ Six notes from the owner's evening walk-through; plan and done-when in the
 ROADMAP section "Owner fixes of 2026-09-15 (evening)".
 
 - **M1 send chevron.** Web's "›" was a text glyph sitting 2.75 px low; it is
-  now the brand chevron SVG, centred by a grid (pixel scan: 0/0). Mobile's
+  now an inline SVG of the brand chevron path moved 0.8 units left (the
+  brand path itself leans right — do not swap it back in), centred by a grid (pixel scan: 0/0). Mobile's
   chevron path leans 0.8/24 units right; the send button nudges it back.
   iOS pixel scan on the simulator after the change: ink centre 0/0 px against
   the disc centre.
@@ -4414,12 +4415,13 @@ ROADMAP section "Owner fixes of 2026-09-15 (evening)".
   so a group admin there does not see "Vazgeç" (pre-existing); web Escape only
   works when focus is inside the page.
 - **G carer gallery.** No "show more": the strip loads every cared animal in
-  pages as it scrolls (limit 20, offset), one pure hook per client with tests
-  on mobile. Seen on iOS: the strip swipes past the first cards. Known: a
+  pages as it scrolls (limit 20, offset), a data hook per client (`useCaredAnimals`) over a pure helper
+  (`mobile/src/carerGallery.ts`) with tests on mobile. Seen on iOS: the strip swipes past the first cards. Known: a
   profile reload resets the strip to its first page.
 - **R report the animal from the header.** "şikayet et" left the page footer
-  for a flag disc in the header (both clients); the comment composer is now
-  the last thing on the page. Seen on iOS; the disc showed a grey square
+  for a flag disc in the header (both clients); for a carer the comment composer is
+  now the last thing on the page (non-carers and match review have no
+  composer). Seen on iOS; the disc showed a grey square
   behind it until `overflow: hidden` (525f1ee) — which also drops its iOS
   shadow, the same as the conversation header disc.
 - **T tab bar.** The bar was a 49 pt item strip plus 30 pt of home-indicator
@@ -4428,7 +4430,7 @@ ROADMAP section "Owner fixes of 2026-09-15 (evening)".
   balances its padding the same way. Measured on iOS: hairline at 798 pt (was
   795), item ink 818–855 pt.
 - **L web location retry.** Owner: without permission, "mama ekle" warned but
-  never re-prompted. Real Mobile Safari showed why: WebKit answers a refused
+  never re-prompted. Mobile Safari on the iOS simulator showed why: WebKit answers a refused
   site silently for the rest of the page, and remembers refusals in
   `Library/WebKit/GeolocationSites.plist` (`ChallengeCount`): after two
   refusals it stops prompting for about a day. The warning now offers
@@ -4437,7 +4439,10 @@ ROADMAP section "Owner fixes of 2026-09-15 (evening)".
   same action (drop tile, locate, "Yeni hayvan", "+ Yeni", the add-animal
   card), where the browser can prompt; a refused retry shows settings steps
   instead of the button. The login screen discards a pending intent, so a
-  reload that lands there cannot run it for the next person to sign in.
+  reload that lands there cannot run it for the next person to sign in
+  (160dabd, checked by QA's playwright run, not in Safari). Known: while
+  WebKit's day-long block is on, every new tap still offers the button once,
+  and its reload ends in the settings text.
   Seen in Mobile Safari: refuse → "Mama bıraktım" → warning with the button →
   one reload → the drop sheet reopened and Safari prompted → "İzin Ver" →
   located. With two refusals stored, the retry showed "Konum izni yine
@@ -4446,7 +4451,27 @@ ROADMAP section "Owner fixes of 2026-09-15 (evening)".
   WebKit-like geolocation stub. Mobile unchanged: native iOS cannot re-show the
   sheet after "İzin Verme" and already offers "Ayarları aç".
 
+Web by playwright (QA run on 84fed94, scripts in the session scratchpad,
+not committed): send chevron, tap-for-options, gallery paging, report flag,
+tab bar, location retry 46/46. Battery: `verify.sh full` 10/10 on 84fed94.
+
 Reviews: two code-reviewers over M and G/R/T (APPROVE, minors listed above),
 one over the flag fix and L (APPROVE; its login-screen minor fixed here).
 Not verified: Android, real devices, the iOS 26 Safari page-menu wording of
 the settings path, Firefox's behaviour with two parallel location requests.
+
+### Deploy v41
+
+QA returned PASS on 84fed94 and found one more real risk, fixed before the
+deploy: the cared-animals query sorted only by the care row's timestamp while
+the gallery now pages it by offset, and seeded rows share timestamps, so a
+page could repeat or skip an animal (2620392 adds the animal id as a
+tiebreaker; local users 734/983/867 page to 36/35/35 unique ids, repeated
+pages identical, reviewed). The user comments list has the same flaw and is
+left as a separate task. `2620392` pushed, CI green (run on 2620392), deployed
+as **v41**: no migrations, release command completed, `/health` ok, web and
+admin 200, the served bundle is the one built from HEAD (`index-DiBxgX5E.js`,
+carrying the retry button and the tap-for-options label). No logged-in
+production screenshot (no production account on this machine). Mobile
+changes ship with the next app build.
+
