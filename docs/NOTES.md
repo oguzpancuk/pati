@@ -4393,3 +4393,60 @@ throwaway conversations and messages, and 108 upload files no row referenced
 were deleted on the owner's say-so, as was QA's `evalqa_b1` database. Older
 harness users from before 2026-09-14 and the `rehearse_*` databases were left
 alone.
+
+## 2026-09-16 · owner fixes: send chevron, tap-for-options, carer gallery, report flag, tab bar, web location retry
+
+Six notes from the owner's evening walk-through; plan and done-when in the
+ROADMAP section "Owner fixes of 2026-09-15 (evening)".
+
+- **M1 send chevron.** Web's "›" was a text glyph sitting 2.75 px low; it is
+  now the brand chevron SVG, centred by a grid (pixel scan: 0/0). Mobile's
+  chevron path leans 0.8/24 units right; the send button nudges it back.
+  iOS pixel scan on the simulator after the change: ink centre 0/0 px against
+  the disc centre.
+- **M2 tap a message for its options.** The "⋯" is gone on web; a click on a
+  bubble toggles the options row (reply, delete for own messages or a group
+  admin, report), a click on its quote still jumps, Escape and an outside click
+  close it. Mobile's bubbles open the same options on tap (long press still
+  works); deleted placeholders and system lines offer nothing; the quote jump
+  is also an accessibility action. Seen on iOS: a tap on another's bubble opens
+  "Yanıtla / Şikayet et / Vazgeç". Known: Android's Alert keeps three buttons,
+  so a group admin there does not see "Vazgeç" (pre-existing); web Escape only
+  works when focus is inside the page.
+- **G carer gallery.** No "show more": the strip loads every cared animal in
+  pages as it scrolls (limit 20, offset), one pure hook per client with tests
+  on mobile. Seen on iOS: the strip swipes past the first cards. Known: a
+  profile reload resets the strip to its first page.
+- **R report the animal from the header.** "şikayet et" left the page footer
+  for a flag disc in the header (both clients); the comment composer is now
+  the last thing on the page. Seen on iOS; the disc showed a grey square
+  behind it until `overflow: hidden` (525f1ee) — which also drops its iOS
+  shadow, the same as the conversation header disc.
+- **T tab bar.** The bar was a 49 pt item strip plus 30 pt of home-indicator
+  inset, so the items sat high. Height and padding now come from the safe-area
+  inset with the bottom capped (18 pt) and the icon+label group centred; web
+  balances its padding the same way. Measured on iOS: hairline at 798 pt (was
+  795), item ink 818–855 pt.
+- **L web location retry.** Owner: without permission, "mama ekle" warned but
+  never re-prompted. Real Mobile Safari showed why: WebKit answers a refused
+  site silently for the rest of the page, and remembers refusals in
+  `Library/WebKit/GeolocationSites.plist` (`ChallengeCount`): after two
+  refusals it stops prompting for about a day. The warning now offers
+  "Konum iznini tekrar iste": it stores a validated one-shot intent in
+  sessionStorage (action, type, path, 60 s) and reloads straight back into the
+  same action (drop tile, locate, "Yeni hayvan", "+ Yeni", the add-animal
+  card), where the browser can prompt; a refused retry shows settings steps
+  instead of the button. The login screen discards a pending intent, so a
+  reload that lands there cannot run it for the next person to sign in.
+  Seen in Mobile Safari: refuse → "Mama bıraktım" → warning with the button →
+  one reload → the drop sheet reopened and Safari prompted → "İzin Ver" →
+  located. With two refusals stored, the retry showed "Konum izni yine
+  verilmedi" with the settings path, as designed. (The simulator's stored
+  refusal was reset by hand to test the first path.) Playwright 111/111 with a
+  WebKit-like geolocation stub. Mobile unchanged: native iOS cannot re-show the
+  sheet after "İzin Verme" and already offers "Ayarları aç".
+
+Reviews: two code-reviewers over M and G/R/T (APPROVE, minors listed above),
+one over the flag fix and L (APPROVE; its login-screen minor fixed here).
+Not verified: Android, real devices, the iOS 26 Safari page-menu wording of
+the settings path, Firefox's behaviour with two parallel location requests.

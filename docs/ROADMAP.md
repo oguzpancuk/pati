@@ -1222,7 +1222,7 @@ over the range. All met — details in NOTES "2026-09-15".
 
 ---
 
-## 🧰 Owner fixes of 2026-09-15 (evening) — six items
+## 🧰 Owner fixes of 2026-09-15 (evening) — six items — ✅ done
 
 | #   | Item                                                                                   | Clients      |
 | --- | -------------------------------------------------------------------------------------- | ------------ |
@@ -1244,4 +1244,9 @@ main session, web by playwright) and, where logic changes, a jest test; battery
 green on a clean committed HEAD; code-reviewer over the range. **Stop when:**
 done, or an item fails its battery twice (park with a note), or L turns out to
 be a browser limit that code cannot change (report the evidence and ask).
+
+**Status (2026-09-16):** all six landed on both clients where they apply
+(L is web-only by nature). iOS checks were run on the simulator for M, G, R, T
+and L (real Mobile Safari); web by playwright. Evidence and the Safari
+two-refusals-a-day limit are in NOTES "2026-09-16".
 
