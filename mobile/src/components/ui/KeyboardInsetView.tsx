@@ -37,8 +37,9 @@ type Props = {
  * So this view measures itself in window coordinates whenever the keyboard
  * frame changes (and on its own layout changes), and the header, the tab bar
  * under the screen and the presentation style are all already in the number.
- * A measurement lands a frame or two after the event; the padding animates
- * with the keyboard's own duration and curve, so that lag is not visible.
+ * The measurement answers one native round trip after the event, so the
+ * padding starts that much later than RN's view would start it, then runs
+ * with the keyboard's own duration and curve.
  *
  * Android does nothing here: the activity is `adjustResize`, so the window
  * itself shrinks above the keyboard.
