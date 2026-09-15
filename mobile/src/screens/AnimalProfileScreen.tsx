@@ -1468,6 +1468,9 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
+    // Without it iOS paints the Pressable's square bounds behind the round
+    // disc (seen on the simulator); the conversation header's disc has it.
+    overflow: 'hidden',
     ...shadow.float,
   },
   commentRow: { flexDirection: 'row', marginBottom: spacing.lg },
