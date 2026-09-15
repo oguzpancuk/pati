@@ -4321,8 +4321,9 @@ ConversationScreen, 90 on the animal profile). RN 0.74 subtracts that offset
 from the keyboard's window position and compares it with the view's
 parent-relative frame, so it must equal the distance from the window top to
 the view's origin — 116 pt on an iPhone 17 Pro (62 pt safe area + a 54 pt iOS
-26 bar), which left the composer 28 pt under the keyboard (measured from the
-screenshot). `useHeaderHeight()` would not have fixed it: native-stack only
+26 bar), which left the conversation composer 28 pt under the keyboard (116 − 88,
+matching the header, composer and keyboard edges measured on the
+screenshot; 26 pt on the animal profile). `useHeaderHeight()` would not have fixed it: native-stack only
 estimates the header in JS (101 pt here). `KeyboardInsetView` measures its
 own window frame instead and pads by exactly the covered part; the arithmetic
 and the wiring are under jest. Seen on the simulator: "Mesaj yaz…" fully above
@@ -4351,14 +4352,44 @@ a mouse. Mobile uses the ScrollView's `automaticallyAdjustKeyboardInsets` plus a
 scroll to the end on focus, repeated on `keyboardDidShow` while the composer is
 focused — review found that a keyboard appearing after focus (⌘K, a hardware
 keyboard going away) otherwise stops RN's native inset at the caret line with
-"Gönder" under the keyboard. Seen on iOS: no composer at the top of the page,
+"Gönder" under the keyboard (reasoned from RN source, not seen). Seen on iOS at
+5cc2ddf, soft keyboard shown by tapping the field: no composer at the top of the page,
 the composer after the comments, and with the keyboard up the whole row plus
 the footer above it. Web: composer below the fold at scrollTop 0 (was pinned),
 visible after the last comment; a text comment still sends.
 
 Review rounds: K+S one review (APPROVE with a "needs the iOS screenshot" major)
 and one fix round; C3 one review (the keyboard-order major) and one fix round;
-one review over the fix and this note.
+one review over the fix and this note (APPROVE; nits only — one of them, a
+focus flag that stays set if the composer unmounts while focused, reachable only
+after an admin removes the carer, left as it is).
 
-Left behind: five short test comments by b1-carer on local animal 51840. Not
-verified anywhere: Android (no SDK here) and real devices.
+Not verified anywhere: Android (no SDK here) and real devices.
+
+### Deploy v40
+
+`38b8587` pushed and deployed as **v40** after CI passed (run 34984951062)
+and evaluator-qa returned PASS (full battery 10/10, animal-social 134/134,
+ai-check, storage-check 48/48; messaging-check keeps its one known drift
+failure). No migrations in `46b81f1..38b8587`; the release command ran
+`migrate.js` and completed. `/health` answers `{"status":"ok"}`,
+`pati-app.com` and `admin.pati-app.com` answer 200, and the served bundle
+(`index-BZia-R7l.js`) is the one built from HEAD — it carries
+`interactive-widget=resizes-content`, the add tile's "galerisine eklenir",
+`animal-composer-input` and the expired-hit notice. No production screenshot:
+this machine has no production account for the logged-in pages.
+
+Only backend, web and admin ship with it. The mobile changes (camera-only
+add-animal and "bakım ver", the Android camera request, the location request
+shape, the keyboard inset, the add tile, the in-flow composer) reach users with
+the next app build; the backend that build needs (1–2 care photos, an existing
+carer's photos stored) is live now, so the order is right. Guide comments
+already in the production database still say "2 fotoğraf" — refreshing them is
+a production data change (`seed-guides.js --refresh`) and was not run.
+
+Local data: every user created by this session's checks since 2026-09-14 (68,
+then 3 more from QA), their 38 animals and photos, 16 care actions, the
+throwaway conversations and messages, and 108 upload files no row referenced
+were deleted on the owner's say-so, as was QA's `evalqa_b1` database. Older
+harness users from before 2026-09-14 and the `rehearse_*` databases were left
+alone.
