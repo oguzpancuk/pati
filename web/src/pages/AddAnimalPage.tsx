@@ -28,8 +28,11 @@ import { PageHeader } from '../components/PageHeader';
 import {
   Coordinates,
   getCurrentLocation,
-  describeLocationError,
-  isPermissionFailure,
+  describeLocationRefusal,
+  LOCATION_RETRY_LABEL,
+  retryLocationByReload,
+  takeLocationRetry,
+  type LocationRefusal,
 } from '../location';
 
 // One photo, taken with the camera on this page (owner batch 2026-09-14,
@@ -355,8 +358,12 @@ export default function AddAnimalPage() {
   // the entry buttons already asked, but a typed URL or a reload lands
   // here directly — so the page asks again and shows a refusal instead of
   // the form when there is none.
-  const [locationBlocked, setLocationBlocked] = useState<string | null>(null);
-  const [locationAttempt, setLocationAttempt] = useState(0);
+  const [locationBlocked, setLocationBlocked] = useState<LocationRefusal | null>(null);
+  // Whether this mount is the one the card's "Konum iznini tekrar iste"
+  // reloaded for. Read once per mount and kept: StrictMode's second run of
+  // the mount effect must still know its request is the retry, and taking
+  // removes the intent.
+  const retriedRef = useRef<boolean | null>(null);
   // Mounted to finish "Bu o" from a candidate's profile (router state):
   // the page only reports and leaves, with the draft's location — asking
   // for a fresh one would put a prompt or the refusal card in front of a
@@ -365,19 +372,29 @@ export default function AddAnimalPage() {
     () => routerLocation.state?.confirmedAnimalId != null
   );
   useEffect(() => {
+    if (retriedRef.current === null) {
+      retriedRef.current = takeLocationRetry()?.action === 'add-animal';
+    }
     if (confirming) return;
+    const retried = retriedRef.current;
     let alive = true;
     getCurrentLocation()
       .then(() => alive && setLocationBlocked(null))
       .catch((err) => {
+        if (!alive) return;
         // Only a missing permission blocks (mobile parity); a fix that is
         // slow today is the save step's problem.
-        if (alive && isPermissionFailure(err)) setLocationBlocked(describeLocationError(err));
+        const refusal = describeLocationRefusal(
+          err,
+          'Konum olmadan hayvan eklenemez: kayıt, bulunduğun yere düşer.',
+          retried
+        );
+        if (refusal) setLocationBlocked(refusal);
       });
     return () => {
       alive = false;
     };
-  }, [locationAttempt, confirming]);
+  }, [confirming]);
   const [busy, setBusy] = useState(false);
 
   // Flow: form → (save) → matching wait → candidates → new record or an
@@ -644,19 +661,29 @@ export default function AddAnimalPage() {
         <PageHeader title="yeni hayvan" fallback="/hayvanlar" />
         <div className="card flat">
           <p className="muted" style={{ margin: 0 }}>
-            {locationBlocked} Konum olmadan hayvan eklenemez: kayıt, bulunduğun yere düşer.
+            {locationBlocked.text}
           </p>
         </div>
-        {/* A typed URL has no history to go back to: real links, and a
-            retry for the case where the permission was just granted. */}
-        <button
-          className="btn full"
-          style={{ marginTop: 12 }}
-          onClick={() => setLocationAttempt((n) => n + 1)}
+        {/* A typed URL has no history to go back to: real links, and the
+            retry. It reloads rather than asking again in this page — WebKit
+            refuses every later request of a page that was refused once, and
+            a new page prompts (location.ts). The retry's own refusal names
+            the settings instead. */}
+        {locationBlocked.canRetry && (
+          <button
+            className="btn full"
+            style={{ marginTop: 12 }}
+            onClick={() => retryLocationByReload({ action: 'add-animal' })}
+          >
+            {LOCATION_RETRY_LABEL}
+          </button>
+        )}
+        <Link
+          to="/hayvanlar"
+          replace
+          className="btn ghost full"
+          style={{ marginTop: locationBlocked.canRetry ? 8 : 12 }}
         >
-          Tekrar dene
-        </button>
-        <Link to="/hayvanlar" replace className="btn ghost full" style={{ marginTop: 8 }}>
           Hayvanlara dön
         </Link>
       </div>
