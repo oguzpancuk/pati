@@ -1,9 +1,10 @@
-import { FormEvent, useCallback, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { Wordmark } from '../brand';
 import { SocialSignIn } from '../components/SocialSignIn';
 import { ForgotPasswordDialog } from '../components/password';
+import { takeLocationRetry } from '../location';
 import '../styles/password.css';
 
 /**
@@ -13,6 +14,12 @@ import '../styles/password.css';
  */
 export default function LoginPage() {
   const { login, register } = useAuth();
+  // A location retry's reload can land here (an expired session, a failed
+  // /users/me): drop its intent so it never runs for whoever signs in on
+  // this tab next, without a tap of their own.
+  useEffect(() => {
+    takeLocationRetry();
+  }, []);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
