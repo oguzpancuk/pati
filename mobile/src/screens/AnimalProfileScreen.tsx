@@ -49,7 +49,6 @@ import {
   Chip,
   ChoiceField,
   Input,
-  KeyboardInsetView,
   LoadingState,
   LoadMoreButton,
   Screen,
@@ -138,6 +137,17 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   // medication for this illness" pin to the record. Vaccinations have no chat.
   const [linkedRecord, setLinkedRecord] = useState<HealthRecord | null>(null);
   const [sending, setSending] = useState(false);
+  // The composer is content at the end of the chat, not a bar pinned over
+  // the page (owner, 2026-09-15), so the screen scrolls it into view itself:
+  // the only things below it are the report footer and the content padding,
+  // so the end of the scroll is always a place where it shows. A sent
+  // comment's new row pushes it down (and the reload can shorten the list
+  // above it); the bump runs the scroll once that render is committed.
+  const scrollRef = useRef<ScrollView>(null);
+  const [composerReveal, setComposerReveal] = useState(0);
+  useEffect(() => {
+    if (composerReveal > 0) scrollRef.current?.scrollToEnd({ animated: true });
+  }, [composerReveal]);
   // The badge ladder (P7 item 3) opens from a header chip; the tapped key
   // is the highlighted row.
   const [ladderKey, setLadderKey] = useState<string | null>(null);
@@ -312,6 +322,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       setDraft('');
       setLinkedRecord(null);
       await load();
+      setComposerReveal((n) => n + 1);
       celebrate(created);
     } catch (err: any) {
       Alert.alert('Gönderilemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
@@ -462,8 +473,8 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const photoSlots = animalPhotoSlots(animal.photos.length, animal.isCarer && !matchReview);
 
   return (
-    <KeyboardInsetView style={styles.flex}>
-      <Screen scroll>
+    <View style={styles.flex}>
+      <Screen scroll scrollRef={scrollRef} automaticallyAdjustKeyboardInsets>
         {/* The photos open the profile (owner, 2026-09-09 — the avatar is
             gone with them): square tiles, three a row, each with its like
             count; a tap opens the swipeable viewer. A carer's next cell is
@@ -921,6 +932,70 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           ))
         )}
 
+        {/* The comment row (handoff): a cream input next to the gradient send
+            button. It belongs to the chat and scrolls away with it (owner,
+            2026-09-15): pinned under the page, it sat over every section
+            above the chat. */}
+        {!matchReview && animal.isCarer ? (
+          <View>
+            {openRecords.length > 0 && (
+              <ScrollView
+                horizontal
+                style={styles.tagRow}
+                contentContainerStyle={styles.tagRowContent}
+                showsHorizontalScrollIndicator={false}
+                // A nested scroll view answers taps by its own rule: without
+                // this, the first tap on a chip only closes the keyboard,
+                // and inside the page that also drops the keyboard inset
+                // under the composer.
+                keyboardShouldPersistTaps="handled"
+              >
+                <Chip
+                  label="genel"
+                  selected={!linkedRecord}
+                  onPress={() => setLinkedRecord(null)}
+                />
+                {openRecords.map((record) => (
+                  <Chip
+                    key={record.id}
+                    label={recordLabel(record)}
+                    selected={linkedRecord?.id === record.id}
+                    onPress={() => setLinkedRecord(record)}
+                  />
+                ))}
+              </ScrollView>
+            )}
+            <View style={styles.composerRow}>
+              <TextInput
+                style={styles.composerInput}
+                placeholder="Yorum yaz…"
+                placeholderTextColor={colors.textSubtle}
+                value={draft}
+                onChangeText={setDraft}
+                // iOS: the keyboard inset scrolls a multiline field's caret
+                // rect to the keyboard's top edge, not the field
+                // (RCTBaseTextInputView), which can leave the field's lower
+                // padding and the send button under the keyboard. The end of
+                // the scroll shows the whole row. Android's window resize
+                // keeps a focused field on screen by itself.
+                onFocus={
+                  Platform.OS === 'ios'
+                    ? () => scrollRef.current?.scrollToEnd({ animated: true })
+                    : undefined
+                }
+                multiline
+              />
+              <Button
+                title="Gönder"
+                size="sm"
+                onPress={handleSend}
+                disabled={sending || !draft.trim()}
+                loading={sending}
+              />
+            </View>
+          </View>
+        ) : null}
+
         {/* Reporting exists but sells nothing: the last thing on the page,
             under a hairline. The ?report=1 deep link still opens it. */}
         <View style={styles.footer}>
@@ -932,8 +1007,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         </View>
       </Screen>
 
+      {/* The match review's decision stays pinned under the page: it is the
+          one thing the review is for (the composer above is not offered
+          there). */}
       {matchReview ? (
-        <View style={styles.composer}>
+        <View style={styles.reviewBar}>
           <Text variant="caption" center style={styles.reviewHint}>
             {!confirmReports
               ? 'Eklemek istediğin hayvan bu mu? Bakıcısı olmak için profilden "bakım ver".'
@@ -958,44 +1036,6 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
               }
               icon={<Icon name="check" size={18} color={colors.textOnBrand} />}
               style={styles.reviewButton}
-            />
-          </View>
-        </View>
-      ) : animal.isCarer ? (
-        <View style={styles.composer}>
-          {openRecords.length > 0 && (
-            <ScrollView
-              horizontal
-              style={styles.tagRow}
-              contentContainerStyle={styles.tagRowContent}
-              showsHorizontalScrollIndicator={false}
-            >
-              <Chip label="genel" selected={!linkedRecord} onPress={() => setLinkedRecord(null)} />
-              {openRecords.map((record) => (
-                <Chip
-                  key={record.id}
-                  label={recordLabel(record)}
-                  selected={linkedRecord?.id === record.id}
-                  onPress={() => setLinkedRecord(record)}
-                />
-              ))}
-            </ScrollView>
-          )}
-          <View style={styles.composerRow}>
-            <TextInput
-              style={styles.composerInput}
-              placeholder="Yorum yaz…"
-              placeholderTextColor={colors.textSubtle}
-              value={draft}
-              onChangeText={setDraft}
-              multiline
-            />
-            <Button
-              title="Gönder"
-              size="sm"
-              onPress={handleSend}
-              disabled={sending || !draft.trim()}
-              loading={sending}
             />
           </View>
         </View>
@@ -1206,7 +1246,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         longitude={longitude}
         updatedAtLabel={formatDate(animal.location_updated_at)}
       />
-    </KeyboardInsetView>
+    </View>
   );
 }
 
@@ -1378,7 +1418,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   commentAuthor: { flexShrink: 1 },
   commentTag: { marginTop: 2, marginBottom: 2 },
-  composer: {
+  // The match review's pinned decision bar.
+  reviewBar: {
     borderTopWidth: 1,
     borderTopColor: c.border,
     padding: spacing.md,
@@ -1400,8 +1441,8 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     alignItems: 'flex-end',
     gap: spacing.sm,
   },
-  // The fixed comment row (handoff): a cream input next to the gradient
-  // send button.
+  // The comment row (handoff): a cream input next to the gradient send
+  // button.
   composerInput: {
     flex: 1,
     backgroundColor: c.surfaceAlt,

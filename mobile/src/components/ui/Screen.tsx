@@ -14,6 +14,15 @@ export type ScreenProps = {
   onRefresh?: () => void;
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
+  /** The scrolling view, for a screen that scrolls it itself (`scroll` only). */
+  scrollRef?: React.Ref<ScrollView>;
+  /**
+   * iOS: inset the content by the part of the view the keyboard covers and
+   * bring a focused field inside the content above it (`scroll` only). The
+   * view measures itself in window coordinates, so the header and the tab
+   * bar are already in the number. Android resizes the window instead.
+   */
+  automaticallyAdjustKeyboardInsets?: boolean;
 };
 
 /** Theme background + safe area + optional scrolling/refresh. */
@@ -26,6 +35,8 @@ export default function Screen({
   onRefresh,
   style,
   contentStyle,
+  scrollRef,
+  automaticallyAdjustKeyboardInsets,
 }: ScreenProps) {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -35,6 +46,8 @@ export default function Screen({
     <SafeAreaView style={[styles.safe, style]} edges={edges}>
       {scroll ? (
         <ScrollView
+          ref={scrollRef}
+          automaticallyAdjustKeyboardInsets={automaticallyAdjustKeyboardInsets}
           contentContainerStyle={[styles.scrollContent, inner]}
           keyboardShouldPersistTaps="handled"
           refreshControl={
