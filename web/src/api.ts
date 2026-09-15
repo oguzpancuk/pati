@@ -718,8 +718,9 @@ export const searchUsers = (q: string) =>
 
 export const fetchUserProfile = (id: number) => api.get<PublicProfile>(`/users/${id}`);
 
-// The profile's "animals cared for" list is paginated: the first 3 arrive
-// with the profile, the rest comes from here via "show more".
+// The profile's "animals cared for" list is paginated: someone else's profile
+// brings the first 3, and the carer gallery fetches the rest from here as it
+// is scrolled (components/profile/useCaredAnimals).
 export const fetchUserAnimals = (userId: number | 'me', limit: number, offset: number) =>
   api.get<AnimalPage>(
     `/users/${userId}/animals?${new URLSearchParams({

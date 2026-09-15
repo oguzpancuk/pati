@@ -245,10 +245,10 @@ const CARED_ANIMALS_SQL = `
   ORDER BY uac.created_at DESC
   LIMIT $2::int OFFSET $3::int`;
 
-// The profile screen shows a preview (first 3 animals + total; same count as
-// comments — a profile is a summary); the full list arrives page by page via
-// "show more" using the same query. A volunteer caring for 40 animals doesn't
-// get a mile-long profile.
+// The public profile carries the first 3 animals + the total (same count as
+// comments — a profile is a summary); the clients' horizontal gallery pages
+// through the rest from /users/:id/animals as it is scrolled, using the same
+// query. A volunteer caring for 40 animals doesn't get a mile-long profile.
 const PROFILE_ANIMAL_PREVIEW = 3;
 const MAX_ANIMAL_PAGE = 50;
 

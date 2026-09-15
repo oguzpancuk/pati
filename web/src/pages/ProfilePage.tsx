@@ -8,7 +8,6 @@ import {
   fetchUserAnimals,
   FriendshipsResponse,
   MyCareAction,
-  ProfileAnimal,
   removeFriendship,
   setAvatarKey,
   setFeaturedBadges,
@@ -26,6 +25,7 @@ import { RecentComments } from '../components/RecentComments';
 import {
   BadgeBlock,
   BellIcon,
+  CARED_ANIMAL_PAGE,
   CareHistorySheet,
   CareIcon,
   CarerGallery,
@@ -37,15 +37,12 @@ import {
   ProfileStats,
   RowButton,
   SettingsSheet,
+  useCaredAnimals,
   UsersIcon,
 } from '../components/profile';
-import { mergeById } from '@mobile/paging';
 import { applyThemeMode, readThemeMode, type ThemeMode } from '../theme';
 import { InstallBanner } from '../install';
 
-// The profile is a summary screen: 3 rows per section, the rest behind "show more".
-const PREVIEW = 3;
-const PAGE = 20;
 // The bell polls the unread count the way the care alert is polled: on
 // open, every minute while the tab is visible, and when it becomes visible.
 const UNREAD_POLL_MS = 60 * 1000;
@@ -59,9 +56,9 @@ export default function ProfilePage() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [animals, setAnimals] = useState<ProfileAnimal[]>([]);
-  const [animalTotal, setAnimalTotal] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // The gallery pages through the rest of the animals as it is scrolled.
+  const cared = useCaredAnimals('me');
+  const resetAnimals = cared.reset;
   const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
   // Total across every page, so the row-button can name the real count even
   // though the sheet's map draws at most 100 markers.
@@ -100,21 +97,22 @@ export default function ProfilePage() {
   const load = useCallback(async () => {
     try {
       const [page, fr, carePage] = await Promise.all([
-        fetchUserAnimals('me', PREVIEW, 0),
+        // A whole page up front: the gallery scrolls, so there is no
+        // summary-sized preview to keep short.
+        fetchUserAnimals('me', CARED_ANIMAL_PAGE, 0),
         fetchMyFriendships(),
         // The history map draws every marker at once; 100 covers weeks of
         // heavy use and stays a single request.
         fetchMyCareActions(100, 0),
       ]);
-      setAnimals(page.animals);
-      setAnimalTotal(page.total);
+      resetAnimals(page);
       setFriendships(fr);
       setCareHistory(carePage.actions);
       setCareTotal(carePage.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Profil yüklenemedi');
     }
-  }, []);
+  }, [resetAnimals]);
 
   useEffect(() => {
     load();
@@ -151,17 +149,6 @@ export default function ProfilePage() {
       setError(err instanceof Error ? err.message : 'Kaydedilemedi');
     } finally {
       setDemoBusy(false);
-    }
-  }
-
-  async function loadMoreAnimals() {
-    setLoadingMore(true);
-    try {
-      const page = await fetchUserAnimals('me', PAGE, animals.length);
-      setAnimals((prev) => mergeById(prev, page.animals));
-      setAnimalTotal(page.total);
-    } finally {
-      setLoadingMore(false);
     }
   }
 
@@ -234,10 +221,11 @@ export default function ProfilePage() {
 
       <CarerGallery
         title="bakım verdiğim hayvanlar"
-        animals={animals}
-        total={animalTotal}
-        loadingMore={loadingMore}
-        onLoadMore={loadMoreAnimals}
+        animals={cared.animals}
+        total={cared.total}
+        loadingMore={cared.loadingMore}
+        loadFailed={cared.loadFailed}
+        onEndReached={cared.loadMore}
         emptyText="Henüz bir hayvana bakım vermiyorsun."
       />
 

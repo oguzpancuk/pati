@@ -16,6 +16,7 @@ export { SettingsSheet } from './SettingsSheet';
 export { CareHistorySheet } from './CareHistorySheet';
 export { RowButton } from './RowButton';
 export { CarerGallery } from './CarerGallery';
+export { CARED_ANIMAL_PAGE, useCaredAnimals } from './useCaredAnimals';
 export { BadgeBlock } from './BadgeBlock';
 export { ProfileStats } from './ProfileStats';
 export { FriendshipButton } from './FriendshipButton';

@@ -13,7 +13,6 @@ import {
   FriendshipEntry,
   FriendshipsResponse,
   Me,
-  ProfileAnimal,
   removeFriendship,
   setAvatarKey,
   setFeaturedBadges,
@@ -23,7 +22,6 @@ import {
 import { fetchMyCareActions, MyCareAction } from '../api/care';
 import { fetchUnreadCount } from '../api/notifications';
 import { unreadCareAlertCount } from '../careAlertLog';
-import { mergeById } from '../paging';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import { AvatarPickerModal } from '../components/avatars';
 import LevelBar from '../components/LevelBar';
@@ -32,6 +30,7 @@ import RecentComments from '../components/RecentComments';
 import { ChangePasswordForm } from '../components/password';
 import {
   BadgeBlock,
+  CARED_ANIMAL_PAGE,
   CareHistorySheet,
   CarerGallery,
   FriendsSheet,
@@ -41,15 +40,11 @@ import {
   ProfileStats,
   RowButton,
   SettingsSheet,
+  useCaredAnimals,
 } from '../components/profile';
 import { Button, EmptyState, LoadingState, Screen } from '../components/ui';
 import { Icon } from '../components/brand';
 import { makeStyles, spacing, useTheme, useThemeMode } from '../theme';
-
-// The profile is a summary screen: 3 rows per section (same as comments),
-// the rest in pages of 20 via "show more".
-const PROFILE_PREVIEW = 3;
-const PROFILE_PAGE = 20;
 
 // The bell polls the unread count the way the care alert is polled: on
 // focus and every minute while the tab is open (no push yet).
@@ -100,9 +95,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
   // it (review finding — the earlier re-assert only covered a narrower
   // window, and web already refetches after the write).
   const demoWrite = useRef<{ at: number; value: boolean } | null>(null);
-  const [myAnimals, setMyAnimals] = useState<ProfileAnimal[]>([]);
-  const [animalTotal, setAnimalTotal] = useState(0);
-  const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
+  // The gallery pages through the rest of the animals as it is scrolled.
+  const cared = useCaredAnimals('me');
+  const resetAnimals = cared.reset;
   const [careHistory, setCareHistory] = useState<MyCareAction[]>([]);
   // Total across every page, so the row-button can name the real count even
   // though the sheet's map draws at most 100 markers.
@@ -144,7 +139,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
     try {
       const [meData, animalPage, friendshipsData, carePage] = await Promise.all([
         fetchMe(),
-        fetchUserAnimals('me', PROFILE_PREVIEW, 0),
+        // A whole page up front: the gallery scrolls, so there is no
+        // summary-sized preview to keep short.
+        fetchUserAnimals('me', CARED_ANIMAL_PAGE, 0),
         fetchMyFriendships(),
         // The history map draws every marker at once; 100 covers weeks of
         // heavy use and stays a single request.
@@ -154,8 +151,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
       // newer truth, whatever the server said when this one left.
       const pending = demoWrite.current;
       setMe(pending && pending.at > startedAt ? { ...meData, show_demo: pending.value } : meData);
-      setMyAnimals(animalPage.animals);
-      setAnimalTotal(animalPage.total);
+      resetAnimals(animalPage);
       setFriendships(friendshipsData);
       setCareHistory(carePage.actions);
       setCareTotal(carePage.total);
@@ -163,20 +159,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
     } catch (err: any) {
       setLoadError(err?.response?.data?.error ?? err?.message ?? 'Profil yüklenemedi');
     }
-  }, []);
-
-  async function handleLoadMoreAnimals() {
-    setLoadingMoreAnimals(true);
-    try {
-      const page = await fetchUserAnimals('me', PROFILE_PAGE, myAnimals.length);
-      setMyAnimals((prev) => mergeById(prev, page.animals));
-      setAnimalTotal(page.total);
-    } catch (err: any) {
-      Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
-    } finally {
-      setLoadingMoreAnimals(false);
-    }
-  }
+  }, [resetAnimals]);
 
   useFocusEffect(
     useCallback(() => {
@@ -390,10 +373,11 @@ export default function UserProfileScreen({ navigation, route }: any) {
       <CarerGallery
         style={styles.sectionTop}
         title="Bakım verdiğim hayvanlar"
-        animals={myAnimals}
-        total={animalTotal}
-        loadingMore={loadingMoreAnimals}
-        onLoadMore={handleLoadMoreAnimals}
+        animals={cared.animals}
+        total={cared.total}
+        loadingMore={cared.loadingMore}
+        loadFailed={cared.loadFailed}
+        onEndReached={cared.loadMore}
         onOpenAnimal={(animalId) => navigation.navigate('AnimalProfile', { animalId })}
         emptyText="Henüz bir hayvana bakım vermiyorsun."
       />

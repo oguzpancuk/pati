@@ -3,9 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { sortBadges } from '@mobile/badges';
 import {
   acceptFriendRequest,
-  fetchUserAnimals,
   fetchUserProfile,
-  ProfileAnimal,
   PublicProfile,
   removeFriendship,
   sendFriendRequest,
@@ -20,10 +18,8 @@ import {
   FriendshipButton,
   ProfileHeader,
   ProfileStats,
+  useCaredAnimals,
 } from '../components/profile';
-import { mergeById } from '@mobile/paging';
-
-const ANIMAL_PAGE = 20;
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -46,8 +42,10 @@ export default function UserProfilePage() {
   const navigate = useNavigate();
   const { me } = useAuth();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [animals, setAnimals] = useState<ProfileAnimal[]>([]);
-  const [loadingMore, setLoadingMore] = useState(false);
+  // The profile brings the first few cared-for animals; the gallery pages
+  // through the rest as it is scrolled.
+  const cared = useCaredAnimals(userId);
+  const resetAnimals = cared.reset;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -56,11 +54,11 @@ export default function UserProfilePage() {
     try {
       const data = await fetchUserProfile(userId);
       setProfile(data);
-      setAnimals(data.animals);
+      resetAnimals({ animals: data.animals, total: data.animalCount ?? data.animals.length });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Profil yüklenemedi');
     }
-  }, [userId]);
+  }, [userId, resetAnimals]);
 
   useEffect(() => {
     // Your own profile is a separate page; arriving here with your own id redirects there.
@@ -78,17 +76,6 @@ export default function UserProfilePage() {
       setError(err instanceof Error ? err.message : fallback);
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function loadMoreAnimals() {
-    setLoadingMore(true);
-    try {
-      const page = await fetchUserAnimals(userId, ANIMAL_PAGE, animals.length);
-      setAnimals((prev) => mergeById(prev, page.animals));
-      setProfile((prev) => (prev ? { ...prev, animalCount: page.total } : prev));
-    } finally {
-      setLoadingMore(false);
     }
   }
 
@@ -156,10 +143,11 @@ export default function UserProfilePage() {
 
       <CarerGallery
         title="bakım verdiği hayvanlar"
-        animals={animals}
-        total={profile.animalCount ?? animals.length}
-        loadingMore={loadingMore}
-        onLoadMore={loadMoreAnimals}
+        animals={cared.animals}
+        total={cared.total}
+        loadingMore={cared.loadingMore}
+        loadFailed={cared.loadFailed}
+        onEndReached={cared.loadMore}
         emptyText="Henüz bir hayvana bakım vermiyor."
       />
 

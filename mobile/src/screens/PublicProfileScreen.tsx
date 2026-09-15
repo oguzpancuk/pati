@@ -3,15 +3,12 @@ import { Alert, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   acceptFriendRequest,
-  fetchUserAnimals,
   fetchUserProfile,
-  ProfileAnimal,
   PublicProfile,
   removeFriendship,
   sendFriendRequest,
 } from '../api/users';
 import { sortBadges } from '../badges';
-import { mergeById } from '../paging';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
 import LevelBar from '../components/LevelBar';
 import RecentComments from '../components/RecentComments';
@@ -21,12 +18,10 @@ import {
   FriendshipButton,
   ProfileHeader,
   ProfileStats,
+  useCaredAnimals,
 } from '../components/profile';
 import { LoadingState, Screen } from '../components/ui';
 import { makeStyles, spacing } from '../theme';
-
-// The profile is a summary; the first page of animals comes with it, the rest from here.
-const ANIMAL_PAGE = 20;
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -47,8 +42,10 @@ export default function PublicProfileScreen({ route, navigation }: any) {
   const styles = useStyles();
   const { userId } = route.params;
   const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [animals, setAnimals] = useState<ProfileAnimal[]>([]);
-  const [loadingMoreAnimals, setLoadingMoreAnimals] = useState(false);
+  // The profile brings the first few cared-for animals; the gallery pages
+  // through the rest as it is scrolled.
+  const cared = useCaredAnimals(userId);
+  const resetAnimals = cared.reset;
   const [busy, setBusy] = useState(false);
   const [catalogVisible, setCatalogVisible] = useState(false);
 
@@ -56,24 +53,11 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     try {
       const data = await fetchUserProfile(userId);
       setProfile(data);
-      setAnimals(data.animals);
+      resetAnimals({ animals: data.animals, total: data.animalCount ?? data.animals.length });
     } catch (err: any) {
       Alert.alert('Yüklenemedi', err?.message ?? 'Bilinmeyen hata');
     }
-  }, [userId]);
-
-  async function handleLoadMoreAnimals() {
-    setLoadingMoreAnimals(true);
-    try {
-      const page = await fetchUserAnimals(userId, ANIMAL_PAGE, animals.length);
-      setAnimals((prev) => mergeById(prev, page.animals));
-      setProfile((prev) => (prev ? { ...prev, animalCount: page.total } : prev));
-    } catch (err: any) {
-      Alert.alert('Yüklenemedi', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
-    } finally {
-      setLoadingMoreAnimals(false);
-    }
-  }
+  }, [userId, resetAnimals]);
 
   useFocusEffect(
     useCallback(() => {
@@ -156,10 +140,11 @@ export default function PublicProfileScreen({ route, navigation }: any) {
       <CarerGallery
         style={styles.sectionTop}
         title="Bakım verdiği hayvanlar"
-        animals={animals}
-        total={profile.animalCount ?? animals.length}
-        loadingMore={loadingMoreAnimals}
-        onLoadMore={handleLoadMoreAnimals}
+        animals={cared.animals}
+        total={cared.total}
+        loadingMore={cared.loadingMore}
+        loadFailed={cared.loadFailed}
+        onEndReached={cared.loadMore}
         onOpenAnimal={(animalId) => navigation.push('AnimalProfile', { animalId })}
         emptyText="Henüz bir hayvana bakım vermiyor."
       />

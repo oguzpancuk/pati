@@ -224,20 +224,27 @@
 
 /* ---- carers: a gallery, not a list ---- */
 
+/* The strip runs out to the page's edges (the .page gutter is 16px) while
+   its first card still lines up with the heading, and cards come to rest on
+   that gutter: the right edge then cuts through the next card, and the part
+   that peeks is the cue to scroll (owner, 2026-09-15). The card width is set
+   inline from @mobile/carerGallery, whose gap and gutter are these 12 and
+   16px. A thin scroll bar stays for a mouse, which has no swipe. */
 .carer-gallery {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding: 2px 0 6px;
-  scrollbar-width: none;
-}
-
-.carer-gallery::-webkit-scrollbar {
-  display: none;
+  margin: 0 -16px;
+  padding: 2px 16px 6px;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 .carer-card {
   flex: none;
+  scroll-snap-align: start;
   width: 104px;
   display: flex;
   flex-direction: column;
@@ -273,7 +280,7 @@
   white-space: nowrap;
 }
 
-/* The trailing "tümünü gör" card: the same footprint, a hairline box. */
+/* The tail: how many animals are still to come, in a card's footprint. */
 .carer-more {
   justify-content: center;
   height: 84px;
@@ -281,6 +288,11 @@
   border-radius: var(--radius);
   background: var(--surface);
   align-self: flex-start;
+  cursor: default;
+}
+
+.carer-count {
+  font-size: 13px;
 }
 
 /* ---- comments: speech bubbles, not rows ---- */

@@ -253,8 +253,9 @@ export interface AnimalPage {
   total: number;
 }
 
-// The profile's "animals cared for" arrives paginated; the first page comes
-// with the profile as a preview, the rest from here via "show more".
+// The profile's "animals cared for" arrives paginated: someone else's profile
+// brings the first few, and the carer gallery fetches the rest from here as
+// it is scrolled (components/profile/useCaredAnimals).
 export async function fetchUserAnimals(
   userId: number | 'me',
   limit: number,
