@@ -1220,3 +1220,28 @@ view at the top of the page and fully above the keyboard when focused (iOS),
 web geometry check before/after; battery green on a clean HEAD; code-reviewer
 over the range. All met — details in NOTES "2026-09-15".
 
+---
+
+## 🧰 Owner fixes of 2026-09-15 (evening) — six items
+
+| #   | Item                                                                                   | Clients      |
+| --- | -------------------------------------------------------------------------------------- | ------------ |
+| M1  | The send button's "›" is not centred in its circle                                      | mobile + web |
+| M2  | No "⋯" on messages: tapping a message opens its options                                  | mobile + web |
+| G   | Profile "bakım verdiği hayvanlar": all of them by horizontal scroll, no "show more"      | mobile + web |
+| L   | Web: without location permission, "mama ekle" shows the warning but no browser prompt    | web (+ check mobile) |
+| R   | Animal profile: the comment composer is the last thing; "şikayet et" moves elsewhere     | mobile + web |
+| T   | Tab bar items look off-centre with too much space below                                   | mobile + web |
+
+Defaults taken without blocking (owner may redirect): "şikayet et" becomes a
+header action on the animal profile; a tap anywhere on a bubble opens the same
+options the "⋯" had, while a tap on a quote inside it still jumps to the quoted
+message; the tab bar keeps clear of the iPhone home indicator but loses the
+extra space. L is reproduced in real Safari (iOS simulator) before any code.
+
+**Done when:** each item has a screenshot on both clients (iOS simulator by the
+main session, web by playwright) and, where logic changes, a jest test; battery
+green on a clean committed HEAD; code-reviewer over the range. **Stop when:**
+done, or an item fails its battery twice (park with a note), or L turns out to
+be a browser limit that code cannot change (report the evidence and ask).
+
