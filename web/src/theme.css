@@ -791,7 +791,6 @@ strong {
   }
 }
 
-
 /* A drop on the profile's history map: the food/water stroke icon in a
    small tappable disc. */
 .care-history-marker {
@@ -1803,9 +1802,12 @@ strong {
   object-fit: cover;
 }
 
+/* .animal-photo-tile's `border: none` (a button reset) comes later in this
+   file than .photo-ph and erased its dashed frame; mobile draws it. */
 .animal-photo-tile.photo-ph {
   height: auto;
   min-height: 0;
+  border: 1.5px dashed var(--border-dashed);
   cursor: default;
 }
 
