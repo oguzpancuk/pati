@@ -48,6 +48,7 @@ import {
   Chip,
   ChoiceField,
   Input,
+  KeyboardInsetView,
   LoadingState,
   LoadMoreButton,
   Screen,
@@ -464,11 +465,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={90}
-    >
+    <KeyboardInsetView style={styles.flex}>
       <Screen scroll>
         {/* The photos open the profile (owner, 2026-09-09 — the avatar is
             gone with them): square tiles, three a row, each with its like
@@ -1204,7 +1201,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
         longitude={longitude}
         updatedAtLabel={formatDate(animal.location_updated_at)}
       />
-    </KeyboardAvoidingView>
+    </KeyboardInsetView>
   );
 }
 

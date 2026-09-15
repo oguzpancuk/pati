@@ -3,9 +3,7 @@ import {
   Alert,
   AppState,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   TextInput,
   View,
@@ -28,7 +26,7 @@ import {
   withDeleted,
 } from '../api/messages';
 import { REPORT_REASONS, ReportReason } from '../reportReasons';
-import { Avatar, Button, Chip, LoadingState, Text } from '../components/ui';
+import { Avatar, Button, Chip, KeyboardInsetView, LoadingState, Text } from '../components/ui';
 import { Icon } from '../components/brand';
 import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme';
 
@@ -300,11 +298,7 @@ export default function ConversationScreen({ route, navigation }: any) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-    >
+    <KeyboardInsetView style={styles.flex}>
       {messages === null ? (
         <LoadingState />
       ) : (
@@ -480,7 +474,7 @@ export default function ConversationScreen({ route, navigation }: any) {
       {reporting ? (
         <ReportMessageModal message={reporting} onClose={() => setReporting(null)} />
       ) : null}
-    </KeyboardAvoidingView>
+    </KeyboardInsetView>
   );
 }
 
