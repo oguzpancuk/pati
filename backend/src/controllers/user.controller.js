@@ -242,7 +242,9 @@ const CARED_ANIMALS_SQL = `
   JOIN user_animal_care uac ON uac.animal_id = a.id
   ${coverPhotoJoin('a')}
   WHERE uac.user_id = $1
-  ORDER BY uac.created_at DESC
+  -- The id breaks ties: seeded care rows share a timestamp, and without a
+  -- total order two offset pages may overlap or skip an animal.
+  ORDER BY uac.created_at DESC, uac.animal_id DESC
   LIMIT $2::int OFFSET $3::int`;
 
 // The public profile carries the first 3 animals + the total (same count as
