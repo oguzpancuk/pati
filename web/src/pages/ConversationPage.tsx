@@ -315,7 +315,20 @@ export default function ConversationPage() {
   const canSend = !!detail?.canSend;
 
   return (
-    <div className="page fill msg-page">
+    <div
+      className="page fill msg-page"
+      // A bubble's options row closes on a click anywhere else on the page —
+      // the list, the composer, the header — as an open menu does. Bubbles,
+      // quotes and the row itself stop the click before it gets here.
+      onClick={() => setMenuFor(null)}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' || menuFor === null) return;
+        // Focus inside the row would drop to the page with it; it goes back
+        // to the bubble the row belongs to.
+        document.querySelector<HTMLButtonElement>(`#msg-${menuFor} .msg-hit`)?.focus();
+        setMenuFor(null);
+      }}
+    >
       <PageHeader
         className="msg-topbar"
         fallback="/mesajlar"
@@ -373,14 +386,6 @@ export default function ConversationPage() {
           // A jump's first frames still read as "at the bottom".
           stickToBottom.current = jumpTarget.current === null && atBottom(el);
           lastTop.current = el.scrollTop;
-        }}
-        onClick={() => setMenuFor(null)}
-        onKeyDown={(e) => {
-          if (e.key !== 'Escape' || menuFor === null) return;
-          // Focus inside the row would drop to the page with it; it goes
-          // back to the bubble the row belongs to.
-          document.querySelector<HTMLButtonElement>(`#msg-${menuFor} .msg-hit`)?.focus();
-          setMenuFor(null);
         }}
       >
         {error && <div className="error">{error}</div>}
