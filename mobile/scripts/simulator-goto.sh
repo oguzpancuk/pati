@@ -12,7 +12,9 @@
 set -e
 URL="$1"; OUT="$2"; WAIT="${3:-8}"
 [ -z "$URL" ] && { echo "usage: $0 pati://path out.png [seconds]"; exit 1; }
-D=$(xcrun simctl list devices booted -j | node -pe 'Object.values(JSON.parse(require("fs").readFileSync(0)).devices).flat().find(d=>d.state==="Booted").udid')
+# SIM_UDID picks the device when more than one simulator is booted (the
+# App Store screenshot run keeps a Pro Max beside the everyday Pro).
+D=${SIM_UDID:-$(xcrun simctl list devices booted -j | node -pe 'Object.values(JSON.parse(require("fs").readFileSync(0)).devices).flat().find(d=>d.state==="Booted").udid')}
 C=$(xcrun simctl get_app_container "$D" com.oguzpancuk.pati data)
 M="$C/Library/Application Support/com.oguzpancuk.pati/RCTAsyncLocalStorage_V1/manifest.json"
 mkdir -p "$(dirname "$M")"; [ -f "$M" ] || echo '{}' > "$M"

@@ -14,7 +14,9 @@ set -e
 EMAIL="$1"; PASS="$2"; API="${API_URL:-http://localhost:3000}"
 SIM_LOCATION="${SIM_LOCATION:-40.9905,29.0277}"
 RESP=$(curl -s -X POST "$API/api/auth/login" -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")
-D=$(xcrun simctl list devices booted -j | node -pe 'Object.values(JSON.parse(require("fs").readFileSync(0)).devices).flat().find(d=>d.state==="Booted").udid')
+# SIM_UDID picks the device when more than one simulator is booted (the
+# App Store screenshot run keeps a Pro Max beside the everyday Pro).
+D=${SIM_UDID:-$(xcrun simctl list devices booted -j | node -pe 'Object.values(JSON.parse(require("fs").readFileSync(0)).devices).flat().find(d=>d.state==="Booted").udid')}
 C=$(xcrun simctl get_app_container "$D" com.oguzpancuk.pati data)
 M="$C/Library/Application Support/com.oguzpancuk.pati/RCTAsyncLocalStorage_V1/manifest.json"
 mkdir -p "$(dirname "$M")"; [ -f "$M" ] || echo '{}' > "$M"
