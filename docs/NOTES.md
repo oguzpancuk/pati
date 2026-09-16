@@ -4639,7 +4639,7 @@ was not centred in its disc.
   way: reserve up to 29 pt of the inset, of which the bottom 16 belong to the
   indicator and are not air, and centre the group against the rest, with an
   8 pt floor. Measured after: hairline 792 pt, bar 82, ink 807.3–843.7, air
-  15.3 above and 30.0 below. Nothing moves without an inset (56 pt, 8/8),
+  15.3 above and 30.3 below. Nothing moves without an inset (56 pt, 8/8),
   unchanged through all three rounds. Web computed the same: 54 px in a
   browser, 80 px with a 29 px inset, 13 above and 29 below.
 
@@ -4664,3 +4664,53 @@ system-drawn header background there, so the frame simply moves the glyph
 mobile rounds away: at a 20 px inset the link's top padding is 7.97 px where
 mobile computes 8. Sub-pixel, and the two agree exactly at the inset that
 matters (29 → 12).
+
+### Deploy v42
+
+evaluator-qa returned PASS on `f272ed9` with evidence rather than assent: the
+full battery 10/10, `ai-check/run.sh` 187/187 and `animal-social/run.sh`
+134/134 re-run by them, no `.sql` in the range, and four things checked
+against the real data.
+
+- **The marker gap is bounded.** 16,749 of 16,752 carer rows in the dev
+  database have no `kind = 'care'` marker (10,947 of them registrants), and
+  production will look similar. `caredBefore`'s only consumer is the
+  announcement, so the worst case is one extra "started caring" notification
+  per person and animal, after which the marker exists and it cannot repeat.
+  The new rows cannot contaminate anything else: `consumeMatchHit` and the
+  `matched` badge both filter `kind = 'register'`, and 007's CHECK constraint
+  has always allowed `'care'`.
+- **The rank derivation is equivalent on the real board**: 886 users, six
+  genuine tie groups, `1 + count(others with more points)` reproduces
+  `computeLeaderboard`'s own 1,2,2,4 ranking for every one of them. No new
+  cost either — the board pass sits behind the `fresh.length === 0` return.
+- **The store's mobile build is safe.** The whole backend diff adds three
+  `res.json` lines and all three are inside `leaveCare`; no existing
+  endpoint's payload moved.
+- **An animal with zero carers** (which production has none of today) reads
+  fine everywhere: admin animals and stats, the leaderboard and the profile
+  lists all 200.
+
+Pushed `00ad2ae..f272ed9` (12 commits), CI green on that sha, then
+`fly deploy --app pati-app --ha=false`: release command completed, machine
+`7843d59f197e98` reached a good state, DNS verified. Verified afterwards:
+`/health` `{"status":"ok"}`, `pati-app.com` 200, `admin.pati-app.com` 200,
+and `DELETE /api/animals/1/care` answers 401 rather than 404, so the new
+route is live. The served bundle is `index-BeMTRkEm.js` — the same hash the
+local build of `f272ed9` produced — and it carries "belirgin fiziksel
+özellikler", "Bakımı bırakmak için tıkla", "bakıcılığı bırakacaksın" and
+`empty-records`; the served CSS carries the 29 px cap with the
+`calc(... * 16 / 29)` band and the `.empty-records` rule. Production landing
+page screenshotted with no console errors.
+
+**Not verified in production:** anything behind a login — there is still no
+production account on this machine, so the tab bar, the leave-care button and
+the empty record sections were confirmed on the built artifact and in the
+served bundle, not in a signed-in production session. Playwright's chromium
+was missing here and QA installed it, so web screenshots work again.
+
+Mobile ships with the next app build: the tab bar geometry and the modal ×
+are not in this release. The ROADMAP's follow-up list carries nine parked
+items from the three review rounds, and QA added one more worth a line — the
+comment at `caredBefore` says "both doors write one" while `createAnimal` is
+a third door that writes none.

@@ -1375,8 +1375,10 @@ APPROVE and recommended against opening a fix round for them — they are a test
 assertion and two API/prose details, none of which can produce a wrong result.
 Carry them into the next commit that touches these files.
 
-7. **The 17-28 pt insets were changed but never rendered.** `indicatorBand`
-   moves the bar 1-3 pt there (iPad, Android gesture nav); the evidence in
+7. **The 19-28 pt insets were changed but never rendered.** `indicatorBand`
+   moves the bar 1-3 pt there (iPad, Android gesture nav) and nothing at all
+   at 17-18, where the proportional band still leaves the 8 pt floor; the
+   evidence in
    NOTES is a re-measurement of inset 34, which the commit did not change.
    An iPad simulator can produce the shot — and can also settle whether its
    inset really is ~20, which the justification assumes.
@@ -1389,3 +1391,8 @@ Carry them into the next commit that touches these files.
    `indicatorBand(34)` returns 19, past the 16 that `TAB_INDICATOR_BAND`
    defines as a full band. Harmless today (its only caller passes an
    already-clamped value) but it is public API with no test above 29.
+10. **`caredBefore`'s comment says "both doors write one"; there are three.**
+    `createAnimal` makes its author the first carer and writes no marker, so a
+    registrant who leaves and rejoins is announced once. Bounded and arguably
+    correct behaviour — the comment is the wrong part. Found by QA before the
+    v42 deploy.
