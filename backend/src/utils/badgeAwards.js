@@ -33,19 +33,32 @@ async function syncBadgeAwards(userId) {
 
   // Required here to avoid a circular dependency: the leaderboard controller
   // uses the badges util, and we use both.
-  const { getUserRank } = require('../controllers/leaderboard.controller');
+  const { computeLeaderboard } = require('../controllers/leaderboard.controller');
 
   const snapshot = await pool.query('SELECT last_rank, last_points FROM users WHERE id = $1', [
     userId,
   ]);
   const previous = snapshot.rows[0] || { last_rank: null, last_points: 0 };
 
-  const rank = await getUserRank(userId);
+  // One board pass for the whole batch: it already carries every other
+  // user's points, which is all a rank is. A user who is not on the board at
+  // all (showcase, suspended) has no rank, as the leaderboard says.
+  const board = await computeLeaderboard();
+  const onBoard = board.some((row) => row.id === userId);
+  const rankForPoints = (points) =>
+    onBoard ? 1 + board.filter((row) => row.id !== userId && row.points > points).length : null;
+
   const pointsAfter = badgeData.points.total;
   const pointsBefore = previous.last_points ?? 0;
+  const steps = stagePoints(fresh, pointsBefore, pointsAfter);
 
   const inserted = [];
-  for (const badge of fresh) {
+  // The rank walks the chain with the points: each popup opens where the
+  // one before it closed.
+  let rankBefore = previous.last_rank;
+  for (const [index, badge] of fresh.entries()) {
+    const step = steps[index];
+    const rankAfter = rankForPoints(step.after);
     const result = await pool.query(
       `INSERT INTO user_badge_awards
          (user_id, badge_key, tier, label, points_awarded,
@@ -59,24 +72,49 @@ async function syncBadgeAwards(userId) {
         badge.tier,
         badge.label,
         badge.points,
-        pointsBefore,
-        pointsAfter,
-        previous.last_rank,
-        rank ? rank.rank : null,
-        levelFor(pointsBefore).level,
-        levelFor(pointsAfter).level,
+        step.before,
+        step.after,
+        rankBefore,
+        rankAfter,
+        levelFor(step.before).level,
+        levelFor(step.after).level,
       ]
     );
     if (result.rows.length > 0) inserted.push(result.rows[0]);
+    rankBefore = rankAfter;
   }
 
   await pool.query('UPDATE users SET last_rank = $1, last_points = $2 WHERE id = $3', [
-    rank ? rank.rank : null,
+    rankForPoints(pointsAfter),
     pointsAfter,
     userId,
   ]);
 
   return inserted.map(toAward);
+}
+
+/**
+ * Splits one batch of badges into a chain of point totals, one step per
+ * badge. Two badges earned by the same action used to show the batch's whole
+ * jump on both popups ("0 → 20" twice); they now read 0 → 10 and then
+ * 10 → 20 (owner, 2026-09-16).
+ *
+ * The chain starts at the snapshot the user last saw and ends on the real
+ * total, so the last popup always agrees with the profile behind it; each
+ * step is carried by its own badge's points, and anything else that moved in
+ * the meantime (comment points) lands on the last step with it.
+ */
+function stagePoints(badges, pointsBefore, pointsAfter) {
+  let running = pointsBefore;
+  return badges.map((badge, index) => {
+    const last = index === badges.length - 1;
+    // Never past the total: a stale-low snapshot must not make a middle
+    // popup claim more than the profile shows.
+    const after = last ? pointsAfter : Math.min(running + (badge.points ?? 0), pointsAfter);
+    const step = { before: running, after };
+    running = after;
+    return step;
+  });
 }
 
 /**
@@ -145,6 +183,7 @@ async function syncBadgeAwardsSafe(userId) {
 
 module.exports = {
   syncBadgeAwards,
+  stagePoints,
   syncBadgeAwardsSafe,
   getUnseenAwards,
   markAwardsSeen,
