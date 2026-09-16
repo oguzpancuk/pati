@@ -1191,13 +1191,11 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 options={VACCINE_TYPES}
                 value={vaccineType}
                 onChange={setVaccineType}
-                otherPlaceholder="Örn. Lösemi aşısı"
               />
               <Input
                 label="not (isteğe bağlı)"
                 value={vaccineNote}
                 onChangeText={setVaccineNote}
-                placeholder="Örn. Belediye ekibi yaptı, kulak küpesi takıldı"
                 multiline
               />
               <AdBanner slot="vet_health_record" visible={vaccineModalVisible} />

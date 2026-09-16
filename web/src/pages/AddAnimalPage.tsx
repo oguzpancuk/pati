@@ -872,17 +872,19 @@ export default function AddAnimalPage() {
         </>
       )}
 
+      {/* No example placeholders (owner, 2026-09-16): the label above the
+          box already says what the field is, and an "Örn. …" grey line reads
+          as a value that is already there. */}
       <label className="field">
         <span>isim (isteğe bağlı)</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn. Pamuk" />
+        <input value={name} onChange={(e) => setName(e.target.value)} />
       </label>
+      {/* "belirgin fiziksel özellikler" rather than "işaretler / notlar"
+          (owner, 2026-09-16): what this field is for is recognising the
+          animal again — a notched ear, a limp — not a diary. */}
       <label className="field">
-        <span>işaretler / notlar</span>
-        <input
-          value={markings}
-          onChange={(e) => setMarkings(e.target.value)}
-          placeholder="Örn. Sol kulakta çentik"
-        />
+        <span>belirgin fiziksel özellikler (varsa)</span>
+        <input value={markings} onChange={(e) => setMarkings(e.target.value)} />
       </label>
 
       <div className="label">fotoğraf (en az bir)</div>

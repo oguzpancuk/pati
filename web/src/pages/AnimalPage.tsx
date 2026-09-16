@@ -1301,11 +1301,7 @@ export default function AnimalPage() {
             <ChoiceChips options={VACCINE_TYPES} value={vaccineType} onChange={setVaccineType} />
             <label className="field">
               <span>not (isteğe bağlı)</span>
-              <input
-                value={vaccineNote}
-                onChange={(e) => setVaccineNote(e.target.value)}
-                placeholder="Örn. Belediye ekibi yaptı"
-              />
+              <input value={vaccineNote} onChange={(e) => setVaccineNote(e.target.value)} />
             </label>
             <button className="btn full" disabled={saving || !vaccineType} onClick={saveVaccine}>
               Kaydet

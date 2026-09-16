@@ -594,9 +594,6 @@ export default function AddAnimalScreen({ navigation, route }: any) {
             options={patternsFor(species)}
             value={breed}
             onChange={handleBreedChange}
-            otherPlaceholder={
-              species === 'cat' ? 'Örn. Ankara kedisi kırması' : 'Örn. Golden kırması'
-            }
           />
 
           {/* Fixed-color patterns (sarman, siyah, calico, smokin, akbaş)
@@ -609,24 +606,27 @@ export default function AddAnimalScreen({ navigation, route }: any) {
               options={colorsFor(species, breed)}
               value={colorChoices}
               onChange={setColorChoices}
-              otherPlaceholder="Örn. Gri-beyaz alacalı"
             />
           )}
         </>
       )}
 
+      {/* No example placeholders (owner, 2026-09-16): the label inside the
+          box already says what the field is, and an "Örn. …" grey line reads
+          as a value that is already there. */}
       <Input
         label="isim (isteğe bağlı)"
         value={name}
         onChangeText={setName}
-        placeholder="Örn. Pamuk"
         containerStyle={styles.field}
       />
+      {/* "belirgin fiziksel özellikler" rather than "işaretler / notlar"
+          (owner, 2026-09-16): what this field is for is recognising the
+          animal again — a notched ear, a limp — not a diary. */}
       <Input
-        label="işaretler / notlar"
+        label="belirgin fiziksel özellikler (varsa)"
         value={markings}
         onChangeText={setMarkings}
-        placeholder="Örn. Sol kulakta çentik"
         multiline
         containerStyle={styles.field}
       />
