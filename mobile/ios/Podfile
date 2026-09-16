@@ -44,5 +44,27 @@ target 'PatiMobile' do
     )
     # Required by @maplibre/maplibre-react-native (see its React Native setup doc).
     $MLRN.post_install(installer)
+
+    # MapLibre arrives as a binary Swift package, and Xcode 15+ writes an
+    # `.xcframework-ios.signature` for it TWICE into the build products: once
+    # at the top level and once inside the pod's own product folder. The
+    # archive step then copies both into one flat `Signatures/` directory and
+    # dies on the second — "an item with the same name already exists". It is
+    # invisible in simulator builds, which never run that step, so the first
+    # sign of it is a failed archive on submission day.
+    #
+    # Deleting the top-level copy is the library's own fix, added upstream in
+    # maplibre-react-native#1490; we are on 10.4.2, which predates it. Doing
+    # it here rather than in Pods/ is what makes it survive `pod install`.
+    signature_phase = '[MapLibre] Remove the duplicate xcframework signature'
+    installer.aggregate_targets.each do |aggregate_target|
+      aggregate_target.user_project.native_targets.each do |user_target|
+        next if user_target.shell_script_build_phases.any? { |p| p.name == signature_phase }
+        phase = user_target.new_shell_script_build_phase(signature_phase)
+        phase.shell_script = 'rm -rf "$CONFIGURATION_BUILD_DIR/MapLibre.xcframework-ios.signature"'
+        phase.always_out_of_date = '1'
+      end
+      aggregate_target.user_project.save
+    end
   end
 end

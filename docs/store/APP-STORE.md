@@ -16,7 +16,7 @@ the owner's checklist. Android is parked — see the ROADMAP.
 | Google iOS OAuth client                 | already made: `223239218396-o34…` (Info.plist + googleClientId.ts) | done                   |
 | Google web OAuth client                 | Google Cloud → Credentials                                      | done (web sign-ins on Sep 4) |
 | Fly secrets for Apple                   | `fly secrets set` (docs/DEPLOYMENT.md → "Apple / Google sign-in")| after the ids exist       |
-| Resend DNS for `pati-app.com`           | the DKIM/SPF records Resend lists                               | **confirm** — without it registration mail does not arrive |
+| Resend DNS for `pati-app.com`           | the DKIM/SPF records Resend lists                               | done — checked 2026-09-16: the DKIM TXT at `resend._domainkey` and the MX on `send.` both resolve |
 | A reviewer account (section 5)          | the owner registers it                                          | after Resend works        |
 
 ## 1. App Store Connect → New App
@@ -238,7 +238,49 @@ Ayarlar → engellediklerim.
    written to pre-empt the two likely ones (empty map outside Türkiye,
    refused photos).
 
-## 7. Known gaps at submission (decided, not forgotten)
+## 7. The rest of the console
+
+Sections 1-5 cover the listing, privacy and review fields. The console asks
+for more than that, and the owner hit them before this file did. What is
+known:
+
+**Export compliance / encryption.** Already answered in the binary:
+`ITSAppUsesNonExemptEncryption` is `false` in Info.plist, so App Store
+Connect stops asking per upload. The honest basis: the app's only
+cryptography is HTTPS to our own server and the providers', which is exempt.
+If a French-specific encryption declaration appears, the same answer applies
+— no proprietary or non-exempt cryptography ships in the binary.
+
+**Content Rights.** The app does show third-party content: the basemap is
+OpenStreetMap data served by OpenFreeMap under ODbL, credited inside the app
+(Ayarlar → the last line, `map/attribution.ts`). Answer that it contains
+third-party content and that we have the rights — ODbL permits it with the
+attribution we give. Nothing else is licensed in: the avatars, icons and
+badge art are ours.
+
+**Digital Services Act — trader status (EU).** Apple requires every account
+distributing in the European Union to declare whether it is a "trader" and,
+if so, to publish a name, address, phone and e-mail on the product page.
+This is an **owner decision with a privacy cost**, since an individual
+developer's own address becomes public. Türkiye is not in the EU, so the
+straightforward path for a first release is to limit availability to Türkiye
+under Pricing and Availability and leave the EU out until it matters.
+
+**Pricing and Availability.** Free. Pick territories deliberately — see the
+DSA note above.
+
+**App Review → Sign-in required.** Yes, with the demo account from section 5.
+
+**Content rights of user photographs.** Nothing to declare, but worth
+knowing why: users upload their own photos, the terms at `/kosullar` cover
+it, and `POST /animals/:id/photos` screens each one.
+
+**Unverified by this file:** the console has sections this list does not
+name, and the owner reports "security"-related fields in particular. Write
+them down here as they are answered rather than leaving the next
+submission to rediscover them.
+
+## 8. Known gaps at submission (decided, not forgotten)
 
 - No crash reporting. The first crash on a real device is invisible until
   a TestFlight tester writes in. Owner's call (ROADMAP).

@@ -207,6 +207,7 @@
 				00E356EC1AD99517003FC87E /* Resources */,
 				C59DA0FBD6956966B86A3779 /* [CP] Embed Pods Frameworks */,
 				F6A41C54EA430FDDC6A6ED99 /* [CP] Copy Pods Resources */,
+				AB7A4A62B6BC49BB661E57C1 /* [MapLibre] Remove the duplicate xcframework signature */,
 			);
 			buildRules = (
 			);
@@ -232,6 +233,7 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
 				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
+				2CE1BC566FF3AB1CB3B0F7C7 /* [MapLibre] Remove the duplicate xcframework signature */,
 			);
 			buildRules = (
 			);
@@ -354,6 +356,25 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-PatiMobile/Pods-PatiMobile-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		2CE1BC566FF3AB1CB3B0F7C7 /* [MapLibre] Remove the duplicate xcframework signature */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[MapLibre] Remove the duplicate xcframework signature";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "rm -rf \"$CONFIGURATION_BUILD_DIR/MapLibre.xcframework-ios.signature\"";
+		};
 		A55EABD7B0C7F3A422A6CC61 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -375,6 +396,25 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
+		};
+		AB7A4A62B6BC49BB661E57C1 /* [MapLibre] Remove the duplicate xcframework signature */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[MapLibre] Remove the duplicate xcframework signature";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "rm -rf \"$CONFIGURATION_BUILD_DIR/MapLibre.xcframework-ios.signature\"";
 		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -538,7 +578,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PatiMobile/PatiMobile.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5J62WM72AV;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = PatiMobile/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -551,8 +593,6 @@
 					"-ObjC",
 					"-lc++",
 				);
-				DEVELOPMENT_TEAM = 5J62WM72AV;
-				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati;
 				PRODUCT_NAME = PatiMobile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -568,7 +608,9 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PatiMobile/PatiMobile.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5J62WM72AV;
 				INFOPLIST_FILE = PatiMobile/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -580,8 +622,6 @@
 					"-ObjC",
 					"-lc++",
 				);
-				DEVELOPMENT_TEAM = 5J62WM72AV;
-				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati;
 				PRODUCT_NAME = PatiMobile;
 				SWIFT_VERSION = 5.0;
