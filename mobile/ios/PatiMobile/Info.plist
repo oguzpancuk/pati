@@ -62,8 +62,9 @@
 	<string>Uygulamada çektiğiniz fotoğrafların telefonunuzun galerisine de kaydedilmesi için izin gerekiyor.</string>
 	<!-- The READ half. An earlier comment here claimed the app never reads
 	     the library; that was simply wrong — the avatar picker calls
-	     `launchImageLibrary` (screens/UserProfileScreen.tsx), and so does the
-	     simulator stand-in for the camera. Apple's processing refused the
+	     `launchImageLibrary` (screens/UserProfileScreen.tsx). The other
+	     caller, photoCapture.tsx's simulator stand-in for the camera, is
+	     behind `__DEV__` and is in no release binary. Apple's processing refused the
 	     first upload over exactly this (ITMS-90683): the string is required
 	     whenever the binary REFERENCES the API, and react-native-image-picker
 	     references it whether or not a given screen calls it. Animal and care

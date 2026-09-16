@@ -5087,8 +5087,21 @@ does NOT do is a claim that stops being checked the moment it is written.**
 Nothing re-reads it against the call sites. Here it survived long enough to
 be trusted twice — once by whoever wrote the plist, once by me while
 preparing the submission — and the first thing to actually test it was
-Apple's static analysis. Had it shipped, a real device would have
-terminated the app the first time somebody picked an avatar.
+Apple's static analysis.
+
+**It would not have crashed, and the first version of this entry said it
+would.** That claim is corrected here rather than quietly dropped, because
+an entry whose whole subject is an unchecked assertion has no business
+closing with another one. `LIBRARY_PICKER` sets no `includeExtra`, so
+react-native-image-picker takes the iOS 14+ path and presents a
+`PHPickerViewController` without ever calling
+`PHPhotoLibrary requestAuthorization` — PHPicker runs out of process, which
+is precisely why it needs no usage string at runtime. Its `checkPermission:`
+method, the only one that would ask, has no caller at all. The real failure
+mode is the one that happened: the analyser refuses a binary that
+REFERENCES the API, whether or not any code path reaches it. Which also
+means iOS will never show this string to a user on any version we support;
+it exists to satisfy processing.
 
 Fixed with an honest string (and the comment rewritten to name the call
 site), `CURRENT_PROJECT_VERSION` 1 → 2 because Apple refuses a repeated
@@ -5105,3 +5118,11 @@ which Apple listed under "not required to fix". A linked SDK references the
 always-authorization API, but this app never requests it — `location.ts`
 says iOS stays at when-in-use on purpose — and writing a purpose string for
 a capability we do not use would promise the user something untrue.
+
+**The tripwire next to it, worth naming before somebody trips it.** Adding
+that key would be harmless. Adding the *legacy* `NSLocationAlwaysUsageDescription`
+would not: `@react-native-community/geolocation` decides always-vs-when-in-use
+by looking for exactly that old key, so its mere presence flips every
+`getCurrentPosition` into `requestAlwaysAuthorization` and the app starts
+asking people for background location it never uses. The two keys look
+interchangeable and are not.

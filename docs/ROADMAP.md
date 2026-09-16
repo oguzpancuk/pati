@@ -1461,7 +1461,10 @@ submission; all are written down so the next reader is not rediscovering them.
    rows.
 2. **A blocked person deleting their account unhides their old
    notifications — and now does it loudly.** The mechanism is not a cascade:
-   accounts are never deleted, `anonymizeAccount` keeps the `users` row and
+   a *member's* account is never deleted (the hard `DELETE FROM users` paths
+   are the demo purge and an abandoned pending registration, neither of which
+   can be a notification actor a member blocked — except a showcase bot,
+   whose rows the demo filter hides anyway). `anonymizeAccount` keeps the `users` row and
    explicitly runs `DELETE FROM user_blocks WHERE blocker_id = $1 OR
    blocked_id = $1` (`utils/accountDeletion.js`). That delete is what lifts
    the block, while the notification payload keeps the actor's frozen name
@@ -1472,7 +1475,10 @@ submission; all are written down so the next reader is not rediscovering them.
    the name and words of somebody they blocked, as fresh news. Strictly
    louder than before, which is the price of `markRead` being correct.
    Fixing it means deciding what a block should mean once the other account
-   is gone; the cheap half is stamping those rows read at anonymisation.
+   is gone; the cheap half is stamping those rows read at anonymisation —
+   **before** the `user_blocks` delete on the line above it, and scoped to
+   recipients who had blocked them, or the UPDATE either matches nothing or
+   silences that person's notifications for everybody.
 3. **The Podfile's signature hook is scoped wider than its comment says.** It
    walks every native target of the user project, so the build phase landed
    on `PatiMobileTests` as well as the app. Harmless — both share
