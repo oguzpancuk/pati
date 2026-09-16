@@ -1320,3 +1320,46 @@ re-runnable check — now `checks.sh` section 16, 187/187). Web was driven in
 the in-app browser rather than playwright (its chromium is not installed
 here). Evidence, the measured tab-bar numbers and what stays unverified are in
 NOTES "2026-09-16 (evening)". Not deployed.
+
+---
+
+## 🧵 Open follow-up: six small things the 2026-09-16 review round parked
+
+Found by the second code-reviewer pass over `7b50cc5` (which returned
+APPROVE, with "I would not spend a third round on any of this"). None can
+produce a wrong result for a user today; each belongs to the next touch of
+its file.
+
+1. **The sighting door's `care` marker is untested.** `markCareDoor` in
+   `reportSighting` (animal.controller.js) is what stops a second
+   announcement for someone who joined through "o hayvan bu" and later
+   leaves. `ai-check/checks.sh` section 16 drives only the care-photo door,
+   and `animal-social/checks.sh` predates the marker. Drop the insert and
+   every test in the repo still passes. Cheapest fix: in section 16, let one
+   account rejoin through `POST /animals/:id/sightings` instead — which needs
+   an unspent `register` hit, so it has to go through the match step first.
+2. **The registrant is never marked.** `createAnimal` makes its author the
+   first carer without writing a `care` row, so a registrant who leaves and
+   comes back is announced once. Bounded (the rejoin writes the marker) and
+   arguably right, but `caredBefore`'s docblock says "both doors write one",
+   which is not the whole story. Decide which it is and make the code and the
+   comment agree.
+3. **`care_told()` reads one page.** Section 16 counts `care` notifications
+   from `GET /notifications` with no `limit`, i.e. the newest 30. It passes
+   today and starts failing spuriously the moment a future section pushes
+   that inbox over 30. Wants `notifications?limit=100`, and a status check
+   before the JSON parse.
+4. **Section 16 reuses `MAIL2`/`JWT2`/`CODE2`**, which sections 3–11 already
+   bound to a different account. Safe only because it is the last section.
+5. **One tautological assertion** in section 16: `carer: false` is a literal
+   in the response, so checking it can never fail. The two 403s after it are
+   the real proof; the label promises a database fact it does not read.
+6. **`Number.isInteger` is not "a valid animal id".**
+   `DELETE /animals/99999999999/care` overflows Postgres' int and 500s
+   instead of answering 400 or 404, and `/animals/0x10/care` leaves care of
+   animal 16. The sibling endpoints never got the treatment at all:
+   `DELETE /animals/abc/follow` still 500s. This belongs in one shared
+   `animalIdParam` guard (or `:id(\d+)` on the routes), not in a third copy.
+   While there, reconsider `leaveCare`'s 404 pre-read: it is a round trip and
+   a TOCTOU window for a case no client can produce, and "takip etme" answers
+   200 for an animal that is not there.
