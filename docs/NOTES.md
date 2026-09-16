@@ -4782,6 +4782,27 @@ readiness".
   içermez".** The app has its own promotion slots; the sentence would have
   been a claim review could hold against it.
 
+- **R4 the Release build, which is the point of all of it.** Every
+  screenshot this project has ever taken was Debug. `xcodebuild
+  -configuration Release -sdk iphonesimulator` **BUILD SUCCEEDED**, and the
+  built `Info.plist` carries the three changes (`ITSAppUsesNonExemptEncryption
+  => false`, no `UIBackgroundModes` key at all, `UISupportedInterfaceOrientations`
+  a one-element array). Installed and launched on the Pro Max: the login
+  screen came up talking to **production** (`__DEV__` false switches
+  `API_BASE_URL` to `https://pati-app.com/api`), and the Google button was
+  drawn — which means production's `GET /auth/providers` reported an iOS
+  client id equal to the compiled-in one.
+  Then the test that actually matters: **tapping it in Release reached
+  Google's system consent sheet** ("pati" giriş yapmak için…
+  accounts.google.com) and the app **did not terminate** — same pid before,
+  during and after, "Vazgeç" returned to the login screen, and the device
+  log has no crash, exception or termination line. This is the one failure
+  the notes of September 2 could only describe: the Google SDK raises an
+  ObjC exception that the RN wrapper catches only under `#if DEBUG`, so a
+  release build with a mismatched URL scheme dies on the first tap. The
+  compiled-in guard and the scheme are paired correctly. No sign-in was
+  completed — nothing was written to production.
+
 **Not done and why.** Android is a whole wave of its own (release keystore —
 `debug.keystore` signs release today, the never-exercised build, the
 `ACCESS_BACKGROUND_LOCATION` permission that buys nothing because the

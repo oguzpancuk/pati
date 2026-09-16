@@ -1412,7 +1412,7 @@ first build ever) are parked, not forgotten — see the end of this section.
 | R1 ✅| Info.plist: `ITSAppUsesNonExemptEncryption` false; drop the unimplemented `fetch` background mode; portrait only | Export-compliance prompt on every upload; guideline 2.5.4 (declared background mode with no handler); landscape was never verified |
 | R2 ✅| `PrivacyInfo.xcprivacy` declares what the app collects                                        | Today it says "nothing", which contradicts the App Privacy answers   |
 | R3 ✅| Block a user (both clients + backend), and report a user from their profile                   | Guideline 1.2: UGC apps must let people block abusive users — there was no way to |
-| R4  | Release-configuration build on the simulator + smoke                                          | Every screenshot so far is Debug; Release is what ships              |
+| R4 ✅| Release-configuration build on the simulator + smoke                                          | Every screenshot so far is Debug; Release is what ships              |
 | R5 ✅| App Store screenshots (6.9", 1320×2868) from the simulator                                    | Required for the listing                                             |
 | R6 ✅| `docs/store/APP-STORE.md`: listing text, App Privacy answers, review notes, the reviewer account recipe, and the exact "keys are in" sequence | So the owner's last step is paste + click |
 
@@ -1432,7 +1432,12 @@ friend put us both in, and notifications about their actions.
   (`f87f702`, `f0b029f`, `cc7ce86`); details and evidence in NOTES.
   R3's evidence: checks.sh section 17, 226/226 ALL PASS, plus the
   block/unblock round trip driven on the simulator and in the browser.
-  **R4 is the one still open**: the Release-configuration build.
+  R4 closed the same night: Release BUILD SUCCEEDED, installed and
+  launched on the Pro Max, the built plist carries all three changes, and
+  the Google button — drawn because production reports the matching client
+  id — reached the system consent sheet **without terminating the app**,
+  which is the Release-only failure the S7 notes could never test. No
+  sign-in was completed; nothing was written to production.
 - **Parked (Android wave):** release signing (`debug.keystore` signs release
   today), `ACCESS_BACKGROUND_LOCATION` (the care-alert timer never runs in
   the background, so the permission buys nothing and Play asks for a
