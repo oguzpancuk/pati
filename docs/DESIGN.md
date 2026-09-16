@@ -207,7 +207,7 @@ as air — the indicator is drawn in it — so the group ends up with rather mor
 room below than above. It is 16 pt of a full 29 pt reservation and shrinks in
 proportion with a smaller one (`indicatorBand`): a device that reserves less
 has a smaller indicator to clear, and a flat band ate the whole gap on the
-9-28 pt insets, an iPad's among them. This one took three tries: the library's
+9-24 pt insets, an iPad's among them. This one took three tries: the library's
 own layout read as off-centre, centring on the screen edge read as "çok
 aşağıda", and discounting only 8 pt still read as centred. The owner picked
 the current figures from three candidates rendered on the simulator (the

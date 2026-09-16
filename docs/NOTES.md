@@ -4632,8 +4632,9 @@ was not centred in its disc.
   82 pt bar height and shown to the owner: 8/34 (top-aligned), 13/29 and the
   then-current 17/25 — air above the icons (hairline counted) over air below
   the labels, each summing with the 40 pt group to 82. The `itemPaddingTop`
-  that produces the picked 13 is 12; measured ink sits 2.3 pt below the box
-  at the top and 1.0 above it at the bottom. They picked the middle one. `TAB_HOME_INDICATOR_CLEARANCE` 25 → 29 and
+  that produces the picked 13 is 12; the box is 805-845 and the measured ink
+  807.3-843.7, so it sits 2.3 pt inside the box at the top and 1.3 at the
+  bottom. They picked the middle one. `TAB_HOME_INDICATOR_CLEARANCE` 25 → 29 and
   `TAB_INDICATOR_BAND` 8 → 16 express it, and the rule still reads the same
   way: reserve up to 29 pt of the inset, of which the bottom 16 belong to the
   indicator and are not air, and centre the group against the rest, with an
@@ -4648,7 +4649,7 @@ three rounds above first.
 
 Review round on those two commits: APPROVE, with one finding worth acting on
 straight away — a flat 16 pt band ate the whole gap on every inset between 9
-and 28 pt (an iPad's is about 20), pinning the group to the hairline with all
+and 24 pt (an iPad's is around 20), pinning the group to the hairline with all
 the air underneath, which is the very shape the three rounds were about. The
 band is proportional now (`indicatorBand`, 16 of a full 29): inset 34 is
 untouched at 82/13/29, and 20 goes to 69/9/20 instead of 68/8/20. Also fixed

@@ -66,8 +66,8 @@ describe('the tab bar geometry', () => {
   });
 
   it('shrinks the band with a reservation smaller than a full one', () => {
-    // A flat band ate the whole gap between 9 and 28 pt of inset (an iPad's
-    // is about 20) and pinned the group to the hairline with all the air
+    // A flat band ate the whole gap between 9 and 24 pt of inset (an iPad's
+    // is around 20) and pinned the group to the hairline with all the air
     // underneath — the shape of the complaint these rounds started from.
     expect([12, 16, 20, 24, 29].map(indicatorBand)).toEqual([7, 9, 11, 13, 16]);
     expect(indicatorBand(0)).toBe(0);

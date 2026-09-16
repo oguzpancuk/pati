@@ -1329,7 +1329,7 @@ header's close button was 7 pt off centre. Both fixed and measured; see NOTES
 
 ---
 
-## 🧵 Open follow-up: six small things the 2026-09-16 review round parked
+## 🧵 Open follow-up: small things the 2026-09-16 review rounds parked
 
 Found by the second code-reviewer pass over `7b50cc5` (which returned
 APPROVE, with "I would not spend a third round on any of this"). None can
@@ -1369,3 +1369,23 @@ its file.
    While there, reconsider `leaveCare`'s 404 pre-read: it is a round trip and
    a TOCTOU window for a case no client can produce, and "takip etme" answers
    200 for an animal that is not there.
+
+Three more from the round over the tab-bar band (`e0c108b`), which returned
+APPROVE and recommended against opening a fix round for them — they are a test
+assertion and two API/prose details, none of which can produce a wrong result.
+Carry them into the next commit that touches these files.
+
+7. **The 17-28 pt insets were changed but never rendered.** `indicatorBand`
+   moves the bar 1-3 pt there (iPad, Android gesture nav); the evidence in
+   NOTES is a re-measurement of inset 34, which the commit did not change.
+   An iPad simulator can produce the shot — and can also settle whether its
+   inset really is ~20, which the justification assumes.
+8. **`tabBarGeometry.test.ts`'s `above < gaps(29).above` assertion passes
+   against the flat-band code it is named for** (8 < 13 either way). The real
+   guards are the `indicatorBand` equality beside it and the parametric rows
+   at insets 20/21/24. Replace it or drop it; a test that passes against the
+   bug it was written to catch is worse than no test.
+9. **`indicatorBand` is exported without the clamp its doc implies**:
+   `indicatorBand(34)` returns 19, past the 16 that `TAB_INDICATOR_BAND`
+   defines as a full band. Harmless today (its only caller passes an
+   already-clamped value) but it is public API with no test above 29.

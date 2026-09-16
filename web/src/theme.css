@@ -238,7 +238,7 @@ strong {
    is not air — and never less than 8px either, hairline included. The band is
    16px of a full 29px reservation and shrinks in proportion with a smaller
    one, because a device that reserves less has a smaller indicator to clear
-   (flat, it ate the whole gap between 9 and 28px). Only the capped inset is
+   (flat, it ate the whole gap between 9 and 24px). Only the capped inset is
    the bar's own padding: the rest stays inside the links, so a tap at the
    very bottom of a browser tab bar still lands on a tab. */
 .tabbar {

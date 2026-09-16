@@ -483,7 +483,7 @@ const useStyles = makeStyles(({ colors: c }) => ({
   // A frame with the glyph centred in it, and nothing else: iOS 26 draws the
   // header button's own background around THIS box (see ModalCloseButton for
   // why it carries no surface of its own). 36 pt also takes the touch target
-  // from 38 to 52 with the hitSlop, over the 44 the design system asks for.
+  // from 38 to 52 with the hitSlop, clearing the 44 pt floor it was under.
   modalCloseFrame: {
     width: 36,
     height: 36,

@@ -71,7 +71,7 @@ export const TAB_HOME_INDICATOR_CLEARANCE = 29;
  *
  * A device that reserves less than the full clearance has a smaller indicator
  * to clear, so the band shrinks with it (`indicatorBand`). Flat, it ate the
- * whole gap on the 9-28 pt insets — an iPad's is about 20 — and pinned the
+ * whole gap on the 9-24 pt insets — an iPad's is around 20 — and pinned the
  * group to the hairline with all the air underneath, which is the shape of
  * the complaint these rounds started from (review finding).
  */
