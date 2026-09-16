@@ -250,6 +250,12 @@ export interface PublicProfile {
   commentCount: number;
   friendshipStatus: FriendshipStatus;
   friendshipId: number | null;
+  /** True when *you* blocked this person; the other direction is never reported. */
+  blocked: boolean;
+}
+
+export interface BlockedUser extends UserSummary {
+  created_at: string;
 }
 
 export interface UserSummary {
@@ -752,6 +758,17 @@ export const acceptFriendRequest = (friendshipId: number) =>
   api.post<void>(`/friendships/${friendshipId}/accept`);
 export const removeFriendship = (friendshipId: number) =>
   api.del<void>(`/friendships/${friendshipId}`);
+
+// Blocking (App Store guideline 1.2). The server ends the friendship with it
+// — which is what closes direct messages and my groups to them — and hides
+// their comments from me; unblocking brings the comments back, not the
+// friendship.
+export const blockUser = (userId: number) => api.post<void>(`/users/${userId}/block`);
+export const unblockUser = (userId: number) => api.del<void>(`/users/${userId}/block`);
+export const fetchMyBlocks = async () => {
+  const data = await api.get<{ users: BlockedUser[] }>('/users/me/blocks');
+  return data.users;
+};
 
 // ---------------------------------------------------------------- reklam
 

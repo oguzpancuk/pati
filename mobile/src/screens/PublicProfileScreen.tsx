@@ -3,25 +3,30 @@ import { Alert, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   acceptFriendRequest,
+  blockUser,
   fetchUserProfile,
   PublicProfile,
   removeFriendship,
   sendFriendRequest,
+  unblockUser,
 } from '../api/users';
 import { sortBadges } from '../badges';
 import BadgeCatalogModal from '../components/BadgeCatalogModal';
+import { Icon } from '../components/brand';
 import LevelBar from '../components/LevelBar';
 import RecentComments from '../components/RecentComments';
+import { ReportSheet } from '../components/ReportSheet';
 import {
   BadgeBlock,
   CarerGallery,
   FriendshipButton,
+  HeaderIconButton,
   ProfileHeader,
   ProfileStats,
   useCaredAnimals,
 } from '../components/profile';
-import { LoadingState, Screen } from '../components/ui';
-import { makeStyles, spacing } from '../theme';
+import { Button, LoadingState, Screen } from '../components/ui';
+import { makeStyles, spacing, useTheme } from '../theme';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('tr-TR', {
@@ -35,11 +40,14 @@ function formatDate(iso: string) {
  * Someone else's profile. Same skeleton as your own (owner, 2026-09-11):
  * header, stats, level bar, badges, the carer gallery, the comment bubbles —
  * all from components/profile, so the two cannot drift apart again. The only
- * difference is the header's top-right, where one friendship button stands
- * in for bell / arkadaşlar / ayarlar.
+ * difference is the header's top-right, where the friendship button and a
+ * "⋯" disc (report, block — App Store guideline 1.2) stand in for bell /
+ * arkadaşlar / ayarlar. Once blocked, the friendship button gives way to
+ * "engellendi", which is also where the block is undone.
  */
 export default function PublicProfileScreen({ route, navigation }: any) {
   const styles = useStyles();
+  const { colors } = useTheme();
   const { userId } = route.params;
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   // The profile brings the first few cared-for animals; the gallery pages
@@ -48,6 +56,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
   const resetAnimals = cared.reset;
   const [busy, setBusy] = useState(false);
   const [catalogVisible, setCatalogVisible] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -85,6 +94,45 @@ export default function PublicProfileScreen({ route, navigation }: any) {
     );
   }
 
+  // Both confirmations say what actually changes, and the unblock says what
+  // does NOT come back: the friendship is asked for again, never restored.
+  function confirmBlock() {
+    Alert.alert(
+      'Engelle',
+      `${profile!.name} sana mesaj gönderemez ve arkadaşlık isteği yollayamaz; yorumlarını görmezsin. Arkadaşsanız arkadaşlık biter.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Engelle',
+          style: 'destructive',
+          onPress: () => runAction(() => blockUser(userId), 'Engellenemedi'),
+        },
+      ]
+    );
+  }
+  function confirmUnblock() {
+    Alert.alert(
+      'Engeli kaldır',
+      `${profile!.name} yeniden arkadaşlık isteği gönderebilir ve yorumları görünür. Arkadaşlık kendiliğinden geri gelmez.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Engeli kaldır',
+          onPress: () => runAction(() => unblockUser(userId), 'Kaldırılamadı'),
+        },
+      ]
+    );
+  }
+  function openMenu() {
+    Alert.alert(profile!.name, undefined, [
+      { text: 'Şikayet et', onPress: () => setReportOpen(true) },
+      profile!.blocked
+        ? { text: 'Engeli kaldır', onPress: confirmUnblock }
+        : { text: 'Engelle', style: 'destructive', onPress: confirmBlock },
+      { text: 'Vazgeç', style: 'cancel' },
+    ]);
+  }
+
   // "Öne çıkan" is a claim about a CHOICE this person made. Without one we
   // still show their strongest three, but under a heading that does not put
   // words in their mouth (review finding).
@@ -101,19 +149,34 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         secondary={`${formatDate(profile.created_at)} tarihinde katıldı`}
         demo={profile.is_demo === true}
         actions={
-          <FriendshipButton
-            status={profile.friendshipStatus}
-            busy={busy}
-            onAdd={() => runAction(() => sendFriendRequest(userId), 'Gönderilemedi')}
-            onAccept={() =>
-              profile.friendshipId != null &&
-              runAction(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
-            }
-            onRemove={() =>
-              profile.friendshipId != null &&
-              runAction(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
-            }
-          />
+          <>
+            {profile.blocked ? (
+              <Button
+                title="Engellendi"
+                variant="secondary"
+                size="sm"
+                loading={busy}
+                onPress={confirmUnblock}
+              />
+            ) : (
+              <FriendshipButton
+                status={profile.friendshipStatus}
+                busy={busy}
+                onAdd={() => runAction(() => sendFriendRequest(userId), 'Gönderilemedi')}
+                onAccept={() =>
+                  profile.friendshipId != null &&
+                  runAction(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
+                }
+                onRemove={() =>
+                  profile.friendshipId != null &&
+                  runAction(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
+                }
+              />
+            )}
+            <HeaderIconButton label="Diğer işlemler" onPress={openMenu}>
+              <Icon name="more" size={20} color={colors.brand} />
+            </HeaderIconButton>
+          </>
         }
       />
 
@@ -169,6 +232,12 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         visible={catalogVisible}
         onClose={() => setCatalogVisible(false)}
         badges={profile.badges}
+      />
+      <ReportSheet
+        visible={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="user"
+        targetId={userId}
       />
     </Screen>
   );

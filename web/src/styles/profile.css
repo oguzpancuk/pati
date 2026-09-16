@@ -118,9 +118,52 @@
 
 /* The friendship button on someone else's profile sits in the same slot as
    the three icons do on your own. */
+/* The "⋯" disc's menu on someone else's profile: report, block. Anchored to
+   the disc, opening downward and to the left so it stays inside the page. */
+.profile-menu-wrap {
+  position: relative;
+}
+
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 20;
+}
+
+.profile-menu button {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-menu button:hover,
+.profile-menu button:focus-visible {
+  background: var(--brand-tint);
+}
+
+.profile-menu button.danger {
+  color: var(--danger);
+}
+
 .profile-friend-btn {
   min-height: 40px;
-  padding: 8px 16px;
+  /* 12, not 16: it shares the row with the "⋯" disc now, and every pixel
+     it gives up goes to the name beside it (a 375 px phone). */
+  padding: 8px 12px;
   font-size: 13.5px;
   border-radius: 999px;
 }

@@ -10,7 +10,8 @@
 # and animal photos are screened for the species on the same token scheme.
 # Section 16 is the evidence for leaving care (owner, 2026-09-16): the rights
 # and the granted follow go, a plain follower's own follow does not, and
-# coming back announces nothing a second time.
+# coming back announces nothing a second time. Section 17 is the evidence
+# for blocking a user (App Store guideline 1.2).
 set -uo pipefail
 API=${API:-http://localhost:3103/api}
 FAKE=${FAKE:-http://localhost:4600}
@@ -59,7 +60,7 @@ node -e "require('sharp')({create:{width:96,height:64,channels:3,background:'#c8
 
 echo "0. A verified account to act as"
 MAIL="ai-$STAMP@example.com"
-code=$(post auth/register "{\"name\":\"Fotoğraf Deneyen\",\"email\":\"$MAIL\",\"password\":\"parola1234\"}")
+code=$(post auth/register "{\"name\":\"Fotoğraf Deneyen $STAMP\",\"email\":\"$MAIL\",\"password\":\"parola1234\"}")
 check "register -> 201" 201 "$code"
 JWT=$(field .token)
 CODE=$(last_code "$MAIL") || { echo "  FAIL  no code in the outbox"; FAILED=1; }
@@ -421,7 +422,7 @@ echo "16. Leaving care and coming back (owner, 2026-09-16)"
 # has to be scripted.
 mode '{"mode":"error"}'
 MAIL2="ai-leave-$STAMP@example.com"
-code=$(post auth/register "{\"name\":\"Bakıcı Aday\",\"email\":\"$MAIL2\",\"password\":\"parola1234\"}")
+code=$(post auth/register "{\"name\":\"Bakıcı Aday $STAMP\",\"email\":\"$MAIL2\",\"password\":\"parola1234\"}")
 check "a second account -> 201" 201 "$code"
 JWT2=$(field .token)
 CODE2=$(last_code "$MAIL2") || { echo "  FAIL  no code in the outbox"; FAILED=1; }
@@ -467,6 +468,83 @@ check "comes back through the same door -> 201" 201 "$code"
 code=$(get_auth "animals/$G" "$JWT2"); check "…a carer again" true "$(field .isCarer)"
 check "the return is NOT announced a second time" "$told_once" "$(care_told)"
 mode '{"mode":"approve"}'
+
+echo "17. Blocking a user (App Store guideline 1.2; ROADMAP App Store readiness, R3)"
+# JWT (A) and JWT2 (B) become friends, B — a carer of G since section 16 —
+# writes a comment A can see, then A blocks B. The rule under test: the
+# friendship goes, requests and search refuse both ways, B's comment leaves
+# A's chat (and its total), B is told nothing, and an unblock brings the
+# comment back but not the friendship.
+code=$(get_auth users/me "$JWT"); A=$(field .id)
+code=$(get_auth users/me "$JWT2"); B=$(field .id)
+sees_comment() { # jwt comment-id
+  get_auth "animals/$G/comments" "$1" >/dev/null
+  node -pe "JSON.parse(require('fs').readFileSync('$BODY')).comments.some((c) => c.id === $2)"; }
+comment_total() { get_auth "animals/$G/comments" "$1" >/dev/null; field .total; }
+finds_user() { # jwt q id
+  get_auth "users/search?q=$2" "$1" >/dev/null
+  node -pe "JSON.parse(require('fs').readFileSync('$BODY')).some((u) => u.id === $3)"; }
+
+code=$(post_auth friendships "$JWT" "{\"addresseeId\":$B}")
+check "A asks B -> 201" 201 "$code"
+FID=$(field .id)
+code=$(post_auth "friendships/$FID/accept" "$JWT2" "{}")
+check "B accepts -> 200" 200 "$code"
+code=$(post_auth "animals/$G/comments" "$JWT2" "{\"body\":\"engel öncesi yorum\"}")
+check "B comments on G -> 201" 201 "$code"
+CID=$(field .id)
+check "A sees the comment" true "$(sees_comment "$JWT" "$CID")"
+total_before=$(comment_total "$JWT")
+# The names carry the run's stamp: a local database holds the accounts of
+# every earlier run, and a search capped at 20 rows would miss this one.
+check "B finds A in search" true "$(finds_user "$JWT2" "$STAMP" "$A")"
+
+code=$(post_auth "users/$B/block" "$JWT" "{}")
+check "A blocks B -> 200" 200 "$code"
+check "…blocked true" true "$(field .blocked)"
+check "…and the friendship went with it" true "$(field .friendshipRemoved)"
+code=$(get_auth "users/$B" "$JWT")
+check "B's profile still opens for A -> 200" 200 "$code"
+check "…says blocked" true "$(field .blocked)"
+check "…friendship none" none "$(field .friendshipStatus)"
+code=$(get_auth "users/$A" "$JWT2")
+check "A's profile does not tell B -> 200" 200 "$code"
+check "…blocked false" false "$(field .blocked)"
+check "B's comment is gone from A's chat" false "$(sees_comment "$JWT" "$CID")"
+check "…and from A's total" "$((total_before - 1))" "$(comment_total "$JWT")"
+check "B still sees their own comment" true "$(sees_comment "$JWT2" "$CID")"
+code=$(post_auth friendships "$JWT2" "{\"addresseeId\":$A}")
+check "B cannot ask A -> 403" 403 "$code"
+contains "…as blocked" blocked "$(field .code)"
+code=$(post_auth friendships "$JWT" "{\"addresseeId\":$B}")
+check "A cannot ask B either -> 403" 403 "$code"
+check "B no longer finds A" false "$(finds_user "$JWT2" "$STAMP" "$A")"
+check "A no longer finds B" false "$(finds_user "$JWT" "$STAMP" "$B")"
+code=$(post_auth messages/direct "$JWT2" "{\"userId\":$A}")
+check "B cannot open a DM to A -> 403" 403 "$code"
+code=$(post_auth "users/$B/block" "$JWT" "{}")
+check "blocking twice is the same answer -> 200" 200 "$code"
+code=$(post_auth "users/$A/block" "$JWT" "{}")
+check "blocking yourself -> 400" 400 "$code"
+code=$(post_auth "users/abc/block" "$JWT" "{}")
+check "a bogus id -> 400" 400 "$code"
+code=$(post_auth "users/2147483646/block" "$JWT" "{}")
+check "a user that is not there -> 404" 404 "$code"
+code=$(get_auth users/me/blocks "$JWT")
+check "A's block list -> 200" 200 "$code"
+check "…holds B" true "$(node -pe "JSON.parse(require('fs').readFileSync('$BODY')).users.some((u) => u.id === $B)")"
+
+code=$(del_auth "users/$B/block" "$JWT")
+check "A unblocks B -> 200" 200 "$code"
+check "…blocked false" false "$(field .blocked)"
+code=$(get_auth "users/$B" "$JWT"); check "profile says blocked false" false "$(field .blocked)"
+check "…and friendship still none — it is asked for again" none "$(field .friendshipStatus)"
+check "B's comment is back" true "$(sees_comment "$JWT" "$CID")"
+check "…and so is the total" "$total_before" "$(comment_total "$JWT")"
+code=$(post_auth friendships "$JWT2" "{\"addresseeId\":$A}")
+check "B can ask A again -> 201" 201 "$code"
+code=$(del_auth "users/$B/block" "$JWT")
+check "unblocking twice -> 200" 200 "$code"
 
 echo ""
 if [ "$FAILED" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; exit 1; fi

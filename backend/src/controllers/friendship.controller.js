@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { blockExists } = require('../utils/blocks');
 
 async function sendRequest(req, res, next) {
   try {
@@ -11,6 +12,13 @@ async function sendRequest(req, res, next) {
     const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [addresseeId]);
     if (userCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    // A block in either direction closes this door. The same sentence both
+    // ways on purpose: the person who was blocked is not told so.
+    if (await blockExists(pool, requesterId, addresseeId)) {
+      return res
+        .status(403)
+        .json({ error: 'Bu kullanıcıya arkadaşlık isteği gönderilemiyor', code: 'blocked' });
     }
 
     const existing = await pool.query(

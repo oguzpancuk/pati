@@ -17,6 +17,9 @@ const {
   searchUsers,
   getPublicProfile,
   deleteMyAccount,
+  blockUser,
+  unblockUser,
+  listMyBlocks,
 } = require('../controllers/user.controller');
 
 const router = express.Router();
@@ -37,6 +40,13 @@ router.get('/me/comments', requireAuth, getUserComments);
 router.get('/me/badge-awards', requireAuth, getMyBadgeAwards);
 router.post('/me/badge-awards/seen', requireAuth, markMyBadgeAwardsSeen);
 router.get('/search', requireAuth, searchUsers);
+// Blocks (App Store guideline 1.2). `/me/blocks` sits with the other /me
+// routes, before `/:id` — and the two mutations share the follow-sized
+// bucket: a block is a one-row write that nobody honest does forty times an
+// hour.
+router.get('/me/blocks', requireAuth, listMyBlocks);
+router.post('/:id/block', requireAuth, limits.blocks, blockUser);
+router.delete('/:id/block', requireAuth, limits.blocks, unblockUser);
 // '/:id' routes go last so the literal '/me/...' paths above match first.
 router.get('/:id/comments', requireAuth, getUserComments);
 router.get('/:id/animals', requireAuth, getUserAnimals);

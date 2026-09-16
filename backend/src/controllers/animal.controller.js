@@ -6,6 +6,7 @@ const pool = require('../config/db');
 const { UPLOADS_DIR, PENDING_PREFIX, pendingToFinal } = require('../config/upload');
 const storage = require('../config/storage');
 const { syncBadgeAwardsSafe } = require('../utils/badgeAwards');
+const { notBlockedByViewerSql } = require('../utils/blocks');
 const {
   coordinate,
   finiteNumber,
@@ -1363,11 +1364,14 @@ async function listComments(req, res, next) {
   try {
     const { healthRecordId } = req.query;
     const { limit, offset } = pageParams(req.query, DEFAULT_COMMENT_LIMIT, MAX_COMMENT_LIMIT);
-    const params = [req.params.id];
-    let filter = '';
+    // The viewer's id rides along so the people they blocked drop out of the
+    // chat — and out of the total, or the pager would ask for a page that
+    // never fills.
+    const params = [req.params.id, req.user.userId];
+    let filter = notBlockedByViewerSql('$2', 'c.user_id');
     if (healthRecordId) {
       params.push(healthRecordId);
-      filter = `AND c.health_record_id = $${params.length}`;
+      filter += ` AND c.health_record_id = $${params.length}`;
     }
     const countParams = [...params];
     params.push(limit, offset);

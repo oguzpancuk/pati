@@ -29,7 +29,8 @@ export type IconName =
   | 'logout'
   | 'refresh'
   | 'settings'
-  | 'flag';
+  | 'flag'
+  | 'more';
 
 export type IconProps = {
   name: IconName;
@@ -166,6 +167,15 @@ const PATHS: Record<IconName, (color: string, sw: number) => React.ReactNode> = 
     <>
       <Path d="M6 20.4V4.2" />
       <Path d="M6 4.8c2.2-1.2 4.4-1.2 6.6 0s4.2 1.2 6.4 0v8.4c-2.2 1.2-4.2 1.2-6.4 0s-4.4-1.2-6.6 0" />
+    </>
+  ),
+  // The "more" control's mark: three dots on a line, filled so they read at
+  // 18 units. Web draws the same circles inline (components/profile/icons).
+  more: (color) => (
+    <>
+      <Circle cx={5} cy={12} r={1.6} fill={color} stroke="none" />
+      <Circle cx={12} cy={12} r={1.6} fill={color} stroke="none" />
+      <Circle cx={19} cy={12} r={1.6} fill={color} stroke="none" />
     </>
   ),
   settings: () => (

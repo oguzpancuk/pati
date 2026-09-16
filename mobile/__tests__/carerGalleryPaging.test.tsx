@@ -49,6 +49,7 @@ jest.mock('../src/components/ui', () => {
   const R = require('react');
   const Pass = ({ children }: any) => R.createElement(V, null, children);
   return {
+    Button: () => null,
     Card: Pass,
     LoadingState: () => null,
     Screen: Pass,
@@ -62,6 +63,7 @@ jest.mock('../src/components/ui', () => {
 let mockFriendship: any = null;
 jest.mock('../src/components/profile', () => ({
   BadgeBlock: () => null,
+  HeaderIconButton: () => null,
   FriendshipButton: (props: any) => {
     mockFriendship = props;
     return null;
@@ -72,6 +74,9 @@ jest.mock('../src/components/profile', () => ({
   useCaredAnimals: jest.requireActual('../src/components/profile/useCaredAnimals').useCaredAnimals,
 }));
 jest.mock('../src/components/AnimalAvatar', () => () => null);
+// The header's "⋯" disc and its report sheet: not what this test is about.
+jest.mock('../src/components/brand', () => ({ Icon: () => null }));
+jest.mock('../src/components/ReportSheet', () => ({ ReportSheet: () => null }));
 jest.mock('../src/components/DemoChip', () => () => null);
 jest.mock('../src/components/BadgeCatalogModal', () => () => null);
 jest.mock('../src/components/LevelBar', () => () => null);
@@ -111,6 +116,7 @@ function profile(animalCount: number): PublicProfile {
     commentCount: 0,
     friendshipStatus: 'none',
     friendshipId: null,
+    blocked: false,
   };
 }
 

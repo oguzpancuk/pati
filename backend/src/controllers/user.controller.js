@@ -13,6 +13,7 @@ const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../uti
 const { getUserRank } = require('./leaderboard.controller');
 const { avatarValueFor } = require('../utils/avatars');
 const { reauthenticateWithProvider } = require('../utils/providerReauth');
+const { noBlockEitherWaySql } = require('../utils/blocks');
 
 const MAX_FEATURED_BADGES = 3;
 
@@ -393,6 +394,7 @@ async function searchUsers(req, res, next) {
       `SELECT id, name, avatar_url, is_demo FROM users
        WHERE id != $1 AND name ILIKE $2
        ${await demoFilter(req, 'users')}
+       ${noBlockEitherWaySql('$1', 'users.id')}
        ORDER BY name
        LIMIT 20`,
       [req.user.userId, `%${q}%`]
@@ -440,9 +442,19 @@ async function getPublicProfile(req, res, next) {
 
     let friendshipStatus = 'none';
     let friendshipId = null;
+    // Whether the VIEWER blocked this person: the profile still opens (the
+    // block is undone from here), and the clients swap the friendship button
+    // for "engellendi". The other direction is not reported — someone who
+    // blocked you is simply out of reach, with no notice that says so.
+    let blocked = false;
     if (req.user.userId === targetId) {
       friendshipStatus = 'self';
     } else {
+      const blockRow = await pool.query(
+        'SELECT 1 FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2',
+        [req.user.userId, targetId]
+      );
+      blocked = blockRow.rows.length > 0;
       const fr = await pool.query(
         `SELECT id, requester_id, status FROM friendships
          WHERE (requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)`,
@@ -475,7 +487,86 @@ async function getPublicProfile(req, res, next) {
       commentCount,
       friendshipStatus,
       friendshipId,
+      blocked,
     });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------- blocks
+
+/**
+ * Block someone (App Store guideline 1.2; ROADMAP "App Store readiness",
+ * R3). The row and the end of the friendship land together: a pending
+ * request from either side goes too, and with the friendship gone every
+ * door it opened — direct messages, being added to my groups — is closed by
+ * the checks that already guard those doors. Idempotent: blocking twice is
+ * the same answer.
+ */
+async function blockUser(req, res, next) {
+  const targetId = Number(req.params.id);
+  if (!Number.isInteger(targetId) || targetId <= 0) {
+    return res.status(400).json({ error: 'Geçersiz kullanıcı' });
+  }
+  if (targetId === req.user.userId) {
+    return res.status(400).json({ error: 'Kendini engelleyemezsin' });
+  }
+  const client = await pool.connect();
+  try {
+    const target = await client.query('SELECT id FROM users WHERE id = $1', [targetId]);
+    if (target.rows.length === 0) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    await client.query('BEGIN');
+    await client.query(
+      'INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [req.user.userId, targetId]
+    );
+    const friendship = await client.query(
+      `DELETE FROM friendships
+       WHERE (requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)`,
+      [req.user.userId, targetId]
+    );
+    await client.query('COMMIT');
+    res.json({ blocked: true, friendshipRemoved: friendship.rowCount > 0 });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    client.release();
+  }
+}
+
+/** Undo a block. The friendship does not come back; it is asked for again. */
+async function unblockUser(req, res, next) {
+  try {
+    const targetId = Number(req.params.id);
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      return res.status(400).json({ error: 'Geçersiz kullanıcı' });
+    }
+    await pool.query('DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2', [
+      req.user.userId,
+      targetId,
+    ]);
+    res.json({ blocked: false });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** The people I blocked, newest first — the settings sheet's list. */
+async function listMyBlocks(req, res, next) {
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.name, u.avatar_url, u.is_demo, b.created_at
+       FROM user_blocks b
+       JOIN users u ON u.id = b.blocked_id
+       WHERE b.blocker_id = $1
+       ORDER BY b.created_at DESC`,
+      [req.user.userId]
+    );
+    res.json({ users: result.rows });
   } catch (err) {
     next(err);
   }
@@ -579,4 +670,7 @@ module.exports = {
   setShowDemo,
   getPublicProfile,
   deleteMyAccount,
+  blockUser,
+  unblockUser,
+  listMyBlocks,
 };

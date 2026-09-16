@@ -1,21 +1,26 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { sortBadges } from '@mobile/badges';
 import {
   acceptFriendRequest,
+  blockUser,
   fetchUserProfile,
   PublicProfile,
   removeFriendship,
   sendFriendRequest,
+  unblockUser,
 } from '../api';
 import { useAuth } from '../auth';
 import { BadgeCatalogModal, LevelBar } from '../badges';
 import { PageHeader } from '../components/PageHeader';
 import { RecentComments } from '../components/RecentComments';
+import { ReportDialog } from '../components/ReportDialog';
 import {
   BadgeBlock,
   CarerGallery,
   FriendshipButton,
+  HeaderIconButton,
+  MoreIcon,
   ProfileHeader,
   ProfileStats,
   useCaredAnimals,
@@ -34,7 +39,10 @@ function formatDate(iso: string) {
  * your own (owner, 2026-09-11): header, stats, level bar, badges, the carer
  * gallery, the comment bubbles — all from components/profile, so the two
  * cannot drift apart again. The only difference is the header's top-right,
- * where one friendship button stands in for bell / arkadaşlar / ayarlar.
+ * where the friendship button and a "⋯" disc (report, block — App Store
+ * guideline 1.2) stand in for bell / arkadaşlar / ayarlar. Once blocked, the
+ * friendship button gives way to "engellendi", which is also where the block
+ * is undone.
  */
 export default function UserProfilePage() {
   const { id } = useParams();
@@ -49,6 +57,7 @@ export default function UserProfilePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +98,25 @@ export default function UserProfilePage() {
     );
   }
 
+  // Both confirmations say what actually changes, and the unblock says what
+  // does NOT come back: the friendship is asked for again, never restored.
+  function confirmBlock() {
+    if (
+      window.confirm(
+        `${profile!.name} sana mesaj gönderemez ve arkadaşlık isteği yollayamaz; yorumlarını görmezsin. Arkadaşsanız arkadaşlık biter. Engellemek istiyor musun?`
+      )
+    )
+      run(() => blockUser(userId), 'Engellenemedi');
+  }
+  function confirmUnblock() {
+    if (
+      window.confirm(
+        `${profile!.name} yeniden arkadaşlık isteği gönderebilir ve yorumları görünür. Arkadaşlık kendiliğinden geri gelmez. Engeli kaldırmak istiyor musun?`
+      )
+    )
+      run(() => unblockUser(userId), 'Kaldırılamadı');
+  }
+
   // "Öne çıkan" is a claim about a CHOICE this person made. Without one we
   // still show their strongest three, but under a heading that does not put
   // words in their mouth (review finding).
@@ -108,19 +136,37 @@ export default function UserProfilePage() {
         secondary={`${formatDate(profile.created_at)} tarihinde katıldı`}
         demo={profile.is_demo === true}
         actions={
-          <FriendshipButton
-            status={profile.friendshipStatus}
-            busy={busy}
-            onAdd={() => run(() => sendFriendRequest(userId), 'Gönderilemedi')}
-            onAccept={() =>
-              profile.friendshipId != null &&
-              run(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
-            }
-            onRemove={() =>
-              profile.friendshipId != null &&
-              run(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
-            }
-          />
+          <>
+            {profile.blocked ? (
+              <button
+                className="btn secondary profile-friend-btn"
+                disabled={busy}
+                onClick={confirmUnblock}
+              >
+                Engellendi
+              </button>
+            ) : (
+              <FriendshipButton
+                status={profile.friendshipStatus}
+                busy={busy}
+                onAdd={() => run(() => sendFriendRequest(userId), 'Gönderilemedi')}
+                onAccept={() =>
+                  profile.friendshipId != null &&
+                  run(() => acceptFriendRequest(profile.friendshipId!), 'Kabul edilemedi')
+                }
+                onRemove={() =>
+                  profile.friendshipId != null &&
+                  run(() => removeFriendship(profile.friendshipId!), 'İşlem başarısız')
+                }
+              />
+            )}
+            <MoreMenu
+              blocked={profile.blocked}
+              onReport={() => setReportOpen(true)}
+              onBlock={confirmBlock}
+              onUnblock={confirmUnblock}
+            />
+          </>
         }
       />
 
@@ -164,6 +210,77 @@ export default function UserProfilePage() {
         onClose={() => setCatalogOpen(false)}
         badges={profile.badges}
       />
+      <ReportDialog
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="user"
+        targetId={userId}
+      />
+    </div>
+  );
+}
+
+/**
+ * The "⋯" disc and its two-line menu. Mobile shows the same two lines in a
+ * system alert; here they drop under the disc and close on an outside click
+ * or Escape. Only the labels differ by state: "engelle" or "engeli kaldır".
+ */
+function MoreMenu({
+  blocked,
+  onReport,
+  onBlock,
+  onUnblock,
+}: {
+  blocked: boolean;
+  onReport: () => void;
+  onBlock: () => void;
+  onUnblock: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  function pick(action: () => void) {
+    setOpen(false);
+    action();
+  }
+
+  return (
+    <div className="profile-menu-wrap" ref={wrapRef}>
+      <HeaderIconButton label="Diğer işlemler" onClick={() => setOpen((v) => !v)}>
+        <MoreIcon />
+      </HeaderIconButton>
+      {open && (
+        <div className="profile-menu" role="menu">
+          <button role="menuitem" onClick={() => pick(onReport)}>
+            şikayet et
+          </button>
+          {blocked ? (
+            <button role="menuitem" onClick={() => pick(onUnblock)}>
+              engeli kaldır
+            </button>
+          ) : (
+            <button role="menuitem" className="danger" onClick={() => pick(onBlock)}>
+              engelle
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

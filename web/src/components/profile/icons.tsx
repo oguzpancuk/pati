@@ -64,6 +64,17 @@ export function GearIcon({ size = 20 }: { size?: number }) {
   );
 }
 
+/** The "more" control's mark — mobile's `Icon name="more"`: three filled dots. */
+export function MoreIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Stroke size={size}>
+      <circle cx="5" cy="12" r="1.6" fill="var(--brand)" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="var(--brand)" stroke="none" />
+      <circle cx="19" cy="12" r="1.6" fill="var(--brand)" stroke="none" />
+    </Stroke>
+  );
+}
+
 export function CloseIcon({ size = 18 }: { size?: number }) {
   return (
     <svg

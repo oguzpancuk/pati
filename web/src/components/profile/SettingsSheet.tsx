@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { MAP_ATTRIBUTION, MAP_ATTRIBUTION_LABEL } from '@mobile/map/attribution';
 import type { ThemeMode } from '../../theme';
+import { BlockedUsersSection } from './BlockedUsersSection';
 import { Sheet, useSheetExit } from './Sheet';
 
 const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
@@ -12,7 +13,7 @@ const THEME_OPTIONS: { key: ThemeMode; label: string }[] = [
 /**
  * The settings that used to be scattered down the profile, gathered behind
  * the gear (owner, 2026-09-11). Order is the owner's: görünüm, demo
- * verileri, then the account block below a hairline.
+ * verileri, the people you blocked, then the account block below a hairline.
  */
 export function SettingsSheet({
   open,
@@ -81,6 +82,10 @@ export function SettingsSheet({
           {showDemo ? 'görünüyor' : 'gizli'}
         </button>
       </div>
+
+      {/* Loads itself each time the sheet mounts it — the list is short and
+          a block is rare, so no state has to be threaded through the page. */}
+      <BlockedUsersSection />
 
       <div className="hairline" />
 

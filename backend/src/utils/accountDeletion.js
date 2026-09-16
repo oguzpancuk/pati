@@ -53,6 +53,7 @@ async function anonymizeAccount(client, userId, { reason }) {
   await client.query('DELETE FROM friendships WHERE requester_id = $1 OR addressee_id = $1', [
     userId,
   ]);
+  await client.query('DELETE FROM user_blocks WHERE blocker_id = $1 OR blocked_id = $1', [userId]);
   await client.query('DELETE FROM user_animal_care WHERE user_id = $1', [userId]);
   await client.query('DELETE FROM user_badge_awards WHERE user_id = $1', [userId]);
   await client.query('DELETE FROM email_verifications WHERE user_id = $1', [userId]);

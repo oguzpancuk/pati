@@ -278,6 +278,19 @@ CREATE TABLE IF NOT EXISTS friendships (
     is_demo BOOLEAN NOT NULL DEFAULT false
 );
 
+-- One person blocking another (016_user_blocks.sql carries the same table
+-- for production). The effects — the friendship goes, requests and search
+-- refuse both directions, their comments are hidden from the blocker — are
+-- application logic in user.controller.js and the readers.
+CREATE TABLE IF NOT EXISTS user_blocks (
+    blocker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    blocked_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (blocker_id, blocked_id),
+    CHECK (blocker_id <> blocked_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks (blocked_id);
+
 -- The moment a badge was earned. The badge itself is derived data (see
 -- utils/badges.js), but showing the "you earned a new badge" popup requires
 -- storing when it was first earned and the points/rank/level at that moment —
