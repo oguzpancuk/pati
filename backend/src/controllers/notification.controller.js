@@ -149,13 +149,17 @@ async function markRead(req, res, next) {
     if (ids && ids.length === 0) {
       return res.json({ unreadCount: await unreadCountFor(req) });
     }
-    // The demo filter applies here too: opening the inbox must not silently
-    // consume notifications the reader cannot see, which would come back
-    // already-read the day they switch the showcase world on.
+    // Both filters apply here too, and for the same reason: opening the inbox
+    // must not silently consume notifications the reader cannot see, which
+    // would come back already-read the day they switch the showcase world on
+    // — or the day they lift a block (review finding). Without the block
+    // filter, five unread rows from somebody you blocked are stamped read
+    // while the list shows none, and unblocking returns them silent.
     await pool.query(
       `UPDATE notifications n SET read_at = now()
        WHERE n.user_id = $1 AND n.read_at IS NULL ${ids ? 'AND n.id = ANY($2)' : ''}
-       ${await demoFilter(req, 'n')}`,
+       ${await demoFilter(req, 'n')}
+       ${NO_BLOCKED_ACTOR}`,
       ids ? [req.user.userId, ids] : [req.user.userId]
     );
     res.json({ unreadCount: await unreadCountFor(req) });

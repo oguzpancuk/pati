@@ -1444,3 +1444,38 @@ friend put us both in, and notifications about their actions.
   declaration), the Google Android OAuth client + SHA-1, the first build.
 - **Not done, owner's call:** crash reporting (no Sentry or equivalent; the
   first crash on a real device is invisible today).
+
+## 🧵 Open follow-up: what the third review round parked (2026-09-16)
+
+Four small things, read and deliberately left. None blocks the deploy or the
+submission; all are written down so the next reader is not rediscovering them.
+
+1. **A simultaneous mutual unblock still leaves the raced request standing.**
+   `unblockUser` now sweeps only when it actually lifted a block, which
+   closes the destructive case. If A and B unblock each other in the same
+   instant, each transaction still sees the other's uncommitted block row and
+   skips the sweep, so the pending row survives. Reaching it needs a request
+   that landed inside a block's own transaction AND a simultaneous mutual
+   unblock — rare squared, and the outcome is a stale friend request, not
+   lost data. Closing it properly means `SELECT … FOR UPDATE` on the block
+   rows.
+2. **A deleted account's old notifications walk back through the block
+   filter.** `notifications.actor_id` is `ON DELETE SET NULL` and
+   `user_blocks` cascades, so when a blocked person deletes their account the
+   block row goes with them while the payload keeps their frozen name and the
+   first 140 characters of their text. Those rows then reappear in the
+   blocker's inbox. Pre-existing payload design, newly reachable.
+3. **The Podfile's signature hook is scoped wider than its comment says.** It
+   walks every native target of the user project, so the build phase landed
+   on `PatiMobileTests` as well as the app. Harmless — both share
+   `$CONFIGURATION_BUILD_DIR` and `rm -rf` on a missing path is a no-op — and
+   deliberately not changed now, because the verified archive and the
+   exported `.ipa` were built from exactly this project file. Scope it the
+   next time the iOS project is touched anyway. Related: the test target has
+   no `DEVELOPMENT_TEAM`, so an on-device test run will ask for one.
+4. **`PrivacyInfo.xcprivacy` lost its explanatory comment** when a tool
+   rewrote the plist during `pod install`. The rationale (the list mirrors
+   the App Store Connect answers; nothing serves tracking) now lives only in
+   `docs/store/APP-STORE.md`. Restore it the next time that file is edited —
+   not now, because the `.ipa` waiting to be uploaded was built from the
+   current bytes.

@@ -542,6 +542,15 @@ check "B still reads their own list" true "$([ "$(field .total)" -gt 0 ] && echo
 notifs_from_b() { get_auth notifications "$JWT" >/dev/null
   node -pe "JSON.parse(require('fs').readFileSync('$BODY')).notifications.filter((n) => n.actor_id === $B).length"; }
 check "B is gone from A's inbox" 0 "$(notifs_from_b)"
+# Opening the inbox must not silently consume what the block is hiding, or
+# those rows come back already-read the day the block is lifted and the bell
+# never rings for them (review round 3).
+unread_from_b() { psql_q "SELECT count(*) FROM notifications WHERE user_id = $A AND actor_id = $B AND read_at IS NULL"; }
+hidden_unread=$(unread_from_b)
+check "…and they are still unread behind it" true "$([ "$hidden_unread" -gt 0 ] && echo true || echo false)"
+code=$(post_auth notifications/read "$JWT" "{}")
+check "A opens the inbox -> 200" 200 "$code"
+check "…and the hidden rows stayed unread" "$hidden_unread" "$(unread_from_b)"
 code=$(get_auth notifications "$JWT")
 check "…and out of the bell's number" true "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY')); b.unreadCount <= b.total")"
 code=$(post_auth friendships "$JWT2" "{\"addresseeId\":$A}")
@@ -599,8 +608,16 @@ code=$(get_auth friendships/me "$JWT")
 check "…and A's inbox of requests is clean" 0 "$(node -pe "JSON.parse(require('fs').readFileSync('$BODY')).incomingRequests.filter((r) => r.id === $B).length")"
 code=$(post_auth friendships "$JWT2" "{\"addresseeId\":$A}")
 check "B can ask A again -> 201" 201 "$code"
+NEWREQ=$(field .id)
+# A DELETE has to be safe to repeat. The earlier version of these two lines
+# only checked the status code and walked straight past the defect: the
+# repeat swept the request B had JUST sent, because the sweep asked "is there
+# a block now?" instead of "did I just lift one?" (review round 3).
 code=$(del_auth "users/$B/block" "$JWT")
 check "unblocking twice -> 200" 200 "$code"
+check "…and the fresh request it did NOT block is untouched" "$NEWREQ" "$(psql_q "SELECT id FROM friendships WHERE id = $NEWREQ")"
+code=$(get_auth friendships/me "$JWT")
+check "…and A still sees it" 1 "$(node -pe "JSON.parse(require('fs').readFileSync('$BODY')).incomingRequests.filter((r) => r.id === $B).length")"
 
 echo ""
 if [ "$FAILED" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; exit 1; fi

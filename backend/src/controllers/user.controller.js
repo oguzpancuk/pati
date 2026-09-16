@@ -564,14 +564,20 @@ async function unblockUser(req, res, next) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2', [
-      req.user.userId,
-      targetId,
-    ]);
-    // Only while a block in either direction still stands — unblocking one
-    // way must not quietly clear a friendship the OTHER person's block is
-    // holding closed.
-    await client.query(
+    const lifted = await client.query(
+      'DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2 RETURNING blocked_id',
+      [req.user.userId, targetId]
+    );
+    // ONLY when this call actually lifted a block. A DELETE has to be safe to
+    // repeat — a retry after a flaky response, a second device still showing
+    // "Engeli kaldır" — and without this gate the repeat swept whatever
+    // pending request happened to exist by then, destroying a real one the
+    // other person had just sent (review finding).
+    //
+    // The NOT EXISTS stays on top of it: unblocking one way must not clear a
+    // row the OTHER person's block is still holding closed.
+    if (lifted.rowCount > 0) {
+      await client.query(
       `DELETE FROM friendships f
         WHERE ((f.requester_id = $1 AND f.addressee_id = $2)
             OR (f.requester_id = $2 AND f.addressee_id = $1))
@@ -580,8 +586,9 @@ async function unblockUser(req, res, next) {
             SELECT 1 FROM user_blocks b
              WHERE (b.blocker_id = $1 AND b.blocked_id = $2)
                 OR (b.blocker_id = $2 AND b.blocked_id = $1))`,
-      [req.user.userId, targetId]
-    );
+        [req.user.userId, targetId]
+      );
+    }
     await client.query('COMMIT');
     res.json({ blocked: false });
   } catch (err) {

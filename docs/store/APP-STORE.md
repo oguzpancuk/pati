@@ -97,9 +97,19 @@ your own profile with badges. No iPad set: `TARGETED_DEVICE_FAMILY = 1`.
 
 ## 4. App Privacy (the questionnaire)
 
-"Yes, we collect data." Everything below is **linked to the user**, **not
-used for tracking**, purpose **App Functionality** only. The same list is
-in `mobile/ios/PatiMobile/PrivacyInfo.xcprivacy`.
+"Yes, we collect data." Everything below is **linked to the user** and
+**not used for tracking**; the purposes are per row in the table — App
+Functionality everywhere, plus Developer's Advertising on the one row that
+needs it. The same list is in `mobile/ios/PatiMobile/PrivacyInfo.xcprivacy`
+and the two must agree.
+
+**Select only these.** Apple offers many more, and picking one the app does
+not actually collect is as wrong as missing one. In particular **Device ID**
+does not belong: `device_tokens` exists in the schema and no client ever
+calls it — there is no remote-push stack at all — so no device identifier is
+collected. Nor does **Environment Scanning** (no ARKit) or **Customer
+Support** (there is no support-request flow; a report's free text is covered
+by Other User Content).
 
 | Category      | Data type                | Purposes                                   | Why                                              |
 | ------------- | ------------------------ | ------------------------------------------ | ------------------------------------------------ |
