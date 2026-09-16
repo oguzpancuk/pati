@@ -1459,30 +1459,31 @@ submission; all are written down so the next reader is not rediscovering them.
    unblock — rare squared, and the outcome is a stale friend request, not
    lost data. Closing it properly means `SELECT … FOR UPDATE` on the block
    rows.
-2. **A blocked person deleting their account unhides their old
-   notifications — and now does it loudly.** The mechanism is not a cascade:
-   a *member's* account is never deleted. The three hard `DELETE FROM users`
-   paths are the demo purge, the guide seed's `--remove`, and an abandoned
-   pending registration — and a pending account is 403'd everywhere, so it
-   can never be a notification actor. A showcase bot can: the rows survive
-   with `actor_id` NULL, and `notifications.is_demo` is stamped at insert
-   rather than joined, so the demo filter still hides them from a viewer who
-   has the showcase OFF. A viewer who has it on would see them.
-   `anonymizeAccount` keeps the `users` row and
+2. **Anonymising an account unhides the notifications a block was hiding —
+   and now does it loudly.** `anonymizeAccount` keeps the `users` row and
    explicitly runs `DELETE FROM user_blocks WHERE blocker_id = $1 OR
    blocked_id = $1` (`utils/accountDeletion.js`). That delete is what lifts
    the block, while the notification payload keeps the actor's frozen name
    and the first 140 characters of their text.
    The part this batch changed: with `markRead` filtered, those rows stay
    **unread** behind the block instead of being silently consumed. So where
-   the rows used to reappear quietly, the blocker's bell now jumps — showing
-   the name and words of somebody they blocked, as fresh news. Strictly
-   louder than before, which is the price of `markRead` being correct.
-   Fixing it means deciding what a block should mean once the other account
-   is gone; the cheap half is stamping those rows read at anonymisation —
-   **before** the `user_blocks` delete on the line above it, and scoped to
-   recipients who had blocked them, or the UPDATE either matches nothing or
-   silences that person's notifications for everybody.
+   they used to reappear quietly, the blocker's bell now jumps — showing the
+   name and words of somebody they blocked, as fresh news. Strictly louder
+   than before, which is the price of `markRead` being correct.
+   The cheap fix is stamping those rows read during anonymisation:
+   **before** the `user_blocks` delete on the line above, and scoped to
+   recipients who had blocked that person, or the UPDATE either matches
+   nothing or silences them for everybody.
+
+   Three earlier drafts of this note also speculated about purged showcase
+   bots and enumerated the hard `DELETE FROM users` paths. Both were cut:
+   the enumeration kept coming out incomplete (one of them hides behind an
+   interpolated table name in `seed-showcase.js`), and the bot scenario
+   cannot happen at all — `notifications.animal_id` is `ON DELETE CASCADE`
+   and every purge drops the animals first, so no notification row outlives
+   its actor. Anonymisation, which deletes no rows, is the only route to
+   this, and it is the one described above.
+
 3. **The Podfile's signature hook is scoped wider than its comment says.** It
    walks every native target of the user project, so the build phase landed
    on `PatiMobileTests` as well as the app. Harmless — both share

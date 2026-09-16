@@ -5097,14 +5097,20 @@ shape of this.
 
 What is actually true, checked against the library's source and our own
 build settings. `checkPhotosPermissions:` is the method that calls
-`[PHPhotoLibrary requestAuthorization:]`, and it has two live call sites in
-`ImagePickerManager.mm` (lines 88 and 109) — one per OS path. **Both sit
-inside `if ([self.options[@"includeExtra"] boolValue])`, and
-`LIBRARY_PICKER` never sets `includeExtra`.** That, and only that, is why
-nothing prompts: not a dead method, and not PHPicker's out-of-process
-design, which covers just one of the two paths. Our deployment target is
-13.4, so the other path is real — under iOS 14 the `@available` guard fails
-and a plain `UIImagePickerController` is presented instead.
+`[PHPhotoLibrary requestAuthorization:]`, and it has two reachable call
+sites in `ImagePickerManager.mm`, at lines 88 and 109. **Both sit inside
+`if ([self.options[@"includeExtra"] boolValue])`, and `LIBRARY_PICKER`
+never sets it** — the JS layer defaults it to false. That is the whole
+reason nothing prompts.
+
+Two things the earlier drafts got wrong about those lines, worth naming so
+the next reader does not re-derive them. The dead method is
+`checkPermission:`, which is real but irrelevant; the live one is
+`checkPhotosPermissions:`. And line 109 is **not** merely the pre-iOS-14
+fallback: the PHPicker branch is entered only for the library target, so
+every `launchCamera` on every iOS version reaches line 109 too. Tying any
+of this to our 13.4 deployment target would make the note wrong the day it
+rises to 15.0.
 
 So the failure mode is the one that happened: the analyser refuses a binary
 that REFERENCES the API, whether or not any code path reaches it. iOS also
