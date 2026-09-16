@@ -17,6 +17,7 @@ import {
   hitSlop,
   makeStyles,
   navigationTheme,
+  radius,
   screenOptions,
   tabBarOptions,
   useTheme,
@@ -162,15 +163,26 @@ function AuthNavigator() {
  * The way out of a modal. iOS gives it a swipe-down, which is invisible to
  * anyone who does not already know it, and a modal has no back arrow of its
  * own because it is the bottom of its stack.
+ *
+ * It carries the app's own round header control (owner, 2026-09-16: the ×
+ * was not centred). A bare glyph gets iOS 26's glass background drawn around
+ * the header slot rather than around the glyph, which on an iPhone 17 Pro
+ * put a 44 pt disc whose centre sat 7 pt to the × 's right. Given a disc of
+ * its own the button decides its own bounds, and the three modal headers now
+ * match the round controls on the animal profile and the conversation header
+ * (whose `headButton` styles this one is a third copy of — see the ROADMAP
+ * follow-up about extracting them).
  */
 function ModalCloseButton({ onPress }: { onPress: () => void }) {
   const { colors } = useTheme();
+  const styles = useStyles();
   return (
     <Pressable
       onPress={onPress}
       hitSlop={hitSlop}
       accessibilityRole="button"
       accessibilityLabel="Kapat"
+      style={styles.headButton}
     >
       <Icon name="close" size={22} color={colors.text} />
     </Pressable>
@@ -464,5 +476,18 @@ const useStyles = makeStyles(({ colors: c }) => ({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: c.background,
+  },
+  // A square frame with the glyph centred in it, and nothing else: iOS 26
+  // draws the header button's own background, and it draws it around THIS
+  // box. Given no box it used the whole header slot and the × sat 7 pt left
+  // of the disc's centre. A surface and a hairline of our own (the animal
+  // profile's `headButton`) would centre it too, but then the app's ring sits
+  // inside the system's and the control reads as two discs.
+  headButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 }));
