@@ -197,13 +197,19 @@ export default function UserProfilePage() {
         emptyText="Henüz bir hayvana bakım vermiyor."
       />
 
-      <RecentComments
-        comments={profile.recentComments ?? []}
-        total={profile.commentCount ?? 0}
-        title="son yorumları"
-        emptyText="Henüz yorum yapmamış."
-        seeAllTo={`/kullanici/${profile.id}/yorumlar`}
-      />
+      {/* Hidden rather than empty when blocked: the server stops sending
+          their comments, and an empty list under this heading would read as
+          "Henüz yorum yapmamış." — a statement about them that is not true
+          (review finding). Mobile does the same. */}
+      {!profile.blocked && (
+        <RecentComments
+          comments={profile.recentComments ?? []}
+          total={profile.commentCount ?? 0}
+          title="son yorumları"
+          emptyText="Henüz yorum yapmamış."
+          seeAllTo={`/kullanici/${profile.id}/yorumlar`}
+        />
+      )}
 
       <BadgeCatalogModal
         open={catalogOpen}

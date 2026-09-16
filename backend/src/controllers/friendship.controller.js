@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { blockExists } = require('../utils/blocks');
+const { blockExists, noBlockEitherWaySql } = require('../utils/blocks');
 
 async function sendRequest(req, res, next) {
   try {
@@ -13,12 +13,12 @@ async function sendRequest(req, res, next) {
     if (userCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
-    // A block in either direction closes this door. The same sentence both
-    // ways on purpose: the person who was blocked is not told so.
+    // A block in either direction closes this door. Deliberately the same
+    // bare sentence both ways, with no machine-readable code: the blocked
+    // person knows they did not block anyone, so anything more specific tells
+    // them they were blocked (review finding).
     if (await blockExists(pool, requesterId, addresseeId)) {
-      return res
-        .status(403)
-        .json({ error: 'Bu kullanıcıya arkadaşlık isteği gönderilemiyor', code: 'blocked' });
+      return res.status(403).json({ error: 'Arkadaşlık isteği gönderilemedi' });
     }
 
     const existing = await pool.query(
@@ -53,11 +53,26 @@ async function sendRequest(req, res, next) {
   }
 }
 
+/**
+ * The whole block design leans on "no friendship ⇒ no doors": direct
+ * messages and being added to a group are gated on `areFriends`, and
+ * `blockUser` deletes the friendship row inside its own transaction. That
+ * leaves one way for the two to coexist — a request sent in the instant
+ * before the block committed, which `sendRequest`'s check could not see and
+ * the block's DELETE ran too early to remove. Accepting it would hand back
+ * every door the block just closed, so the guard belongs HERE, on the
+ * statement that creates the friendship, where the database decides it
+ * rather than a read-then-write race (review finding).
+ */
 async function acceptRequest(req, res, next) {
   try {
     const result = await pool.query(
-      `UPDATE friendships SET status = 'accepted', responded_at = now()
-       WHERE id = $1 AND addressee_id = $2 AND status = 'pending'
+      `UPDATE friendships f SET status = 'accepted', responded_at = now()
+       WHERE f.id = $1 AND f.addressee_id = $2 AND f.status = 'pending'
+         AND NOT EXISTS (
+           SELECT 1 FROM user_blocks b
+            WHERE (b.blocker_id = f.requester_id AND b.blocked_id = f.addressee_id)
+               OR (b.blocker_id = f.addressee_id AND b.blocked_id = f.requester_id))
        RETURNING *`,
       [req.params.id, req.user.userId]
     );
@@ -91,11 +106,20 @@ async function listMyFriendships(req, res, next) {
   try {
     const userId = req.user.userId;
 
+    // A block deletes the friendship row, so these lists are normally clean
+    // on their own. The filter is for the one row a block cannot have
+    // removed — a request that landed in the same instant — which would
+    // otherwise sit in "gelen istekler" wearing the name of somebody you
+    // blocked. `acceptRequest` refuses it either way; this is so it is never
+    // offered (review finding).
+    const noBlock = noBlockEitherWaySql('$1', 'u.id');
+
     const friends = await pool.query(
       `SELECT f.id AS friendship_id, u.id, u.name, u.avatar_url, u.is_demo
        FROM friendships f
        JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
        WHERE f.status = 'accepted' AND (f.requester_id = $1 OR f.addressee_id = $1)
+       ${noBlock}
        ORDER BY u.name`,
       [userId]
     );
@@ -105,6 +129,7 @@ async function listMyFriendships(req, res, next) {
        FROM friendships f
        JOIN users u ON u.id = f.requester_id
        WHERE f.status = 'pending' AND f.addressee_id = $1
+       ${noBlock}
        ORDER BY f.created_at DESC`,
       [userId]
     );
@@ -114,6 +139,7 @@ async function listMyFriendships(req, res, next) {
        FROM friendships f
        JOIN users u ON u.id = f.addressee_id
        WHERE f.status = 'pending' AND f.requester_id = $1
+       ${noBlock}
        ORDER BY f.created_at DESC`,
       [userId]
     );

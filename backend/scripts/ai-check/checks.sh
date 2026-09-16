@@ -33,6 +33,18 @@ field() { node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY'));(b$1
 mode() { curl -s -o /dev/null -X POST "$FAKE/control" -H 'Content-Type: application/json' -d "$1"; }
 last() { curl -s "$FAKE/last" | node -pe "JSON.parse(require('fs').readFileSync(0))$1 ?? 'none'"; }
 uploads_count() { ls -1 "$UPLOADS" | wc -l | tr -d ' '; }
+# A single value straight out of the database, for the one case the API
+# deliberately cannot produce (section 17 plants a row the block would have
+# deleted). Reads DATABASE_URL from the backend's own .env, like the server.
+psql_q() { node -e '
+  require("dotenv").config();
+  const { Pool } = require("pg");
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  pool.query(process.argv[1]).then((r) => {
+    if (r.rows[0]) console.log(Object.values(r.rows[0])[0]);
+    return pool.end();
+  }).catch((e) => { console.error(e.message); process.exit(1); });
+' "$1"; }
 ai_check_of() { node scripts/ai-check/ai-check-of.js "$1"; }
 check() { # label expected actual
   if [ "$2" = "$3" ]; then echo "  PASS  $1 ($3)"; else echo "  FAIL  $1 — expected $2, got $3: $(body)"; FAILED=1; fi
@@ -513,9 +525,22 @@ check "…blocked false" false "$(field .blocked)"
 check "B's comment is gone from A's chat" false "$(sees_comment "$JWT" "$CID")"
 check "…and from A's total" "$((total_before - 1))" "$(comment_total "$JWT")"
 check "B still sees their own comment" true "$(sees_comment "$JWT2" "$CID")"
+# The promise is "yorumlarını görmezsin", so their OWN comment list has to go
+# too — it is one tap from the profile the block is pressed on (review round 1).
+code=$(get_auth "users/$B" "$JWT")
+check "B's comments are gone from their profile" 0 "$(field .commentCount)"
+check "…and the preview with them" 0 "$(field .recentComments.length)"
+code=$(get_auth "users/$B/comments" "$JWT")
+check "their comment list -> 200 and empty" 0 "$(field .comments.length)"
+check "…with a total of 0" 0 "$(field .total)"
+check "…and it says why" true "$(field .blocked)"
+code=$(get_auth "users/$B/comments" "$JWT2")
+check "B still reads their own list" true "$([ "$(field .total)" -gt 0 ] && echo true || echo false)"
 code=$(post_auth friendships "$JWT2" "{\"addresseeId\":$A}")
 check "B cannot ask A -> 403" 403 "$code"
-contains "…as blocked" blocked "$(field .code)"
+# Deliberately no machine-readable code and the same bare sentence both ways:
+# B knows B blocked nobody, so anything more tells B they were blocked.
+check "…and is not told why" none "$(field .code)"
 code=$(post_auth friendships "$JWT" "{\"addresseeId\":$B}")
 check "A cannot ask B either -> 403" 403 "$code"
 check "B no longer finds A" false "$(finds_user "$JWT2" "$STAMP" "$A")"
@@ -534,6 +559,20 @@ code=$(get_auth users/me/blocks "$JWT")
 check "A's block list -> 200" 200 "$code"
 check "…holds B" true "$(node -pe "JSON.parse(require('fs').readFileSync('$BODY')).users.some((u) => u.id === $B)")"
 
+# The one row a block cannot delete: a request that landed in the same
+# instant. Planted directly in the database, since the API refuses to create
+# it — then accepting it must still fail, or every door the block closed
+# (DMs, group-add) opens again on a single UPDATE (review round 1).
+GHOST=$(psql_q "INSERT INTO friendships (requester_id, addressee_id, status) VALUES ($B, $A, 'pending') RETURNING id")
+check "a pending request planted behind the block" true "$([ -n "$GHOST" ] && echo true || echo false)"
+code=$(get_auth friendships/me "$JWT")
+check "…is not offered to A" 0 "$(node -pe "JSON.parse(require('fs').readFileSync('$BODY')).incomingRequests.filter((r) => r.id === $B).length")"
+code=$(post_auth "friendships/$GHOST/accept" "$JWT" "{}")
+check "…and accepting it is refused -> 404" 404 "$code"
+code=$(post_auth messages/direct "$JWT2" "{\"userId\":$A}")
+check "…so the DM stays shut -> 403" 403 "$code"
+psql_q "DELETE FROM friendships WHERE id = $GHOST" >/dev/null
+
 code=$(del_auth "users/$B/block" "$JWT")
 check "A unblocks B -> 200" 200 "$code"
 check "…blocked false" false "$(field .blocked)"
@@ -541,6 +580,8 @@ code=$(get_auth "users/$B" "$JWT"); check "profile says blocked false" false "$(
 check "…and friendship still none — it is asked for again" none "$(field .friendshipStatus)"
 check "B's comment is back" true "$(sees_comment "$JWT" "$CID")"
 check "…and so is the total" "$total_before" "$(comment_total "$JWT")"
+code=$(get_auth "users/$B" "$JWT")
+check "…and their profile shows their comments again" true "$([ "$(field .commentCount)" -gt 0 ] && echo true || echo false)"
 code=$(post_auth friendships "$JWT2" "{\"addresseeId\":$A}")
 check "B can ask A again -> 201" 201 "$code"
 code=$(del_auth "users/$B/block" "$JWT")

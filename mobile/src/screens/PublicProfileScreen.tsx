@@ -173,9 +173,16 @@ export default function PublicProfileScreen({ route, navigation }: any) {
                 }
               />
             )}
-            <HeaderIconButton label="Diğer işlemler" onPress={openMenu}>
-              <Icon name="more" size={20} color={colors.brand} />
-            </HeaderIconButton>
+            {/* Not on your own profile. Web redirects `/kullanici/<my id>`
+                to /profil; here `pati://user/<my id>` lands on this screen,
+                and the menu would offer to report and block yourself — both
+                bounce with a Turkish 400, but they should not be offered
+                (review finding). FriendshipButton already hides on 'self'. */}
+            {profile.friendshipStatus !== 'self' && (
+              <HeaderIconButton label="Diğer işlemler" onPress={openMenu}>
+                <Icon name="more" size={20} color={colors.brand} />
+              </HeaderIconButton>
+            )}
           </>
         }
       />
@@ -212,6 +219,11 @@ export default function PublicProfileScreen({ route, navigation }: any) {
         emptyText="Henüz bir hayvana bakım vermiyor."
       />
 
+      {/* Hidden rather than empty when blocked: the server stops sending
+          their comments, and an empty list under this heading would read as
+          "Henüz yorum yapmamış." — a statement about them that is not true
+          (review finding). */}
+      {!profile.blocked && (
       <View style={styles.sectionTop}>
         <RecentComments
           comments={profile.recentComments ?? []}
@@ -227,6 +239,7 @@ export default function PublicProfileScreen({ route, navigation }: any) {
           onOpenAnimal={(animalId) => navigation.push('AnimalProfile', { animalId })}
         />
       </View>
+      )}
 
       <BadgeCatalogModal
         visible={catalogVisible}

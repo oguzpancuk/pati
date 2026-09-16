@@ -13,7 +13,7 @@ const { getUnseenAwards, markAwardsSeen, refreshRankSnapshot } = require('../uti
 const { getUserRank } = require('./leaderboard.controller');
 const { avatarValueFor } = require('../utils/avatars');
 const { reauthenticateWithProvider } = require('../utils/providerReauth');
-const { noBlockEitherWaySql } = require('../utils/blocks');
+const { hasBlocked, noBlockEitherWaySql } = require('../utils/blocks');
 
 const MAX_FEATURED_BADGES = 3;
 
@@ -326,17 +326,24 @@ async function getUserComments(req, res, next) {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
 
+    // What the block promises ("yorumlarını görmezsin") has to be true of the
+    // person's own comment list too, not only of an animal's chat — this list
+    // is one tap from the profile you block from (review finding). Empty
+    // rather than an error: the profile stays open so the block can be undone,
+    // and its comment section is hidden by the clients on the same flag.
+    const blocked = await hasBlocked(pool, req.user.userId, targetId);
+
     const [user, comments, total] = await Promise.all([
       pool.query('SELECT id, name, avatar_url FROM users WHERE id = $1', [targetId]),
-      fetchRecentComments(targetId, limit, offset),
-      countComments(targetId),
+      blocked ? [] : fetchRecentComments(targetId, limit, offset),
+      blocked ? 0 : countComments(targetId),
     ]);
 
     if (user.rows.length === 0) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    res.json({ user: user.rows[0], comments, total });
+    res.json({ user: user.rows[0], comments, total, blocked });
   } catch (err) {
     next(err);
   }
@@ -416,6 +423,17 @@ async function getPublicProfile(req, res, next) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
+    // Whether the VIEWER blocked this person: the profile still opens (the
+    // block is undone from here), and the clients swap the friendship button
+    // for "engellendi". The other direction is not reported — someone who
+    // blocked you is simply out of reach, with no notice that says so.
+    //
+    // Read before the fan-out below, because it decides whether their
+    // comments are fetched at all: the block's own dialog promises
+    // "yorumlarını görmezsin", and this profile is the surface it is pressed
+    // from (review finding).
+    const blocked = await hasBlocked(pool, req.user.userId, targetId);
+
     const [
       stats,
       badgeData,
@@ -436,25 +454,15 @@ async function getPublicProfile(req, res, next) {
         [targetId]
       ),
       getUserRank(targetId),
-      fetchRecentComments(targetId),
-      countComments(targetId),
+      blocked ? [] : fetchRecentComments(targetId),
+      blocked ? 0 : countComments(targetId),
     ]);
 
     let friendshipStatus = 'none';
     let friendshipId = null;
-    // Whether the VIEWER blocked this person: the profile still opens (the
-    // block is undone from here), and the clients swap the friendship button
-    // for "engellendi". The other direction is not reported — someone who
-    // blocked you is simply out of reach, with no notice that says so.
-    let blocked = false;
     if (req.user.userId === targetId) {
       friendshipStatus = 'self';
     } else {
-      const blockRow = await pool.query(
-        'SELECT 1 FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2',
-        [req.user.userId, targetId]
-      );
-      blocked = blockRow.rows.length > 0;
       const fr = await pool.query(
         `SELECT id, requester_id, status FROM friendships
          WHERE (requester_id = $1 AND addressee_id = $2) OR (requester_id = $2 AND addressee_id = $1)`,

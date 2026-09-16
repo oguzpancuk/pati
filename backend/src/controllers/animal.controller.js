@@ -26,21 +26,36 @@ const { HEALTH_RECORD_TYPES, isValidChoice } = require('../utils/taxonomy');
 //   in_treatment -> at least one comment is linked to the record
 //   not_started  -> no comments
 // State and comments therefore can never disagree.
-const HEALTH_RECORD_SELECT_SQL = `
+/**
+ * `viewerParam` is the placeholder holding the reader's own user id. Both the
+ * count and the `in_treatment` test discount comments by people the reader
+ * blocked — and they discount the SAME ones, which is what keeps the docblock
+ * above true: a record cannot say "3 yorum" over a chat showing one, nor read
+ * "in_treatment" with nothing in it (review finding). The state is therefore
+ * the reader's view of the record, not a global fact; that is the price of
+ * the chat being the reader's view too, and the pair staying consistent is
+ * worth more than a number nobody can trace.
+ */
+const healthRecordSelectSql = (viewerParam) => {
+  const mine = notBlockedByViewerSql(viewerParam, 'c.user_id');
+  return `
   SELECT h.id, h.record_type, h.description, h.vet_verified, h.recorded_by, h.recorded_at,
          h.recovered_at, h.recovered_by,
          u.name AS recorded_by_name,
          ru.name AS recovered_by_name,
-         (SELECT count(*) FROM animal_comments c WHERE c.health_record_id = h.id)::int AS comment_count,
+         (SELECT count(*) FROM animal_comments c
+           WHERE c.health_record_id = h.id ${mine})::int AS comment_count,
          CASE
            WHEN h.recovered_at IS NOT NULL THEN 'recovered'
-           WHEN EXISTS (SELECT 1 FROM animal_comments c WHERE c.health_record_id = h.id) THEN 'in_treatment'
+           WHEN EXISTS (SELECT 1 FROM animal_comments c
+                         WHERE c.health_record_id = h.id ${mine}) THEN 'in_treatment'
            ELSE 'not_started'
          END AS status
   FROM health_records h
   JOIN users u ON u.id = h.recorded_by
   LEFT JOIN users ru ON ru.id = h.recovered_by
 `;
+};
 
 // Vaccinations are separate from health records: no "recovered" state, a
 // next-due date instead. Comment counting follows the same logic.
@@ -563,10 +578,10 @@ async function getAnimal(req, res, next) {
         [req.params.id, req.user.userId]
       ),
       pool.query(
-        `${HEALTH_RECORD_SELECT_SQL}
+        `${healthRecordSelectSql('$2')}
          WHERE h.animal_id = $1
          ORDER BY h.recorded_at DESC`,
-        [req.params.id]
+        [req.params.id, req.user.userId]
       ),
       pool.query(
         `${VACCINATION_SELECT_SQL}
@@ -1206,8 +1221,9 @@ async function addHealthRecord(req, res, next) {
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [req.params.id, recordType, description, Boolean(vetVerified) && isVet, req.user.userId]
     );
-    const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
+    const result = await pool.query(`${healthRecordSelectSql('$2')} WHERE h.id = $1`, [
       inserted.rows[0].id,
+      req.user.userId,
     ]);
     await notifyAnimalEventSafe({
       animalId: Number(req.params.id),
@@ -1248,8 +1264,9 @@ async function markRecovered(req, res, next) {
       }
       return res.status(409).json({ error: 'Bu kayıt zaten iyileşti olarak işaretlenmiş' });
     }
-    const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
+    const result = await pool.query(`${healthRecordSelectSql('$2')} WHERE h.id = $1`, [
       req.params.recordId,
+      req.user.userId,
     ]);
     const newBadges = await syncBadgeAwardsSafe(req.user.userId);
     // A recovery is one of the animal's own badge counts (ANIMAL_BADGES.recovered).
@@ -1287,8 +1304,9 @@ async function reopenRecord(req, res, next) {
       }
       return res.status(409).json({ error: 'Bu kayıt zaten açık' });
     }
-    const result = await pool.query(`${HEALTH_RECORD_SELECT_SQL} WHERE h.id = $1`, [
+    const result = await pool.query(`${healthRecordSelectSql('$2')} WHERE h.id = $1`, [
       req.params.recordId,
+      req.user.userId,
     ]);
     res.json(result.rows[0]);
   } catch (err) {

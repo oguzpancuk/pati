@@ -77,8 +77,23 @@ istediğin an uygulama içinden silebilirsin.
   bump it for every upload).
 
 **Screenshots** — 6.9" (1320 × 2868) from the iPhone 17 Pro Max simulator,
-in `docs/store/screenshots/` (see the ROADMAP entry for how they were
-taken). No iPad set: `TARGETED_DEVICE_FAMILY = 1`.
+in `docs/store/screenshots/`: the map over a neighbourhood in use, the
+nearest-first animals list, an animal profile, a carers' conversation, and
+your own profile with badges. No iPad set: `TARGETED_DEVICE_FAMILY = 1`.
+
+> **Retake 03 before submitting.** They are shot against the local showcase
+> database, which has no real animal photographs — every uploaded photo in
+> it is a generated solid-colour fixture, so the profile's photo strip is
+> three coloured squares. Guideline 2.3.3 asks that screenshots show the app
+> in use, and a reviewer reads those squares as a broken image. Take this
+> one again from a real device or a production account once there are real
+> photos; the other four carry no photographs and are fine as they are.
+> Everything else in the set was already made presentable: the map sits on
+> a spot that actually has food and water (its sheet reads "Bu bölgede mama
+> ve su var" rather than contradicting the rings behind it), the account is
+> `elif.kaya@example.com` with chosen badges rather than a check-suite
+> address with none, and the showcase "demo" chips were cleared from the
+> rows these five frames show.
 
 ## 4. App Privacy (the questionnaire)
 
