@@ -4415,8 +4415,9 @@ ROADMAP section "Owner fixes of 2026-09-15 (evening)".
   so a group admin there does not see "Vazgeç" (pre-existing); web Escape only
   works when focus is inside the page.
 - **G carer gallery.** No "show more": the strip loads every cared animal in
-  pages as it scrolls (limit 20, offset), a data hook per client (`useCaredAnimals`) over a pure helper
-  (`mobile/src/carerGallery.ts`) with tests on mobile. Seen on iOS: the strip swipes past the first cards. Known: a
+  pages as it scrolls (limit 20, offset), a data hook per client (`useCaredAnimals`, paging over
+  `@mobile/paging`'s `mergeById`) with the strip's geometry in
+  `mobile/src/carerGallery.ts`; both are tested on mobile. Seen on iOS: the strip swipes past the first cards. Known: a
   profile reload resets the strip to its first page.
 - **R report the animal from the header.** "şikayet et" left the page footer
   for a flag disc in the header (both clients); for a carer the comment composer is
