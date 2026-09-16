@@ -1281,3 +1281,37 @@ so a reported comment can sit on no page at all. `/care-actions/mine`
 single page of 100, so it is latent. Fix them with the same one-line
 tiebreaker when one of them is next touched.
 
+
+---
+
+## 🧰 Owner fixes of 2026-09-16 (evening) — six items
+
+| #   | Item                                                                                           | Clients               |
+| --- | ---------------------------------------------------------------------------------------------- | --------------------- |
+| N   | Tab bar: the items now sit too low (the 2026-09-15 centring overshot)                            | mobile + web          |
+| P   | Add-animal form: no example ("Örn. …") placeholders in the text fields                           | mobile + web          |
+| F   | "işaretler / notlar" becomes "belirgin fiziksel özellikler (varsa)"                              | mobile + web          |
+| B   | Two badges at once show 0 → 20 on both popups; they must read 0 → 10 then 10 → 20                | backend (both clients) |
+| E   | Empty "aşı kayıtları" / "sağlık kayıtları" must not look like a text box                          | mobile + web          |
+| C   | "bakım veriyorsun" pressed again leaves the animal and drops the carer rights                    | backend + mobile + web |
+
+Defaults taken without blocking (owner may redirect): P removes the example
+placeholders from the add-animal form's own text fields (name, the physical
+features, the "Diğer" free-text of the pattern and colour pickers) and leaves
+the placeholders that are format hints elsewhere (`ornek@eposta.com`, the
+`••••••••` password dots, the 6-digit code, "Mesaj yaz…"). N lifts the group by
+reserving more of the bottom inset rather than by shrinking the bar. C asks for
+a confirmation first, keeps everything the leaver already wrote (records,
+comments, photos) and also drops the follow, since "bakım ver" granted it.
+B stages the points, the level and the rank per badge inside one batch.
+
+**Done when:** each item has a screenshot on both clients (iOS simulator by the
+main session, web by playwright), B and C have backend tests plus a curl check
+against a running instance, battery green on a clean committed HEAD, and
+code-reviewer has covered the range. **Stop when:** done, or an item fails its
+battery twice (park it with a note).
+
+**Status (2026-09-16 evening):** all six landed on both clients. Web was
+driven in the in-app browser rather than playwright (its chromium is not
+installed here). Evidence, the measured tab-bar numbers and what stays
+unverified are in NOTES "2026-09-16 (evening)". Not deployed.

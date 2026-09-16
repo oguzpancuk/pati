@@ -4478,3 +4478,77 @@ carrying the retry button and the tap-for-options label). No logged-in
 production screenshot (no production account on this machine). Mobile
 changes ship with the next app build.
 
+
+## 2026-09-16 (evening) · owner fixes: tab bar again, form placeholders, physical features, staged badge points, empty record sections, leaving care
+
+Six items (ROADMAP "Owner fixes of 2026-09-16 (evening)"), all on both
+clients where they apply. Nothing deployed yet.
+
+- **N tab bar, second pass.** Yesterday's fix centred the icon+label group
+  between the hairline and the screen edge; the owner's answer was "çok
+  aşağıda". Measured on the simulator, it was: the ink ended 19 pt above the
+  screen edge with the home indicator drawn in the last 13 of them. The group
+  is now centred against the air a reader *sees* as air — the indicator's own
+  8 pt band is reserved but not counted — and the inset cap went from 18 to
+  25 pt. Pixel scan on an iPhone 17 Pro: hairline 798 → 792 pt, bar 76 → 82,
+  ink 818–855 → 811–848 (7 pt higher), room under the labels 19 → 26. With no
+  inset nothing moves (56 pt, 8/8). Web's `.tabbar` carries the same three
+  custom properties: measured 54 px in a browser (unchanged) and 80 px with a
+  `--tabbar-inset` of 25 px, 16 above and 25 below — mobile's group is 40 pt
+  where web's is 38, hence the two-point difference in the totals. Not seen in
+  a real standalone PWA on a device; the web number is a measurement of the
+  computed style with the inset forced, not a home-screen screenshot.
+- **P no example placeholders.** The "Örn. …" grey lines are gone from both
+  clients (add-animal name and physical features, the vaccine type and note).
+  The label already says what the field is, and the example read as a value
+  already typed in. What stays: the plain "Kendin yaz" under a picker's
+  "Diğer" chip (the only label that box has, and an instruction rather than an
+  example), the format hints (`ornek@eposta.com`, the password dots, the
+  6-digit code) and the action prompts ("Mesaj yaz…", "Yorum yaz…"). The admin
+  panel's own "Örn. …" placeholders were left alone — it is an internal tool,
+  not the app the owner was reviewing.
+- **F belirgin fiziksel özellikler.** "işaretler / notlar" is now "belirgin
+  fiziksel özellikler (varsa)" on both add-animal forms. The column is still
+  `animals.markings`; only the label changed, so nothing in the API or the
+  profile's description sentence moved.
+- **B staged badge points.** Two badges earned by one action wrote the same
+  `points_before`/`points_after` on both rows, so both popups read "0 → 20".
+  `stagePoints` (backend/src/utils/badgeAwards.js) now splits a batch into a
+  chain: the first popup 0 → 10, the second 10 → 20. The chain starts at the
+  snapshot the user last saw and its last step ends on the real total, so the
+  last popup always agrees with the profile behind it; anything else that
+  moved meanwhile (comment points) rides on that last step. The level follows
+  the staged points, and so does the rank: `computeLeaderboard` is already
+  fetched once per batch and a rank is just "how many people have more", so
+  each step's rank is derived from its own total — verified to agree exactly
+  with `getUserRank` for three users. Six node:test cases for the pure chain,
+  plus a real run against the local database (user 15436: 0 → 10 → 20 → 45 →
+  55 → 65 → 90 with the rank climbing 60 → 55 → 35 → 34 → 32 → 1), and both
+  popups screenshotted in the app.
+- **E empty record sections.** "Henüz aşı kaydı yok." / "Henüz kayıt yok."
+  were hairline cards, which under a section header read as an empty text
+  field. They are plain muted lines now on both clients. Deliberately not
+  changed: the carers ("İlk bakıcı sen ol.") and chat ("İlk yorumu sen yap.")
+  empty states, which are invitations rather than statements — the line the
+  fix draws is that a bare "there is nothing here" is a line, an invitation
+  keeps its card. If the owner wants those flattened too it is the same edit.
+- **C leaving care.** `DELETE /animals/:id/care` (idempotent, in the follow
+  rate-limit bucket) deletes the `user_animal_care` row and the follow that
+  `addCarer` created with it, in one transaction, and answers with both
+  counts. Both clients ask first and then reload the profile rather than
+  patching it — the carer row also drives the follow state, the two counts,
+  the carer list and the animal's badge ladder. What the leaver wrote stays:
+  photos, records and comments are the animal's history. Curl-checked on a
+  running instance: carer/follower 1/1 → 0/0, health record, vaccination and
+  comment all 403 `carersOnly` afterwards, a second DELETE still 200, and the
+  animal's photos still there.
+
+Evidence: iOS simulator screenshots for N (before/after crop), P+F, E, C
+(confirm dialog and the state after leaving) and B (both popups); the web
+halves of P+F, E and C driven in the in-app browser at 375×812. Playwright
+was not used this time — its chromium is not installed on this machine and
+the download was not worth it for six screens.
+
+Not verified: Android, real devices, a real standalone PWA's safe-area inset,
+and the badge popup on web (the staged values are the backend's, and the web
+modal reads the same fields).
