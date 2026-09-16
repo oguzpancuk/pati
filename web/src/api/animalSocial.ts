@@ -76,7 +76,8 @@ export const unfollowAnimal = (animalId: number) =>
 
 export interface LeaveCareState {
   carer: false;
-  following: false;
+  /** False after leaving as a carer; a plain follower's own follow is untouched. */
+  following: boolean;
   carerCount: number;
   followerCount: number;
 }

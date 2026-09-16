@@ -4552,3 +4552,58 @@ the download was not worth it for six screens.
 Not verified: Android, real devices, a real standalone PWA's safe-area inset,
 and the badge popup on web (the staged values are the backend's, and the web
 modal reads the same fields).
+
+### Same evening — the review round, and what it changed
+
+code-reviewer over `00ad2ae..b5eef2f` came back NEEDS_WORK with two real
+defects in the new endpoint, both fixed here:
+
+- **The carer notification became a repeatable broadcast.** Until leaving
+  existed, `user_animal_care` only ever grew, so `becameCarer` could fire at
+  most once per person per animal and `notifyAnimalEvent` needed no dedupe
+  (it has none — one set-based INSERT over followers ∪ carers). With leaving,
+  a leave/rejoin cycle announced the same person to every follower again, 30
+  times an hour at the care-photo rate limit, each cycle also costing Gemini
+  calls. The announcement is now a first-time event: `caredBefore` reads the
+  `'care'` rows of `animal_match_attempts` — the durable record of passing a
+  carer door, indexed on `(user_id, animal_id)`, and nothing deletes them.
+  The sighting door writes the same marker now (`markCareDoor`), so both
+  doors share one rule. Those rows are inert for badges, which count only
+  `kind = 'register'`.
+- **The follow was deleted even when no carer row was.** A plain follower
+  calling `DELETE /animals/:id/care` was silently unfollowed. The delete is
+  now conditional on the carer row actually going, and the response reports
+  the follow state it read back rather than assuming `false`.
+- Also from that round: the id is validated (400 on a non-numeric id, 404 on
+  an animal that is not there, instead of a 500 and a cheerful 200), the
+  stale `.tabbar` comment in `web/src/theme.css` was rewritten, and the tab
+  bar test stopped recomputing the formula it was meant to pin — it is a
+  table of ten measured (inset → height, above, below) rows now, so changing
+  either constant fails it.
+
+C's missing artifact is closed: **section 16 of
+`backend/scripts/ai-check/checks.sh`** drives the whole thing against a
+throwaway backend with the fake Gemini — join, announced once; leave, rights
+and granted follow gone, comment and health record 403 `carersOnly`; leave
+twice, still 200; a bogus id 400 and a missing animal 404; follow without
+caring, then leave, follow untouched; rejoin, carer again and **not**
+announced a second time. `bash backend/scripts/ai-check/run.sh`: 187/187 ALL
+PASS, which also re-proves the ADR-0005 contract after these edits. The model
+is put in `error` mode for the section, so the door opens fail-open and no
+verdict has to be scripted — and no real API call is made.
+
+Two findings were read and deliberately left:
+
+- `stagePoints` clamps a middle step to the total when the snapshot is
+  stale-high, which can produce a row reading "+10 puan" over "60 → 60".
+  Reachable only when points dropped between syncs (a moderated comment).
+  Every alternative is worse — chaining without the clamp makes a middle
+  popup claim more than the profile shows, and back-computing the start from
+  the end can go negative. Not a regression: the old code wrote the same pair
+  on every row of a batch.
+- A leave committed while a carer's "fotoğraf ekle" upload is in flight lets
+  that batch land in the gallery, where `addPhoto` would have refused it.
+  The window is one Gemini round trip wide, the photo is the leaver's own and
+  of this animal, and the next load is consistent. Guarding it means
+  re-reading the carer row inside `storeCarePhotos`, which is shared with the
+  join path where the row was just written.

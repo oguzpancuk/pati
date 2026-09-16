@@ -17,26 +17,51 @@ function gaps(inset: number) {
 }
 
 describe('the tab bar geometry', () => {
-  // Android and home-button iPhones, small Android gesture insets, a landscape
-  // or iPad home indicator, and the notched iPhones.
-  it.each([0, 4, 8, 12, 16, 20, 21, 24, 34, 48])(
-    'centres the icon and label against the visible air at inset %i',
-    (inset) => {
-      const { g, above, below } = gaps(inset);
-      // The home indicator's band is reserved but drawn in, so it does not
-      // count as air: what is centred is the rest (owner, 2026-09-16).
-      const band = Math.min(g.barPaddingBottom, TAB_INDICATOR_BAND);
-      expect(above).toBe(Math.max(below - band, 8));
-      expect(g.height).toBe(above + TAB_GROUP_HEIGHT + below);
-      // Never pressed against the edge, never more air than the indicator needs.
-      expect(above).toBeGreaterThanOrEqual(8);
-      expect(below).toBeGreaterThanOrEqual(8);
-      expect(below).toBeLessThanOrEqual(TAB_HOME_INDICATOR_CLEARANCE);
-      // The part of the bar that is not an item is exactly the part a home
-      // indicator could be under.
-      expect(g.barPaddingBottom).toBeLessThanOrEqual(inset);
-    }
-  );
+  // The numbers themselves, not a second copy of the formula: a test that
+  // recomputes the rule passes whichever constants the rule is given, and
+  // the owner has now reported this bar sitting wrong twice.
+  // Android and home-button iPhones (0), thin Android gesture insets, an
+  // iPad or landscape indicator (20-24) and the notched iPhones (34+).
+  it.each([
+    // inset, bar height, air above the icons, air under the labels
+    [0, 56, 8, 8],
+    [4, 56, 8, 8],
+    [8, 56, 8, 8],
+    [12, 60, 8, 12],
+    [16, 64, 8, 16],
+    [20, 72, 12, 20],
+    [21, 74, 13, 21],
+    [24, 80, 16, 24],
+    [34, 82, 17, 25],
+    [48, 82, 17, 25],
+  ])('inset %i: a %i pt bar with %i above and %i below', (inset, height, top, bottom) => {
+    const { g, above, below } = gaps(inset);
+    expect([g.height, above, below]).toEqual([height, top, bottom]);
+  });
+
+  it.each([0, 4, 8, 12, 16, 20, 21, 24, 34, 48])('adds up at inset %i', (inset) => {
+    const { g, above, below } = gaps(inset);
+    expect(g.height).toBe(above + TAB_GROUP_HEIGHT + below);
+    // Never pressed against the edge, never more air than the indicator needs.
+    expect(above).toBeGreaterThanOrEqual(8);
+    expect(below).toBeGreaterThanOrEqual(8);
+    expect(below).toBeLessThanOrEqual(TAB_HOME_INDICATOR_CLEARANCE);
+    // The part of the bar that is not an item is exactly the part a home
+    // indicator could be under.
+    expect(g.barPaddingBottom).toBeLessThanOrEqual(inset);
+    // No padding is ever negative: React Native would not complain, it
+    // would just lay the group out somewhere nobody meant.
+    expect(g.itemPaddingTop).toBeGreaterThanOrEqual(0);
+    expect(g.itemPaddingBottom).toBeGreaterThanOrEqual(0);
+  });
+
+  it('discounts exactly the home indicator band from the gap above', () => {
+    // 25 of air below, 8 of which the pill fills, so 17 above it.
+    expect(TAB_INDICATOR_BAND).toBe(8);
+    expect(TAB_HOME_INDICATOR_CLEARANCE).toBe(25);
+    const { above, below } = gaps(34);
+    expect(below - above).toBe(TAB_INDICATOR_BAND);
+  });
 
   it('keeps the labels and the touch area above a home indicator', () => {
     const { g, above, below } = gaps(34);

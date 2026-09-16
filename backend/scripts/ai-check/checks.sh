@@ -8,6 +8,9 @@
 # checked too, a dead model fails open, the match endpoint folds the
 # model's verdicts into the tiers — or ignores a model that did not answer —
 # and animal photos are screened for the species on the same token scheme.
+# Section 16 is the evidence for leaving care (owner, 2026-09-16): the rights
+# and the granted follow go, a plain follower's own follow does not, and
+# coming back announces nothing a second time.
 set -uo pipefail
 API=${API:-http://localhost:3103/api}
 FAKE=${FAKE:-http://localhost:4600}
@@ -20,6 +23,7 @@ UPLOADS="$(pwd)/uploads"
 post() { curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$1" -H 'Content-Type: application/json' -d "$2"; }
 post_auth() { curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$1" -H "Authorization: Bearer $2" -H 'Content-Type: application/json' -d "$3"; }
 get_auth() { curl -s -o "$BODY" -w '%{http_code}' "$API/$1" -H "Authorization: Bearer $2"; }
+del_auth() { curl -s -o "$BODY" -w '%{http_code}' -X DELETE "$API/$1" -H "Authorization: Bearer $2"; }
 # multipart: path token field=value... (the photo is always the fixture)
 upload() { local p="$1" t="$2"; shift 2; local args=(); for kv in "$@"; do args+=(-F "$kv"); done
   curl -s -o "$BODY" -w '%{http_code}' -X POST "$API/$p" -H "Authorization: Bearer $t" -F "photo=@$PHOTO;type=image/jpeg" ${args[@]+"${args[@]}"}; }
@@ -408,6 +412,61 @@ check "…and nothing stored" "$before" "$(uploads_count)"
 # under the pending prefix when the insert fails. The failure cannot be
 # forced from outside (the animal must exist for the species read and be
 # gone for the insert); it is a two-line branch read in review.
+
+echo "16. Leaving care and coming back (owner, 2026-09-16)"
+# JWT registered animal G, so it is G's first carer AND its first follower:
+# its inbox is where a second announcement would show up. A fresh account
+# does the joining and the leaving. The model is dead for this section, so
+# the care door opens on any photo (fail-open, section 13) and no verdict
+# has to be scripted.
+mode '{"mode":"error"}'
+MAIL2="ai-leave-$STAMP@example.com"
+code=$(post auth/register "{\"name\":\"Bakıcı Aday\",\"email\":\"$MAIL2\",\"password\":\"parola1234\"}")
+check "a second account -> 201" 201 "$code"
+JWT2=$(field .token)
+CODE2=$(last_code "$MAIL2") || { echo "  FAIL  no code in the outbox"; FAILED=1; }
+code=$(post_auth auth/verify-email "$JWT2" "{\"code\":\"$CODE2\"}")
+check "verify -> 200" 200 "$code"
+# How many times JWT has been told that somebody started caring for G.
+care_told() { get_auth notifications "$JWT" >/dev/null
+  node -pe "JSON.parse(require('fs').readFileSync('$BODY')).notifications.filter((n) => n.kind === 'care' && n.animal_id === $G).length"; }
+before_told=$(care_told)
+
+code=$(upload_photos "animals/$G/care-photos" "$JWT2" "$PHOTO")
+check "joins through the care door -> 201" 201 "$code"
+code=$(get_auth "animals/$G" "$JWT2"); check "…and is a carer" true "$(field .isCarer)"
+check "…following too" true "$(field .isFollowing)"
+told_once=$(care_told)
+check "the join is announced" "$((before_told + 1))" "$told_once"
+
+code=$(del_auth "animals/$G/care" "$JWT2")
+check "leaves -> 200" 200 "$code"
+check "…answers carer false" false "$(field .carer)"
+check "…and dropped the follow it had granted" false "$(field .following)"
+code=$(post_auth "animals/$G/comments" "$JWT2" "{\"body\":\"deneme\"}")
+check "a comment is refused afterwards -> 403" 403 "$code"
+contains "…as carersOnly" carersOnly "$(field .code)"
+code=$(post_auth "animals/$G/health-records" "$JWT2" "{\"recordType\":\"illness\",\"description\":\"deneme\"}")
+check "a health record too -> 403" 403 "$code"
+code=$(del_auth "animals/$G/care" "$JWT2")
+check "leaving twice is the same answer -> 200" 200 "$code"
+code=$(del_auth "animals/abc/care" "$JWT2")
+check "a bogus id -> 400" 400 "$code"
+code=$(del_auth "animals/2147483646/care" "$JWT2")
+check "an animal that is not there -> 404" 404 "$code"
+
+# The follow is only ever taken from somebody who WAS a carer: a plain
+# follower calling the same endpoint keeps what they chose themselves.
+code=$(post_auth "animals/$G/follow" "$JWT2" "{}")
+check "follows without caring -> 201" 201 "$code"
+code=$(del_auth "animals/$G/care" "$JWT2")
+check "…and leaving care leaves the follow alone" true "$(field .following)"
+
+code=$(upload_photos "animals/$G/care-photos" "$JWT2" "$PHOTO")
+check "comes back through the same door -> 201" 201 "$code"
+code=$(get_auth "animals/$G" "$JWT2"); check "…a carer again" true "$(field .isCarer)"
+check "the return is NOT announced a second time" "$told_once" "$(care_told)"
+mode '{"mode":"approve"}'
 
 echo ""
 if [ "$FAILED" = 0 ]; then echo "ALL PASS"; else echo "SOME FAILED"; exit 1; fi

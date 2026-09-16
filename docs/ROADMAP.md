@@ -1306,12 +1306,17 @@ comments, photos) and also drops the follow, since "bakım ver" granted it.
 B stages the points, the level and the rank per badge inside one batch.
 
 **Done when:** each item has a screenshot on both clients (iOS simulator by the
-main session, web by playwright), B and C have backend tests plus a curl check
-against a running instance, battery green on a clean committed HEAD, and
-code-reviewer has covered the range. **Stop when:** done, or an item fails its
-battery twice (park it with a note).
+main session, web by playwright), B has a node:test for its chain and C a
+re-runnable curl check (the backend has no HTTP test harness; section 16 of
+`backend/scripts/ai-check/checks.sh` is where a check like this belongs),
+battery green on a clean committed HEAD, and code-reviewer has covered the
+range. **Stop when:** done, or an item fails its battery twice (park it with a
+note).
 
-**Status (2026-09-16 evening):** all six landed on both clients. Web was
-driven in the in-app browser rather than playwright (its chromium is not
-installed here). Evidence, the measured tab-bar numbers and what stays
-unverified are in NOTES "2026-09-16 (evening)". Not deployed.
+**Status (2026-09-16 evening):** all six landed on both clients, then one
+code-reviewer round whose three important findings were fixed (the carer
+announcement, the follow a non-carer never granted, and C's missing
+re-runnable check — now `checks.sh` section 16, 187/187). Web was driven in
+the in-app browser rather than playwright (its chromium is not installed
+here). Evidence, the measured tab-bar numbers and what stays unverified are in
+NOTES "2026-09-16 (evening)". Not deployed.

@@ -652,6 +652,32 @@ async function addCarer(db, userId, animalId) {
   return inserted.rowCount > 0;
 }
 
+/**
+ * Has this person already passed a carer door for this animal? The care row
+ * itself can no longer answer that: leaving is reversible now
+ * (DELETE /animals/:id/care), so a leave/rejoin cycle would announce the
+ * same person to every follower over and over (review finding). The 'care'
+ * rows of `animal_match_attempts` are the durable record — both doors write
+ * one, nothing deletes them, and (user_id, animal_id) is indexed.
+ */
+async function caredBefore(db, userId, animalId) {
+  const result = await db.query(
+    `SELECT 1 FROM animal_match_attempts
+     WHERE user_id = $1 AND animal_id = $2 AND kind = 'care' LIMIT 1`,
+    [userId, animalId]
+  );
+  return result.rowCount > 0;
+}
+
+/** The marker `caredBefore` reads. `similarity` is the model's word, or none. */
+async function markCareDoor(db, userId, animalId, similarity) {
+  await db.query(
+    `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity)
+     VALUES ($1, $2, 'care', $3)`,
+    [animalId, userId, similarity ?? null]
+  );
+}
+
 function carersOnly(res, what) {
   return res.status(403).json({
     error: `${what} için bu hayvanın bakıcısı olmalısın. "Bakım ver" ile yeni bir fotoğraf çekerek katılabilirsin.`,
@@ -694,6 +720,7 @@ async function reportSighting(req, res, next) {
     let result;
     let carer;
     let becameCarer = false;
+    let announceCare = false;
     try {
       await client.query('BEGIN');
       carer =
@@ -720,7 +747,11 @@ async function reportSighting(req, res, next) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Hayvan bulunamadı' });
       }
-      if (!carer) becameCarer = await addCarer(client, req.user.userId, req.params.id);
+      if (!carer) {
+        announceCare = !(await caredBefore(client, req.user.userId, req.params.id));
+        becameCarer = await addCarer(client, req.user.userId, req.params.id);
+        await markCareDoor(client, req.user.userId, req.params.id, null);
+      }
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -729,8 +760,9 @@ async function reportSighting(req, res, next) {
       client.release();
     }
     // The door opened: the carers and followers hear about the new carer
-    // first, then about the sighting the confirm reported.
-    if (becameCarer) {
+    // first, then about the sighting the confirm reported. Only the first
+    // time — see caredBefore.
+    if (becameCarer && announceCare) {
       await notifyAnimalEventSafe({
         animalId: Number(req.params.id),
         kind: 'care',
@@ -987,6 +1019,7 @@ async function submitCarePhotos(req, res, next) {
 
     let photoChecked = false;
     let becameCarer = false;
+    let announceCare = false;
     // The comparison is what grants carer rights; a carer already holds
     // them, so their photos skip it (and cost no comparison calls).
     if (!alreadyCarer) {
@@ -1031,12 +1064,9 @@ async function submitCarePhotos(req, res, next) {
 
       // Two submissions racing past the isCarer read above both land here;
       // the second finds the row in place and announces nothing.
+      announceCare = !(await caredBefore(pool, req.user.userId, animalId));
       becameCarer = await addCarer(pool, req.user.userId, animalId);
-      await pool.query(
-        `INSERT INTO animal_match_attempts (animal_id, user_id, kind, similarity)
-         VALUES ($1, $2, 'care', $3)`,
-        [animalId, req.user.userId, photoChecked ? 'same' : null]
-      );
+      await markCareDoor(pool, req.user.userId, animalId, photoChecked ? 'same' : null);
     }
 
     // The photos join the gallery: for a new carer they are the evidence of
@@ -1047,7 +1077,7 @@ async function submitCarePhotos(req, res, next) {
 
     // Announced once the photos are in the gallery, so the profile a
     // recipient opens from the inbox already shows the evidence.
-    if (becameCarer) {
+    if (becameCarer && announceCare) {
       await notifyAnimalEventSafe({ animalId, kind: 'care', actorId: req.user.userId });
     }
     const animalBadges = await syncAnimalBadgesSafe(animalId);
@@ -1458,29 +1488,49 @@ async function unfollowAnimal(req, res, next) {
  * follow `addCarer` created alongside it. Coming back is the same "bakım
  * ver" photo step as the first time.
  *
- * Idempotent like "takip etme": leaving twice is the same answer, not a 404.
+ * Idempotent like "takip etme": leaving twice is the same answer, not a 404
+ * — only an animal that does not exist is one. Rejoining announces nothing:
+ * the carer notification is a first-time event (see caredBefore).
  */
 async function leaveCare(req, res, next) {
+  const animalId = Number(req.params.id);
+  if (!Number.isInteger(animalId) || animalId <= 0) {
+    return res.status(400).json({ error: 'Geçersiz hayvan' });
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM user_animal_care WHERE user_id = $1 AND animal_id = $2', [
-      req.user.userId,
-      req.params.id,
-    ]);
-    await client.query('DELETE FROM animal_followers WHERE animal_id = $1 AND user_id = $2', [
-      req.params.id,
-      req.user.userId,
-    ]);
+    const exists = await client.query('SELECT 1 FROM animals WHERE id = $1', [animalId]);
+    if (exists.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Hayvan bulunamadı' });
+    }
+    const left = await client.query(
+      'DELETE FROM user_animal_care WHERE user_id = $1 AND animal_id = $2',
+      [req.user.userId, animalId]
+    );
+    // The follow goes with the carer row, because addCarer created it with
+    // that row — but only when there WAS a carer row to remove. Somebody who
+    // merely follows must not be unfollowed by a request they never made
+    // (review finding).
+    if (left.rowCount > 0) {
+      await client.query('DELETE FROM animal_followers WHERE animal_id = $1 AND user_id = $2', [
+        animalId,
+        req.user.userId,
+      ]);
+    }
     const counts = await client.query(
       `SELECT (SELECT count(*) FROM user_animal_care WHERE animal_id = $1)::int AS carers,
-              (SELECT count(*) FROM animal_followers WHERE animal_id = $1)::int AS followers`,
-      [req.params.id]
+              (SELECT count(*) FROM animal_followers WHERE animal_id = $1)::int AS followers,
+              EXISTS (
+                SELECT 1 FROM animal_followers WHERE animal_id = $1 AND user_id = $2
+              ) AS following`,
+      [animalId, req.user.userId]
     );
     await client.query('COMMIT');
     res.json({
       carer: false,
-      following: false,
+      following: counts.rows[0].following === true,
       carerCount: counts.rows[0].carers,
       followerCount: counts.rows[0].followers,
     });

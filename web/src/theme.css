@@ -227,14 +227,17 @@ strong {
 }
 
 /* Bottom tab bar: hairline top rule, lowercase labels, thin icons.
-   The icon and label sit centred between the hairline and the screen edge,
-   the same rule as mobile's tabBarGeometry (owner, 2026-09-15). Installed as
-   a PWA on an iPhone the whole 34px safe area used to go under the labels,
-   so they rode 15px above the bar's middle. The gap below is now that inset
-   capped at the 18px that clear the home indicator, never less than 8px, and
-   the same gap goes above the icon, hairline included. Only the capped inset
-   is the bar's own padding: the rest stays inside the links, so a tap at the
-   very bottom of a browser tab bar still lands on a tab. */
+   The icon and label sit centred the same way mobile's tabBarGeometry
+   centres them (owner, 2026-09-15 and 2026-09-16). Installed as a PWA on an
+   iPhone the whole 34px safe area used to go under the labels, so they rode
+   15px above the bar's middle; centring on the screen edge instead dropped
+   them onto the home indicator. The gap below is that inset capped at the
+   25px that clear the indicator, never less than 8px; the gap above is the
+   same minus the indicator's own 8px band — reserved space, but the pill is
+   drawn in it, so it is not air — and never less than 8px either, hairline
+   included. Only the capped inset is the bar's own padding: the rest stays
+   inside the links, so a tap at the very bottom of a browser tab bar still
+   lands on a tab. */
 .tabbar {
   --tabbar-inset: min(env(safe-area-inset-bottom, 0px), 25px);
   --tabbar-gap: max(var(--tabbar-inset), 8px);
