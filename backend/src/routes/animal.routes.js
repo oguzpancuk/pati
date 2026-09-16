@@ -19,6 +19,7 @@ const {
   addComment,
   followAnimal,
   unfollowAnimal,
+  leaveCare,
   likePhoto,
   unlikePhoto,
   submitCarePhotos,
@@ -79,6 +80,10 @@ router.post('/:id/comments', requireAuth, limits.comments, addComment);
 // the miss path deletes them, the stored path renames them into the gallery.
 router.post('/:id/follow', requireAuth, limits.follows, followAnimal);
 router.delete('/:id/follow', requireAuth, limits.follows, unfollowAnimal);
+// Leaving: the same button that says "bakım veriyorsun", pressed again. It
+// only deletes rows, so it shares the follow bucket rather than the
+// photo-heavy care-photo one.
+router.delete('/:id/care', requireAuth, limits.follows, leaveCare);
 router.post('/:id/photos/:photoId/like', requireAuth, limits.photoLikes, likePhoto);
 router.delete('/:id/photos/:photoId/like', requireAuth, limits.photoLikes, unlikePhoto);
 router.post(

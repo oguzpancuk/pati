@@ -28,6 +28,7 @@ import {
   HealthRecord,
   HealthRecordStatus,
   HealthRecordType,
+  leaveCare,
   markHealthRecordRecovered,
   reopenHealthRecord,
   unfollowAnimal,
@@ -192,6 +193,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const [visibleRecords, setVisibleRecords] = useState(RECORD_PREVIEW);
   const [visibleCarers, setVisibleCarers] = useState(CARER_PREVIEW);
   const [followBusy, setFollowBusy] = useState(false);
+  const [leaveBusy, setLeaveBusy] = useState(false);
   // The last-seen thumbnail opens a real, pannable map (demo item 8).
   const [locationOpen, setLocationOpen] = useState(false);
   // The animal's report sheet, opened from the header flag. `?report=1`
@@ -310,6 +312,39 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
       Alert.alert('Olmadı', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
     } finally {
       setFollowBusy(false);
+    }
+  }
+
+  /**
+   * "bakım veriyorsun" pressed again is the door out (owner, 2026-09-16).
+   * It asks first, because leaving takes the records, the chat and the
+   * photo tile away and coming back means another photo; what the leaver
+   * already wrote stays on the animal. The profile is reloaded rather than
+   * patched: the carer row also carries the follow, the two counts, the
+   * carer list and the animal's own badge ladder.
+   */
+  function handleLeaveCare() {
+    if (!animal || leaveBusy) return;
+    const who = animal.name ?? (animal.species === 'cat' ? 'bu kedi' : 'bu köpek');
+    Alert.alert(
+      'Bakımı bırak',
+      `${who} için bakıcılığı bırakacaksın. Sağlık ve aşı kaydı ekleyemez, sohbete yazamaz ve haberleri alamazsın. Yazdıkların ve eklediğin fotoğraflar kalır. Yeniden bakıcı olmak için yeni bir fotoğraf çekmen gerekir.`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        { text: 'Bırak', style: 'destructive', onPress: leaveCareNow },
+      ]
+    );
+  }
+
+  async function leaveCareNow() {
+    setLeaveBusy(true);
+    try {
+      await leaveCare(animalId);
+      await load();
+    } catch (err: any) {
+      Alert.alert('Olmadı', err?.response?.data?.error ?? err?.message ?? 'Bir hata oluştu');
+    } finally {
+      setLeaveBusy(false);
     }
   }
 
@@ -676,13 +711,27 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
             />
             {animal.isCarer ? (
               /* The state keeps the button's outline (P7 item 4): the
-                 success variant's green ring and text, not pressable. */
-              <View style={[styles.actionButton, styles.carerState]} accessibilityRole="text">
+                 success variant's green ring and text. Pressed again it is
+                 the way out of caring (owner, 2026-09-16) — which is why it
+                 is a button now and not a label. */
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.carerState,
+                  pressed && styles.carerStatePressed,
+                ]}
+                onPress={handleLeaveCare}
+                disabled={leaveBusy}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: leaveBusy }}
+                accessibilityLabel="Bakım veriyorsun"
+                accessibilityHint="Bakımı bırakmak için dokun"
+              >
                 <Icon name="check" size={16} color={colors.onSuccess} />
                 <Text variant="button" style={styles.carerStateText}>
-                  bakım veriyorsun
+                  {leaveBusy ? 'bırakılıyor…' : 'bakım veriyorsun'}
                 </Text>
-              </View>
+              </Pressable>
             ) : (
               <Button
                 title="bakım ver"
@@ -1361,6 +1410,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     borderColor: c.success,
     backgroundColor: c.surface,
   },
+  carerStatePressed: { backgroundColor: c.successSoft },
   carerStateText: { color: c.onSuccess, fontSize: 13, lineHeight: 18 },
   photoGrid: {
     flexDirection: 'row',
@@ -1447,6 +1497,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   },
   miniMapHintText: { color: c.textOnBrand },
   block: { marginBottom: spacing.sm },
+  emptyRecords: { marginTop: spacing.xs, marginBottom: spacing.sm },
   recordHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

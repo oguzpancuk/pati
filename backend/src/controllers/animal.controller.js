@@ -1450,6 +1450,48 @@ async function unfollowAnimal(req, res, next) {
   }
 }
 
+/**
+ * Leaving the animal (owner, 2026-09-16): "bakım veriyorsun" pressed again
+ * hands the carer rights back. What the leaver wrote while caring stays —
+ * photos, health and vaccine records and comments are the animal's history,
+ * not the carer's — but the row that grants the rights goes, and with it the
+ * follow `addCarer` created alongside it. Coming back is the same "bakım
+ * ver" photo step as the first time.
+ *
+ * Idempotent like "takip etme": leaving twice is the same answer, not a 404.
+ */
+async function leaveCare(req, res, next) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM user_animal_care WHERE user_id = $1 AND animal_id = $2', [
+      req.user.userId,
+      req.params.id,
+    ]);
+    await client.query('DELETE FROM animal_followers WHERE animal_id = $1 AND user_id = $2', [
+      req.params.id,
+      req.user.userId,
+    ]);
+    const counts = await client.query(
+      `SELECT (SELECT count(*) FROM user_animal_care WHERE animal_id = $1)::int AS carers,
+              (SELECT count(*) FROM animal_followers WHERE animal_id = $1)::int AS followers`,
+      [req.params.id]
+    );
+    await client.query('COMMIT');
+    res.json({
+      carer: false,
+      following: false,
+      carerCount: counts.rows[0].carers,
+      followerCount: counts.rows[0].followers,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    client.release();
+  }
+}
+
 async function photoLikeState(photoId, userId) {
   const result = await pool.query(
     `SELECT count(*)::int AS like_count,
@@ -1514,6 +1556,7 @@ module.exports = {
   addComment,
   followAnimal,
   unfollowAnimal,
+  leaveCare,
   likePhoto,
   unlikePhoto,
   submitCarePhotos,

@@ -74,6 +74,21 @@ export const followAnimal = (animalId: number) =>
 export const unfollowAnimal = (animalId: number) =>
   api.del<FollowState>(`/animals/${animalId}/follow`);
 
+export interface LeaveCareState {
+  carer: false;
+  following: false;
+  carerCount: number;
+  followerCount: number;
+}
+
+/**
+ * Leaving the animal: the "bakım veriyorsun" button pressed again (owner,
+ * 2026-09-16). The carer rights and the follow that came with them go; what
+ * the leaver wrote stays on the animal. Rejoining is the photo step again.
+ */
+export const leaveCare = (animalId: number) =>
+  api.del<LeaveCareState>(`/animals/${animalId}/care`);
+
 export interface CarePhotoResult {
   matched: true;
   /** A carer's photos skip the comparison and are stored after the species screen (B1). */

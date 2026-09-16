@@ -1791,12 +1791,12 @@ strong {
 }
 
 /* "bakım veriyorsun" keeps the outline (P7 item 4): the success ring,
-   centred, never a pointer. */
+   centred. It is the way out of caring (owner, 2026-09-16), so it takes the
+   pointer every other button has. */
 .carer-state {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: default;
 }
 
 .ladder-next {

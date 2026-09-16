@@ -18,6 +18,7 @@ import {
   AnimalSocialDetail,
   fetchAnimalSocial,
   followAnimal,
+  leaveCare,
   likePhoto,
   SocialPhoto,
   submitCarePhotos,
@@ -236,6 +237,7 @@ export default function AnimalPage() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const likeBusy = useRef<Set<number>>(new Set());
   const [followBusy, setFollowBusy] = useState(false);
+  const [leaveBusy, setLeaveBusy] = useState(false);
   // The badge ladder (P7 item 3) opens from a header chip; the tapped key
   // is the highlighted row.
   const [ladderKey, setLadderKey] = useState<string | null>(null);
@@ -488,6 +490,34 @@ export default function AnimalPage() {
       setError(err instanceof Error ? err.message : 'Olmadı');
     } finally {
       setFollowBusy(false);
+    }
+  }
+
+  /**
+   * "bakım veriyorsun" clicked again is the door out (owner, 2026-09-16).
+   * It asks first, because leaving takes the records, the chat and the
+   * photo tile away and coming back means another photo; what the leaver
+   * already wrote stays on the animal. The profile is reloaded rather than
+   * patched: the carer row also carries the follow, the two counts, the
+   * carer list and the animal's own badge ladder.
+   */
+  async function handleLeaveCare() {
+    if (!animal || leaveBusy) return;
+    const who = animal.name ?? (animal.species === 'cat' ? 'bu kedi' : 'bu köpek');
+    if (
+      !window.confirm(
+        `${who} için bakıcılığı bırakacaksın. Sağlık ve aşı kaydı ekleyemez, sohbete yazamaz ve haberleri alamazsın. Yazdıkların ve eklediğin fotoğraflar kalır. Yeniden bakıcı olmak için yeni bir fotoğraf çekmen gerekir.`
+      )
+    )
+      return;
+    setLeaveBusy(true);
+    try {
+      await leaveCare(animalId);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Olmadı');
+    } finally {
+      setLeaveBusy(false);
     }
   }
 
@@ -777,10 +807,18 @@ export default function AnimalPage() {
           </button>
           {animal.isCarer ? (
             /* The state keeps the button's outline (P7 item 4): the same
-               green ring as the followed state, not clickable. */
-            <span className="btn small grow outline-success carer-state" role="status">
-              ✓ bakım veriyorsun
-            </span>
+               green ring as the followed state. Clicked again it is the way
+               out of caring (owner, 2026-09-16) — which is why it is a
+               button now and not a label. */
+            <button
+              className="btn small grow outline-success carer-state"
+              disabled={leaveBusy}
+              onClick={handleLeaveCare}
+              aria-pressed="true"
+              title="Bakımı bırakmak için tıkla"
+            >
+              ✓ {leaveBusy ? 'bırakılıyor…' : 'bakım veriyorsun'}
+            </button>
           ) : (
             <button className="btn small grow" onClick={openCare}>
               📷 bakım ver

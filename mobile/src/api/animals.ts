@@ -402,6 +402,23 @@ export async function unfollowAnimal(animalId: number): Promise<FollowState> {
   return data;
 }
 
+export interface LeaveCareState {
+  carer: false;
+  following: false;
+  carerCount: number;
+  followerCount: number;
+}
+
+/**
+ * Leaving the animal: the "bakım veriyorsun" button pressed again (owner,
+ * 2026-09-16). The carer rights and the follow that came with them go; what
+ * the leaver wrote stays on the animal. Rejoining is the photo step again.
+ */
+export async function leaveCare(animalId: number): Promise<LeaveCareState> {
+  const { data } = await apiClient.delete<LeaveCareState>(`/animals/${animalId}/care`);
+  return data;
+}
+
 export interface CarePhotoResult {
   matched: true;
   /** A carer's photos skip the comparison and are stored after the species screen (B1). */
