@@ -4954,12 +4954,49 @@ told about.** Verified on both, in the state that actually ships:
   offers only Google.
 
 So App Store guideline 4.8 is satisfied for the app — it offers Apple
-beside Google — without the Services ID, which exists only for the web
-client's button. `web/public/.well-known/` is ready with a README for
-whenever that is wanted; both halves of that serving path were tested
-(Vite copies the dotted directory into `dist/`, the backend answers 200
-with the file's bytes), so it needs no code change, only the file and a
-deploy.
+beside Google.
+
+### The web half, same night, and the file that was never needed
+
+The owner wanted the button on the web too, and got stuck: every guide
+(ours included) said Apple hands you an `apple-developer-domain-association.txt`
+to host under `/.well-known/`, and the console offered no download button
+anywhere. A round went into hunting for it.
+
+It was not there because it is not needed. Registering `pati-app.com` and
+the return URL `https://pati-app.com/giris` under the Services ID
+**`com.pati-app.web`** (Identifiers → Services IDs → Sign in with Apple →
+Configure → Website URLs → `+`) is the whole of it.
+
+That was settled without touching production, by opening Apple's own
+authorize endpoint in a browser with our values — `client_id=com.pati-app.web`,
+`redirect_uri=https://pati-app.com/giris`. Apple answered with its sign-in
+page headed "pati-web uygulamasına giriş yapmak için…". **An OAuth provider
+validates `client_id` and `redirect_uri` before it will show a sign-in page,
+or it would be an open redirect**, so that one request proves the
+registration without writing anything. An unregistered return URL answers
+`invalid_request` instead. The probe is written into
+`web/public/.well-known/README.md`, because it separates "our configuration
+is wrong" from "our code is wrong" in a single request and will be worth
+having the next time the button misbehaves.
+
+Then the three secrets, and `GET /api/auth/providers` began reporting the
+service id and the redirect URI. On pati-app.com the Apple button appeared
+above Google, the consent line became "Apple veya Google ile devam
+edersen…", and clicking it made the page open a popup to
+`appleid.apple.com` — as far as this session can take it, since completing a
+sign-in needs the owner's own Apple Account. No code deployed for any of it.
+
+The lesson worth keeping: **a missing button in someone else's console is
+not always a missing step.** Two rounds went into looking for a file that a
+single request to the provider would have shown was unnecessary. When a
+third-party setup does not match its documentation, ask the third party
+directly before assuming the console is hiding something.
+
+`web/public/.well-known/` is kept, empty but for its README: the serving
+path was tested (Vite copies the dotted directory into `dist/`, the backend
+answers 200 with the file's bytes), so whatever asks for a verification file
+next is a drop-in with no code change.
 
 **Not done and why.** Android is a whole wave of its own (release keystore —
 `debug.keystore` signs release today, the never-exercised build, the
