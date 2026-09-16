@@ -5090,18 +5090,31 @@ preparing the submission — and the first thing to actually test it was
 Apple's static analysis.
 
 **It would not have crashed, and the first version of this entry said it
-would.** That claim is corrected here rather than quietly dropped, because
-an entry whose whole subject is an unchecked assertion has no business
-closing with another one. `LIBRARY_PICKER` sets no `includeExtra`, so
-react-native-image-picker takes the iOS 14+ path and presents a
-`PHPickerViewController` without ever calling
-`PHPhotoLibrary requestAuthorization` — PHPicker runs out of process, which
-is precisely why it needs no usage string at runtime. Its `checkPermission:`
-method, the only one that would ask, has no caller at all. The real failure
-mode is the one that happened: the analyser refuses a binary that
-REFERENCES the API, whether or not any code path reaches it. Which also
-means iOS will never show this string to a user on any version we support;
-it exists to satisfy processing.
+would.** Corrected here rather than quietly dropped, because an entry whose
+whole subject is an unchecked assertion has no business closing with
+another one — and the first correction was wrong too, which is the honest
+shape of this.
+
+What is actually true, checked against the library's source and our own
+build settings. `checkPhotosPermissions:` is the method that calls
+`[PHPhotoLibrary requestAuthorization:]`, and it has two live call sites in
+`ImagePickerManager.mm` (lines 88 and 109) — one per OS path. **Both sit
+inside `if ([self.options[@"includeExtra"] boolValue])`, and
+`LIBRARY_PICKER` never sets `includeExtra`.** That, and only that, is why
+nothing prompts: not a dead method, and not PHPicker's out-of-process
+design, which covers just one of the two paths. Our deployment target is
+13.4, so the other path is real — under iOS 14 the `@available` guard fails
+and a plain `UIImagePickerController` is presented instead.
+
+So the failure mode is the one that happened: the analyser refuses a binary
+that REFERENCES the API, whether or not any code path reaches it. iOS also
+never shows this string to a user today; it exists to satisfy processing.
+
+**The condition to watch is `includeExtra`.** It is the documented way to
+get `assetIdentifier` or EXIF back from the picker, and switching it on in
+`photoPicker.ts` turns both of those call sites live — at which point the
+Turkish string above stops being decorative and starts being what people
+read before handing over their library.
 
 Fixed with an honest string (and the comment rewritten to name the call
 site), `CURRENT_PROJECT_VERSION` 1 → 2 because Apple refuses a repeated

@@ -1461,10 +1461,14 @@ submission; all are written down so the next reader is not rediscovering them.
    rows.
 2. **A blocked person deleting their account unhides their old
    notifications — and now does it loudly.** The mechanism is not a cascade:
-   a *member's* account is never deleted (the hard `DELETE FROM users` paths
-   are the demo purge and an abandoned pending registration, neither of which
-   can be a notification actor a member blocked — except a showcase bot,
-   whose rows the demo filter hides anyway). `anonymizeAccount` keeps the `users` row and
+   a *member's* account is never deleted. The three hard `DELETE FROM users`
+   paths are the demo purge, the guide seed's `--remove`, and an abandoned
+   pending registration — and a pending account is 403'd everywhere, so it
+   can never be a notification actor. A showcase bot can: the rows survive
+   with `actor_id` NULL, and `notifications.is_demo` is stamped at insert
+   rather than joined, so the demo filter still hides them from a viewer who
+   has the showcase OFF. A viewer who has it on would see them.
+   `anonymizeAccount` keeps the `users` row and
    explicitly runs `DELETE FROM user_blocks WHERE blocker_id = $1 OR
    blocked_id = $1` (`utils/accountDeletion.js`). That delete is what lifts
    the block, while the notification payload keeps the actor's frozen name
