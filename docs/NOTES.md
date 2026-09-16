@@ -4714,3 +4714,80 @@ are not in this release. The ROADMAP's follow-up list carries nine parked
 items from the three review rounds, and QA added one more worth a line — the
 comment at `caredBefore` says "both doors write one" while `createAnimal` is
 a third door that writes none.
+
+
+## 2026-09-16 (night) · App Store readiness — iOS first, Android parked
+
+Owner, after v42 went out: "Android'i şimdilik geçelim, iOS'a çıkaralım. Sen
+eksikleri tamamla, ben o sırada key'leri alayım; key'leri girince her şey
+hazır olsun." So the code side of an App Store submission lands here and the
+owner's console work is the only thing left. ROADMAP: "🍎 App Store
+readiness".
+
+- **R3 blocking a user, and reporting one.** The gap that would have failed
+  review outright: guideline 1.2 requires an app with user-generated content
+  to let people block abusive users, and there was no way to. The rule, in
+  one sentence, is in `backend/src/utils/blocks.js` and both clients' docs:
+  blocking removes the friendship and closes every door that friendship
+  opens, refuses new requests in both directions, hides the two people from
+  each other's search, and hides the blocked person's comments from the
+  blocker — while their profile still opens, which is where the block is
+  undone. Unblocking brings the comments back, **not** the friendship.
+  Deliberately untouched: what they write in a group a mutual friend put us
+  both in, and notifications about their actions.
+  Leaning on the friendship is what made this small: direct messages and
+  group membership are already gated on `areFriends`, so deleting the
+  friendship row inside the same transaction closes them without a second
+  rule. The comment filter is one direction on purpose — I stop seeing the
+  people I blocked, not the people who blocked me, who chose not to see me
+  and never asked me to stop reading them. The filter also applies to the
+  comment list's `total`, or the pager would ask for a page that never
+  fills.
+  Evidence: `checks.sh` section 17, 39 assertions, **226/226 ALL PASS** —
+  friendship gone with the block, the profile still open and reporting
+  `blocked` to the blocker only, the comment out of the chat AND out of the
+  total, requests 403 both ways, search blind both ways, the DM refused,
+  idempotent twice, self/bogus/missing ids 400/400/404, and after the
+  unblock the comment back, the total back, the friendship still `none`.
+  The check accounts carry the run's stamp in their name now: the local
+  database holds every earlier run's accounts and a search capped at 20
+  rows missed the one under test (a green-looking failure — the assertion
+  that B could find A failed for a reason that had nothing to do with
+  blocking).
+  Seen on both clients: a "⋯" disc beside the friendship button (şikayet et
+  / engelle), the system alert and its confirmation on iOS, a small menu
+  and `window.confirm` on web, "Engellendi" in the button's place, and
+  "engellediklerim" in the settings sheet with "engeli kaldır" — the whole
+  block/unblock round trip driven on the simulator and in the browser, with
+  `GET /users/me/blocks` checked against each step.
+- **R1/R2 the plist details.** `ITSAppUsesNonExemptEncryption` false (the
+  only cryptography is HTTPS; without the key App Store Connect asks on
+  every upload). The `fetch` background mode is gone: nothing in AppDelegate
+  handles a background fetch and guideline 2.5.4 refuses a declared mode
+  with no functionality behind it — `useCareAlerts` already says its timer
+  does not run in the background. Portrait only, because no screen was ever
+  laid out or looked at sideways. `PrivacyInfo.xcprivacy` declares what the
+  app collects (e-mail, name, user id, precise location, photos, user
+  content — all App Functionality, linked, never tracking) instead of the
+  empty list that contradicted the App Privacy answers.
+- **R5/R6 the submission kit.** `docs/store/APP-STORE.md` is the whole App
+  Store Connect record: listing text in Turkish, the App Privacy table
+  matching the manifest line for line, review notes that pre-empt the two
+  questions this app invites (outside Türkiye the map is empty — use the
+  animals tab or set Kadıköy; a photo of an empty desk is *meant* to be
+  refused), the reviewer-account recipe, and the ordered "keys are in"
+  sequence. Screenshots are 1320×2868 from an iPhone 17 Pro Max simulator
+  in `docs/store/screenshots/`.
+- **The description says "ücretsizdir" and no longer says "reklam
+  içermez".** The app has its own promotion slots; the sentence would have
+  been a claim review could hold against it.
+
+**Not done and why.** Android is a whole wave of its own (release keystore —
+`debug.keystore` signs release today, the never-exercised build, the
+`ACCESS_BACKGROUND_LOCATION` permission that buys nothing because the
+care-alert timer is a JS `setInterval`, the Android OAuth client and its
+SHA-1). Crash reporting is still absent, which is the owner's call. The
+`pati://add-animal` screenshot never came out — the launch screen was still
+up at 20 s and the device log shows no crash, so it is a timing quirk of the
+deep-link relaunch, not a defect; five screenshots are enough for the
+listing.
