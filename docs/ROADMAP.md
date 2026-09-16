@@ -1222,7 +1222,7 @@ over the range. All met — details in NOTES "2026-09-15".
 
 ---
 
-## 🧰 Owner fixes of 2026-09-15 (evening) — six items — ✅ done; the web halves, G's backend paging and the ordering fix live in v41, the mobile halves with the next app build
+## 🧰 Owner fixes of 2026-09-15 (evening) — six items — ✅ done; the web halves and the cared-animal ordering fix live in v41, the mobile halves with the next app build
 
 | #   | Item                                                                                   | Clients      |
 | --- | -------------------------------------------------------------------------------------- | ------------ |
