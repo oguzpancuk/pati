@@ -58,10 +58,17 @@ export const TAB_GROUP_HEIGHT = TAB_ICON_SIZE + TAB_LABEL_GAP + TAB_LABEL_LINE_H
 const TAB_MIN_GAP = spacing.sm;
 /**
  * The most of the bottom safe area the bar reserves. The home indicator sits
- * in the bottom 13 pt of the screen; 18 keeps the labels, and every tappable
- * point, a few points above it.
+ * in the bottom 13 pt of the screen; 25 lifts the labels, and every tappable
+ * point, clear of it (owner, 2026-09-16: at 18 the group sat too low).
  */
-export const TAB_HOME_INDICATOR_CLEARANCE = 18;
+export const TAB_HOME_INDICATOR_CLEARANCE = 25;
+/**
+ * The home indicator's own band at the bottom of that clearance. It is
+ * reserved space, but it is not empty space — the pill is drawn in it — so
+ * the group is centred against what is left rather than against the screen
+ * edge, and ends up with a little more room below it than above.
+ */
+export const TAB_INDICATOR_BAND = spacing.sm;
 
 export type TabBarGeometry = {
   height: number;
@@ -73,16 +80,23 @@ export type TabBarGeometry = {
 
 /**
  * The bar's vertical layout for a bottom safe-area inset, with the icon and
- * label centred between the hairline and the screen edge.
+ * label centred between the hairline and the top of the home indicator's
+ * band.
  *
  * Why not bottom-tabs' own: it makes the bar 49 pt of items plus the whole
  * inset minus 4, and pins the items to the top of that. On an iPhone with a
  * home indicator (inset 34) the bar was 79 pt with a 30 pt empty band under
- * the labels and 9 above the icons (owner, 2026-09-15). Here the inset is
- * capped at what the indicator needs, and the same gap goes above the group
- * as below it. With no inset the bar keeps 8 pt under its labels, where the
- * library's layout (49 pt of items, our 8 pt of top padding inside it) left
- * the label box flush with the edge.
+ * the labels and 9 above the icons (owner, 2026-09-15).
+ *
+ * Centring against the screen edge instead put the group 13 pt lower, all
+ * but resting on the indicator (owner, 2026-09-16: "çok aşağıda"). What is
+ * centred is therefore the air a reader sees as air: the indicator's own
+ * band is reserved but not counted, which leaves the group a little higher
+ * with more room below it than above. On an iPhone 17 Pro that is an 82 pt
+ * bar (bottom-tabs' own was 79, ours at the screen edge 76) with the icons
+ * 7 pt higher than before and 25 pt of room under the labels instead of 18. With no inset the bar keeps 8 pt under its
+ * labels, where the library's layout (49 pt of items, our 8 pt of top
+ * padding inside it) left the label box flush with the edge.
  */
 export function tabBarGeometry(bottomInset: number): TabBarGeometry {
   const barPaddingBottom = Math.min(Math.max(bottomInset, 0), TAB_HOME_INDICATOR_CLEARANCE);
@@ -90,8 +104,11 @@ export function tabBarGeometry(bottomInset: number): TabBarGeometry {
   // The part of the gap nothing has to clear belongs to the items, so a tap
   // right at the bottom edge of such a bar still lands on a tab.
   const itemPaddingBottom = gap - barPaddingBottom;
-  // The hairline counts towards the gap above.
-  const itemPaddingTop = gap - TAB_BORDER;
+  const band = Math.min(barPaddingBottom, TAB_INDICATOR_BAND);
+  // The hairline counts towards the gap above, which never closes below the
+  // same minimum the labels get: a thin Android gesture inset has no pill to
+  // discount, so the discount must not push the icons into the hairline.
+  const itemPaddingTop = Math.max(gap - band, TAB_MIN_GAP) - TAB_BORDER;
   return {
     height: TAB_BORDER + itemPaddingTop + TAB_GROUP_HEIGHT + itemPaddingBottom + barPaddingBottom,
     barPaddingBottom,

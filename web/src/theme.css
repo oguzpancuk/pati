@@ -236,8 +236,14 @@ strong {
    is the bar's own padding: the rest stays inside the links, so a tap at the
    very bottom of a browser tab bar still lands on a tab. */
 .tabbar {
-  --tabbar-inset: min(env(safe-area-inset-bottom, 0px), 18px);
+  --tabbar-inset: min(env(safe-area-inset-bottom, 0px), 25px);
   --tabbar-gap: max(var(--tabbar-inset), 8px);
+  /* The home indicator's own band inside that gap: reserved space, but the
+     pill is drawn in it, so it does not read as air. The group is centred
+     against what is left, which lifts it clear of the indicator (owner,
+     2026-09-16 — at a plain centring it sat on top of it). */
+  --tabbar-band: min(var(--tabbar-inset), 8px);
+  --tabbar-top: max(calc(var(--tabbar-gap) - var(--tabbar-band)), 8px);
   display: flex;
   background: var(--surface);
   border-top: 1px solid var(--border);
@@ -250,7 +256,7 @@ strong {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: calc(var(--tabbar-gap) - 1px) 0 calc(var(--tabbar-gap) - var(--tabbar-inset));
+  padding: calc(var(--tabbar-top) - 1px) 0 calc(var(--tabbar-gap) - var(--tabbar-inset));
   text-decoration: none;
   color: var(--text-subtle);
   font-size: 10px;
