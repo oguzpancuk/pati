@@ -1396,3 +1396,46 @@ Carry them into the next commit that touches these files.
     registrant who leaves and rejoins is announced once. Bounded and arguably
     correct behaviour — the comment is the wrong part. Found by QA before the
     v42 deploy.
+
+## 🍎 App Store readiness (2026-09-16, night) — iOS first, Android parked
+
+Owner: "v42 çıktı. Android'i şimdilik geçelim, iOS'a çıkaralım. Sen eksikleri
+tamamla, ben o sırada key'leri alayım; key'leri girince her şey hazır olsun."
+So: everything on the code side that an App Store submission needs lands now,
+and the owner-side steps (Apple Developer enrollment, App ID + Service ID,
+the Fly secrets) are the only thing left when they return. Android's own
+items (release keystore, the unused background-location permission, the
+first build ever) are parked, not forgotten — see the end of this section.
+
+| #   | Item                                                                                          | Why                                                                 |
+| --- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| R1 ✅| Info.plist: `ITSAppUsesNonExemptEncryption` false; drop the unimplemented `fetch` background mode; portrait only | Export-compliance prompt on every upload; guideline 2.5.4 (declared background mode with no handler); landscape was never verified |
+| R2 ✅| `PrivacyInfo.xcprivacy` declares what the app collects                                        | Today it says "nothing", which contradicts the App Privacy answers   |
+| R3 ✅| Block a user (both clients + backend), and report a user from their profile                   | Guideline 1.2: UGC apps must let people block abusive users — there was no way to |
+| R4  | Release-configuration build on the simulator + smoke                                          | Every screenshot so far is Debug; Release is what ships              |
+| R5 ✅| App Store screenshots (6.9", 1320×2868) from the simulator                                    | Required for the listing                                             |
+| R6 ✅| `docs/store/APP-STORE.md`: listing text, App Privacy answers, review notes, the reviewer account recipe, and the exact "keys are in" sequence | So the owner's last step is paste + click |
+
+**Rule for R3, in one sentence:** blocking removes the friendship and closes
+every door that friendship opens (DMs, groups through me), refuses new
+requests in both directions, hides the two of us from each other's search,
+and hides their comments from me; their profile still opens so the block can
+be undone. Not covered, deliberately: messages they write in a group a mutual
+friend put us both in, and notifications about their actions.
+
+- **Done when:** R1/R2 by diff and a Release build that installs and runs;
+  R3 by `backend/scripts/ai-check/checks.sh` section 17 and screenshots of
+  the block/unblock flow on both clients; R4 by the Release build's smoke
+  screenshots; R5 by the files in `docs/store/screenshots/`; R6 by the file.
+  Then code-reviewer over the range.
+- **Done 2026-09-16 night** — R1, R2, R3, R5 and R6 are in
+  (`f87f702`, `f0b029f`, `cc7ce86`); details and evidence in NOTES.
+  R3's evidence: checks.sh section 17, 226/226 ALL PASS, plus the
+  block/unblock round trip driven on the simulator and in the browser.
+  **R4 is the one still open**: the Release-configuration build.
+- **Parked (Android wave):** release signing (`debug.keystore` signs release
+  today), `ACCESS_BACKGROUND_LOCATION` (the care-alert timer never runs in
+  the background, so the permission buys nothing and Play asks for a
+  declaration), the Google Android OAuth client + SHA-1, the first build.
+- **Not done, owner's call:** crash reporting (no Sentry or equivalent; the
+  first crash on a real device is invisible today).
