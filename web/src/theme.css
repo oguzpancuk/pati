@@ -234,11 +234,13 @@ strong {
    bar's middle; centring on the screen edge instead dropped them onto the
    home indicator. The gap below is that inset capped at the 29px that clear
    the indicator, never less than 8px; the gap above is the same minus the
-   indicator's own 16px band — reserved space, but something is drawn in it,
-   so it is not air — and never less than 8px either, hairline included. Only
-   the capped inset is the bar's own padding: the rest stays inside the
-   links, so a tap at the very bottom of a browser tab bar still lands on a
-   tab. */
+   indicator's own band — reserved space, but something is drawn in it, so it
+   is not air — and never less than 8px either, hairline included. The band is
+   16px of a full 29px reservation and shrinks in proportion with a smaller
+   one, because a device that reserves less has a smaller indicator to clear
+   (flat, it ate the whole gap between 9 and 28px). Only the capped inset is
+   the bar's own padding: the rest stays inside the links, so a tap at the
+   very bottom of a browser tab bar still lands on a tab. */
 .tabbar {
   --tabbar-inset: min(env(safe-area-inset-bottom, 0px), 29px);
   --tabbar-gap: max(var(--tabbar-inset), 8px);
@@ -246,7 +248,7 @@ strong {
      pill is drawn in it, so it does not read as air. The group is centred
      against what is left, which lifts it clear of the indicator (owner,
      2026-09-16 — at a plain centring it sat on top of it). */
-  --tabbar-band: min(var(--tabbar-inset), 16px);
+  --tabbar-band: calc(var(--tabbar-inset) * 16 / 29);
   --tabbar-top: max(calc(var(--tabbar-gap) - var(--tabbar-band)), 8px);
   display: flex;
   background: var(--surface);

@@ -2,6 +2,7 @@ import {
   TAB_GROUP_HEIGHT,
   TAB_HOME_INDICATOR_CLEARANCE,
   TAB_INDICATOR_BAND,
+  indicatorBand,
   tabBarGeometry,
   tabBarOptions,
 } from '../src/theme/navigation';
@@ -29,9 +30,10 @@ describe('the tab bar geometry', () => {
     [8, 56, 8, 8],
     [12, 60, 8, 12],
     [16, 64, 8, 16],
-    [20, 68, 8, 20],
-    [21, 69, 8, 21],
-    [24, 72, 8, 24],
+    [20, 69, 9, 20],
+    [21, 70, 9, 21],
+    [24, 75, 11, 24],
+    [29, 82, 13, 29],
     [34, 82, 13, 29],
     [48, 82, 13, 29],
   ])('inset %i: a %i pt bar with %i above and %i below', (inset, height, top, bottom) => {
@@ -39,7 +41,7 @@ describe('the tab bar geometry', () => {
     expect([g.height, above, below]).toEqual([height, top, bottom]);
   });
 
-  it.each([0, 4, 8, 12, 16, 20, 21, 24, 34, 48])('adds up at inset %i', (inset) => {
+  it.each([0, 4, 8, 12, 16, 20, 21, 24, 29, 34, 48])('adds up at inset %i', (inset) => {
     const { g, above, below } = gaps(inset);
     expect(g.height).toBe(above + TAB_GROUP_HEIGHT + below);
     // Never pressed against the edge, never more air than the indicator needs.
@@ -61,6 +63,18 @@ describe('the tab bar geometry', () => {
     expect(TAB_HOME_INDICATOR_CLEARANCE).toBe(29);
     const { above, below } = gaps(34);
     expect(below - above).toBe(TAB_INDICATOR_BAND);
+  });
+
+  it('shrinks the band with a reservation smaller than a full one', () => {
+    // A flat band ate the whole gap between 9 and 28 pt of inset (an iPad's
+    // is about 20) and pinned the group to the hairline with all the air
+    // underneath — the shape of the complaint these rounds started from.
+    expect([12, 16, 20, 24, 29].map(indicatorBand)).toEqual([7, 9, 11, 13, 16]);
+    expect(indicatorBand(0)).toBe(0);
+    [12, 16, 20, 24].forEach((inset) => {
+      const { above } = gaps(inset);
+      expect(above).toBeLessThan(gaps(29).above);
+    });
   });
 
   it('keeps the labels and the touch area above a home indicator', () => {

@@ -164,14 +164,17 @@ function AuthNavigator() {
  * anyone who does not already know it, and a modal has no back arrow of its
  * own because it is the bottom of its stack.
  *
- * It carries the app's own round header control (owner, 2026-09-16: the ×
- * was not centred). A bare glyph gets iOS 26's glass background drawn around
- * the header slot rather than around the glyph, which on an iPhone 17 Pro
- * put a 44 pt disc whose centre sat 7 pt to the × 's right. Given a disc of
- * its own the button decides its own bounds, and the three modal headers now
- * match the round controls on the animal profile and the conversation header
- * (whose `headButton` styles this one is a third copy of — see the ROADMAP
- * follow-up about extracting them).
+ * It carries a bare 36 pt frame (owner, 2026-09-16: the × was not centred).
+ * A glyph with no frame gets iOS 26's background drawn around the header
+ * slot rather than around the glyph, which on an iPhone 17 Pro put a 44 pt
+ * disc whose centre sat 7 pt to the ×'s right; given bounds of its own, the
+ * system centres its disc on them instead.
+ *
+ * NOT the `headButton` of AnimalProfileScreen and ConversationScreen, which
+ * looks similar and is a surface with a hairline and a shadow. That was
+ * tried here first: it centres the × too, but our ring then sits inside the
+ * system's and the control reads as two concentric discs. So this is
+ * deliberately not a third copy of that style — do not "unify" them.
  */
 function ModalCloseButton({ onPress }: { onPress: () => void }) {
   const { colors } = useTheme();
@@ -182,7 +185,7 @@ function ModalCloseButton({ onPress }: { onPress: () => void }) {
       hitSlop={hitSlop}
       accessibilityRole="button"
       accessibilityLabel="Kapat"
-      style={styles.headButton}
+      style={styles.modalCloseFrame}
     >
       <Icon name="close" size={22} color={colors.text} />
     </Pressable>
@@ -477,13 +480,11 @@ const useStyles = makeStyles(({ colors: c }) => ({
     justifyContent: 'center',
     backgroundColor: c.background,
   },
-  // A square frame with the glyph centred in it, and nothing else: iOS 26
-  // draws the header button's own background, and it draws it around THIS
-  // box. Given no box it used the whole header slot and the × sat 7 pt left
-  // of the disc's centre. A surface and a hairline of our own (the animal
-  // profile's `headButton`) would centre it too, but then the app's ring sits
-  // inside the system's and the control reads as two discs.
-  headButton: {
+  // A frame with the glyph centred in it, and nothing else: iOS 26 draws the
+  // header button's own background around THIS box (see ModalCloseButton for
+  // why it carries no surface of its own). 36 pt also takes the touch target
+  // from 38 to 52 with the hitSlop, over the 44 the design system asks for.
+  modalCloseFrame: {
     width: 36,
     height: 36,
     borderRadius: radius.pill,

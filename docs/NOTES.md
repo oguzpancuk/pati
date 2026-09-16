@@ -4629,17 +4629,37 @@ was not centred in its disc.
   layout read as off-centre, centring on the screen edge read as "çok
   aşağıda", discounting an 8 pt band still read as centred — so instead of a
   fourth guess, three candidates were rendered on the simulator at the same
-  82 pt bar height and shown to the owner: 8/34 (top-aligned), 12/29 and the
-  then-current 17/25 (box values; the ink gaps are ~3 pt wider). They picked
-  the middle one. `TAB_HOME_INDICATOR_CLEARANCE` 25 → 29 and
+  82 pt bar height and shown to the owner: 8/34 (top-aligned), 13/29 and the
+  then-current 17/25 — air above the icons (hairline counted) over air below
+  the labels, each summing with the 40 pt group to 82. The `itemPaddingTop`
+  that produces the picked 13 is 12; measured ink sits 2.3 pt below the box
+  at the top and 1.0 above it at the bottom. They picked the middle one. `TAB_HOME_INDICATOR_CLEARANCE` 25 → 29 and
   `TAB_INDICATOR_BAND` 8 → 16 express it, and the rule still reads the same
   way: reserve up to 29 pt of the inset, of which the bottom 16 belong to the
   indicator and are not air, and centre the group against the rest, with an
   8 pt floor. Measured after: hairline 792 pt, bar 82, ink 807.3–843.7, air
   15.3 above and 30.0 below. Nothing moves without an inset (56 pt, 8/8),
   unchanged through all three rounds. Web computed the same: 54 px in a
-  browser, 80 px with a 29 px inset, 12 above and 29 below.
+  browser, 80 px with a 29 px inset, 13 above and 29 below.
 
 **These figures are a decision, not a derivation.** DESIGN.md says so too.
 Anyone tempted to re-centre this bar from first principles should read the
 three rounds above first.
+
+Review round on those two commits: APPROVE, with one finding worth acting on
+straight away — a flat 16 pt band ate the whole gap on every inset between 9
+and 28 pt (an iPad's is about 20), pinning the group to the hairline with all
+the air underneath, which is the very shape the three rounds were about. The
+band is proportional now (`indicatorBand`, 16 of a full 29): inset 34 is
+untouched at 82/13/29, and 20 goes to 69/9/20 instead of 68/8/20. Also fixed
+from that round: the close button's docblock claimed to be a third copy of the
+animal profile's `headButton` and invited someone to extract them, which would
+have reinstated the double disc the fix removed — it now says the opposite,
+and the style is named `modalCloseFrame` so the two do not read as the same
+thing. The reviewer also noticed the × fix took the touch target from 38 to 52
+pt, over the 44 the design system asks for. Not covered: Android (no
+system-drawn header background there, so the frame simply moves the glyph
+7 dp inward) and a real standalone PWA. Web's band is a `calc()`, so it keeps the fraction
+mobile rounds away: at a 20 px inset the link's top padding is 7.97 px where
+mobile computes 8. Sub-pixel, and the two agree exactly at the inset that
+matters (29 → 12).

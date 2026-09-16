@@ -202,9 +202,12 @@ The tab bar's height is computed from the bottom safe-area inset
 (`tabBarGeometry`, owner 2026-09-15 and twice on 2026-09-16): the icon and
 label sit centred between the hairline and **the top of the home indicator's
 band**, with the inset capped at the 29 pt that clear the indicator and never
-less than 8 pt of air above or below. The band (16 pt) is reserved but is not
-counted as air — the indicator is drawn in it — so the group ends up with
-rather more room below than above. This one took three tries: the library's
+less than 8 pt of air above or below. The band is reserved but is not counted
+as air — the indicator is drawn in it — so the group ends up with rather more
+room below than above. It is 16 pt of a full 29 pt reservation and shrinks in
+proportion with a smaller one (`indicatorBand`): a device that reserves less
+has a smaller indicator to clear, and a flat band ate the whole gap on the
+9-28 pt insets, an iPad's among them. This one took three tries: the library's
 own layout read as off-centre, centring on the screen edge read as "çok
 aşağıda", and discounting only 8 pt still read as centred. The owner picked
 the current figures from three candidates rendered on the simulator (the
