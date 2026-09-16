@@ -578,14 +578,14 @@ async function unblockUser(req, res, next) {
     // row the OTHER person's block is still holding closed.
     if (lifted.rowCount > 0) {
       await client.query(
-      `DELETE FROM friendships f
-        WHERE ((f.requester_id = $1 AND f.addressee_id = $2)
-            OR (f.requester_id = $2 AND f.addressee_id = $1))
-          AND f.status = 'pending'
-          AND NOT EXISTS (
-            SELECT 1 FROM user_blocks b
-             WHERE (b.blocker_id = $1 AND b.blocked_id = $2)
-                OR (b.blocker_id = $2 AND b.blocked_id = $1))`,
+        `DELETE FROM friendships f
+          WHERE ((f.requester_id = $1 AND f.addressee_id = $2)
+              OR (f.requester_id = $2 AND f.addressee_id = $1))
+            AND f.status = 'pending'
+            AND NOT EXISTS (
+              SELECT 1 FROM user_blocks b
+               WHERE (b.blocker_id = $1 AND b.blocked_id = $2)
+                  OR (b.blocker_id = $2 AND b.blocked_id = $1))`,
         [req.user.userId, targetId]
       );
     }

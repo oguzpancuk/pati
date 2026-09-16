@@ -1459,12 +1459,20 @@ submission; all are written down so the next reader is not rediscovering them.
    unblock — rare squared, and the outcome is a stale friend request, not
    lost data. Closing it properly means `SELECT … FOR UPDATE` on the block
    rows.
-2. **A deleted account's old notifications walk back through the block
-   filter.** `notifications.actor_id` is `ON DELETE SET NULL` and
-   `user_blocks` cascades, so when a blocked person deletes their account the
-   block row goes with them while the payload keeps their frozen name and the
-   first 140 characters of their text. Those rows then reappear in the
-   blocker's inbox. Pre-existing payload design, newly reachable.
+2. **A blocked person deleting their account unhides their old
+   notifications — and now does it loudly.** The mechanism is not a cascade:
+   accounts are never deleted, `anonymizeAccount` keeps the `users` row and
+   explicitly runs `DELETE FROM user_blocks WHERE blocker_id = $1 OR
+   blocked_id = $1` (`utils/accountDeletion.js`). That delete is what lifts
+   the block, while the notification payload keeps the actor's frozen name
+   and the first 140 characters of their text.
+   The part this batch changed: with `markRead` filtered, those rows stay
+   **unread** behind the block instead of being silently consumed. So where
+   the rows used to reappear quietly, the blocker's bell now jumps — showing
+   the name and words of somebody they blocked, as fresh news. Strictly
+   louder than before, which is the price of `markRead` being correct.
+   Fixing it means deciding what a block should mean once the other account
+   is gone; the cheap half is stamping those rows read at anonymisation.
 3. **The Podfile's signature hook is scoped wider than its comment says.** It
    walks every native target of the user project, so the build phase landed
    on `PatiMobileTests` as well as the app. Harmless — both share
