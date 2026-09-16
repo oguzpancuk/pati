@@ -1173,7 +1173,7 @@ appears — a conflict means the partition was wrong and the owner arbitrates.
 
 ---
 
-## 🐞 Owner batch of 2026-09-14 — two bugs, two changes — ✅ done, live in v40
+## 🐞 Owner batch of 2026-09-14 — two bugs, two changes — ✅ done; the backend and web halves live in v40, the mobile halves with the next app build
 
 | #   | Item                                                                                          | Kind   |
 | --- | --------------------------------------------------------------------------------------------- | ------ |
@@ -1200,12 +1200,12 @@ and needs production evidence (report and ask).
 **Status (2026-09-14):** all four landed on `main` on both clients, battery
 green on a clean HEAD, code-reviewer over the whole range. Evidence, the
 platform limits and what stays unverified (Android, real devices) are in
-NOTES "2026-09-14 · owner batch". Open for the owner: which device showed the
-location warning without a prompt, and approval to publish and deploy.
+NOTES "2026-09-14 · owner batch". The device behind C2's report turned out to
+be Mobile Safari, whose own refusal memory is the cause (see L, 2026-09-16).
 
 ---
 
-## 🐞 Owner follow-ups of 2026-09-15 — ✅ done, live in v40
+## 🐞 Owner follow-ups of 2026-09-15 — ✅ done; C3's web half live in v40, K, S and C3's mobile halves with the next app build
 
 | #   | Item                                                                                   | Clients        |
 | --- | -------------------------------------------------------------------------------------- | -------------- |
@@ -1222,7 +1222,7 @@ over the range. All met — details in NOTES "2026-09-15".
 
 ---
 
-## 🧰 Owner fixes of 2026-09-15 (evening) — six items — ✅ done, live in v41
+## 🧰 Owner fixes of 2026-09-15 (evening) — six items — ✅ done; the web halves and the paging fix live in v41, the mobile halves with the next app build
 
 | #   | Item                                                                                   | Clients      |
 | --- | -------------------------------------------------------------------------------------- | ------------ |
@@ -1260,11 +1260,23 @@ and what stays unverified are in NOTES "2026-09-16".
 c.created_at DESC") is paged by offset from both clients
 (web/src/pages/UserCommentsPage.tsx, mobile/src/screens/UserCommentsScreen.tsx,
 30 at a time). Rows that share a timestamp — the seeded worlds are full of
-them — have no fixed order between two queries, so "Önceki yorumları yükle"
-can repeat one comment and never show another; mobile appends without a dedupe,
-so it also gets a duplicate list key. The cared-animal query had the same flaw
+them — have no fixed order between two queries, so the next page (web's
+"Daha fazla göster", mobile's scroll to the end) can miss a comment: mobile
+appends without a dedupe and repeats one with a duplicate list key, while web
+merges by id and instead drifts its offset, re-requesting a row already shown.
+The animal-profile chat is NOT affected; its query already sorts by id too. The cared-animal query had the same flaw
 and was fixed in 2620392 by adding the id to the sort; this one wants
 `, c.id DESC` and the same curl check. Found by the pre-deploy review of that
 fix, 2026-09-16; not part of it because it is a separate query with its own
 clients to re-check.
+
+The same bare-timestamp ordering is in more queries, and the admin panel is
+the worse case: every admin list pages 25 at a time (admin/src/useList.ts)
+over `admin.controller.js` queries ordered by a timestamp alone — users,
+animals, the comment-moderation lists, reports and the audit log. On the local
+database 142 of the moderation list's page boundaries fall inside a tie group,
+so a reported comment can sit on no page at all. `/care-actions/mine`
+(care.controller.js) has the same ordering but both clients fetch it as a
+single page of 100, so it is latent. Fix them with the same one-line
+tiebreaker when one of them is next touched.
 

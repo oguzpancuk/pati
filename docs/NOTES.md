@@ -4471,8 +4471,8 @@ pages identical, reviewed). The user comments list has the same flaw; it is
 written up in the ROADMAP under "Open follow-up: the user comments list pages
 without a tiebreaker". `2620392` pushed, CI green (run on 2620392), deployed
 as **v41**: no migrations, release command completed, `/health` ok, web and
-admin 200, the served bundle is the one built from 2620392
-(`index-DiBxgX5E.js`,
+admin 200, and the served bundle is the one built from
+2620392 (`index-DiBxgX5E.js`,
 carrying the retry button and the tap-for-options label). No logged-in
 production screenshot (no production account on this machine). Mobile
 changes ship with the next app build.
