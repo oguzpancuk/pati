@@ -1321,6 +1321,12 @@ the in-app browser rather than playwright (its chromium is not installed
 here). Evidence, the measured tab-bar numbers and what stays unverified are in
 NOTES "2026-09-16 (evening)". Not deployed.
 
+Then the owner drove the app on the simulator and sent two more: N was still
+not right (third round — settled by rendering three candidates and letting
+them pick, rather than guessing a fourth time), and the × in the modal
+header's close button was 7 pt off centre. Both fixed and measured; see NOTES
+"the tab bar, third try, and the modal ×".
+
 ---
 
 ## 🧵 Open follow-up: six small things the 2026-09-16 review round parked

@@ -199,20 +199,23 @@ transitions flash a white background that clashes with ours. All three
 (`navigationTheme`, `screenOptions`, `tabBarOptions`) are functions taking the
 theme — as static objects, header and tab colors would freeze on theme change.
 The tab bar's height is computed from the bottom safe-area inset
-(`tabBarGeometry`, owner 2026-09-15 and 2026-09-16): the icon and label sit
-centred between the hairline and **the top of the home indicator's band**,
-with the inset capped at the 25 pt that clear the indicator and never less
-than 8 pt of air above or below. The band (8 pt) is reserved but is not
-counted as air — the pill is drawn in it — so the group ends up with a little
-more room below than above; centring on the screen edge instead put it 7 pt
-lower and all but on the indicator (owner: "çok aşağıda"). On an iPhone 17 Pro
-that is 82 pt, 17 above the icons and 25 under the labels (bottom-tabs' own
-was 79 with a 30 pt empty band under them; the 2026-09-15 geometry, 76); with
-no inset, 56, unchanged. Never a constant height — one that ignores the inset
-clips the labels on notched phones. Landscape phones keep the library's
-compact side-by-side bar. Web's `.tabbar` applies the same rule with
-`env(safe-area-inset-bottom)`: 54 px in a browser, 80 px standalone on a
-34 px inset (its group is 38 px, mobile's 40 pt).
+(`tabBarGeometry`, owner 2026-09-15 and twice on 2026-09-16): the icon and
+label sit centred between the hairline and **the top of the home indicator's
+band**, with the inset capped at the 29 pt that clear the indicator and never
+less than 8 pt of air above or below. The band (16 pt) is reserved but is not
+counted as air — the indicator is drawn in it — so the group ends up with
+rather more room below than above. This one took three tries: the library's
+own layout read as off-centre, centring on the screen edge read as "çok
+aşağıda", and discounting only 8 pt still read as centred. The owner picked
+the current figures from three candidates rendered on the simulator (the
+others were 8/34 and 17/25), so **treat them as a decision, not as a formula
+to re-derive.** On an iPhone 17 Pro that is 82 pt, 13 above the icons and 29
+under the labels (bottom-tabs' own was 79 with a 30 pt empty band under them);
+with no inset, 56, unchanged through all three rounds. Never a constant height
+— one that ignores the inset clips the labels on notched phones. Landscape
+phones keep the library's compact side-by-side bar. Web's `.tabbar` applies
+the same rule with `env(safe-area-inset-bottom)`: 54 px in a browser, 80 px
+standalone on a 34 px inset (its group is 38 px, mobile's 40 pt).
 
 ## 7. App icon and launch screen
 

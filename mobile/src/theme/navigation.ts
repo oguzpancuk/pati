@@ -58,17 +58,18 @@ export const TAB_GROUP_HEIGHT = TAB_ICON_SIZE + TAB_LABEL_GAP + TAB_LABEL_LINE_H
 const TAB_MIN_GAP = spacing.sm;
 /**
  * The most of the bottom safe area the bar reserves. The home indicator sits
- * in the bottom 13 pt of the screen; 25 lifts the labels, and every tappable
- * point, clear of it (owner, 2026-09-16: at 18 the group sat too low).
+ * in the bottom 13 pt of the screen; 29 lifts the labels, and every tappable
+ * point, clear of it. Picked by the owner from three rendered candidates on
+ * 2026-09-16, after 18 read as "too low" and 25 still read as centred.
  */
-export const TAB_HOME_INDICATOR_CLEARANCE = 25;
+export const TAB_HOME_INDICATOR_CLEARANCE = 29;
 /**
- * The home indicator's own band at the bottom of that clearance. It is
- * reserved space, but it is not empty space — the pill is drawn in it — so
- * the group is centred against what is left rather than against the screen
- * edge, and ends up with a little more room below it than above.
+ * The home indicator's own band at the bottom of that clearance: the pill and
+ * the room it needs around itself. It is reserved space, but it is not empty
+ * space — something is drawn in it — so the group is centred against what is
+ * left, which leaves it with rather more room below than above.
  */
-export const TAB_INDICATOR_BAND = spacing.sm;
+export const TAB_INDICATOR_BAND = spacing.lg;
 
 export type TabBarGeometry = {
   height: number;
@@ -91,10 +92,11 @@ export type TabBarGeometry = {
  * Centring against the screen edge instead put the group 13 pt lower, all
  * but resting on the indicator (owner, 2026-09-16: "çok aşağıda"). What is
  * centred is therefore the air a reader sees as air: the indicator's own
- * band is reserved but not counted, which leaves the group a little higher
- * with more room below it than above. On an iPhone 17 Pro that is an 82 pt
- * bar (bottom-tabs' own was 79, ours at the screen edge 76) with the icons
- * 7 pt higher than before and 25 pt of room under the labels instead of 18. With no inset the bar keeps 8 pt under its
+ * band is reserved but not counted, which leaves the group higher with
+ * rather more room below it than above. On an iPhone 17 Pro that is an 82 pt
+ * bar (bottom-tabs' own was 79, ours at the screen edge 76) with 13 pt above
+ * the icons and 29 under the labels — the candidate the owner picked from
+ * three rendered on the simulator, the other two being 8/34 and 17/25. With no inset the bar keeps 8 pt under its
  * labels, where the library's layout (49 pt of items, our 8 pt of top
  * padding inside it) left the label box flush with the edge.
  */

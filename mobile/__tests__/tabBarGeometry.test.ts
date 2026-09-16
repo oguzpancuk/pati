@@ -29,11 +29,11 @@ describe('the tab bar geometry', () => {
     [8, 56, 8, 8],
     [12, 60, 8, 12],
     [16, 64, 8, 16],
-    [20, 72, 12, 20],
-    [21, 74, 13, 21],
-    [24, 80, 16, 24],
-    [34, 82, 17, 25],
-    [48, 82, 17, 25],
+    [20, 68, 8, 20],
+    [21, 69, 8, 21],
+    [24, 72, 8, 24],
+    [34, 82, 13, 29],
+    [48, 82, 13, 29],
   ])('inset %i: a %i pt bar with %i above and %i below', (inset, height, top, bottom) => {
     const { g, above, below } = gaps(inset);
     expect([g.height, above, below]).toEqual([height, top, bottom]);
@@ -56,9 +56,9 @@ describe('the tab bar geometry', () => {
   });
 
   it('discounts exactly the home indicator band from the gap above', () => {
-    // 25 of air below, 8 of which the pill fills, so 17 above it.
-    expect(TAB_INDICATOR_BAND).toBe(8);
-    expect(TAB_HOME_INDICATOR_CLEARANCE).toBe(25);
+    // 29 of room below, 16 of which the indicator owns, so 13 above it.
+    expect(TAB_INDICATOR_BAND).toBe(16);
+    expect(TAB_HOME_INDICATOR_CLEARANCE).toBe(29);
     const { above, below } = gaps(34);
     expect(below - above).toBe(TAB_INDICATOR_BAND);
   });
@@ -75,10 +75,11 @@ describe('the tab bar geometry', () => {
   it('lifts the group above where centring on the screen edge put it', () => {
     // The 2026-09-15 geometry at inset 34: a 76 pt bar with 18 pt of padding
     // under the items and 17 above them, which put the icons 58 pt from the
-    // screen edge. They now sit 7 pt higher (owner, 2026-09-16).
+    // screen edge. They now sit 11 pt higher — the position the owner picked
+    // from three rendered candidates on 2026-09-16.
     const inkTopAboveEdge = (g: ReturnType<typeof tabBarGeometry>) =>
       g.height - 1 - g.itemPaddingTop;
-    expect(inkTopAboveEdge(tabBarGeometry(34))).toBe(58 + 7);
+    expect(inkTopAboveEdge(tabBarGeometry(34))).toBe(58 + 11);
   });
 
   it('sizes the bar against the library one it replaces', () => {
@@ -96,8 +97,8 @@ describe('tabBarOptions', () => {
   it('sets the computed height and stacked labels in portrait', () => {
     const options = tabBarOptions(theme, { bottomInset: 34, landscape: false });
     expect(options.tabBarLabelPosition).toBe('below-icon');
-    expect(options.tabBarStyle).toMatchObject({ height: 82, paddingTop: 0, paddingBottom: 25 });
-    expect(options.tabBarItemStyle).toMatchObject({ paddingTop: 16, paddingBottom: 0 });
+    expect(options.tabBarStyle).toMatchObject({ height: 82, paddingTop: 0, paddingBottom: 29 });
+    expect(options.tabBarItemStyle).toMatchObject({ paddingTop: 12, paddingBottom: 0 });
   });
 
   it('leaves the landscape bar to the library', () => {

@@ -4607,3 +4607,39 @@ Two findings were read and deliberately left:
   of this animal, and the next load is consistent. Guarding it means
   re-reading the carer row inside `storeCarePhotos`, which is shared with the
   join path where the row was just written.
+
+### Same evening — the tab bar, third try, and the modal ×
+
+The owner looked at the running app and said two things: the navigation items
+**still** read as centred, and the × in the add-animal header's close button
+was not centred in its disc.
+
+- **The ×.** Measured on the simulator: 7 pt left of the disc's centre,
+  vertically fine. The disc is not ours — iOS 26 draws a background behind a
+  header button — and with a bare glyph as `headerLeft` it drew a 44 pt one
+  around the whole header slot while the glyph stayed at the leading edge.
+  Giving the Pressable a 36 pt frame with the glyph centred in it makes the
+  system draw its disc around that instead: 0.00 pt horizontally, 0.17
+  vertically. A surface and hairline of our own (the animal profile's
+  `headButton`) centres it too and was tried first, but then our ring sits
+  inside the system's and the control reads as two discs. All three modal
+  headers share `modalOptions`, so "bakım ver" and "yeni sohbet" get it too.
+  Nothing to do on web: its modal header is a plain chevron with no disc.
+- **The tab bar, stop guessing.** Three rounds on one bar — the library's
+  layout read as off-centre, centring on the screen edge read as "çok
+  aşağıda", discounting an 8 pt band still read as centred — so instead of a
+  fourth guess, three candidates were rendered on the simulator at the same
+  82 pt bar height and shown to the owner: 8/34 (top-aligned), 12/29 and the
+  then-current 17/25 (box values; the ink gaps are ~3 pt wider). They picked
+  the middle one. `TAB_HOME_INDICATOR_CLEARANCE` 25 → 29 and
+  `TAB_INDICATOR_BAND` 8 → 16 express it, and the rule still reads the same
+  way: reserve up to 29 pt of the inset, of which the bottom 16 belong to the
+  indicator and are not air, and centre the group against the rest, with an
+  8 pt floor. Measured after: hairline 792 pt, bar 82, ink 807.3–843.7, air
+  15.3 above and 30.0 below. Nothing moves without an inset (56 pt, 8/8),
+  unchanged through all three rounds. Web computed the same: 54 px in a
+  browser, 80 px with a 29 px inset, 12 above and 29 below.
+
+**These figures are a decision, not a derivation.** DESIGN.md says so too.
+Anyone tempted to re-centre this bar from first principles should read the
+three rounds above first.
