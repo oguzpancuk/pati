@@ -5007,3 +5007,65 @@ SHA-1). Crash reporting is still absent, which is the owner's call. The
 up at 20 s and the device log shows no crash, so it is a timing quirk of the
 deep-link relaunch, not a defect; five screenshots are enough for the
 listing.
+
+
+## 2026-09-16 (night) · Deploy v45, and the first build in App Store Connect
+
+The blocking feature and its three review rounds went to production, and the
+iOS app was uploaded. The order mattered and the owner is the one who caught
+it: the `.ipa` had already been built when they asked "we haven't deployed
+yet — did you build from the newest state?" The app was current, but
+**production was not**. Probed rather than assumed:
+
+```
+GET /users/me          401   (route exists, wants auth)
+GET /users/me/blocks   404   (route absent)
+```
+
+401 against 404 is the proof. Shipping that build first would have put an
+"Engelle" button in App Review's hands that answers 404 — on the very
+feature added to satisfy guideline 1.2. **A mobile build is only as deployed
+as the backend it calls**, and nothing in the battery or the archive can see
+that gap; only asking production can.
+
+Sequence run: review of the seven unreviewed commits → two real defects
+fixed (below) → its own review → push → CI green → `/deploy-checklist` →
+`fly deploy` → the same three endpoints re-probed, all 401 now → upload.
+
+**Deploy v45.** Release command completed (migration `016_user_blocks.sql`
+applied), machine in a good state, `/health` ok, both hosts 200.
+
+**Two defects the pre-push review caught**, both reachable through the public
+API and both walked past by the curl suite's own assertions:
+
+- `unblockUser` swept a pending friendship whenever no block remained,
+  without asking whether *this call* had lifted one. A repeated DELETE —
+  a retry after a flaky response, a second device still showing "Engeli
+  kaldır" — destroyed a real friend request the other person had just sent.
+  Gated on the delete's own rowCount now. The suite had asserted only that
+  second DELETE's status code.
+- `markRead` never got the block filter the list and both counts had, so
+  opening the inbox stamped read_at on rows the reader could not see and
+  lifting the block returned them already-read, bell silent.
+
+Both now have assertions that read the database directly, and the reviewer
+**proved they are not vacuous** by reverting the two controllers in a
+throwaway worktree: exactly three checks fail, the three that were added.
+243/243 ALL PASS otherwise.
+
+**The upload.** `xcodebuild -exportArchive` with `destination: upload` went
+through on Xcode's own signed-in session — no API key needed, which matters
+because handling one is not something this session should do. Two warnings
+worth keeping:
+
+- **`MinimumOSVersion` is 13.4; from spring 2027 App Store Connect requires
+  15.0.** Not blocking this submission. Raising it drops iPhone 6s/7-era
+  devices, so it is a product call, not a chore.
+- **No dSYM for `MapLibre.framework` or `hermes.framework`**, so crashes
+  inside those two will arrive unsymbolicated. Both are prebuilt binaries we
+  do not compile; with no crash reporter wired up at all this changes
+  nothing today, and it is the second reason to revisit that decision.
+
+Four earlier review-round items stay parked in the ROADMAP, two of them
+deliberately: the `.ipa` now in App Store Connect was built from exactly the
+iOS bytes in this tree, and changing them would have made the artifact stale.
