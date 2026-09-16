@@ -551,6 +551,8 @@
 					"-ObjC",
 					"-lc++",
 				);
+				DEVELOPMENT_TEAM = 5J62WM72AV;
+				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati;
 				PRODUCT_NAME = PatiMobile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -578,6 +580,8 @@
 					"-ObjC",
 					"-lc++",
 				);
+				DEVELOPMENT_TEAM = 5J62WM72AV;
+				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati;
 				PRODUCT_NAME = PatiMobile;
 				SWIFT_VERSION = 5.0;
