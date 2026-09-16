@@ -4812,6 +4812,70 @@ readiness".
   the shape production actually has, not against a database built from
   `001` alone.
 
+### The review round, and the two defects it found
+
+code-reviewer over the range came back NEEDS_WORK, and both real findings
+were the same mistake in two places: **the block's promise was true of the
+animal chat and nowhere else.**
+
+- **Their comments were still on their profile.** The dialog says
+  "yorumlarını görmezsin"; `runAction` then reloads the very screen it was
+  pressed on, which rendered their three latest comments and a "tümü" link
+  into the full list. I had filtered `listComments` and stopped there. The
+  lesson is about where a rule has to be applied: "their comments" is not
+  one query, it is every reader of `animal_comments`, and I filtered the one
+  the feature's own test happened to exercise.
+- **A friendship could come back after the block.** `acceptRequest` was a
+  bare `UPDATE … SET status='accepted'`. `sendRequest` checks the block and
+  then inserts, `blockUser` inserts the block and then deletes friendships —
+  two read-then-write pairs with no lock between them, so a request sent in
+  the same instant survives both. Accepting it hands back DMs and group-add,
+  because the whole design leans on "no friendship ⇒ no doors". The guard
+  belongs on the statement that creates the friendship, where the database
+  decides it: `NOT EXISTS (… user_blocks …)` on the UPDATE. Section 17 now
+  plants exactly that row with SQL (the API refuses to create it) and
+  asserts the accept is refused and the DM stays shut.
+
+Five smaller ones, all taken:
+
+- The health record's `comment_count` is filtered the same way as the chat
+  it opens — **and so is its `in_treatment` test**, which is the part worth
+  remembering. Filtering only the count would have produced "0 yorum" over a
+  record reading "in_treatment", which is precisely the disagreement the
+  docblock above that query forbids. The consequence is that the treatment
+  state is now the reader's view rather than a global fact; that is the
+  price of the chat being the reader's view, and an internally consistent
+  pair beats a number nobody can trace.
+- `blocks.js` asserts its arguments are a `$n` placeholder and a plain
+  column name. Both fragments are string-interpolated, safe today because
+  every caller passes a literal — the assertion is what makes the next
+  careless caller a crash at boot instead of an injection.
+- The refusal to a blocked friend request is now the same bare sentence both
+  ways with no `code`. The old comment claimed "the person who was blocked
+  is not told so" while the body carried `code: 'blocked'`, and someone who
+  knows they blocked nobody reads that as the answer.
+- Mobile hides the "⋯" disc on your own profile. Web redirects
+  `/kullanici/<my id>` to `/profil`; `pati://user/<my id>` reaches the
+  screen, where the menu offered to report and block yourself (both bounce
+  with a Turkish 400, so cosmetic, but it was a parity divergence this
+  change introduced).
+- `backend/test/blocks.test.js` puts the feature in the battery. Its only
+  evidence was the curl suite, which `verify.sh` does not run.
+
+Also from that round, and acted on outside the code: the store screenshots
+were shot against check-suite data — the map's sheet read "Buralarda mama ve
+su yok" over a map full of food and water rings, and the profile showed the
+address `ai-1789537063@example.com` with no chosen badges. Retaken on a spot
+that has care, with a named account and three badges, and the showcase
+"demo" chips cleared from the rows those frames show. One caveat is written
+into APP-STORE.md rather than fixed: there are no real animal photographs in
+any local database, so the animal profile's photo strip is three generated
+solid-colour squares, which a reviewer reads as a broken image (guideline
+2.3.3). That one has to be retaken from a real account before submission.
+
+After the fixes: **233/233 ALL PASS**, section 17 at 47 assertions, and the
+battery green on a clean HEAD.
+
 **Not done and why.** Android is a whole wave of its own (release keystore —
 `debug.keystore` signs release today, the never-exercised build, the
 `ACCESS_BACKGROUND_LOCATION` permission that buys nothing because the
