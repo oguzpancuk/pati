@@ -4923,6 +4923,44 @@ plus a surface I had wrongly excluded. But the rule from the nine-round
 session applies to the count, not only to the cause: this is where it gets
 reported rather than iterated a third time.
 
+### Apple sign-in turned on for iOS (owner, same night)
+
+The owner enrolled, created the App ID for `com.oguzpancuk.pati` with Sign
+in with Apple **as a primary App ID**, and left the server-to-server
+notification endpoint blank — pati implements no such endpoint, and naming
+an address for one would claim we listen where we do not. Then one secret:
+
+```
+fly secrets set --app pati-app APPLE_CLIENT_IDS="com.oguzpancuk.pati"
+```
+
+No code deployed. `GET /api/auth/providers` on production now answers
+`apple: { enabled: true, serviceId: null, redirectUri: null }`, and that
+shape is the whole point of the design: **each client draws only what it is
+told about.** Verified on both, in the state that actually ships:
+
+- **iOS, the Release build, against production.** Reinstalled the Release
+  binary on the simulator: the login screen now draws "Apple ile giriş yap"
+  above the Google button, and the consent line underneath has become
+  "Apple veya Google ile devam edersen…". Tapping it reached Apple's own
+  system dialog ("Apple Hesabı'nıza giriş yapın" — the simulator has no
+  Apple Account) and the process survived it, same pid before and after,
+  no crash line in the device log. Signing in for real needs the owner's
+  Apple Account in the simulator, so that is where this stops.
+- **Web, on pati-app.com.** The Apple button is correctly **absent**:
+  `appleReady` returns null unless BOTH `serviceId` and `redirectUri` are
+  present, so `enabled: true` alone cannot draw a button that would have
+  nothing to configure Apple's JS with. Checked on the live page, which
+  offers only Google.
+
+So App Store guideline 4.8 is satisfied for the app — it offers Apple
+beside Google — without the Services ID, which exists only for the web
+client's button. `web/public/.well-known/` is ready with a README for
+whenever that is wanted; both halves of that serving path were tested
+(Vite copies the dotted directory into `dist/`, the backend answers 200
+with the file's bytes), so it needs no code change, only the file and a
+deploy.
+
 **Not done and why.** Android is a whole wave of its own (release keystore —
 `debug.keystore` signs release today, the never-exercised build, the
 `ACCESS_BACKGROUND_LOCATION` permission that buys nothing because the
