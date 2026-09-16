@@ -1173,7 +1173,7 @@ appears — a conflict means the partition was wrong and the owner arbitrates.
 
 ---
 
-## 🐞 Owner batch of 2026-09-14 — two bugs, two changes — ✅ done (not deployed)
+## 🐞 Owner batch of 2026-09-14 — two bugs, two changes — ✅ done, live in v40
 
 | #   | Item                                                                                          | Kind   |
 | --- | --------------------------------------------------------------------------------------------- | ------ |
@@ -1205,7 +1205,7 @@ location warning without a prompt, and approval to publish and deploy.
 
 ---
 
-## 🐞 Owner follow-ups of 2026-09-15 — ✅ done (not deployed)
+## 🐞 Owner follow-ups of 2026-09-15 — ✅ done, live in v40
 
 | #   | Item                                                                                   | Clients        |
 | --- | -------------------------------------------------------------------------------------- | -------------- |
@@ -1222,7 +1222,7 @@ over the range. All met — details in NOTES "2026-09-15".
 
 ---
 
-## 🧰 Owner fixes of 2026-09-15 (evening) — six items — ✅ done
+## 🧰 Owner fixes of 2026-09-15 (evening) — six items — ✅ done, live in v41
 
 | #   | Item                                                                                   | Clients      |
 | --- | -------------------------------------------------------------------------------------- | ------------ |
@@ -1246,7 +1246,25 @@ done, or an item fails its battery twice (park with a note), or L turns out to
 be a browser limit that code cannot change (report the evidence and ask).
 
 **Status (2026-09-16):** all six landed on both clients where they apply
-(L is web-only by nature). iOS checks were run on the simulator for M, G, R, T
-and L (real Mobile Safari); web by playwright. Evidence and the Safari
-two-refusals-a-day limit are in NOTES "2026-09-16".
+(L is web-only by nature). M, G, R and T were checked in the app on the iOS
+simulator, L in Mobile Safari on that same simulator (the real browser, not a
+stub — no real device); web by playwright. Deployed as v41 together with the
+cared-animal paging tiebreaker. Evidence, the Safari two-refusals-a-day limit
+and what stays unverified are in NOTES "2026-09-16".
+
+---
+
+## 🧵 Open follow-up: the user comments list pages without a tiebreaker
+
+`USER_COMMENTS_SQL` (backend/src/controllers/user.controller.js, "ORDER BY
+c.created_at DESC") is paged by offset from both clients
+(web/src/pages/UserCommentsPage.tsx, mobile/src/screens/UserCommentsScreen.tsx,
+30 at a time). Rows that share a timestamp — the seeded worlds are full of
+them — have no fixed order between two queries, so "Önceki yorumları yükle"
+can repeat one comment and never show another; mobile appends without a dedupe,
+so it also gets a duplicate list key. The cared-animal query had the same flaw
+and was fixed in 2620392 by adding the id to the sort; this one wants
+`, c.id DESC` and the same curl check. Found by the pre-deploy review of that
+fix, 2026-09-16; not part of it because it is a separate query with its own
+clients to re-check.
 
