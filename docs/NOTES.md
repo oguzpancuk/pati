@@ -4876,6 +4876,53 @@ solid-colour squares, which a reviewer reads as a broken image (guideline
 After the fixes: **233/233 ALL PASS**, section 17 at 47 assertions, and the
 battery green on a clean HEAD.
 
+### The second round, which found the surface I had written off
+
+A second code-reviewer pass over the fix commit came back NEEDS_WORK again,
+and it was right twice. Worth recording because the two findings are
+different kinds of mistake.
+
+- **The notification inbox.** My own docblock had declared notifications out
+  of scope. But a notification row carries the actor's **name and the first
+  140 characters of what they wrote**, and the bell pushes it — so it is the
+  loudest place the promise could fail, not a corner. Measured before and
+  after on the local database: A's inbox held two rows from B, one of them
+  reading "engel öncesi yorum" under B's name; after the block, total 0,
+  unread 0. `listNotifications` and both its counts now carry the same
+  one-direction filter as every other reader. The lesson is that "out of
+  scope" is a claim about the user's experience, not about a module — and I
+  made it about a module.
+- **A flag nobody read.** `getUserComments` returned `blocked: true` with an
+  empty list, and neither client typed the field, so the full comment list
+  still printed "Henüz yorum yok." — the exact untrue sentence the round-1
+  fix was written to delete. Half-landed: the server stopped lying and the
+  screen kept saying it. Both clients now read it and say why the list is
+  empty. That screen is reachable with the block already pressed (a back
+  stack on mobile, a bookmark or a Forward press on web).
+
+Three smaller ones, all taken: the mutual-request auto-accept — the *other*
+statement that creates a friendship — got the same `NOT EXISTS` guard and no
+longer answers a cheerful 200 carrying nothing; the raced pending row is now
+swept when the block is lifted, or "arkadaşlık geri gelmez" stops being true
+the moment it is; and `blocks.test.js` lost the docblock that claimed
+coverage it did not have, gaining instead a real guard — that the health
+record's count and its `in_treatment` test filter on the **same** viewer
+placeholder, which is the one invariant a unit test here can hold.
+
+Evidence for the client halves, which round 2 correctly noted were
+conditional renders with no screenshot: on iOS, a blocked profile ending at
+the carer gallery with "Engellendi" where the friendship button was, and my
+own profile through `pati://user/<my id>` with no "⋯" disc at all; on web,
+the same blocked profile and `/kullanici/<id>/yorumlar` reading "Bu kişiyi
+engellediğin için yorumları gösterilmiyor." **238/238 ALL PASS** after the
+round-2 fixes, battery green on a clean HEAD.
+
+**Two rounds, and stopping here.** Neither round was me chasing my own tail —
+round 1 found original gaps, and round 2 found one genuinely half-landed fix
+plus a surface I had wrongly excluded. But the rule from the nine-round
+session applies to the count, not only to the cause: this is where it gets
+reported rather than iterated a third time.
+
 **Not done and why.** Android is a whole wave of its own (release keystore —
 `debug.keystore` signs release today, the never-exercised build, the
 `ACCESS_BACKGROUND_LOCATION` permission that buys nothing because the

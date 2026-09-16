@@ -1614,6 +1614,11 @@ async function unlikePhoto(req, res, next) {
 
 module.exports = {
   MAX_MATCH_PHOTOS,
+  // Exported for test/blocks.test.js only: the count and the `in_treatment`
+  // test have to filter on the SAME viewer placeholder, or a record reads
+  // "0 yorum" over "Tedavi sürüyor" — the disagreement the docblock above it
+  // forbids (review round 2 asked for a guard, not just prose).
+  healthRecordSelectSql,
   listAnimals,
   matchAnimals,
   getAnimal,

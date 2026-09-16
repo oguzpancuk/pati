@@ -3,12 +3,18 @@
  * feature's only evidence was the curl suite, which the verify battery does
  * not run).
  *
- * Two things are worth a test here. The fragments are built by string
- * interpolation, so they are an injection shape held safe by convention —
- * the guards are what make a careless caller a crash instead of a hole. And
- * `listComments` renumbers its placeholders depending on whether a health
- * record was asked for, which is exactly the kind of edit that silently
- * points a filter at the wrong parameter.
+ * What this pins, exactly: the two fragment builders (which are an injection
+ * shape held safe by convention, so the guards are what make a careless
+ * caller a crash instead of a hole), `hasBlocked`'s call shape, and — the
+ * one that guards a real invariant — that the health-record SELECT filters
+ * its comment COUNT and its `in_treatment` test on the same viewer.
+ *
+ * What it does NOT pin, so nobody reads more into it than is here: the
+ * placeholder numbering at each call site, `listComments`' renumbering, and
+ * the `acceptRequest` guard. Those need a database and live in
+ * `scripts/ai-check/checks.sh` section 17, which the verify battery does not
+ * run (review round 2 was right that the first version of this docblock
+ * claimed the first of them).
  */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -18,6 +24,7 @@ const {
   noBlockEitherWaySql,
   notBlockedByViewerSql,
 } = require('../src/utils/blocks');
+const { healthRecordSelectSql } = require('../src/controllers/animal.controller');
 
 test('the fragments start with AND and name both sides', () => {
   const both = noBlockEitherWaySql('$1', 'users.id');
@@ -68,4 +75,23 @@ test('hasBlocked asks one direction, and never asks about yourself', async () =>
 
   const found = { query: () => Promise.resolve({ rows: [{ '?column?': 1 }] }) };
   assert.equal(await hasBlocked(found, 7, 9), true);
+});
+
+test('a health record filters its count and its status on the same viewer', () => {
+  const sql = healthRecordSelectSql('$2');
+
+  // Two subqueries over animal_comments: the count, and the in_treatment test.
+  const subqueries = sql.match(/FROM animal_comments c[\s\S]*?\)/g) || [];
+  assert.equal(subqueries.length, 2, 'the count and the status both read comments');
+
+  for (const sub of subqueries) {
+    assert.match(sub, /b\.blocker_id = \$2/, 'every one filters, on the viewer given');
+    assert.match(sub, /b\.blocked_id = c\.user_id/);
+  }
+
+  // A different placeholder must reach BOTH of them: filtering only the count
+  // is the shape of the defect this guards.
+  const other = healthRecordSelectSql('$7');
+  assert.equal((other.match(/b\.blocker_id = \$7/g) || []).length, 2);
+  assert.equal(other.includes('$2'), false, 'no placeholder left hard-coded');
 });

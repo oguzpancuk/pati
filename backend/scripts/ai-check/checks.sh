@@ -536,6 +536,14 @@ check "…with a total of 0" 0 "$(field .total)"
 check "…and it says why" true "$(field .blocked)"
 code=$(get_auth "users/$B/comments" "$JWT2")
 check "B still reads their own list" true "$([ "$(field .total)" -gt 0 ] && echo true || echo false)"
+# The inbox is the loudest surface: a row carries B's name and 140 characters
+# of what B wrote, and the bell pushes it (review round 2). A follows G, so
+# B's comment on G wrote A a notification before the block.
+notifs_from_b() { get_auth notifications "$JWT" >/dev/null
+  node -pe "JSON.parse(require('fs').readFileSync('$BODY')).notifications.filter((n) => n.actor_id === $B).length"; }
+check "B is gone from A's inbox" 0 "$(notifs_from_b)"
+code=$(get_auth notifications "$JWT")
+check "…and out of the bell's number" true "$(node -pe "const b=JSON.parse(require('fs').readFileSync('$BODY')); b.unreadCount <= b.total")"
 code=$(post_auth friendships "$JWT2" "{\"addresseeId\":$A}")
 check "B cannot ask A -> 403" 403 "$code"
 # Deliberately no machine-readable code and the same bare sentence both ways:
@@ -571,7 +579,9 @@ code=$(post_auth "friendships/$GHOST/accept" "$JWT" "{}")
 check "…and accepting it is refused -> 404" 404 "$code"
 code=$(post_auth messages/direct "$JWT2" "{\"userId\":$A}")
 check "…so the DM stays shut -> 403" 403 "$code"
-psql_q "DELETE FROM friendships WHERE id = $GHOST" >/dev/null
+# It must not be standing there again the moment the block is lifted, or
+# "arkadaşlık geri gelmez" is not true (review round 2). The unblock below
+# sweeps it, so this row is deliberately LEFT in place.
 
 code=$(del_auth "users/$B/block" "$JWT")
 check "A unblocks B -> 200" 200 "$code"
@@ -582,6 +592,11 @@ check "B's comment is back" true "$(sees_comment "$JWT" "$CID")"
 check "…and so is the total" "$total_before" "$(comment_total "$JWT")"
 code=$(get_auth "users/$B" "$JWT")
 check "…and their profile shows their comments again" true "$([ "$(field .commentCount)" -gt 0 ] && echo true || echo false)"
+check "B is back in A's inbox" true "$([ "$(notifs_from_b)" -gt 0 ] && echo true || echo false)"
+# The raced row planted above is swept by the unblock, not resurrected.
+check "the planted request did not come back" "" "$(psql_q "SELECT id FROM friendships WHERE id = $GHOST")"
+code=$(get_auth friendships/me "$JWT")
+check "…and A's inbox of requests is clean" 0 "$(node -pe "JSON.parse(require('fs').readFileSync('$BODY')).incomingRequests.filter((r) => r.id === $B).length")"
 code=$(post_auth friendships "$JWT2" "{\"addresseeId\":$A}")
 check "B can ask A again -> 201" 201 "$code"
 code=$(del_auth "users/$B/block" "$JWT")

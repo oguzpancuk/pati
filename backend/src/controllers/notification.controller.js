@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { demoFilter } = require('../utils/settings');
+const { notBlockedByViewerSql } = require('../utils/blocks');
 
 /**
  * The in-app inbox (ROADMAP P6, track C). Rows are written by the animal
@@ -69,12 +70,27 @@ async function notifyAnimalEventSafe(event) {
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
 
-// Counted through the same demo filter as the list: a bell saying 8 over an
-// inbox showing none is worse than no bell at all (review finding).
+/**
+ * The inbox is the loudest surface a blocked person can reach: a row carries
+ * their name and the first 140 characters of what they wrote, and the bell
+ * pushes it. "yorumlarını görmezsin" has to be true here before it is true
+ * anywhere (review round 2 — this was the one place the first pass had
+ * written off as out of scope, and it is the worst one to leave).
+ *
+ * One direction, like every other reader: I stop hearing about the people I
+ * blocked. Rows with no actor (system notifications) keep through, which is
+ * what the LEFT JOIN and the NOT EXISTS both do naturally.
+ */
+const NO_BLOCKED_ACTOR = notBlockedByViewerSql('$1', 'n.actor_id');
+
+// Counted through the same demo filter as the list — and now the same block
+// filter: a bell saying 8 over an inbox showing none is worse than no bell at
+// all (review finding).
 async function unreadCountFor(req) {
   const result = await pool.query(
     `SELECT count(*)::int AS count FROM notifications n
-     WHERE n.user_id = $1 AND n.read_at IS NULL${await demoFilter(req, 'n')}`,
+     WHERE n.user_id = $1 AND n.read_at IS NULL${await demoFilter(req, 'n')}
+     ${NO_BLOCKED_ACTOR}`,
     [req.user.userId]
   );
   return result.rows[0].count;
@@ -95,13 +111,15 @@ async function listNotifications(req, res, next) {
          LEFT JOIN users u ON u.id = n.actor_id
          WHERE n.user_id = $1
          ${await demoFilter(req, 'n')}
+         ${NO_BLOCKED_ACTOR}
          ORDER BY n.created_at DESC, n.id DESC
          LIMIT $2::int OFFSET $3::int`,
         [req.user.userId, limit, offset]
       ),
       pool.query(
         `SELECT count(*)::int AS count FROM notifications n
-         WHERE n.user_id = $1${await demoFilter(req, 'n')}`,
+         WHERE n.user_id = $1${await demoFilter(req, 'n')}
+         ${NO_BLOCKED_ACTOR}`,
         [req.user.userId]
       ),
       unreadCountFor(req),

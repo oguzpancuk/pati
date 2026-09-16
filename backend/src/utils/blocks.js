@@ -5,9 +5,19 @@
  * The rule, in one sentence: blocking removes the friendship and closes every
  * door that friendship opens, refuses new requests in both directions, hides
  * the two people from each other's search, and hides the blocked person's
- * comments from the blocker — while their profile still opens so the block
- * can be undone. Anything not on that list (group messages through a mutual
- * friend, notifications) is deliberately untouched.
+ * comments from the blocker, and keeps them out of the blocker's
+ * notification inbox — while their profile still opens so the block can be
+ * undone.
+ *
+ * The inbox was the first pass's one deliberate omission and the second
+ * review round was right to call it: a notification row carries the actor's
+ * name and 140 characters of what they wrote, and the bell pushes it, so it
+ * is the loudest place the promise could fail.
+ *
+ * What is still deliberately untouched: what they write in a group a mutual
+ * friend put you both in. Leaving a group conversation is the tool for that,
+ * and filtering a shared room per reader would leave the other members
+ * talking to gaps.
  */
 
 /**

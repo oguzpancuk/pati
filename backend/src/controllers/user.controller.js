@@ -546,20 +546,49 @@ async function blockUser(req, res, next) {
   }
 }
 
-/** Undo a block. The friendship does not come back; it is asked for again. */
+/**
+ * Undo a block. The friendship does not come back; it is asked for again.
+ *
+ * That sentence is why the pending rows go with the block row, in the same
+ * transaction. `blockUser` deletes every friendship there is, so normally
+ * there is nothing here — except the one row it could not have deleted, a
+ * request that landed in the same instant. While the block stands that row
+ * is invisible and unacceptable, but lifting the block would stand it back
+ * up, dated from before, in "gelen istekler" (review round 2).
+ */
 async function unblockUser(req, res, next) {
+  const targetId = Number(req.params.id);
+  if (!Number.isInteger(targetId) || targetId <= 0) {
+    return res.status(400).json({ error: 'Geçersiz kullanıcı' });
+  }
+  const client = await pool.connect();
   try {
-    const targetId = Number(req.params.id);
-    if (!Number.isInteger(targetId) || targetId <= 0) {
-      return res.status(400).json({ error: 'Geçersiz kullanıcı' });
-    }
-    await pool.query('DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2', [
+    await client.query('BEGIN');
+    await client.query('DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2', [
       req.user.userId,
       targetId,
     ]);
+    // Only while a block in either direction still stands — unblocking one
+    // way must not quietly clear a friendship the OTHER person's block is
+    // holding closed.
+    await client.query(
+      `DELETE FROM friendships f
+        WHERE ((f.requester_id = $1 AND f.addressee_id = $2)
+            OR (f.requester_id = $2 AND f.addressee_id = $1))
+          AND f.status = 'pending'
+          AND NOT EXISTS (
+            SELECT 1 FROM user_blocks b
+             WHERE (b.blocker_id = $1 AND b.blocked_id = $2)
+                OR (b.blocker_id = $2 AND b.blocked_id = $1))`,
+      [req.user.userId, targetId]
+    );
+    await client.query('COMMIT');
     res.json({ blocked: false });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     next(err);
+  } finally {
+    client.release();
   }
 }
 

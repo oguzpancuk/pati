@@ -23,6 +23,9 @@ export default function UserCommentsPage() {
   const [comments, setComments] = useState<UserComment[]>([]);
   const [total, setTotal] = useState(0);
   const [name, setName] = useState<string | null>(null);
+  // Empty because they are blocked, not because they never wrote (review
+  // round 2): a bookmark or a Forward press lands straight back here.
+  const [blocked, setBlocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +35,7 @@ export default function UserCommentsPage() {
       try {
         const data = await fetchUserComments(userId, PAGE, offset);
         setTotal(data.total);
+        setBlocked(data.blocked === true);
         setName(data.user.name);
         setComments((prev) => (offset === 0 ? data.comments : mergeById(prev, data.comments)));
       } catch (err) {
@@ -57,7 +61,11 @@ export default function UserCommentsPage() {
       {error && <div className="error">{error}</div>}
       {!loading && comments.length === 0 && (
         <div className="card flat">
-          <span className="muted">Henüz yorum yok.</span>
+          <span className="muted">
+            {blocked
+              ? 'Bu kişiyi engellediğin için yorumları gösterilmiyor.'
+              : 'Henüz yorum yok.'}
+          </span>
         </div>
       )}
       {comments.map((c) => (

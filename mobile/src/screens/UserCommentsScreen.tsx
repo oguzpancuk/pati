@@ -21,6 +21,9 @@ export default function UserCommentsScreen({ route, navigation }: any) {
   const userId: number | 'me' = route.params?.userId ?? 'me';
   const [comments, setComments] = useState<UserComment[]>([]);
   const [total, setTotal] = useState(0);
+  // Empty because they are blocked, not because they never wrote (review
+  // round 2): this screen can be on the back stack when the block is pressed.
+  const [blocked, setBlocked] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(
@@ -29,6 +32,7 @@ export default function UserCommentsScreen({ route, navigation }: any) {
       try {
         const data = await fetchUserComments(userId, PAGE_SIZE, offset);
         setTotal(data.total);
+        setBlocked(data.blocked === true);
         setComments((prev) => (offset === 0 ? data.comments : [...prev, ...data.comments]));
         if (offset === 0) {
           navigation.setOptions({
@@ -100,7 +104,15 @@ export default function UserCommentsScreen({ route, navigation }: any) {
         )}
         ListEmptyComponent={
           !loading ? (
-            <EmptyState emoji="💬" title="Yorum yok" description="Henüz yorum yapılmamış." />
+            blocked ? (
+              <EmptyState
+                emoji="🚫"
+                title="Engellendi"
+                description="Bu kişiyi engellediğin için yorumları gösterilmiyor."
+              />
+            ) : (
+              <EmptyState emoji="💬" title="Yorum yok" description="Henüz yorum yapılmamış." />
+            )
           ) : null
         }
       />

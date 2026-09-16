@@ -297,6 +297,12 @@ export interface UserCommentsResponse {
   user: UserSummary;
   comments: UserComment[];
   total: number;
+  /**
+   * You blocked this person, so the list is empty because it was not sent —
+   * not because they never wrote anything. The screens say so instead of
+   * printing an empty state that would be a false statement about them.
+   */
+  blocked?: boolean;
 }
 
 export interface AnimalPage {

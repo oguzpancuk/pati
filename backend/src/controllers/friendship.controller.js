@@ -33,11 +33,27 @@ async function sendRequest(req, res, next) {
         return res.status(409).json({ error: 'Zaten arkadaşsınız' });
       }
       if (row.requester_id === addresseeId) {
-        // The other side already sent me a request: mutual requests auto-accept.
+        // The other side already sent me a request: mutual requests
+        // auto-accept. This is the OTHER statement that creates a
+        // friendship, so it carries the same guard as `acceptRequest` —
+        // the block above cannot have raced it (this branch is reached
+        // only after `blockExists` said no), but a statement that makes a
+        // friendship without asking the table is the shape of the defect,
+        // and with no rows it used to answer a cheerful 200 carrying
+        // nothing but `autoAccepted` (review round 2).
         const accepted = await pool.query(
-          `UPDATE friendships SET status = 'accepted', responded_at = now() WHERE id = $1 RETURNING *`,
+          `UPDATE friendships f SET status = 'accepted', responded_at = now()
+           WHERE f.id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM user_blocks b
+                WHERE (b.blocker_id = f.requester_id AND b.blocked_id = f.addressee_id)
+                   OR (b.blocker_id = f.addressee_id AND b.blocked_id = f.requester_id))
+           RETURNING *`,
           [row.id]
         );
+        if (accepted.rows.length === 0) {
+          return res.status(403).json({ error: 'Arkadaşlık isteği gönderilemedi' });
+        }
         return res.json({ ...accepted.rows[0], autoAccepted: true });
       }
       return res.status(409).json({ error: 'İstek zaten gönderilmiş' });
