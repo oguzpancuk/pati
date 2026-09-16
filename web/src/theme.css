@@ -1782,6 +1782,14 @@ strong {
   background: var(--brand-tint);
 }
 
+/* An empty record section is a line under its header, not a hairline box:
+   the box read as a text field waiting to be filled in (owner,
+   2026-09-16). */
+.empty-records {
+  margin: 4px 0 10px;
+  font-size: 13px;
+}
+
 /* "bakım veriyorsun" keeps the outline (P7 item 4): the success ring,
    centred, never a pointer. */
 .carer-state {

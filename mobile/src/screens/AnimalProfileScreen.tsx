@@ -795,10 +795,13 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           onAction={animal.isCarer ? () => setVaccineModalVisible(true) : undefined}
           style={styles.sectionTop}
         />
+        {/* Nothing yet is a line, not a card (owner, 2026-09-16): an empty
+            hairline box under a section header read as a text field waiting
+            to be filled in. */}
         {animal.vaccinations.length === 0 ? (
-          <Card variant="flat" style={styles.block}>
-            <Text variant="caption">Henüz aşı kaydı yok.</Text>
-          </Card>
+          <Text variant="caption" style={styles.emptyRecords}>
+            Henüz aşı kaydı yok.
+          </Text>
         ) : (
           animal.vaccinations.slice(0, visibleVaccinations).map((vaccination) => (
             <Card key={vaccination.id} variant="flat" padding="md" style={styles.block}>
@@ -839,9 +842,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
           style={styles.sectionTop}
         />
         {animal.healthRecords.length === 0 ? (
-          <Card variant="flat" style={styles.block}>
-            <Text variant="caption">Henüz kayıt yok.</Text>
-          </Card>
+          <Text variant="caption" style={styles.emptyRecords}>
+            Henüz kayıt yok.
+          </Text>
         ) : (
           animal.healthRecords.slice(0, visibleRecords).map((record) => {
             const status = STATUS_META[record.status];

@@ -848,8 +848,11 @@ export default function AnimalPage() {
           </button>
         )}
       </div>
+      {/* Nothing yet is a line, not a card (owner, 2026-09-16): an empty
+          hairline box under a section header read as a text field waiting to
+          be filled in. */}
       {animal.vaccinations.length === 0 ? (
-        <div className="card flat muted">Henüz aşı kaydı yok.</div>
+        <p className="muted empty-records">Henüz aşı kaydı yok.</p>
       ) : (
         animal.vaccinations.slice(0, visibleVaccinations).map((v) => (
           <div key={v.id} className="card flat">
@@ -889,7 +892,7 @@ export default function AnimalPage() {
         )}
       </div>
       {animal.healthRecords.length === 0 ? (
-        <div className="card flat muted">Henüz kayıt yok.</div>
+        <p className="muted empty-records">Henüz kayıt yok.</p>
       ) : (
         animal.healthRecords.slice(0, visibleRecords).map((r) => {
           const st = STATUS_META[r.status];
