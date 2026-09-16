@@ -97,6 +97,25 @@
 			</array>
 		</dict>
 		<dict>
+			<!-- ad_events records which advertisement each user was shown and
+			     clicked: that is Apple's definition of Advertising Data. It
+			     serves the app (the rotation position derives from the user's
+			     own impression count) and the developer's own advertising
+			     (the admin panel's CTR report). No third party receives it
+			     and nothing is linked across apps, so tracking stays false. -->
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeAdvertisingData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+				<string>NSPrivacyCollectedDataTypePurposeDeveloperAdvertising</string>
+			</array>
+		</dict>
+		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>

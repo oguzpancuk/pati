@@ -101,18 +101,27 @@ your own profile with badges. No iPad set: `TARGETED_DEVICE_FAMILY = 1`.
 used for tracking**, purpose **App Functionality** only. The same list is
 in `mobile/ios/PatiMobile/PrivacyInfo.xcprivacy`.
 
-| Category      | Data type                | Why                                              |
-| ------------- | ------------------------ | ------------------------------------------------ |
-| Contact Info  | Email Address, Name      | the account                                       |
-| Identifiers   | User ID                  | the account                                       |
-| Location      | Precise Location         | drops are recorded where you stand; nearby lists  |
-| User Content  | Photos or Videos         | care photos, animal photos, avatar                |
-| User Content  | Other User Content       | comments, messages, health records                |
+| Category      | Data type                | Purposes                                   | Why                                              |
+| ------------- | ------------------------ | ------------------------------------------ | ------------------------------------------------ |
+| Contact Info  | Email Address, Name      | App Functionality                          | the account                                       |
+| Identifiers   | User ID                  | App Functionality                          | the account                                       |
+| Location      | Precise Location         | App Functionality                          | drops are recorded where you stand; nearby lists  |
+| User Content  | Photos or Videos         | App Functionality                          | care photos, animal photos, avatar                |
+| User Content  | Other User Content       | App Functionality                          | comments, messages, health records                |
+| Usage Data    | Advertising Data         | App Functionality + Developer's Advertising | `ad_events` records which ad each user was shown and clicked |
 
-Not collected: contacts, health, financial, browsing/search history,
-purchases, diagnostics, usage data (no analytics SDK, no crash reporter),
-advertising data (the in-app "reklam" slots are the app's own promotions,
-impressions counted per user for the app's function, no third party).
+**Advertising Data is collected — an earlier draft of this file said it was
+not, and that was wrong.** `ad_events` stores `user_id`, the advertiser, the
+slot and whether it was an impression or a click, which is exactly Apple's
+"information about the advertisements the user has seen". It serves the app
+itself (the rotation position derives from that user's own impression count)
+and the developer's own advertising (the admin panel's CTR report). Tracking
+stays **No**: nothing goes to a data broker and nothing is linked with
+third-party data, so no ATT prompt is needed either.
+
+Not collected: contacts, health (the health records are about animals, not
+the user), financial, browsing or search history, purchases, diagnostics
+(no crash reporter), and no analytics SDK of any kind.
 
 Third-party SDKs that process data: Google Sign-In (only when the user
 picks it), Apple's own sign-in, the photo AI (Gemini) receives the photo
