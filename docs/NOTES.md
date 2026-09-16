@@ -5145,3 +5145,52 @@ by looking for exactly that old key, so its mere presence flips every
 `getCurrentPosition` into `requestAlwaysAuthorization` and the app starts
 asking people for background location it never uses. The two keys look
 interchangeable and are not.
+
+
+## 2026-09-16 (night) · Submitted for review
+
+`pati: Sokak Hayvanları`, version 1.0, build 2, submitted to App Review.
+App Apple ID 6812656456, team 5J62WM72AV, bundle `com.oguzpancuk.pati`.
+
+The store name is not "pati": that is taken. The home-screen name still is —
+`CFBundleDisplayName` needs no uniqueness, only the listing does, which is
+why the two differ on purpose.
+
+**Screenshots, and what editing them taught.** The owner shot eleven on
+their own device, which is the first time this project has had real animal
+photographs in a store asset; the simulator set had generated colour
+squares. Three edits were needed and each was a small lesson:
+
+- **A real e-mail address was on the profile screenshot.** Product pages are
+  public and scraped. Replaced with `ornek@eposta.com` rendered in the app's
+  own `Nunito-Regular` at the measured size and colour, so it is invisible
+  as an edit. The font files in `mobile/assets/fonts/` make this kind of fix
+  exact rather than approximate — worth remembering.
+- **Real names and faces in the message list.** Trimmed to two rows. The
+  first attempt cut the remaining card's bottom border off, because the
+  border was measured at x=60 — inside the rounded corner, where the curve
+  is, not at the straight edge. Measured again at mid-width it sits 16 px
+  lower. **Measure a rounded card's edge away from its corners.**
+- **"Pancuk" → "Pançuk".** Rather than re-render the whole name and risk a
+  font mismatch, the cedilla alone was lifted: render `c` and `ç` in
+  Quicksand-Bold at the size whose `c` matches the screenshot's glyph (71 pt,
+  32×40 against a 32×41 target), take the pixel difference, and paste that
+  under the existing letter. Nothing else on the line was touched.
+
+**The size slot was mine to get wrong.** I scaled everything to 1320×2868
+(6.9") from the guide's own note. The console's slot asked for 6.5" —
+1242×2688 or 1284×2778 — so the set was regenerated at 1284×2778 and the
+first folder renamed `KULLANMA-yanlis-boyut-6.9`. The lesson is the same one
+this whole submission kept teaching: **read the console, not the note about
+the console.** The owner also read "Drag up to 3 app previews and 10
+screenshots" as three required photos; previews are optional videos.
+
+**Known and accepted by the owner:** the map screenshots are of Ubud, Bali,
+where the device was — Indonesian street names under a Turkish app about
+Turkish street animals, and the App Review note says the demo
+neighbourhoods are in Türkiye. Flagged, and the owner decided it is fine for
+1.0.
+
+Still true and unchanged: `MinimumOSVersion` 13.4 (must be 15.0 by spring
+2027), no crash reporter, no dSYMs for MapLibre or hermes, and Android is a
+wave of its own.
