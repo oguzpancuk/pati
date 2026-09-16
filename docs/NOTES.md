@@ -4803,6 +4803,15 @@ readiness".
   compiled-in guard and the scheme are paired correctly. No sign-in was
   completed — nothing was written to production.
 
+- **The migration dry run, as CLAUDE.md asks.** A throwaway database built
+  from **production's own** migration files (`git show f272ed9:…`, the
+  deployed v42 tree) — 15 files, 30 tables, no `user_blocks`. Then the
+  current `migrate.js` twice against it: both runs exit 0, `016` applies
+  once and is a no-op the second time, and the table lands with its two
+  indexes. So the next deploy's release command has been rehearsed against
+  the shape production actually has, not against a database built from
+  `001` alone.
+
 **Not done and why.** Android is a whole wave of its own (release keystore —
 `debug.keystore` signs release today, the never-exercised build, the
 `ACCESS_BACKGROUND_LOCATION` permission that buys nothing because the
