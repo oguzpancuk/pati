@@ -5069,3 +5069,39 @@ worth keeping:
 Four earlier review-round items stay parked in the ROADMAP, two of them
 deliberately: the `.ipa` now in App Store Connect was built from exactly the
 iOS bytes in this tree, and changing them would have made the artifact stale.
+
+### Build 1 was refused at processing, and the reason was a comment that lied
+
+Apple accepted the upload and then rejected the binary (ITMS-90683):
+`NSPhotoLibraryUsageDescription` missing. Info.plist carried a comment
+saying the app uses "only the ADD half of the library … and never reads the
+library through this key". **That comment was wrong.** The avatar picker
+calls `launchImageLibrary` (`screens/UserProfileScreen.tsx`), and so does
+the development stand-in for the camera. Animal and care photos really are
+camera-only, which is presumably what the note meant — but it stated
+something about the whole app that only held for two of its three photo
+paths.
+
+The lesson is narrow and worth keeping: **a comment asserting what the code
+does NOT do is a claim that stops being checked the moment it is written.**
+Nothing re-reads it against the call sites. Here it survived long enough to
+be trusted twice — once by whoever wrote the plist, once by me while
+preparing the submission — and the first thing to actually test it was
+Apple's static analysis. Had it shipped, a real device would have
+terminated the app the first time somebody picked an avatar.
+
+Fixed with an honest string (and the comment rewritten to name the call
+site), `CURRENT_PROJECT_VERSION` 1 → 2 because Apple refuses a repeated
+build number, re-archived and re-uploaded at 19:22. Build 2 is the one to
+select in App Store Connect.
+
+Two warnings deliberately left, both non-blocking and both restated by the
+second upload: `MinimumOSVersion` 13.4 (required to be 15.0 from spring
+2027 — raising it drops iPhone 6s/7-era devices, so it is the owner's call)
+and the missing dSYMs for the two prebuilt frameworks.
+
+Also deliberately NOT added: `NSLocationAlwaysAndWhenInUseUsageDescription`,
+which Apple listed under "not required to fix". A linked SDK references the
+always-authorization API, but this app never requests it — `location.ts`
+says iOS stays at when-in-use on purpose — and writing a purpose string for
+a capability we do not use would promise the user something untrue.

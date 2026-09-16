@@ -55,12 +55,21 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Mama/su bıraktığınızı doğrulamak, bir hayvanı kaydetmek ve bir hayvana bakım vermek için o an bir fotoğraf çekmeniz gerekiyor.</string>
-	<!-- Only the ADD half of the library: the app writes the photo it just
-	     took, when "galeriye kaydet" is on, and never reads the library
-	     through this key. Without it iOS terminates the app the first time
+	<!-- The WRITE half: the app saves the photo it just took when "galeriye
+	     kaydet" is on. Without it iOS terminates the app the first time
 	     UIImageWriteToSavedPhotosAlbum runs. -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Uygulamada çektiğiniz fotoğrafların telefonunuzun galerisine de kaydedilmesi için izin gerekiyor.</string>
+	<!-- The READ half. An earlier comment here claimed the app never reads
+	     the library; that was simply wrong — the avatar picker calls
+	     `launchImageLibrary` (screens/UserProfileScreen.tsx), and so does the
+	     simulator stand-in for the camera. Apple's processing refused the
+	     first upload over exactly this (ITMS-90683): the string is required
+	     whenever the binary REFERENCES the API, and react-native-image-picker
+	     references it whether or not a given screen calls it. Animal and care
+	     photos still come from the camera only. -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Profil fotoğrafınızı galerinizden seçebilmeniz için izin gerekiyor. Yalnızca seçtiğiniz fotoğraf uygulamaya aktarılır.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yakınınızdaki bakım noktalarını ve hayvanları gösterebilmek, ve mama/su bıraktığınız konumu kaydedebilmek için konumunuza ihtiyacımız var.</string>
 	<key>UIAppFonts</key>
