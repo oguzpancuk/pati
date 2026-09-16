@@ -163,18 +163,38 @@ Ayarlar → engellediklerim.
 
 ## 6. The "keys are in" sequence — run in this order
 
-1. **Apple Developer** (once enrolled): App ID with Sign in with Apple;
+1. **Apple Developer** (once enrolled): App ID for `com.oguzpancuk.pati`
+   with Sign in with Apple, enabled **as a primary App ID**. The
+   server-to-server notification endpoint on that screen is optional and is
+   deliberately left blank — pati implements no such endpoint, and giving
+   Apple an address for one would look like we listen when we do not.
+
+   Then, **only if you also want the Apple button on the web PWA**, a
    Services ID with domain `pati-app.com` and return URL
    `https://pati-app.com/giris`. Apple hands you
-   `apple-developer-domain-association.txt`: put it at
-   `web/public/.well-known/apple-developer-domain-association.txt`, commit,
-   deploy (the backend serves `web/dist` as static files), then press
-   Verify in the console.
-2. **Fly secrets** — copy the block from docs/DEPLOYMENT.md "Apple / Google
-   sign-in", fill `APPLE_CLIENT_IDS` (bundle id + service id),
-   `APPLE_SERVICE_ID`, `APPLE_WEB_REDIRECT_URI`. The Google ones are set
-   already; check with `fly secrets list`. Nothing else deploys: the
-   buttons appear as soon as `GET /api/auth/providers` reports the ids.
+   `apple-developer-domain-association.txt`: put it in
+   `web/public/.well-known/` (the folder is there with a README), commit,
+   deploy, then press Verify in the console. That path was tested on
+   2026-09-16, not assumed — `vite build` copies the dotted directory into
+   `dist/` and the backend serves it (200 with the file's bytes).
+
+   **The iOS submission does not need the Services ID.** Guideline 4.8 is
+   about the app offering Apple sign-in beside Google, and the App ID alone
+   does that. Leaving `APPLE_SERVICE_ID` unset simply keeps the web client
+   hiding its Apple button, exactly as it does today.
+2. **Fly secrets.** For the iOS app alone, one line and nothing else:
+
+   ```bash
+   fly secrets set --app pati-app APPLE_CLIENT_IDS="com.oguzpancuk.pati"
+   ```
+
+   If the web Services ID was made in step 1, use the full block from
+   docs/DEPLOYMENT.md "Apple / Google sign-in" instead — `APPLE_CLIENT_IDS`
+   carrying both the bundle id and the service id, plus `APPLE_SERVICE_ID`
+   and `APPLE_WEB_REDIRECT_URI`. The Google ones are set already; check with
+   `fly secrets list`. No code deploys either way: the buttons appear as
+   soon as `GET /api/auth/providers` reports the ids, and each client draws
+   only what it is told about.
 3. **Xcode** — open `mobile/ios/PatiMobile.xcworkspace`, target PatiMobile
    → Signing & Capabilities: tick "Automatically manage signing", pick
    the Team. Sign in with Apple is already listed (the entitlement file);
