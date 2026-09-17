@@ -115,6 +115,11 @@ requires in-app deletion to keep working).
   password-set and no password-reset flow, so a user whose provider account
   disappears loses access. Acceptable while the app has no password reset at
   all; when one is added, "set a password" belongs with it.
+  **Amendment, 2026-09-17:** password reset shipped on 2026-09-15
+  (`013_password_reset.sql`, `/auth/forgot-password`, `/reset-password`,
+  `/change-password`), so the condition this bullet waited on is gone. The
+  half that did NOT ship is "set a password" for an account that has only a
+  provider — that is still open, and it is what would close the lock-out.
 - Replay of a stolen, still-valid identity token is not separately defended
   against (no server-issued nonce). The window is the provider's token
   lifetime — ten minutes for Apple — and the token never leaves TLS.

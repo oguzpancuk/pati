@@ -225,17 +225,25 @@ keeps working and no migration is needed.
    hour on 2026-09-10. The free tier is 10 GB of storage, and R2 charges nothing
    for egress.
 2. R2 → *Manage API tokens* → *Create API token*, permission **Object Read
-   & Write**, scoped to that bucket. Note the access key id, the secret and
-   the S3 endpoint (`https://<account-id>.r2.cloudflarestorage.com`).
-3. Set the secrets and deploy:
+   & Write**, scoped to that bucket. Note the access key id and the secret.
+   For the endpoint use the **`.eu.` host** from step 1, not the plain one
+   the dashboard shows.
+3. Set the secrets and deploy — the bucket is `pati-upload`, singular, and
+   the endpoint carries `.eu.`:
 
 ```bash
 fly secrets set --app pati-app \
-  S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com \
-  S3_BUCKET=pati-uploads \
+  S3_ENDPOINT=https://<account-id>.eu.r2.cloudflarestorage.com \
+  S3_BUCKET=pati-upload \
   S3_ACCESS_KEY_ID=... \
   S3_SECRET_ACCESS_KEY=...
 ```
+
+   Both of those were wrong in this block until 2026-09-17: it said
+   `pati-uploads` and an endpoint without `.eu.`, contradicting the two
+   paragraphs above it. Either mistake is a photo-upload outage rather than a
+   degradation, because storage deliberately does **not** fail open — a
+   bucket that refuses the object fails the upload with a Turkish 503.
 
 4. Confirm from the release log — `photos: s3 (...)` on boot, `photos: disk
    (...)` when any of the four is missing. Then upload one photo and check
@@ -320,4 +328,7 @@ as well as `001_init.sql` (see CLAUDE.md).
 - The admin panel is served from the same app: requests arriving at
   `ADMIN_HOST` (admin.pati-app.com) get `admin/dist`
   (add the certificate with `fly certs add admin.pati-app.com`).
-- Rate limiting covers only `/api/auth` (30 attempts / 15 min).
+- Rate limiting: `/api/auth` keeps its per-IP brake (30 attempts / 15 min),
+  and every content write is additionally capped **per user** in
+  `backend/src/middleware/rateLimit.middleware.js` — care actions, animals,
+  comments, photos, follows, messages, reports, blocks, avatar changes.

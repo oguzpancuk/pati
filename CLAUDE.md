@@ -20,23 +20,23 @@ backend/   Node.js + Express, PostgreSQL 16 + PostGIS, JWT + bcrypt
 mobile/    React Native 0.74 + TypeScript  ← primary app
 web/       React 18 + Vite PWA (permanent third client, MapLibre map)
 admin/     React 18 + Vite + TypeScript (admin panel)
-shared/    Plain-SVG generators (human + animal avatars) for admin and web
+shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 ```
 
-| Purpose        | Command                                                                                                                |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| install        | `npm ci` in each of backend/, mobile/, web/, admin/; then `cd mobile/ios && pod install`                               |
-| dev            | `bash contracts/init.sh` (DB + backend + health check); `--ios` also launches the simulator                            |
-| test           | `cd mobile && npx jest`; `cd backend && node --test` (badge thresholds; web/admin have no tests yet)                  |
-| typecheck      | `npx tsc --noEmit` in mobile/, web/, admin/                                                                            |
-| lint           | `cd mobile && npm run lint` (mobile only; not yet in the battery)                                                      |
-| quick battery  | `bash .claude/hooks/verify.sh` (tsc ×3, jest, web css parse, backend load + node:test — what the push-gate runs)      |
-| full battery   | `bash .claude/hooks/verify.sh full` (+ RN release bundle, admin build, web build)                                      |
-| seed demo data | `cd backend && npm run seed` — **wipes every table**, ask first, never against production                              |
+| Purpose        | Command                                                                                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| install        | `npm ci` in each of backend/, mobile/, web/, admin/; then `cd mobile/ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install`                                          |
+| dev            | `bash contracts/init.sh` (DB + backend + health check); `--ios` also launches the simulator                                                                           |
+| test           | `cd mobile && npx jest`; `cd backend && node --test` (14 files, 134 unit tests — no routes, no database; web/admin have none)                                         |
+| typecheck      | `npx tsc --noEmit` in mobile/, web/, admin/                                                                                                                           |
+| lint           | `cd mobile && npm run lint` (mobile only; not yet in the battery)                                                                                                     |
+| quick battery  | `bash .claude/hooks/verify.sh` (tsc ×3, jest, web css parse, backend load + node:test — what the push-gate runs)                                                      |
+| full battery   | `bash .claude/hooks/verify.sh full` (+ RN release bundle, admin build, web build)                                                                                     |
+| seed demo data | `cd backend && npm run seed` — **wipes every table**, ask first, never against production                                                                             |
 | showcase world | `cd backend && npm run seed-showcase` — ADDITIVE `is_demo` rows (44 districts × 50 bots); `npm run seed-showcase:remove` deletes exactly those. Safe beside real data |
-| iOS screenshot | `mobile/scripts/simulator-login.sh <email> <pw>` once, then `mobile/scripts/simulator-goto.sh pati://<path> out.png 8` |
-| web screenshot | `cd web && node scripts/shot.mjs <url> out.png <email> <pw>` (playwright)                                              |
-| deep link      | `xcrun simctl openurl booted pati://add-animal` (paths: `mobile/src/navigation/index.tsx` → `linking`)                 |
+| iOS screenshot | `mobile/scripts/simulator-login.sh <email> <pw>` once, then `mobile/scripts/simulator-goto.sh pati://<path> out.png 8`                                                |
+| web screenshot | `cd web && node scripts/shot.mjs <url> out.png <email> <pw>` (playwright)                                                                                             |
+| deep link      | `xcrun simctl openurl booted pati://add-animal` (paths: `mobile/src/navigation/index.tsx` → `linking`)                                                                |
 
 ## Standards
 
@@ -83,17 +83,22 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   is what the code sets. Mail is off (registration unverified, as before)
   wherever `RESEND_API_KEY` is missing; in development the code is printed
   to the backend log.
-- **The photo AI fails open** (ADR-0005): the food/water photo check, the
-  species screening of every animal photo and the photo comparison in
-  add-animal call Gemini (`generateContent`, plain fetch) from
-  `backend/src/utils/ai.js`; without `GEMINI_API_KEY` (or on any error)
-  photos are accepted unchecked and matching is field-only. A care photo is
-  checked at `POST /care-actions/check` and confirmed with the returned
-  `photoToken`; animal photos are screened at `POST /animals/match`, which
-  returns one `photoToken` per photo for `POST /animals/:id/photos` to
-  redeem; a direct upload is checked inline either way, so the server
-  always decides. Evidence: `backend/scripts/ai-check/run.sh` (fake
-  `generateContent` endpoint).
+- **The photo AI fails open** (ADR-0005). `backend/src/utils/ai.js` calls
+  Gemini (`generateContent`, plain fetch) for **four** operations:
+  `checkCarePhoto` (does it show food or water), `checkAnimalPhoto` (does it
+  show the claimed species), `compareAnimalPhotos` (is this the same animal)
+  and `locateAnimalFace` (where to crop the thumbnail). Without
+  `GEMINI_API_KEY`, or on any error, every one of them returns
+  `unavailable` and the caller accepts the photo unchecked — matching falls
+  back to fields alone.
+  The doors, all five: a care photo is checked at `POST /care-actions/check`
+  and confirmed with the returned `photoToken`; animal photos are screened
+  at `POST /animals/match`, which returns one `photoToken` per photo for
+  `POST /animals/:id/photos` to redeem; **`POST /animals/:id/care-photos`
+  is the carer door — it screens the species AND compares against the
+  animal's gallery, refusing a mismatch with `carePhotoMismatch`**; and a
+  direct upload is checked inline. The server always decides. Evidence:
+  `backend/scripts/ai-check/run.sh` (fake `generateContent` endpoint).
 - **Photos are fitted before they are stored, and where they live is
   configurable.** Every upload is re-encoded as a JPEG inside 1600 px (512
   for avatars) with the EXIF rotation baked in
@@ -112,14 +117,33 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
   the volume — `backend/scripts/publish-backlog.js` is the one-off that
   does, and it is re-runnable.
 
+- **Blocking rewrites reads in four controllers, not one.** `user_blocks`
+  (016) is one row per (blocker, blocked), and `backend/src/utils/blocks.js`
+  holds the two SQL fragments every reader must splice into its WHERE:
+  `noBlockEitherWaySql` (friend requests, user search) and
+  `notBlockedByViewerSql` (an animal's comments and their total, the health
+  record's comment count and its `in_treatment` test, the notification list
+  and BOTH its counts, and `markRead`). The rule in one sentence: blocking
+  removes the friendship — which is what closes direct messages and
+  group-add, since both gate on `areFriends` — refuses new requests in both
+  directions, hides the two people from each other's search, and hides the
+  blocked person's comments and notifications from the blocker, while their
+  profile still opens so the block can be undone. **A new list, search or
+  notification query that forgets the filter silently breaks the promise the
+  block dialog makes to the user.** Evidence: `checks.sh` section 17 and
+  `backend/test/blocks.test.js`.
 - **`users.avatar_url` holds two kinds of values**: an uploaded photo URL or a
   built-in key like `pati-avatar:f3` (`backend/src/utils/avatars.js`). Never
   put it straight into `<img src>` / `<Image uri>`; mobile's `ui/Avatar`
   disambiguates.
 - **The taxonomy exists in two copies**: `backend/src/utils/taxonomy.js` and
   `mobile/src/taxonomy.ts`. Change one, change the other — the server cannot
-  delegate validation to the client. web/ imports the mobile copy via the
-  `@mobile/taxonomy` and `@mobile/avatars` aliases.
+  delegate validation to the client. web/ imports the mobile copy through the
+  `@mobile/*` alias, which covers about sixteen modules — taxonomy, avatars,
+  badges, paging, reportReasons, the whole `map/` folder including the
+  generated styles — not the two this line used to name. The Dockerfile
+  learned the same lesson: listing them one by one broke the build every
+  time a shared module appeared.
 - **Avatar art exists in two technologies**: react-native-svg components
   (`mobile/src/components/avatars/`) and plain-SVG generators (`shared/`).
   A face changes in both or in neither.
@@ -139,7 +163,10 @@ shared/    Plain-SVG generators (human + animal avatars) for admin and web
 - Stylesheets via `makeStyles(({ colors: c }) => ({...}))`, never
   `StyleSheet.create` — colors freeze in dark mode otherwise.
 - Never write `fontWeight`; weight comes from the font file
-  (`fontFamily: 'Nunito-Bold'`). Both together produce faux bold on Android.
+  (`fontFamily: 'Quicksand-Bold'`). Both together produce faux bold on
+  Android. The example here used to say `Nunito-Bold`, which is worse than a
+  typo: the Nunito files are still linked, so copying it renders text in the
+  wrong typeface rather than failing.
 - When overriding `fontSize`, also set `lineHeight` — iOS clips otherwise
   (this broke the login-screen logo once).
 - No hex colors in screen files; everything comes from `src/theme/`.
@@ -154,16 +181,26 @@ It must pass on a clean, committed HEAD before a push or a "done" report —
 is not a result. The push-gate hook runs the quick mode before every
 `git push` and blocks force pushes outright.
 
-**The backend has no automated tests.** If you touched it, run the
-end-to-end check with curl against a running instance — never "it probably
-works".
+**The backend's tests are unit tests, not HTTP tests.** `cd backend && node
+--test` runs fourteen files and 134 assertions covering pure logic — badge
+thresholds and staging, rate-limit shapes, demo visibility, block SQL
+fragments, coordinate guards, storage, image resizing, the showcase seed.
+None of them touch a route or a database. So if you touched a controller,
+still run the end-to-end curl harness against a running instance
+(`backend/scripts/*/run.sh`) — never "it probably works". This paragraph
+used to say the backend had no automated tests at all, which told anyone
+reading it to skip the suite that would have caught them.
 
-Nothing leaves this machine unreviewed: the push gate refuses any local
-commit newer than `.claude/last-reviewed`, which the harness writes when
-code-reviewer finishes. Commit first, then review — the reviewer covers
-`last-reviewed..HEAD`; a fix made after a review needs its own. Force
-pushes and remote deletions are refused outright; the scan is coarse, so a
-commit message that mentions a push flag is written with `git commit -F`.
+Nothing leaves this machine unreviewed. Two hooks, not one:
+`.claude/hooks/review-gate.sh` refuses any local commit newer than the
+review marker the harness writes when code-reviewer finishes, and
+`.claude/hooks/push-gate.sh` runs the battery and refuses force pushes. The
+review scan is coarse — it fires on a command that merely _mentions_ the
+marker file, so a script that needs to name it goes through the editing
+tools rather than a shell heredoc. Commit first, then review — the reviewer
+covers marker..HEAD; a fix made after a review needs its own. Force pushes
+and remote deletions are refused outright, and the same coarseness means a
+commit message mentioning a push flag is written with `git commit -F`.
 
 ## Workflow
 
@@ -184,7 +221,12 @@ commit message that mentions a push flag is written with `git commit -F`.
 
 ## Environment pitfalls
 
-- `pod install` is mandatory after `npm install` in mobile/.
+- `pod install` is mandatory after `npm install` in mobile/, and on this
+  machine it needs a UTF-8 locale or CocoaPods dies inside Ruby with
+  "Unicode Normalization not appropriate for ASCII-8BIT" before it reads the
+  Podfile: `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install`. The bare
+  command is what `contracts/init.sh --ios` runs, so a fresh checkout aborts
+  there under `set -e` with nothing pointing at the cause.
 - Font and app-icon changes need a native build (`npm run ios` /
   `npm run android`); restarting Metro is not enough.
 - The Android emulator reaches the backend via `10.0.2.2:3000`.

@@ -5194,3 +5194,104 @@ neighbourhoods are in Türkiye. Flagged, and the owner decided it is fine for
 Still true and unchanged: `MinimumOSVersion` 13.4 (must be 15.0 by spring
 2027), no crash reporter, no dSYMs for MapLibre or hermes, and Android is a
 wave of its own.
+
+
+## 2026-09-17 · App Review asked for information, and two of our own declarations were wrong
+
+Apple answered the first submission with **Guideline 2.1 — Information
+Needed**, the standard request for a developer account with no review
+history. Not a rejection: six questions, one of them a screen recording on a
+physical device.
+
+The reply is `docs/store/REVIEW-REPLY.md` — five items written out, the
+sixth a shot list. Three things in it are worth keeping.
+
+**The external-services answer was grounded in `fly secrets list` and the
+basemap style, not in memory**: Fly.io, Apple and Google sign-in, Resend,
+Gemini, Cloudflare R2, OpenFreeMap. It also says what is absent — no payment
+processor, no ad network, no analytics SDK, no crash reporter — because half
+of what that question asks is what you are NOT doing.
+
+**Two answers were pre-empted because they would otherwise read as
+defects**: the map is empty far from existing data, which is what a
+distance-based app does, and a photo that does not show food, water or the
+claimed species is refused on purpose.
+
+**The Reply box caps at 4000 characters.** The written-out answer overran it
+by 2315, so the file now carries a compressed version first and the long one
+underneath for the Notes field.
+
+### The owner's screenshots, and what editing them taught
+
+Eleven shots from a real device — the first store assets in this project
+with real animal photographs. Three edits were needed:
+
+- **A real e-mail address on the profile screenshot.** Product pages are
+  public and scraped. Replaced with `ornek@eposta.com` rendered in the app's
+  own `Nunito-Regular` at the measured size and colour. The font files in
+  `mobile/assets/fonts/` make this kind of edit exact rather than
+  approximate — worth remembering.
+- **Real names and faces in the message list**, trimmed to two rows. The
+  first attempt cut the remaining card's bottom border off, because I
+  measured the border at x=60 — inside the rounded corner, where the curve
+  is, not at the straight edge. At mid-width it sits 16 px lower.
+  **Measure a rounded card's edge away from its corners.**
+- **"Pancuk" → "Pançuk".** Rather than re-render the whole name and risk a
+  font mismatch, the cedilla alone was lifted: render `c` and `ç` in
+  Quicksand-Bold at the size whose `c` matches the screenshot's glyph
+  (71 pt, 32×40 against 32×41), take the pixel difference, paste it under
+  the existing letter. Nothing else on the line was touched.
+
+**The size slot was mine to get wrong.** I scaled the set to 1320×2868
+(6.9") from this project's own note. The console's slot asked for 6.5" —
+1242×2688 or 1284×2778. **Read the console, not the note about the
+console.** The owner also read "Drag up to 3 app previews and 10
+screenshots" as three required photos; previews are optional videos, and the
+review recording does not belong there — it is four minutes long where a
+preview must be 15-30 seconds, and it shows registration and account
+deletion rather than the product.
+
+### Two declarations the project's own record already contradicted
+
+Both were mine, and both are the same mistake: answering from what sounded
+right rather than from what the repository says.
+
+- **"The in-app promotional slots show only our own content"**, sent to
+  Apple. False: the slots are a first-party ad **server** — an `advertisers`
+  row with an external `target_url`, rendered under a mandatory "reklam"
+  label, with `ad_events` counting billable impressions. NOTES had already
+  recorded dropping "reklam içermez" from the store description for exactly
+  this reason, and the App Privacy answers declare Advertising Data. The
+  correction went through three passes: the first fixed only the sendable
+  block and left the false sentence in the long version, and its replacement
+  claimed the banners are "sold directly by us" — a commercial claim no code
+  change could ever flag as stale. What stands now is what the code proves:
+  the banner links to the advertiser's own site.
+- **Age rating, Advertising = no.** Corrected to yes while in review; App
+  Store Connect took it without a new build. This one mattered more than the
+  Notes wording, because a rating is what Apple's rules bind directly.
+- **Age rating, Social Media = no.** Apple's definition is feed-centric and
+  pati has no feed, which is how it was first answered. But the app's own
+  secondary category is **Social Networking**, and there are public
+  profiles, user search, friend requests, group chat and a leaderboard
+  ranking users against each other. Changed to yes.
+
+**There is no draft state for an advertiser.** `createAdvertiser` accepts no
+`active` field, the column defaults to true and NULL dates mean unbounded —
+a row serves real users the moment it is created, including one made to try
+the admin form. The day the first advertiser goes live, the App Review Notes
+text must already be corrected; the tripwire is in the ROADMAP's ads
+section, where that work happens.
+
+### The documentation audit
+
+The owner asked whether the docs on GitHub are chronological, complete and
+correct. Two audits ran. Chronology was sound — every dated heading in this
+file is in order — but the rest was not, and the findings are recorded in
+the commit that fixes them. The two that could have cost real time:
+`docs/DEPLOYMENT.md`'s copy-paste secret block named the wrong bucket
+(`pati-uploads` for `pati-upload`) and an endpoint without `.eu.`,
+contradicting the two paragraphs above it and, because storage does not fail
+open, taking photo uploads down rather than degrading them. And CLAUDE.md
+told every agent "the backend has no automated tests" while 134 of them
+pass — an instruction to skip the suite that would have caught you.

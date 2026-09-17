@@ -14,12 +14,18 @@
  *   android/app/src/main/res/mipmap-*\/ic_launcher_round.png
  *   android/app/src/main/res/mipmap-*\/ic_launcher_foreground.png
  */
-import { chromium } from 'playwright';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Playwright is a web/ devDependency; mobile has none. A bare
+// `import { chromium } from 'playwright'` threw MODULE_NOT_FOUND here while
+// the sibling generate-care-markers.mjs had already been fixed the same way.
+const requireFromWeb = createRequire(join(ROOT, '..', 'web', 'package.json'));
+const { chromium } = requireFromWeb('playwright');
 
 // Brand colors — keep in step with src/theme/colors.ts (studio aesthetic).
 const GRAD_START = '#F4581C';

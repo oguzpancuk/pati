@@ -18,7 +18,7 @@ For the technical-debt list that must close before production, see
                                        external parties are settled
 ✅ 3. AI animal matching (item 1) — live through a hosted vision model (ADR-0005)
 ✅ 4. Design system + UI (item 4)
-🚀 5. Launch sprint               ← NEXT, the only mandatory block left
+🚀 5. Launch sprint               ← done except its Android items
 ```
 
 > **Why donations were deferred:** the blockers are external, not code —
@@ -418,8 +418,13 @@ These are not features; they are "become shippable" work. Rationale lives in
       `backend/scripts/publish-backlog.js` to copy the existing
       `/data/uploads` backlog into it — and again after anything that writes
       to the volume directly (`seed-guides.js`, `backfill-face-thumbs.js`)
-- [ ] Move to incremental migrations (node-pg-migrate / Knex) — today a
-      schema change resets the database
+- [x] Incremental migrations — **the sentence that used to stand here said
+      "today a schema change resets the database", and that has been false
+      for a long time.** `backend/migrations/` holds sixteen numbered files,
+      `backend/scripts/migrate.js` applies them in order under a
+      `lock_timeout`, and the Fly release command runs it on every deploy.
+      CLAUDE.md's load-bearing facts describe exactly this discipline. A
+      library (node-pg-migrate, Knex) was never adopted and is not needed
 - [x] Database backups — automatic with managed Fly Postgres
 
 **Abuse protection:**
@@ -456,29 +461,37 @@ Developer side, done and verified in this repo:
 
 Ops/owner side, still open — the actual go/no-go gates:
 
-- [x] `/deploy-checklist` run 2026-09-10: **v34 is live** (`1ad564c`), all
-      gates green, schema-neutral. `/health` ok, both hosts 200, boot log
-      `photos: disk (/data/uploads)`, `/gizlilik` and `/kosullar` open
-- [ ] Smoke-test a report and an account deletion against production. They
-      write real rows, so they are the owner's to run; `/gizlilik` is
-      already checked. Split out of the deploy line above, which was
-      checked off while two of its three gates had not run (review
-      finding)
-- [ ] iletisim@pati-app.com mailbox or forward (KVKK requests must land)
+- [x] `/deploy-checklist` run 2026-09-10 put **v34** live (`1ad564c`), all
+      gates green. Kept as the record of that run; **production is at v45
+      today** and photos now live on Cloudflare R2, not the disk
+- [?] Smoke-test a report and an account deletion against production.
+      **This file and NOTES disagree**: NOTES (2026-09-11) says "the
+      `iletisim@` mailbox is done and the production smoke tests are done",
+      but no per-run evidence was recorded for the report or the deletion.
+      The owner is the one who can settle it; until then treat it as open
+- [x] iletisim@pati-app.com mailbox or forward — NOTES records it done, and
+      docs/store/APP-STORE.md already publishes the address as the App Store
+      contact
 - [x] Fly volume snapshots are enabled — checked 2026-09-10: the
       `uploads` volume has scheduled snapshots, 14-day retention
-- [ ] TestFlight/internal-testing build from current main (fonts changed:
-      needs `npx react-native-asset` + a native build)
-- [ ] Store metadata when going past TestFlight: screenshots, privacy
-      declaration (the internal rename is done)
+- [~] TestFlight build — **done for iOS**: 1.0 build 2 archived, uploaded
+      and submitted for review on 2026-09-16. Play internal testing is still
+      open, with the rest of the Android wave
+- [x] Store metadata — listing text, eleven device screenshots at
+      1284×2778, App Privacy answers and the age rating are all filed;
+      docs/store/APP-STORE.md carries them
 
-Deliberately deferred, with reasons:
+Deliberately deferred, with reasons. **Two of these three were overtaken by
+events and are kept only as a record of the decision at the time:**
 
-- Object storage for photos: Fly volume snapshots cover the pilot's data
-  risk; move before user count grows (the migration is cheap while the
-  uploads folder is small)
-- Incremental migrations: revisit when schema churn slows
-- pgvector/AI matching: measured, blocked on accuracy testing (spikes/)
+- ~~Object storage for photos~~ — **done.** Photos moved to Cloudflare R2 on
+  2026-09-10; the disk is a cache now (`backend/src/config/storage.js`).
+- ~~Incremental migrations~~ — they already were incremental; see the
+  corrected item above.
+- pgvector/AI matching: still deferred, but the reason changed — matching is
+  live through Gemini (ADR-0005) rather than blocked on accuracy testing, so
+  a vector index is now an optimisation rather than a missing feature
+  (`spikes/animal-matching`).
 
 **Legal / stores:**
 
@@ -492,7 +505,8 @@ Deliberately deferred, with reasons:
       row in place (community content survives as "Silinmiş Üye"), deletes
       friendships/follows/badge history/avatar file; "hesabı sil" in both
       web and mobile profiles (Aug 19)
-- [ ] Store prep: icon, screenshots, privacy declaration
+- [x] Store prep: icon, screenshots and the privacy declaration are done
+      (docs/store/APP-STORE.md; `mobile/ios/PatiMobile/PrivacyInfo.xcprivacy`)
 - [x] **Rename internals to pati (REQUIRED before stores)** — done
       2026-09-10 for everything a store can see: the iOS project, target,
       workspace, scheme, entitlements, test target and Podfile are
@@ -524,7 +538,9 @@ Deliberately deferred, with reasons:
 
 - [x] CI (web/admin/mobile/backend/docker gates on every push —
       `.github/workflows/ci.yml`, August 19)
-- [ ] Backend tests (jest + supertest; none exist yet)
+- [~] Backend tests — 14 files and 134 unit tests exist and run in the
+      battery. What is still missing is an HTTP-level suite (supertest); the
+      curl harnesses in `backend/scripts/*/run.sh` stand in for it
 - [x] **E-mail confirmation on registration** (September 3, 2026; ADR-0004).
       A six-digit code typed into the registering session — a code rather
       than a link, because a link verifies whoever clicks it. Pending
@@ -566,17 +582,14 @@ Deliberately deferred, with reasons:
 
 ## 🔧 Improvement sprint (planned August 30, 2026)
 
-> **Status (September 2, 2026): every sprint item is now built.** S1–S6 and
-> S8 are shipped and live, with two owner feedback rounds on top of them.
-> S7 (Apple + Google sign-in) is code-complete on all three sides. What is
-> left is the owner-side console work (Apple App ID / Service ID, the Google
-> OAuth client ids) plus, for **iOS Google only**, two source edits and a
-> native rebuild: the reversed client id in `Info.plist` and the same id in
-> `mobile/src/googleClientId.ts`. Everything else — web Google, and Apple
-> once the domain is verified — turns on with Fly secrets alone. The bundle
-> id it depended on is settled: `com.oguzpancuk.pati` (launch sprint). Until
-> the values exist the buttons stay hidden and nothing changes for users.
-> Steps: docs/DEPLOYMENT.md.
+> **Status (updated 2026-09-17): the whole sprint is done and live.** S1–S6
+> and S8 shipped weeks ago. S7 (Apple + Google sign-in) is complete on every
+> side, not just in code: both console identifiers exist, the reversed client
+> id is in `Info.plist` and in `mobile/src/googleClientId.ts`, and the
+> secrets are set, so both buttons are live on iOS and on the web. The
+> September 2 version of this block listed console work and two source edits
+> as remaining; none of that is left. Steps kept for reference in
+> docs/DEPLOYMENT.md.
 
 Twelve owner-reported improvements, grouped into eight sessions — one
 session per group, each ends with a code-reviewer pass. Owner decisions
@@ -707,22 +720,22 @@ work: Apple Developer / Google Cloud console configuration.
   1858: `email_verified` true, password kept, `google` identity at 07:35Z).
   The **mobile modal has not been exercised with a real token** — the same
   test on the simulator needs a fresh grandfathered fixture and the owner.
-- **NOT verified — three gaps, stated plainly.** (1) Apple's servers have
-  never been in the loop: no App ID exists yet, and Apple sign-in is
-  deliberately deferred (its button stays hidden in production by leaving
-  `APPLE_*` unset). Google's have, on web (two real sign-ins on September
-  4: a fresh account, then the link dialog) and on iOS as far as Google's
-  own sign-in page; the iOS sign-in was not completed. (2) **No Android build at all**: there is no SDK
-  on the development machine, so the `applicationId` change and Android
-  Google sign-in (which needs its own OAuth client + SHA-1) were never
-  exercised. (3) **No iOS release build**: the "fails gracefully" evidence
-  is from Debug, where the Google SDK's exception is caught; in Release it
-  terminates the app, which is why the compiled-in client id guard and its
-  test exist. Remaining owner steps (App ID + Service ID, the Google OAuth
-  clients, the reversed-client-id URL scheme in `Info.plist` together with
-  `mobile/src/googleClientId.ts`, the Fly secrets) are in
-  docs/DEPLOYMENT.md → "Apple / Google sign-in". The schema migration needs
-  nothing by hand — the release command applies it.
+- **Three gaps were listed here on 2026-09-02. Two closed on 2026-09-16;
+  the Android one is still open.**
+  - ~~Apple's servers have never been in the loop~~ — **closed.** The App ID
+    exists as a primary App ID with Sign in with Apple, the Services ID
+    `com.pati-app.web` carries the domain and the return URL, and the four
+    secrets are set. The button is live on iOS and on the web.
+  - **Still open: no Android build at all.** No SDK on the development
+    machine, so the `applicationId` change and Android Google sign-in (its
+    own OAuth client + SHA-1) have never been exercised.
+  - ~~No iOS release build~~ — **closed.** Release built, installed and
+    launched; tapping the Google button reached the system consent sheet
+    without terminating, which is the failure the compiled-in client id
+    guard exists for. Details in NOTES, 2026-09-16 (night).
+  Owner-side console steps are all done; docs/DEPLOYMENT.md → "Apple /
+  Google sign-in" keeps the reference. The schema migration needs nothing by
+  hand — the release command applies it.
 
 ### S8 — Terms of use (item 12)
 
@@ -734,7 +747,7 @@ without an app-store release. Can run in parallel with any session.
 
 - **Done when:** owner-approved text is live and linked from the app.
 
-## 🧹 Pre-pilot sprint (planned September 7, 2026)
+## 🧹 Pre-pilot sprint (planned September 7, 2026) — ✅ done; P1 applied on production 2026-09-07, P2/P3 shipped in v29
 
 Three owner requests after the photo AI went live. Serial, one session
 each, code-reviewer at the end of each; the first needs a production
@@ -1130,7 +1143,7 @@ and `.claude/hooks/verify.sh` belong to the main session alone.
   `web/src/components/RecentComments.tsx`,
   `web/src/components/profile/**` (new), `web/src/styles/profile.css` (new).
 - **H — hayvan profili + kamera.** `mobile/src/screens/{AnimalProfile,AddAnimal,CarePhoto}Screen.tsx`,
-  `mobile/src/photoCapture.ts` (new), `mobile/src/components/AnimalLocationSheet.tsx` (new),
+  `mobile/src/photoCapture.tsx` (new), `mobile/src/components/AnimalLocationSheet.tsx` (new),
   `mobile/ios/PatiMobile/Info.plist`, `mobile/android/app/src/main/AndroidManifest.xml`,
   `web/src/pages/AnimalPage.tsx`, `web/src/components/MiniMap.tsx`,
   `web/src/components/AnimalLocationDialog.tsx` (new), `web/src/styles/animal.css` (new).
@@ -1164,7 +1177,7 @@ Set now so no track has to guess, and so no two tracks touch one file:
   `web/src/App.tsx` in track M's hands alone.
 - **Ş exports its change-password UI as a self-contained component**;
   the main session mounts it in P's settings sheet.
-- **H owns the capture helper** (`photoCapture.ts`) and wires add-animal and
+- **H owns the capture helper** (`photoCapture.tsx`) and wires add-animal and
   care-photo; the main session wires the map's food/water drop after the merge.
 - **Each track gets its own stylesheet** under `web/src/styles/`. `theme.css`
   is hand-merged and has swallowed a track before (see verify.sh's "web css"
@@ -1337,7 +1350,7 @@ announcement, the follow a non-carer never granted, and C's missing
 re-runnable check — now `checks.sh` section 16, 187/187). Web was driven in
 the in-app browser rather than playwright (its chromium is not installed
 here). Evidence, the measured tab-bar numbers and what stays unverified are in
-NOTES "2026-09-16 (evening)". Not deployed.
+NOTES "2026-09-16 (evening)". Deployed as v42.
 
 Then the owner drove the app on the simulator and sent two more: N was still
 not right (third round — settled by rendering three candidates and letting

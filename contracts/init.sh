@@ -57,6 +57,8 @@ echo "init: backend healthy at $BACKEND_URL"
 # 3. Optional: the app in the iOS simulator.
 if [ "${1:-}" = "--ios" ]; then
   [ -d mobile/node_modules ] || (cd mobile && npm ci)
-  [ -d mobile/ios/Pods ] || (cd mobile/ios && pod install)
+  # CocoaPods dies in Ruby's unicode_normalize without a UTF-8 locale
+  # ("not appropriate for ASCII-8BIT"), before it even reads the Podfile.
+  [ -d mobile/ios/Pods ] || (cd mobile/ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install)
   (cd mobile && npm run ios)
 fi

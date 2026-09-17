@@ -48,8 +48,10 @@ use the main tone as text on the soft surface — the contrast isn't enough.
 The map has its own vocabulary under `mapColors` (`cared`, `needsCare`,
 `userRadius`). Care circles fade with freshness, so alpha is computed at
 runtime via `caredFill(alpha)`. Map layers are identical in both themes:
-they're semi-transparent and the map's own ground (Apple/Google) already
-follows the system theme.
+they're semi-transparent, and the ground beneath them follows the APP theme
+rather than the OS: since ADR-0002 it is one of two generated MapLibre styles
+(`mobile/src/map/styles/pati-{light,dark}.json`) that the client picks
+between. This paragraph used to credit Apple/Google Maps with doing it.
 
 **The one exception to "no colors outside the theme"**: the Apple and Google
 sign-in buttons (`components/SocialSignIn.tsx` on mobile, `.social-btn` on
@@ -181,7 +183,7 @@ Screens import these via `import { ... } from '../components/ui'`.
   .14em spacing, slight overlap). Tops the auth screens; no tagline.
 - **`Gradient`** — the brand gradient as an absolutely positioned SVG layer
   (no extra native dependency). Use it only in the four allowed places.
-- **`Icon`** — a 22-icon set with thin strokes and round caps (`pin`, `paw`,
+- **`Icon`** — a 23-icon set with thin strokes and round caps (`pin`, `paw`,
   `user`, `users`, `plus`, `trophy`, `food`, `water`, `heart`, `chat`,
   `camera`, `health`, `bell`, `chevronRight`, `close`, `check`, `crosshair`,
   `star`, `logout`, `refresh`, `settings`, `flag`). **Use this instead of emoji:**

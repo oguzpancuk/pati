@@ -1,6 +1,6 @@
 # pati — Project Document
 
-**Last updated:** August 2026
+**Last updated:** 2026-09-17 — iOS 1.0 build 2 is in App Store review
 **Repo:** https://github.com/oguzpancuk/pati
 
 This document describes the whole project in one place: what it does, how it
@@ -26,9 +26,9 @@ invisible coordination gap.
 
 The solution rests on three legs:
 
-**The map shows reality.** When a user leaves food or water they mark the
-spot — a photo is mandatory and they must physically be there (location
-verification with a 20 m tolerance). A 100 m area around the drop turns green
+**The map shows reality.** When a user leaves food or water, the record
+lands at their own position — there is no map pin to place — and a camera
+photo is mandatory, checked by a vision model. A 100 m area around the drop turns green
 and fades over time: food in 4 hours, water in 6. The map is the live answer
 to "is this area being cared for?" — areas that stay uncovered are the
 neglected ones.
@@ -56,9 +56,11 @@ The MVP is complete and tested end to end. All of the following works:
 - Türkiye-focused map; opens near the user's location
 - "Left food" / "left water" actions with a **mandatory photo** — the camera
   opens and the action can't complete without a shot
-- **Location verification** — if the user's live position is more than 20 m
-  from the marked point, the action is rejected and the distance is shown
-- Food and water maps are separate views
+- **The record lands where you stand.** The old "within 20 m of the point
+  you tapped" check is gone: the app stopped asking for a pin and sends the
+  device's own position, so the check had come to mean comparing that
+  position with itself (`backend/src/controllers/care.controller.js`)
+- One map, not two: food and water share it, drawn as depleting rings
 - A 100 m halo around each drop turns green and fades (food 4 h, water 6 h);
   the more drops at a spot, the stronger the green
 - If there is no care within 100 m of the user (the same radius as the halo),
@@ -185,7 +187,7 @@ production-safe demo data (guide accounts across 37 districts) see
 pati/
 ├── backend/    Node.js + Express API (PostgreSQL + PostGIS, JWT)
 ├── mobile/     React Native app (iOS + Android)
-├── web/        React + Vite PWA (Leaflet)
+├── web/        React + Vite PWA (MapLibre)
 ├── admin/      Web admin panel (React + Vite + TS)
 ├── shared/     Plain-SVG generators (web + admin)
 └── docs/       Documentation
@@ -195,13 +197,13 @@ pati/
 | Layer | Choice |
 | --- | --- |
 | Mobile | React Native 0.74.5, React 18.2, TypeScript |
-| Maps | react-native-maps 1.14.0 (Apple Maps on iOS, Google Maps on Android); Leaflet on web |
+| Maps | MapLibre on all three clients, one generated style, tiles from OpenFreeMap (ADR-0002). `react-native-maps` and `leaflet` are not dependencies |
 | Navigation | React Navigation 6 (native-stack + bottom-tabs) |
 | Notifications | @notifee/react-native |
 | Backend | Node.js 18+, Express 4 |
 | Database | PostgreSQL 16 + PostGIS 3.4 |
 | Auth | JWT (7 days) + bcrypt |
-| Uploads | multer → local disk (`backend/uploads/`) |
+| Uploads | multer → fitted to 1600 px (512 for avatars) → Cloudflare R2 when the four `S3_*` secrets are set, local disk otherwise (`backend/src/config/storage.js`) |
 
 ### Data model
 ```
@@ -295,16 +297,25 @@ in [NOTES.md](NOTES.md); the most important:
 1. **The leaderboard recomputes per request.** Fine at hundreds of users,
    unsustainable at thousands — points will need periodic materialization.
    First place to look when scale grows.
-2. **Photos on the server's local disk.** No backups, no multi-node, no
-   resizing. Production needs object storage (S3/R2) + CDN.
+2. ~~**Photos on the server's local disk.**~~ **Closed 2026-09-10.** Uploads
+   are re-encoded and stored in Cloudflare R2 (EU jurisdiction) with the disk
+   as a cache; the stored URL stays `/uploads/<file>` either way. What is
+   still true: a second machine would not work, because the photo-token
+   flows and the AI's gallery reads go through the local volume.
 3. **Numbered migrations, no ledger.** `scripts/migrate.js` re-applies every
    `.sql` file in `migrations/` on every deploy (it is the Fly release
    command), so every statement must stay idempotent and a schema change
    belongs in `001_init.sql` *and* a new numbered file. A `schema_migrations`
    ledger would lift that constraint.
-4. **Photo evidence unvalidated; rate limiting only on auth.** Moderation and
-   abuse protection needed.
-5. **Very low automated-test coverage.**
+4. ~~**Photo evidence unvalidated; rate limiting only on auth.**~~ **Both
+   closed.** Every care and animal photo is checked by a vision model
+   (ADR-0005), and `backend/src/middleware/rateLimit.middleware.js` caps
+   every content write per user, not just auth. Reports, a moderation queue
+   and user blocking shipped as well.
+5. **Automated-test coverage is uneven.** 134 backend unit tests and 193
+   mobile ones pass, but none of them exercises an HTTP route — the curl
+   harnesses in `backend/scripts/*/run.sh` are what cover the API, and they
+   are not in the battery.
 6. **Notifications only while the app runs.** Real background push needs
    APNs/FCM or geofencing.
 
