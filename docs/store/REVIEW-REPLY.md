@@ -11,13 +11,13 @@ on 2026-09-17, not written from memory.
 **The Reply box caps at 4000 characters**, and the long version below
 overran it by 2315. Leave room for the credentials: the two placeholders in
 item 3 are shorter than a real e-mail and password, and the text is sized to
-absorb about 48 more characters, not more. The compressed version that actually went in is first;
+absorb about 100 more characters, not more. The compressed version that actually went in is first;
 the long one is kept under it because the Notes field, the next submission
 and any follow-up question are all easier to answer from it.
 
 ---
 
-## The reply as sent (3970 characters; the Reply box caps at 4000)
+## The reply as sent (3917 characters; the Reply box caps at 4000)
 
 ```
 1. SCREEN RECORDING
@@ -26,8 +26,8 @@ Attached. One take on a physical iPhone, from a cold launch. Against your list:
 - Login: sign-out, then sign back in.
 - Account deletion: profilim > Ayarlar > "hesabimi sil", password re-entered.
 - User-generated content: water left at the current location with a camera photo, becoming a public record on the map; an animal profile with photos and comments.
-- Reporting: a comment reported with a reason, and a user reported from their profile.
-- Blocking: a user blocked from their profile, then unblocked in Ayarlar > engellediklerim.
+- Content reporting: a comment reported with a reason.
+- Blocking a user: blocked from their profile, then unblocked in Ayarlar > engellediklerim.
 - Paid content: none in the app.
 
 2. PURPOSE AND AUDIENCE
@@ -38,7 +38,7 @@ Demo account (verified, no code needed): <E-POSTA> / <SIFRE>
 Turkish interface only. Apple and Google sign-in are offered beside e-mail.
 Content is location-based, so far from existing data the map looks empty — correct, not a failure. Open the "hayvanlar" tab, which lists animals nearest-first at any distance, or set the device location to Kadikoy, Istanbul (40.9905, 29.0277).
 Where things are: harita = map; "Ekle" = add food/water/animal; hayvanlar = animal list; mesajlar = messages; profilim = badges and settings.
-Reporting: flag in an animal profile header, "sikayet et" under any comment and in the ... menu of a user profile.
+Reporting: flag in an animal profile header, "sikayet et" under any comment and in a user profile's ... menu.
 Blocking: ... menu on a user profile > "engelle". Blocked list: profilim > Ayarlar > engellediklerim.
 Account deletion: profilim > Ayarlar > "hesabimi sil".
 Writing a comment or health record on an animal requires being one of its carers — you become one via "bakim ver" on its profile, which asks for a photo of that animal. A non-carer sees the comments but no composer. That is by design: an animal's records stay with the people who look after it.
@@ -48,7 +48,7 @@ Note: leaving food/water and registering an animal require a camera photo, check
 - Fly.io (Frankfurt): hosts our backend and PostgreSQL/PostGIS database.
 - Sign in with Apple, Google Sign-In: optional sign-in.
 - Resend: transactional e-mail only (verification code, password reset).
-- Google Gemini: vision check on one photo — does it show food/water, does it show the claimed species, where is the animal's face for a thumbnail. Not used for training.
+- Google Gemini: vision check on one photo — does it show food/water, does it show the claimed species, where is the animal's face. Not used for training.
 - Cloudflare R2 (EU): photo storage.
 - OpenFreeMap: map tiles, rendered on-device with MapLibre.
 No payment processor, no ad network, no analytics or attribution SDK, no crash reporter. The in-app promotional slots show only our own content.
