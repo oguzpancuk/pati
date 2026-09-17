@@ -10,14 +10,15 @@ on 2026-09-17, not written from memory.
 
 **The Reply box caps at 4000 characters**, and the long version below
 overran it by 2315. Leave room for the credentials: the two placeholders in
-item 3 are shorter than a real e-mail and password, and the text is sized to
-absorb about 100 more characters, not more. The compressed version that actually went in is first;
+item 3 are shorter than a real e-mail and password, and the corrected text is
+3956 characters, so about 60 remain — measure with a character count, not
+`wc -m`, which counts the bytes of ©, ü and — as several each. The compressed version that actually went in is first;
 the long one is kept under it because the Notes field, the next submission
 and any follow-up question are all easier to answer from it.
 
 ---
 
-## The reply, corrected (3977 characters; the Reply box caps at 4000)
+## The reply, corrected (3956 characters; the box caps at 4000)
 
 > **The version actually sent on 2026-09-17 contained one false sentence**:
 > "The in-app promotional slots show only our own content." They are a
@@ -34,7 +35,7 @@ Attached. One take on a physical iPhone, from a cold launch. Against your list:
 - Registration: e-mail + the 6-digit code.
 - Login: sign-out, then sign back in.
 - Account deletion: profilim > Ayarlar > "hesabimi sil", with the password.
-- User-generated content: water left at the current location with a camera photo, becoming a public record on the map; an animal profile with photos and comments.
+- User-generated content: water left at the current location with a camera photo, becoming a public record on the map; animal profiles with photos and comments.
 - Content reporting: a comment reported with a reason.
 - Blocking a user: blocked from their profile, then unblocked in Ayarlar > engellediklerim.
 - Paid content: none in the app.
@@ -45,12 +46,12 @@ pati is a free community app for people in Türkiye who feed street cats and dog
 3. SETUP AND ACCESS
 Demo account (verified, no code needed): <E-POSTA> / <SIFRE>
 Turkish interface only. Apple and Google sign-in sit beside the e-mail form.
-Content is location-based, so far from existing data the map looks empty — correct, not a failure. Open the "hayvanlar" tab, which lists animals nearest-first at any distance, or set the device location to Kadikoy, Istanbul (40.9905, 29.0277).
+Content is location-based, so far from data the map looks empty — correct, not a failure. Open the "hayvanlar" tab, which lists animals nearest-first at any distance, or set the device location to Kadikoy, Istanbul (40.9905, 29.0277).
 Where things are: harita = map; "Ekle" = add food/water/animal; hayvanlar = animal list; mesajlar = messages; profilim = settings.
 Reporting: flag in an animal profile header, "sikayet et" under any comment and in a user profile's ... menu.
 Blocking: ... menu on a user profile > "engelle". Blocked list: profilim > Ayarlar > engellediklerim.
 Account deletion: profilim > Ayarlar > "hesabimi sil".
-Writing a comment or health record on an animal requires being one of its carers — you become one via "bakim ver" on its profile, which asks for a photo of that animal. A non-carer sees the comments but no composer — by design, so an animal's records stay with the people who look after it. Registering an animal (Ekle > Yeni hayvan) makes you its carer at once, which is the quickest route to the composer.
+Writing a comment or health record requires being one of that animal's carers — you become one via "bakim ver" on its profile, which asks for a photo of it. A non-carer sees the comments but no composer, by design: an animal's records stay with the people who look after it. Registering an animal (Ekle > Yeni hayvan) makes you its carer at once, the quickest route to the composer.
 Note: leaving food/water and registering an animal require a camera photo, checked by a vision model. A photo not showing food, water or the chosen species is refused with a Turkish reason — intended anti-abuse behaviour, not a bug. A bowl with food, or a cat or dog, passes.
 
 4. EXTERNAL SERVICES
@@ -60,7 +61,7 @@ Note: leaving food/water and registering an animal require a camera photo, check
 - Google Gemini: vision check on one photo — food/water, the claimed species, and where the animal's face is. Not used for training.
 - Cloudflare R2 (EU): photo storage.
 - OpenFreeMap: map tiles, rendered on-device with MapLibre.
-No payment processor, no third-party ad network or SDK, no analytics or attribution SDK, no crash reporter. Any promotional banner is served from our own backend, labelled "reklam", and sold directly by us.
+No payment processor, no third-party ad network or SDK, no analytics or attribution SDK, no crash reporter. Any promotional banner is served from our own backend, labelled "reklam", and links to the advertiser's own site.
 
 5. REGIONAL DIFFERENCES
 None. Nothing is gated by country and there are no purchases. Only what each user sees nearby varies, because the map and list are distance-based. Turkish interface only; availability currently Türkiye.
@@ -165,10 +166,12 @@ with any food in it, or a photo of a cat or a dog, passes.
 | OpenFreeMap | map tiles, rendered on the device with MapLibre | the tile coordinates being viewed |
 
 Photos sent to Gemini are sent for that one check and are not used to train
-any model. There is **no** payment processor, **no** advertising network,
-**no** analytics or attribution SDK, and **no** crash reporting service in
-the app. The promotional slots inside the app show only our own content,
-served from our own backend.
+any model. There is **no** payment processor, **no** third-party advertising
+network or SDK, **no** analytics or attribution SDK, and **no** crash
+reporting service in the app. The promotional slots are our own ad server: a
+banner is a row in our database, served from our own backend, labelled
+"reklam" on both clients, and it links to the advertiser's own website. No
+third party chooses, targets or delivers it.
 
 **5. Regional differences**
 

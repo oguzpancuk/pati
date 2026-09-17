@@ -324,9 +324,16 @@ Full rationale in [NOTES.md](NOTES.md).
       active. Activating one from the admin panel needs no deploy, so
       nothing will prompt this — the corrected sentence is in
       docs/store/REVIEW-REPLY.md ("no third-party ad network or SDK; any
-      banner is served from our own backend, labelled 'reklam', and sold
-      directly by us"). Check the App Privacy answers still match too; they
-      already declare Usage Data → Advertising Data.
+      banner is served from our own backend, labelled 'reklam', and links to
+      the advertiser's own site"). Say nothing about how the slot was sold:
+      an agency or a reseller produces the same row, and no code change would
+      ever flag that claim as stale. Check the App Privacy answers still
+      match too; they already declare Usage Data → Advertising Data, and the
+      age-rating questionnaire must answer Advertising = YES.
+      **There is no draft state.** `createAdvertiser` takes no `active`
+      field, the column defaults to true and NULL dates mean unbounded — so a
+      row is serving to real users the moment it is created, including one
+      made just to try the admin form.
 - [x] Rate limiting on login/impression endpoints (against fake
       impressions) — login has had its per-IP brake since August;
       impressions capped at 200/hour and clicks at 60 on 2026-09-10
