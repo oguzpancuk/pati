@@ -316,6 +316,17 @@ Full rationale in [NOTES.md](NOTES.md).
 
 **Remaining:**
 
+- [ ] **Before the first advertiser goes live, fix the App Review Notes.**
+      The Guideline 2.1 answer sent on 2026-09-17 said the promotional slots
+      "show only our own content", which was wrong even then and is a
+      standing claim: Apple asks that text to live permanently in App Review
+      Information → Notes. It is harmless only while no advertiser is
+      active. Activating one from the admin panel needs no deploy, so
+      nothing will prompt this — the corrected sentence is in
+      docs/store/REVIEW-REPLY.md ("no third-party ad network or SDK; any
+      banner is served from our own backend, labelled 'reklam', and sold
+      directly by us"). Check the App Privacy answers still match too; they
+      already declare Usage Data → Advertising Data.
 - [x] Rate limiting on login/impression endpoints (against fake
       impressions) — login has had its per-IP brake since August;
       impressions capped at 200/hour and clicks at 60 on 2026-09-10
