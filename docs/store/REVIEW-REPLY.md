@@ -11,7 +11,7 @@ on 2026-09-17, not written from memory.
 **The Reply box caps at 4000 characters**, and the long version below
 overran it by 2315. Leave room for the credentials: the two placeholders in
 item 3 are shorter than a real e-mail and password, and the corrected text is
-3956 characters, so about 60 remain — measure with a character count, not
+3956 characters, so 44 remain — measure with a character count, not
 `wc -m`, which counts the bytes of ©, ü and — as several each. The compressed version that actually went in is first;
 the long one is kept under it because the Notes field, the next submission
 and any follow-up question are all easier to answer from it.
