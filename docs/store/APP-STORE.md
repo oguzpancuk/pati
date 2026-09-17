@@ -31,11 +31,26 @@ the owner's checklist. Android is parked — see the ROADMAP.
 - Category: primary **Lifestyle**, secondary **Social Networking**.
 - Content rights: does not contain third-party content (the basemap is
   OpenFreeMap/OpenStreetMap under ODbL, credited inside the app).
-- Age rating questionnaire: none of the mature categories; **user-generated
-  content: yes** (comments, photos, messages) with reporting, blocking, and
-  moderation in place; unrestricted web access: no; contests, gambling: no.
-  Expected rating: 4+ (the questionnaire may land on 12+ because of UGC —
-  accept whatever it computes).
+- Age rating questionnaire, as answered on 2026-09-17. None of the mature
+  categories. **User-Generated Content: yes** (comments, photos, messages),
+  with reporting, blocking and moderation in place. **Messaging and Chat:
+  yes.** **Advertising: yes** — the app has three promotional slots served
+  by our own ad server (`advertisers`, `ad_events`), and answering no here
+  would become a false declaration the day the first banner goes live, which
+  is a rating problem rather than a wording one. Unrestricted web access:
+  no. Social Media: no — there is no feed that spreads content to many
+  users; comments belong to one animal and notifications reach only that
+  animal's followers. Social Media Disabled for Users Under 13: no, there is
+  no age gate. Medical or Treatment Information: **infrequent** — the health
+  and vaccination records are real treatment information, but they sit
+  inside an animal's profile and only its carers write them. Health or
+  Wellness Topics: no — nothing addresses the user's own health.
+  Accept whatever rating the questionnaire computes; UGC and advertising
+  together are likely to put it above 4+.
+
+  **The first submission answered Advertising as no and it was corrected to
+  yes while in review**; App Store Connect took the change without asking
+  for a new build.
 - Privacy Policy URL: `https://pati-app.com/gizlilik`
 - License agreement: Apple's standard EULA.
 
