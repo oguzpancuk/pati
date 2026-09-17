@@ -38,10 +38,21 @@ the owner's checklist. Android is parked — see the ROADMAP.
   by our own ad server (`advertisers`, `ad_events`), and answering no here
   would become a false declaration the day the first banner goes live, which
   is a rating problem rather than a wording one. Unrestricted web access:
-  no. Social Media: no — there is no feed that spreads content to many
-  users; comments belong to one animal and notifications reach only that
-  animal's followers. Social Media Disabled for Users Under 13: no, there is
-  no age gate. Medical or Treatment Information: **infrequent** — the health
+  no. **Social Media: yes.** Social Media Disabled for Users Under 13: no,
+  there is no age gate.
+
+  Social Media was first answered no, on the reading that Apple's definition
+  is about a feed "that visibly spreads content to many users" and pati has
+  no feed — comments belong to one animal and notifications reach only that
+  animal's followers. It was changed to yes because the app's own
+  configuration argues the other way: the secondary category is **Social
+  Networking**, and the app has public profiles, user search, friend
+  requests, group chat and a leaderboard ranking users against each other.
+  Declaring no while shipping under that category is the same shape of
+  mistake as the advertising answer above — one the app's own record
+  contradicts. The cost of yes is a higher computed rating; the cost of a
+  wrong no is a rating correction mid-review, which this submission has
+  already paid once. Medical or Treatment Information: **infrequent** — the health
   and vaccination records are real treatment information, but they sit
   inside an animal's profile and only its carers write them. Health or
   Wellness Topics: no — nothing addresses the user's own health.
