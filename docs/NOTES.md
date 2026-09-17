@@ -5227,10 +5227,17 @@ Eleven shots from a real device — the first store assets in this project
 with real animal photographs. Three edits were needed:
 
 - **A real e-mail address on the profile screenshot.** Product pages are
-  public and scraped. Replaced with `ornek@eposta.com` rendered in the app's
-  own `Nunito-Regular` at the measured size and colour. The font files in
-  `mobile/assets/fonts/` make this kind of edit exact rather than
-  approximate — worth remembering.
+  public and scraped. Replaced with `ornek@eposta.com` at the measured size
+  and colour — **but rendered in `Nunito-Regular`, which is the wrong font**:
+  the app has been Quicksand throughout since the design system landed, and
+  the Nunito files only stay linked. Caught by the review of this very audit,
+  after the set was already uploaded. The two are close enough that the line
+  matches in width and height, so it is a letterform difference on one line
+  of one screenshot and was left alone rather than swapped mid-review.
+  The lesson is the one the same commit wrote into CLAUDE.md: because those
+  Nunito files are still linked, reaching for them fails silently instead of
+  erroring. Reading the font from `mobile/src/theme/typography.ts` would have
+  taken a second.
 - **Real names and faces in the message list**, trimmed to two rows. The
   first attempt cut the remaining card's bottom border off, because I
   measured the border at x=60 — inside the rounded corner, where the curve

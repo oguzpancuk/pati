@@ -49,8 +49,10 @@ step "web css"         web     sh -c 'set -e; files="src/theme.css"; for f in sr
 step "backend load"    backend node -e "require('./src/app.js')"
 # The backend's unit tests (14 files, 134 assertions: badges, rate-limit
 # shapes, block SQL, coordinate guards, storage, resizing, demo visibility);
-# node:test, no database needed and no routes exercised — the curl harnesses
-# in backend/scripts/*/run.sh are what cover HTTP. No path argument: a bare directory is not a test file
+# node:test, no database. A few of them do bind a loopback port to drive a
+# tiny express or node:http app (rate limits, storage, publish-backlog), but
+# none exercises an APPLICATION route — the curl harnesses in
+# backend/scripts/*/run.sh are what cover those. No path argument: a bare directory is not a test file
 # to node:test (it fails with "test failed"), the default discovery
 # (**/*.test.js, node_modules excluded) is what we want.
 step "backend test"    backend node --test

@@ -477,9 +477,13 @@ Ops/owner side, still open — the actual go/no-go gates:
 - [~] TestFlight build — **done for iOS**: 1.0 build 2 archived, uploaded
       and submitted for review on 2026-09-16. Play internal testing is still
       open, with the rest of the Android wave
-- [x] Store metadata — listing text, eleven device screenshots at
-      1284×2778, App Privacy answers and the age rating are all filed;
-      docs/store/APP-STORE.md carries them
+- [x] Store metadata — listing text, App Privacy answers and the age rating
+      are filed in docs/store/APP-STORE.md. **The screenshots that were
+      actually uploaded are not the ones in this repo**: the owner shot ten
+      on a real device and scaled them to 1284×2778 (the 6.5" slot the
+      console asked for), while `docs/store/screenshots/` still holds five
+      simulator shots at 1320×2868 with the "retake 03" caveat. Treat the
+      repo copies as superseded
 
 Deliberately deferred, with reasons. **Two of these three were overtaken by
 events and are kept only as a record of the decision at the time:**

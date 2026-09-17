@@ -313,7 +313,7 @@ in [NOTES.md](NOTES.md); the most important:
    every content write per user, not just auth. Reports, a moderation queue
    and user blocking shipped as well.
 5. **Automated-test coverage is uneven.** 134 backend unit tests and 193
-   mobile ones pass, but none of them exercises an HTTP route — the curl
+   mobile ones pass, but none of them exercises an application route — the curl
    harnesses in `backend/scripts/*/run.sh` are what cover the API, and they
    are not in the battery.
 6. **Notifications only while the app runs.** Real background push needs

@@ -88,9 +88,10 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
   `checkCarePhoto` (does it show food or water), `checkAnimalPhoto` (does it
   show the claimed species), `compareAnimalPhotos` (is this the same animal)
   and `locateAnimalFace` (where to crop the thumbnail). Without
-  `GEMINI_API_KEY`, or on any error, every one of them returns
-  `unavailable` and the caller accepts the photo unchecked — matching falls
-  back to fields alone.
+  `GEMINI_API_KEY`, or on any error, the first three return `unavailable`
+  and the caller accepts the photo unchecked — matching falls back to fields
+  alone. `locateAnimalFace` returns `null` instead, and its fail-open is
+  milder: no cut-out, so the SVG avatar stays.
   The doors, all five: a care photo is checked at `POST /care-actions/check`
   and confirmed with the returned `photoToken`; animal photos are screened
   at `POST /animals/match`, which returns one `photoToken` per photo for
@@ -119,11 +120,18 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 
 - **Blocking rewrites reads in four controllers, not one.** `user_blocks`
   (016) is one row per (blocker, blocked), and `backend/src/utils/blocks.js`
-  holds the two SQL fragments every reader must splice into its WHERE:
-  `noBlockEitherWaySql` (friend requests, user search) and
+  holds **four** helpers, and which one a reader needs depends on its shape.
+  Two SQL fragments for lists that join many people:
+  `noBlockEitherWaySql` (friend requests, user search, and all three lists in
+  `listMyFriendships` — accepted friends as well as the pending ones) and
   `notBlockedByViewerSql` (an animal's comments and their total, the health
-  record's comment count and its `in_treatment` test, the notification list
-  and BOTH its counts, and `markRead`). The rule in one sentence: blocking
+  record's comment count and its `in_treatment` test, the notification list,
+  BOTH its counts, and `markRead`). And two boolean guards for a read that
+  is about one person: `hasBlocked` (the profile's `blocked` flag, and
+  `getUserComments`, which returns an empty list rather than filtering rows)
+  and `blockExists` (refusing a friend request in either direction). **A new
+  per-target list — someone's liked photos, say — fits neither fragment and
+  needs the `hasBlocked` shape.** The rule in one sentence: blocking
   removes the friendship — which is what closes direct messages and
   group-add, since both gate on `areFriends` — refuses new requests in both
   directions, hides the two people from each other's search, and hides the
@@ -185,7 +193,8 @@ is not a result. The push-gate hook runs the quick mode before every
 --test` runs fourteen files and 134 assertions covering pure logic — badge
 thresholds and staging, rate-limit shapes, demo visibility, block SQL
 fragments, coordinate guards, storage, image resizing, the showcase seed.
-None of them touch a route or a database. So if you touched a controller,
+None of them touches an application route or a database, though a few bind
+a loopback port to drive a throwaway app. So if you touched a controller,
 still run the end-to-end curl harness against a running instance
 (`backend/scripts/*/run.sh`) — never "it probably works". This paragraph
 used to say the backend had no automated tests at all, which told anyone
@@ -195,9 +204,10 @@ Nothing leaves this machine unreviewed. Two hooks, not one:
 `.claude/hooks/review-gate.sh` refuses any local commit newer than the
 review marker the harness writes when code-reviewer finishes, and
 `.claude/hooks/push-gate.sh` runs the battery and refuses force pushes. The
-review scan is coarse — it fires on a command that merely _mentions_ the
-marker file, so a script that needs to name it goes through the editing
-tools rather than a shell heredoc. Commit first, then review — the reviewer
+review scan is coarse in one direction: it refuses a command that names the
+marker file **together with** a redirect or a writing binary (`tee`, `sed
+-i`, `python`, `node`, …), so a script that merely mentions it in a heredoc
+is refused even when it only reads. Use the editing tools for those. Commit first, then review — the reviewer
 covers marker..HEAD; a fix made after a review needs its own. Force pushes
 and remote deletions are refused outright, and the same coarseness means a
 commit message mentioning a push flag is written with `git commit -F`.
