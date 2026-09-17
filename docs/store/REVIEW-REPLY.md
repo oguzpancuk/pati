@@ -17,7 +17,7 @@ and any follow-up question are all easier to answer from it.
 
 ---
 
-## The reply as sent (3917 characters; the Reply box caps at 4000)
+## The reply as sent (3976 characters; the Reply box caps at 4000)
 
 ```
 1. SCREEN RECORDING
@@ -31,17 +31,17 @@ Attached. One take on a physical iPhone, from a cold launch. Against your list:
 - Paid content: none in the app.
 
 2. PURPOSE AND AUDIENCE
-pati is a free community app for people in Türkiye who feed street cats and dogs. That care is uncoordinated: neighbours feed the same animal while the next street goes without, and nobody knows if one was already vaccinated or treated. pati gives a shared map of where food and water were left and when, a profile per animal with photos and health records kept by its carers, and messaging between them. Audience: residents who already feed street animals, and small volunteer groups. Not a veterinary tool; sells nothing.
+pati is a free community app for people in Türkiye who feed street cats and dogs. That care is uncoordinated: neighbours feed the same animal while the next street goes without, and nobody knows if one was already vaccinated or treated. pati gives a shared map of where food and water were left and when, a profile per animal with photos and health records kept by its carers, and messaging. Audience: residents who feed street animals, and small volunteer groups. Not a veterinary tool; sells nothing.
 
 3. SETUP AND ACCESS
 Demo account (verified, no code needed): <E-POSTA> / <SIFRE>
-Turkish interface only. Apple and Google sign-in are offered beside e-mail.
+Turkish interface only. Apple and Google sign-in sit beside the e-mail form.
 Content is location-based, so far from existing data the map looks empty — correct, not a failure. Open the "hayvanlar" tab, which lists animals nearest-first at any distance, or set the device location to Kadikoy, Istanbul (40.9905, 29.0277).
 Where things are: harita = map; "Ekle" = add food/water/animal; hayvanlar = animal list; mesajlar = messages; profilim = badges and settings.
 Reporting: flag in an animal profile header, "sikayet et" under any comment and in a user profile's ... menu.
 Blocking: ... menu on a user profile > "engelle". Blocked list: profilim > Ayarlar > engellediklerim.
 Account deletion: profilim > Ayarlar > "hesabimi sil".
-Writing a comment or health record on an animal requires being one of its carers — you become one via "bakim ver" on its profile, which asks for a photo of that animal. A non-carer sees the comments but no composer. That is by design: an animal's records stay with the people who look after it.
+Writing a comment or health record on an animal requires being one of its carers — you become one via "bakim ver" on its profile, which asks for a photo of that animal. A non-carer sees the comments but no composer — by design, so an animal's records stay with the people who look after it. Registering an animal (Ekle > Yeni hayvan) makes you its carer at once, which is the quickest route to the composer.
 Note: leaving food/water and registering an animal require a camera photo, checked by a vision model. A photo not showing food, water or the chosen species is refused with a Turkish reason — intended anti-abuse behaviour, not a bug. A bowl with food, or a cat or dog, passes.
 
 4. EXTERNAL SERVICES
@@ -57,7 +57,7 @@ No payment processor, no ad network, no analytics or attribution SDK, no crash r
 None. Nothing is gated by country and there are no purchases. Only what each user sees nearby varies, because the map and list are distance-based. Turkish interface only; availability currently Türkiye.
 
 6. REGULATED INDUSTRY / THIRD-PARTY MATERIAL
-Not regulated. No veterinary advice, diagnosis or treatment: health records are notes carers write about an animal, shown back without interpretation; no medicine or dose is suggested. No payments, donations or fundraising.
+Not regulated. No veterinary advice, diagnosis or treatment: health records are notes carers write about an animal, shown back without interpretation. No payments, donations or fundraising.
 Third-party material: map data © OpenStreetMap contributors under ODbL via OpenFreeMap, credited in-app under profilim > Ayarlar. Typefaces Quicksand and Nunito under the SIL Open Font License. Other artwork was made for this app; animal photos are taken by users.
 ```
 
