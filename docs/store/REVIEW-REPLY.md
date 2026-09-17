@@ -17,27 +17,36 @@ and any follow-up question are all easier to answer from it.
 
 ---
 
-## The reply as sent (3976 characters; the Reply box caps at 4000)
+## The reply, corrected (3977 characters; the Reply box caps at 4000)
+
+> **The version actually sent on 2026-09-17 contained one false sentence**:
+> "The in-app promotional slots show only our own content." They are a
+> first-party ad **server** — a banner is our row in our database, but it is
+> sold to a third party, labelled "reklam", and opens their external URL. The
+> project's own NOTES had already ruled that the store description must not
+> claim "reklam içermez", and the App Privacy answers declare Advertising
+> Data; the reply contradicted both. Corrected below. Use this version for
+> the Notes field and for any future submission.
 
 ```
 1. SCREEN RECORDING
 Attached. One take on a physical iPhone, from a cold launch. Against your list:
 - Registration: e-mail + the 6-digit code.
 - Login: sign-out, then sign back in.
-- Account deletion: profilim > Ayarlar > "hesabimi sil", password re-entered.
+- Account deletion: profilim > Ayarlar > "hesabimi sil", with the password.
 - User-generated content: water left at the current location with a camera photo, becoming a public record on the map; an animal profile with photos and comments.
 - Content reporting: a comment reported with a reason.
 - Blocking a user: blocked from their profile, then unblocked in Ayarlar > engellediklerim.
 - Paid content: none in the app.
 
 2. PURPOSE AND AUDIENCE
-pati is a free community app for people in Türkiye who feed street cats and dogs. That care is uncoordinated: neighbours feed the same animal while the next street goes without, and nobody knows if one was already vaccinated or treated. pati gives a shared map of where food and water were left and when, a profile per animal with photos and health records kept by its carers, and messaging. Audience: residents who feed street animals, and small volunteer groups. Not a veterinary tool; sells nothing.
+pati is a free community app for people in Türkiye who feed street cats and dogs. That care is uncoordinated: neighbours feed the same animal while the next street goes without, and nobody knows if one was vaccinated or treated. pati gives a shared map of where food and water were left and when, a profile per animal with photos and health records kept by its carers, and messaging. Audience: residents who feed street animals, and small volunteer groups. Not a veterinary tool.
 
 3. SETUP AND ACCESS
 Demo account (verified, no code needed): <E-POSTA> / <SIFRE>
 Turkish interface only. Apple and Google sign-in sit beside the e-mail form.
 Content is location-based, so far from existing data the map looks empty — correct, not a failure. Open the "hayvanlar" tab, which lists animals nearest-first at any distance, or set the device location to Kadikoy, Istanbul (40.9905, 29.0277).
-Where things are: harita = map; "Ekle" = add food/water/animal; hayvanlar = animal list; mesajlar = messages; profilim = badges and settings.
+Where things are: harita = map; "Ekle" = add food/water/animal; hayvanlar = animal list; mesajlar = messages; profilim = settings.
 Reporting: flag in an animal profile header, "sikayet et" under any comment and in a user profile's ... menu.
 Blocking: ... menu on a user profile > "engelle". Blocked list: profilim > Ayarlar > engellediklerim.
 Account deletion: profilim > Ayarlar > "hesabimi sil".
@@ -48,17 +57,17 @@ Note: leaving food/water and registering an animal require a camera photo, check
 - Fly.io (Frankfurt): hosts our backend and PostgreSQL/PostGIS database.
 - Sign in with Apple, Google Sign-In: optional sign-in.
 - Resend: transactional e-mail only (verification code, password reset).
-- Google Gemini: vision check on one photo — does it show food/water, does it show the claimed species, where is the animal's face. Not used for training.
+- Google Gemini: vision check on one photo — food/water, the claimed species, and where the animal's face is. Not used for training.
 - Cloudflare R2 (EU): photo storage.
 - OpenFreeMap: map tiles, rendered on-device with MapLibre.
-No payment processor, no ad network, no analytics or attribution SDK, no crash reporter. The in-app promotional slots show only our own content.
+No payment processor, no third-party ad network or SDK, no analytics or attribution SDK, no crash reporter. Any promotional banner is served from our own backend, labelled "reklam", and sold directly by us.
 
 5. REGIONAL DIFFERENCES
 None. Nothing is gated by country and there are no purchases. Only what each user sees nearby varies, because the map and list are distance-based. Turkish interface only; availability currently Türkiye.
 
 6. REGULATED INDUSTRY / THIRD-PARTY MATERIAL
 Not regulated. No veterinary advice, diagnosis or treatment: health records are notes carers write about an animal, shown back without interpretation. No payments, donations or fundraising.
-Third-party material: map data © OpenStreetMap contributors under ODbL via OpenFreeMap, credited in-app under profilim > Ayarlar. Typefaces Quicksand and Nunito under the SIL Open Font License. Other artwork was made for this app; animal photos are taken by users.
+Third-party material: map data © OpenStreetMap contributors under ODbL via OpenFreeMap, credited in-app under profilim > Ayarlar. Typefaces Quicksand and Nunito under the SIL Open Font License. Other artwork was made for this app; animal photos come from users.
 ```
 
 ---
