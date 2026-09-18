@@ -15,7 +15,7 @@ import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme'
 
 /**
  * Self-service account deletion (the KVKK promise on /gizlilik + App Store
- * 5.1.1(v), which requires it in-app). A faint link opens a modal that spells
+ * 5.1.1(v), which requires it in-app). A plainly named link opens a modal that spells
  * out what is deleted and what stays anonymized, then re-authenticates — an
  * unlocked phone must not be enough to destroy an account. Password accounts
  * type their password; Apple/Google accounts have none, so they sign in with

@@ -124,7 +124,6 @@ const useStyles = makeStyles(() => ({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 34,
-    paddingVertical: spacing.lg,
   },
   brand: { marginBottom: spacing.xxl + 2 },
   lastField: { marginBottom: spacing.lg },

@@ -5562,3 +5562,45 @@ and 16 KB page support, which means React Native 0.74 → 0.77+, the New
 Architecture, and MapLibre 10 → 11 with a rewritten API. None of that starts
 until iOS 1.0 is approved: Apple has just shown it will ask for another build,
 and that build must be a small diff, not one carrying a major RN upgrade.
+
+### Correction, same day: the app was never universal, and that changes the diagnosis
+
+The entry above says the app was "universal by omission" because
+`TARGETED_DEVICE_FAMILY` was absent. **That is false**, and code review caught
+it with three independent reads: the iPhoneOS platform's own
+`DefaultProperties` give `TARGETED_DEVICE_FAMILY = 1`; the simulator bundle
+built on 2026-09-15, before the key existed, already carries
+`UIDeviceFamily = [1]`; and this project's `docs/store/APP-STORE.md` has said
+"No iPad set: `TARGETED_DEVICE_FAMILY = 1`" since 2026-09-16. I asserted the
+opposite to the owner without checking any of them. The explicit key is
+harmless and stays, but it changes nothing: build 2 was already iPhone-only.
+
+What actually happened is simpler and more useful. **Apple reviews
+iPhone-only apps on an iPad, in compatibility mode**, where the app gets a
+short iPhone-sized window. Reproduced without a new build by installing the
+existing Debug bundle on an iPad Air 11-inch simulator: the login screen's
+stack does not fit that window — the consent line is cut mid-sentence and
+"Kayıt ol" is entirely below the edge (screenshot taken). With the old
+centered `View` there was no way to reach it, which is exactly "we were unable
+to scroll down", on the first screen a reviewer meets, on the path to
+"creating a new account" that the same letter asks to see recorded. So the
+`ScrollView` change is not a side discovery next to the fix; it **is** the
+fix. The earlier paragraph's "at an iPad's full-screen height the login fits,
+so it was probably not that one" reasoned from a layout the reviewer never
+saw.
+
+Still unobserved: the scroll gesture itself on the iPad simulator (the input
+tool needs the owner's one-time access grant for a new device). The same
+mechanism was driven on the iPhone with the keyboard up, where the content
+scrolls and "Kayıt ol" is reachable.
+
+Also from the review: the published KVKK notice pointed at "(Profilim → hesabı
+sil)", a label and path that no longer exist — now "(Profilim → Ayarlar →
+Hesabımı sil)"; and the `paddingVertical` added to the two scroll containers
+would have tipped the login from fitting to scrolling on 844–852 pt phones
+(iPhone 12–16), so it is gone — the `Screen` already insets both edges.
+
+The pattern is the one this week keeps teaching: I checked the project file,
+saw a key missing, and stated what its absence meant from memory. One
+`plutil -p` on the platform plist, or one look at a bundle already on disk,
+would have shown the default.

@@ -192,7 +192,7 @@ that is intended. A bowl with any food in it, or a photo of a cat or dog,
 passes.
 
 Sign in with Apple and Google are offered next to the e-mail form.
-Account deletion: profilim → ⚙ Ayarlar → "hesabımı sil". Reporting: the
+Account deletion: profilim → ⚙ Ayarlar → "Hesabımı sil". Reporting: the
 flag on every animal profile and comment, "şikayet et" in the ⋯ menu of a
 user's profile. Blocking: the same ⋯ menu → "engelle"; the list is under
 Ayarlar → engellediklerim.
