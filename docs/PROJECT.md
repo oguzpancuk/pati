@@ -359,7 +359,9 @@ See §2 above.
 ⏸️  Donations — deferred (payment provider, legal, stores)
 ⏸️  AI matching v2 — parked (cost/speed measured; accuracy needs real photos)
 ✅ Design system + UI
-🚀 Launch sprint ← NEXT, the only mandatory block left
+✅ Launch sprint — done except its Android items; iOS 1.0 build 2 is with
+   App Review (docs/store/APP-STORE.md)
+🤖 Android release ← NEXT: the Play Console track, on the same codebase
 ```
 
 ---

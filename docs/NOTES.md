@@ -5302,3 +5302,57 @@ contradicting the two paragraphs above it and, because storage does not fail
 open, taking photo uploads down rather than degrading them. And CLAUDE.md
 told every agent "the backend has no automated tests" while 134 of them
 pass — an instruction to skip the suite that would have caught you.
+
+## 2026-09-18 · The README was not in the audit, and it was the worst file
+
+The owner's answer to the finished documentation audit was two words:
+"readme guncellenmemis". They were right — `docs/` and CLAUDE.md had been
+checked across four rounds and `README.md` had never been opened. It was last
+edited on 2026-09-14 and carried a year of drift.
+
+What it claimed that was no longer true, in descending order of how much time
+it would cost a reader:
+
+- **`cd Pati` after the clone** (the directory is `pati`) and **`bundle
+  install && bundle exec pod install`** in `mobile/ios`, where there is no
+  Gemfile at all. The first two commands of a fresh checkout both fail.
+- **A Google Maps API key step for Android**, telling you to copy
+  `google_maps_api.xml.example` — a file deleted with the basemap migration.
+  Maps are MapLibre everywhere now (ADR-0002), and no client needs a key.
+- **"the brand font Nunito"**. The brand font is Quicksand; the Nunito files
+  are still linked, so following that sentence renders the wrong typeface
+  instead of failing — the same trap CLAUDE.md already warns about.
+- **The 20 m distance check** on care marking, which went away when the app
+  started sending the device's own position instead of a tapped point: the
+  check had come to mean comparing the device's location with itself.
+- **The entire badge table.** Streaks were removed on 2026-09-11 and every
+  badge renamed (migration 015 renamed the stored keys); the README still
+  listed "Mama Perisi", "Mahalle Dedikoducusu" and day-count thresholds, and
+  gave the top level as "Sokakların Piri" where the code says "Onur Üyesi".
+- **A "Location override for remote testing" section** describing a feature
+  removed in `a200d07` — and listing two real people's e-mail addresses in a
+  public repository to do it.
+- **Two known limits that had been closed** (photos on local disk; photo
+  evidence unvalidated and rate limiting only on auth) and a third,
+  "very low automated-test coverage", of exactly the kind CLAUDE.md had just
+  been corrected for: 134 backend and 193 mobile tests pass.
+- **Leaflet and react-native-maps** in the stack list, and a launch-sprint
+  block saying the app must not be touched by real users while iOS 1.0 build
+  2 sits in App Review.
+
+Everything above was checked against the source before it was rewritten, not
+from memory: `grep 'listen('`-style reads of `badges.js`, `care.controller.js`,
+`client.ts`, `rateLimit.middleware.js`, `storage.js`, `package.json` and
+`git log -S` for the removed override.
+
+**Why this file rots harder than the others, which is the lesson worth
+keeping.** NOTES gets an entry every time a session stops and ROADMAP gets one
+every time an item lands, so both stay current as a side effect of the working
+loop. Nothing touches the README unless someone decides to, and it is the one
+document with an outside audience. A documentation task that stops at `docs/`
+is not finished.
+
+While checking, one contradiction turned up next door: `PROJECT.md`'s status
+block still read "🚀 Launch sprint ← NEXT, the only mandatory block left"
+three lines below its own header saying build 2 is in review. ROADMAP had it
+right ("done except its Android items"). Fixed to match.
