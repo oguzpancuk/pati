@@ -91,8 +91,8 @@ pati/
   when a badge lands; a full leaderboard
 - **Sign-in options:** e-mail and password, Sign in with Google, and Sign in
   with Apple. An e-mail registration stays gated until a 6-digit code sent to
-  that address is typed in; until then the session can do nothing but verify
-  itself or delete the account
+  that address is typed in; until then every route answers 403 except
+  verification and `GET`/`DELETE /users/me`
 - **Messaging and groups:** direct messages between friends, group
   conversations, and a notification inbox
 - **Safety tools:** report a user, an animal, a comment or a photo to the
@@ -124,7 +124,7 @@ Detailed plans, approaches, and open decisions: [docs/ROADMAP.md](docs/ROADMAP.m
   The decision list is ready in [ROADMAP.md](docs/ROADMAP.md).
 - [x] **3. Ads** — ✅ done (see MVP list).
 - [x] **4. UI** — ✅ done: the "pati" brand identity, theme layer (tokens,
-  light + dark), 11 core components, SVG logo and icon set, all screens
+  light + dark), the core component set, SVG logo and icon set, all screens
   migrated. The web PWA follows the newer "studio aesthetic" handoff
   ([docs/design](docs/design)). See [docs/DESIGN.md](docs/DESIGN.md).
 - [x] **5. Admin panel (web)** — ✅ done (see MVP list).
@@ -135,9 +135,12 @@ Detailed plans, approaches, and open decisions: [docs/ROADMAP.md](docs/ROADMAP.m
 > photos to object storage, incremental migrations, rate limiting,
 > moderation, KVKK (privacy) texts, deployment, pilot — is done. The backend,
 > the web PWA and the admin panel run in production on Fly.io
-> ([pati-app.com](https://pati-app.com)), and **iOS 1.0 build 2 is with App
-> Review**. What the submission answered, field by field, is in
-> [docs/store/APP-STORE.md](docs/store/APP-STORE.md). The sprint's **Android
+> ([pati-app.com](https://pati-app.com)), and **iOS 1.0 build 2 is in App
+> Review** — submitted 2026-09-16, answered on 2026-09-17 with a Guideline 2.1
+> information request, replied to and resubmitted on 2026-09-18. What the
+> submission answered, field by field, is in
+> [docs/store/APP-STORE.md](docs/store/APP-STORE.md); the reply itself is in
+> [docs/store/REVIEW-REPLY.md](docs/store/REVIEW-REPLY.md). The sprint's **Android
 > items are deliberately unfinished**: the Play Console track is the next
 > release, not this one.
 
@@ -164,8 +167,11 @@ Accepted deliberately — full list with rationale in
    numbered file.
 4. ~~**Photo evidence is not validated; rate limiting only covers auth.**~~
    **Both closed** — every care and animal photo is screened by a vision
-   model (ADR-0005), and the rate limiter caps content writes per user
-   across eight route files, not just auth.
+   model (ADR-0005), and content writes are rate-limited across eight route
+   files, not just auth. Seven of them key on the user; `report.routes.js`
+   builds its own limiter and keys on the IP, which is what the shared
+   middleware argues against for content endpoints (Turkish carriers put
+   thousands of users behind one CGNAT address).
 5. **Automated-test coverage is uneven.** 134 backend and 193 mobile tests
    pass, but none of them exercises an application route: the curl harnesses
    in `backend/scripts/*/run.sh` are what cover the API, and they are not in
@@ -248,8 +254,10 @@ npm run seed
 ```
 
 Creates 100 users, 2 animals each (200 animals), food/water actions spread
-around Kadıköy, and chats on animal profiles. 20 users have 30-day streaks and
-30 have 7-day streaks, so Gold/Silver/Bronze badges all appear in the data.
+around Kadıköy, and chats on animal profiles. The first 20 users get 30 days
+of food and water records each, the next 30 get 7 days, the rest 1-3 — so the
+data reaches **silver** on the care badges (the ladder is 1/10/50/250) and
+bronze on most others. No gold or diamond tier appears in seeded data.
 
 Demo logins: `test1@stray.test` … `test100@stray.test`, password `password123`.
 
@@ -261,8 +269,10 @@ Demo logins: `test1@stray.test` … `test100@stray.test`, password `password123`
 > `npm run seed-showcase` — additive `is_demo` rows (44 districts × 50 bots)
 > that `npm run seed-showcase:remove` deletes exactly.
 >
-> Care photos are stored on the backend's local disk (`backend/uploads/`) and
-> served under `/uploads/...` — development/MVP only.
+> A local checkout stores photos on the backend's own disk
+> (`backend/uploads/`), served under `/uploads/...`, because no `S3_*`
+> variables are set. Production points the same code at a bucket; the stored
+> URL is `/uploads/<file>` either way.
 
 ### 4. Install mobile dependencies
 
@@ -305,13 +315,19 @@ repeat after every mobile `npm install`; skipping it produces "The package
 
 ```bash
 cd ios
-LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install
+bundle install
+LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install
 cd ..
 ```
 
-> The locale prefix is not decoration: without it CocoaPods dies inside Ruby
-> with "Unicode Normalization not appropriate for ASCII-8BIT" before it reads
-> the Podfile, and nothing in the error points at the cause.
+> **Both halves of that second line matter.** `bundle exec` uses the
+> CocoaPods version `mobile/Gemfile` pins (`>= 1.13, < 1.15` — 1.15 breaks the
+> React Native 0.74 build); a bare `pod` is whatever the machine happens to
+> have, if it has one at all. And without the UTF-8 locale CocoaPods dies
+> inside Ruby with "Unicode Normalization not appropriate for ASCII-8BIT"
+> before it even reads the Podfile, with nothing in the error pointing at the
+> cause. Bundler finds the Gemfile one directory up, so running this from
+> `mobile/ios` is correct.
 
 **Run:**
 
@@ -345,6 +361,8 @@ all of this and talk to `https://pati-app.com/api`.
 
 Both are separate web apps against the same API — no extra server.
 
+From the repository root:
+
 ```bash
 cd web && npm install && npm run dev        # http://localhost:5175
 cd ../admin && npm install && npm run dev   # http://localhost:5174
@@ -376,8 +394,8 @@ impression/click/CTR reports), audit log.
 
 1. Create an account: e-mail and password, Sign in with Google, or Sign in
    with Apple. An e-mail registration next asks for the 6-digit code sent to
-   that address — until it is typed, the session can only verify itself or
-   delete the account.
+   that address — until it is typed, the session can only verify itself, read
+   its own profile, or delete the account.
 2. Grant location and notification permissions. Location is never asked for
    at app start: the sheet belongs to the first action that needs it (opening
    the map, adding an animal), so a refusal answers a request you actually
@@ -395,7 +413,8 @@ impression/click/CTR reports), audit log.
 ### Badges, points, and ranking
 
 All badges come in bronze / silver / gold / diamond tiers. Once earned, a
-badge is permanent (a broken streak doesn't demote it). Three groups:
+badge is permanent — the highest tier you ever reached is the one that
+scores. Three groups:
 
 **Nothing counts days.** Badges count what you did, not how many days running
 you did it (owner, 2026-09-11): a streak punished one missed day and rewarded
@@ -408,7 +427,7 @@ nobody for two drops in an afternoon. The old `streak:` keys were renamed to
 | **Care** | **Kayıt Gönüllüsü** (animals registered) | 1 / 5 / 20 / 100 |
 | **Count** | **Takip Gönüllüsü** (comments) | 1 / 10 / 50 / 200 |
 | **Count** | **Sağlık Gönüllüsü** (health records), **Aşı Gönüllüsü** (vaccinations) | 1 / 5 / 20 / 100 |
-| **Pattern** | One per cat/dog pattern: **Tekir Dostu**, **Sarman Dostu**, **Kangal Melezi Dostu**… | 1 / 5 / 20 / 100 registrations |
+| **Pattern** | One per cat/dog pattern: **Tekir Dostu**, **Sarman Dostu**, **Kangal melezi Dostu**… | 1 / 5 / 20 / 100 registrations |
 
 Two naming patterns and no third — "\<Area\> Gönüllüsü" for contributions,
 "\<Pattern\> Dostu" for patterns — so adding a category is mechanical rather
@@ -430,17 +449,23 @@ procedural SVG mark drawn from the level number, not an emoji.
 old → new rank, and the new level if you leveled up. Badges earned while the
 app was closed are caught when the profile screen opens.
 
-**Leaderboard:** ranks all users by total points; ties share a rank
-(1, 2, 2, 4). Your own row is pinned on top and highlighted.
+**Leaderboard:** ranks users by total points; ties share a rank (1, 2, 2, 4).
+Your own row is pinned on top and highlighted. Showcase (demo) accounts,
+suspended accounts and self-deleted ones hold no rank — a rank is frozen into
+badge awards, so it must not move because a bot arrived.
 
 **Notifications:** while the app runs, it checks every 30 minutes (and on
 every foreground, to make up for windows the OS skipped) whether food/water
 remains within 100 m; if not, it shows an on-device notification (6 h
 cooldown). There is no background mode: iOS suspends the app and the timer
-stops with it, and the "always" location key is deliberately absent — adding
-it would flip every position request into a background-permission prompt for
-a capability the app does not use. Android asks separately for background
-location; without it the behaviour is the same as iOS.
+stops with it, so the app asks only for when-in-use location. One key in
+`Info.plist` is deliberately absent, and it is a specific one: the **legacy**
+`NSLocationAlwaysUsageDescription`, whose mere presence makes
+`@react-native-community/geolocation` turn every `getCurrentPosition` into a
+background-permission request. (The modern
+`NSLocationAlwaysAndWhenInUseUsageDescription` would be harmless — the two
+look interchangeable and are not.) Android asks separately for background
+location; without it the behaviour matches iOS.
 
 **Where the app gets your location:** always the device. A development
 override that pinned certain accounts to a fixed Kadıköy point used to live
@@ -460,14 +485,15 @@ See `mobile/src/location.ts`.
   simulator), then `npx react-native start --reset-cache` and rebuild. The
   orange paw icon is the right app.
 - **Text still in the system font / old icon**: fonts and icons load natively;
-  rebuild with `npm run ios` / `npm run android` (iOS: `pod install` first).
+  rebuild with `npm run ios` / `npm run android` (iOS: `bundle exec pod
+  install` first).
 - **`git clone`/`push` "Invalid username or token"**: GitHub no longer accepts
   passwords; use a Personal Access Token (step 1).
 - **`ffi-*.gem requires ruby >= 3.0`**: old system Ruby; install Homebrew Ruby
   (step 5a).
 - **`Unicode Normalization not appropriate for ASCII-8BIT`** from
   `pod install`: CocoaPods needs a UTF-8 locale. Re-run it as
-  `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install` (step 5a). `contracts/init.sh
+  `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install` (step 5a). `contracts/init.sh
   --ios` runs the bare command, so a fresh checkout aborts there under
   `set -e` with nothing pointing at the cause.
 - **`npm run migrate` fails on a column that should exist**: the migration
@@ -477,6 +503,8 @@ See `mobile/src/location.ts`.
   full Xcode isn't selected; apply step 5a.
 - **`Unable to open base configuration reference file ... Pods-*.xcconfig`**:
   `pod install` hasn't run; apply step 5a.
+- **`zsh: command not found: pod`**: CocoaPods is a gem, and its bin directory
+  is often not on `PATH`. That is what `bundle exec` in step 5a is for.
 - **`unable to attach DB: ... database is locked`** (Xcode): a stale build
   cache. Try, in order:
   ```bash

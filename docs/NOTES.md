@@ -5313,9 +5313,8 @@ edited on 2026-09-14 and carried a year of drift.
 What it claimed that was no longer true, in descending order of how much time
 it would cost a reader:
 
-- **`cd Pati` after the clone** (the directory is `pati`) and **`bundle
-  install && bundle exec pod install`** in `mobile/ios`, where there is no
-  Gemfile at all. The first two commands of a fresh checkout both fail.
+- **`cd Pati` after the clone** — the directory is `pati`, so the very first
+  command of a fresh checkout fails.
 - **A Google Maps API key step for Android**, telling you to copy
   `google_maps_api.xml.example` — a file deleted with the basemap migration.
   Maps are MapLibre everywhere now (ADR-0002), and no client needs a key.
@@ -5356,3 +5355,68 @@ While checking, one contradiction turned up next door: `PROJECT.md`'s status
 block still read "🚀 Launch sprint ← NEXT, the only mandatory block left"
 three lines below its own header saying build 2 is in review. ROADMAP had it
 right ("done except its Android items"). Fixed to match.
+
+## 2026-09-18 · The README pass had to be reviewed like code, and it failed the first time
+
+The review of the README commit returned NEEDS_WORK, and its blocker was the
+pass's own headline fix. The commit claimed `bundle exec pod install` was
+wrong because `mobile/ios` has no Gemfile. `mobile/Gemfile` exists — Bundler
+walks **up** from the working directory to find it, which I did not account
+for when I ran `ls mobile/ios/Gemfile*`, saw nothing, and concluded there was
+none. Verified after the fact: from `mobile/ios`, `bundle exec pod --version`
+prints 1.14.3, and the Gemfile pins `cocoapods >= 1.13, < 1.15` because 1.15
+breaks the React Native 0.74 build.
+
+The replacement was worse than the thing it replaced. Nothing in this repo
+installs CocoaPods, and `pod` is a gem binary whose directory is frequently
+not on `PATH` — it is not on this machine's, in a non-login shell: `which pod`
+finds nothing while the gem sits at
+`/opt/homebrew/lib/ruby/gems/4.0.0/bin/pod`. So the "fix" would have sent a
+fresh checkout to `command not found: pod`, or, on a machine with a global
+CocoaPods, to the 1.15 the Gemfile exists to avoid. **CLAUDE.md and
+`contracts/init.sh` carried the same bare command and have been corrected
+too** — this was never only a README defect.
+
+Three more claims were contradicted by files in this repo:
+
+- **The seeded badge tiers.** `npm run seed` gives its top cohort 30 days of
+  one food and one water record, which is 30 records; the care ladder is
+  1/10/50/250, so that is **silver**, not the gold both README and PROJECT.md
+  promised. The source of the error is the seed script's own console output,
+  which still printed "(gold badge)". Fixed at the source as well as in the
+  docs — no gold or diamond tier exists in seeded data at all.
+- **The "always" location key.** The new paragraph said the key is absent
+  because adding it would flip every position request into a background
+  prompt. That is true only of the **legacy** `NSLocationAlwaysUsageDescription`;
+  the modern `NSLocationAlwaysAndWhenInUseUsageDescription` is harmless, as
+  the 2026-09-16 entry above says in as many words. Conflating them dissolves
+  the warning that matters, which is precisely the failure mode that entry was
+  written to prevent.
+- **"eight route files" of per-user rate limiting.** Seven key on the user;
+  `report.routes.js` builds its own limiter with no `keyGenerator`, so it keys
+  on the IP — the thing `rateLimit.middleware.js` argues against for content
+  endpoints, since Turkish carriers put thousands of users behind one CGNAT
+  address. Recorded as-is in both documents rather than rounded off.
+
+Also corrected: PROJECT.md's badge table and level ladder were the stale
+originals the README had just been fixed away from (streak groups, emoji
+levels, "Sokakların Piri"), so the two documents would have contradicted each
+other with README.md pointing readers at the wrong one; the leaderboard
+"ranks everyone" in both, when demo, suspended and deleted accounts hold no
+rank; and the pending-session sentence, which omitted that `GET /users/me` is
+allowed alongside verification and deletion.
+
+**The lesson that generalises.** A documentation pass that touches this many
+factual claims needs the same review a feature gets, and for the same reason:
+five of the eight findings here were things I had "checked" — I had run the
+right command in the wrong directory, or read the right file and drawn the
+wrong boundary around it. The review also confirmed what was correct, which
+matters: badge labels and ladders, level titles, the 134 + 193 test counts
+(both suites re-run), the absent 20 m check, blocking, ports, and the deleted
+Google Maps example file.
+
+**App Review status, since the repo had no record of it.** Build 2 was
+submitted 2026-09-16, answered 2026-09-17 with a Guideline 2.1 information
+request, and the owner pasted the reply from `docs/store/REVIEW-REPLY.md` into
+App Review Notes and resubmitted on 2026-09-18. The documents said only that a
+reply was owed, which made "in App Review" unverifiable from this repo.

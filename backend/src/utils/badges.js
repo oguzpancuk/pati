@@ -5,9 +5,11 @@ const { CAT_PATTERNS, DOG_PATTERNS } = require('./taxonomy');
 // earns no badge: otherwise every typo would become its own badge.
 const BADGEABLE_PATTERNS = new Set([...CAT_PATTERNS, ...DOG_PATTERNS]);
 
-// Badge tiers and their points. Once earned, a badge is permanent (it doesn't
-// drop even if the streak breaks); leaderboard points come only from the
-// highest tier reached.
+// Badge tiers and their points. Once earned, a badge is permanent — the
+// highest tier ever reached is the one that scores, and nothing below it is
+// ever re-evaluated. (This comment used to explain that a broken streak
+// doesn't demote you, which outlived streaks themselves by several releases
+// and was copied into the README from here.)
 const TIER_POINTS = { bronze: 10, silver: 25, gold: 60, diamond: 150 };
 const TIER_ORDER = ['bronze', 'silver', 'gold', 'diamond'];
 

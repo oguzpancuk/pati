@@ -25,7 +25,7 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 
 | Purpose        | Command                                                                                                                                                               |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| install        | `npm ci` in each of backend/, mobile/, web/, admin/; then `cd mobile/ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install`                                          |
+| install        | `npm ci` in each of backend/, mobile/, web/, admin/; then `cd mobile/ios && bundle install && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install`             |
 | dev            | `bash contracts/init.sh` (DB + backend + health check); `--ios` also launches the simulator                                                                           |
 | test           | `cd mobile && npx jest`; `cd backend && node --test` (14 files, 134 unit tests — no routes, no database; web/admin have none)                                         |
 | typecheck      | `npx tsc --noEmit` in mobile/, web/, admin/                                                                                                                           |
@@ -232,12 +232,17 @@ commit message mentioning a push flag is written with `git commit -F`.
 
 ## Environment pitfalls
 
-- `pod install` is mandatory after `npm install` in mobile/, and on this
-  machine it needs a UTF-8 locale or CocoaPods dies inside Ruby with
+- `pod install` is mandatory after `npm install` in mobile/, and the command
+  has two non-obvious halves: `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec
+  pod install`. Without the UTF-8 locale CocoaPods dies inside Ruby with
   "Unicode Normalization not appropriate for ASCII-8BIT" before it reads the
-  Podfile: `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install`. The bare
-  command is what `contracts/init.sh --ios` runs, so a fresh checkout aborts
-  there under `set -e` with nothing pointing at the cause.
+  Podfile. Without `bundle exec` you get whatever CocoaPods the machine has —
+  often none on `PATH`, since it is a gem, and otherwise likely 1.15+, which
+  `mobile/Gemfile` pins away from (`>= 1.13, < 1.15`) because it breaks the
+  RN 0.74 build. Bundler finds that Gemfile from `mobile/ios` by walking up.
+  `contracts/init.sh --ios` runs the full command; it used to run the bare
+  one, and a fresh checkout aborted there under `set -e` with nothing pointing
+  at the cause.
 - Font and app-icon changes need a native build (`npm run ios` /
   `npm run android`); restarting Metro is not enough.
 - The Android emulator reaches the backend via `10.0.2.2:3000`.

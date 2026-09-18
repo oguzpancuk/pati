@@ -7,17 +7,17 @@ the owner's checklist. Android is parked — see the ROADMAP.
 
 ## 0. Prerequisites the owner holds
 
-| What                                    | Where it comes from                                             | Status (2026-09-16)       |
+| What                                    | Where it comes from                                             | Status (2026-09-18)       |
 | --------------------------------------- | --------------------------------------------------------------- | ------------------------- |
-| Apple Developer Program membership      | developer.apple.com, 99 $/yıl, Individual                        | not yet — the one gate    |
-| App ID `com.oguzpancuk.pati`            | Certificates, Identifiers & Profiles → Identifiers → App IDs     | after enrollment          |
-| Sign in with Apple on that App ID       | the App ID's capability list                                    | after enrollment          |
-| Services ID for web sign-in             | same page → Services IDs (e.g. `com.pati-app.web`)              | after enrollment          |
+| Apple Developer Program membership      | developer.apple.com, 99 $/yıl, Individual                        | done — team 5J62WM72AV    |
+| App ID `com.oguzpancuk.pati`            | Certificates, Identifiers & Profiles → Identifiers → App IDs     | done                      |
+| Sign in with Apple on that App ID       | the App ID's capability list                                    | done                      |
+| Services ID for web sign-in             | same page → Services IDs (e.g. `com.pati-app.web`)              | done                      |
 | Google iOS OAuth client                 | already made: `223239218396-o34…` (Info.plist + googleClientId.ts) | done                   |
 | Google web OAuth client                 | Google Cloud → Credentials                                      | done (web sign-ins on Sep 4) |
-| Fly secrets for Apple                   | `fly secrets set` (docs/DEPLOYMENT.md → "Apple / Google sign-in")| after the ids exist       |
+| Fly secrets for Apple                   | `fly secrets set` (docs/DEPLOYMENT.md → "Apple / Google sign-in")| done — `APPLE_CLIENT_IDS` set 2026-09-16 |
 | Resend DNS for `pati-app.com`           | the DKIM/SPF records Resend lists                               | done — checked 2026-09-16: the DKIM TXT at `resend._domainkey` and the MX on `send.` both resolve |
-| A reviewer account (section 5)          | the owner registers it                                          | after Resend works        |
+| A reviewer account (section 5)          | the owner registers it                                          | done — given to App Review with build 2 |
 
 ## 1. App Store Connect → New App
 

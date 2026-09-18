@@ -1,5 +1,6 @@
-// Generates demo/test data: 100 users with 2 animals each, streaks of users
-// leaving food/water for 7 or 30 consecutive days, and comments on the animals
+// Generates demo/test data: 100 users with 2 animals each, food/water records
+// spread over 30, 7 or 1-3 days per user (badges count records, not days —
+// the spread is what makes tiers differ), and comments on the animals
 // they care for. Also one "showcase" animal per pattern in the taxonomy
 // (src/utils/taxonomy.js), complete with a health record, a vaccination and
 // record-bound comments — so newly added screens are never tested against
@@ -418,7 +419,7 @@ async function seed() {
         userId,
         // Registration dates are spread over the last 30 days. Piled onto
         // today, the admin panel's daily-activity chart is crushed by one
-        // giant column and the "registrar" streak badges never form.
+        // giant column and the "registrar" badges never form.
         Math.floor(Math.random() * 30)
       );
     }
@@ -564,7 +565,10 @@ async function seed() {
     recordCommentParams
   );
 
-  console.log('Creating food/water streaks (7- and 30-day)...');
+  // The local names below still say "streak" because that is how the cohorts
+  // were built; what they produce is a record COUNT per user, which is what
+  // badges read.
+  console.log('Creating food/water records (30, 7 and 1-3 day spreads)...');
   const careValues = [];
   const careParams = [];
   const streakSummary = { 30: 0, 7: 0, short: 0 };
@@ -808,9 +812,12 @@ async function seed() {
   console.log(`  Care links       : ${counts.rows[0].carers}`);
   console.log(`  Badge awards     : ${counts.rows[0].badge_awards}`);
   console.log(`  Advertisers      : ${counts.rows[0].advertisers}`);
-  console.log(`\n  30-day streak    : ${streakSummary[30]} users (gold badge)`);
-  console.log(`  7-day streak     : ${streakSummary[7]} users (silver badge)`);
-  console.log(`  1-3 days         : ${streakSummary.short} users (bronze badge)`);
+  // Tiers come from the care ladder (1/10/50/250 records), not from days:
+  // 30 days of food+water is 30 records of each, which is silver. Saying
+  // "gold" here is what put a false claim in the README for a month.
+  console.log(`\n  30 days of records: ${streakSummary[30]} users (silver care badges)`);
+  console.log(`  7 days            : ${streakSummary[7]} users (bronze care badges)`);
+  console.log(`  1-3 days          : ${streakSummary.short} users (bronze care badges)`);
   console.log(`\n  Login: test1@stray.test ... test${USER_COUNT}@stray.test / ${PASSWORD}`);
 
   await pool.end();

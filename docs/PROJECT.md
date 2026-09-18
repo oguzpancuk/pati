@@ -94,18 +94,26 @@ The MVP is complete and tested end to end. All of the following works:
   accept no new comments
 
 ### Badges, points, leaderboard
-Three badge groups, each in bronze / silver / gold / diamond tiers:
+Three badge groups, each in bronze / silver / gold / diamond tiers. **Nothing
+counts days:** badges count what you did, not how many days running you did it
+(owner, 2026-09-11) — a streak punished one missed day and rewarded nobody for
+two drops in an afternoon. Migration 015 renamed the stored `streak:` keys to
+`care:` and `scripts/recompute-badges.js` re-awarded them.
 
 | Group | Badges | Thresholds |
 | --- | --- | --- |
-| Streak | Mama Perisi, Su Elçisi, Mahalle Muhabiri — longest consecutive-day streak | 1 / 7 / 30 / 365 days |
-| Breed | One per cat/dog breed: Tekir Ahbabı, Sarman Sırdaşı, Kangal Yoldaşı… | 1 / 5 / 20 / 100 registrations |
-| Counter | Mahalle Dedikoducusu (comments), Pati Şifacısı (health) | Comments 1/10/50/200 · Health 1/5/20/100 |
+| Care | Mama Gönüllüsü (food records), Su Gönüllüsü (water records) | 1 / 10 / 50 / 250 |
+| Care | Kayıt Gönüllüsü (animals registered) | 1 / 5 / 20 / 100 |
+| Count | Takip Gönüllüsü (comments) | 1 / 10 / 50 / 200 |
+| Count | Sağlık Gönüllüsü (health records), Aşı Gönüllüsü (vaccinations) | 1 / 5 / 20 / 100 |
+| Pattern | One per cat/dog pattern: Tekir Dostu, Sarman Dostu, Kangal melezi Dostu… | 1 / 5 / 20 / 100 registrations |
 
-A badge reads with its tier: "Altın Tekir Ahbabı". Names are deliberately warm
-and playful — aggressive words like "hunter" were avoided, because what's
-being pursued here is a living creature receiving care, not prey. (Badge
-names are product content and stay Turkish.)
+Two naming patterns and no third — "<Area> Gönüllüsü" for contributions,
+"<Pattern> Dostu" for patterns — so adding a category is mechanical instead of
+requiring another joke. A badge reads with its tier in front: "Altın Mama
+Gönüllüsü". Aggressive words like "hunter" were avoided, because what's being
+pursued here is a living creature receiving care, not prey. (Badge names are
+product content and stay Turkish.)
 
 - Points: bronze 10, silver 25, gold 60, diamond 150
 - Comments score extra but **weighted**: at most 5 comments per animal count
@@ -113,13 +121,15 @@ names are product content and stay Turkish.)
   comments on one animal doesn't farm points
 - A badge, once earned, never demotes
 - Users feature up to 3 badges on their profile
-- The leaderboard ranks everyone by points; ties share ranks (1, 2, 2, 4)
+- The leaderboard ranks users by points; ties share ranks (1, 2, 2, 4).
+  Showcase (demo), suspended and self-deleted accounts hold no rank
 
-**Levels:** total points map to a 10-step ladder — 🌱 Yeni Komşu (0) →
-🏘️ Mahalle Sakini (40) → 🤝 Sokak Gönüllüsü (120) → 🍲 Mama Nöbetçisi (250) →
-🐾 Pati Dostu (450) → 🧭 Sokak Kâşifi (750) → 🎖️ Mahalle Muhtarı (1200) →
-🦉 Sokak Bilgesi (1800) → 🦸 Pati Kahramanı (2600) → 👑 Sokakların Piri (3600).
-The profile shows a progress bar and the points to the next level.
+**Levels:** total points map to a 10-step ladder of responsibility — Yeni
+Komşu (0) → Mahalle Gönüllüsü (40) → Düzenli Gönüllü (120) → Mahalle Sorumlusu
+(250) → Kıdemli Gönüllü (450) → Bölge Gönüllüsü (750) → Mahalle Temsilcisi
+(1200) → Kıdemli Temsilci (1800) → Şehir Gönüllüsü (2600) → Onur Üyesi (3600).
+The profile shows a progress bar and the points to the next level, and the
+level emblem is a procedural SVG mark drawn from the number, not an emoji.
 
 **Celebrations:** a new badge opens a modal with the badge, its points,
 old → new rank, and the new level if any. Multiple badges queue up; badges
@@ -173,10 +183,12 @@ in the admin panel and slots are deliberately specific.
 
 ### Demo data
 `npm run seed` creates 100 users, 200 animals, food/water actions around
-Kadıköy, and chats on animal profiles. 20 users have 30-day streaks and 30
-have 7-day streaks, so every badge tier appears in the data. For
-production-safe demo data (guide accounts across 37 districts) see
-`scripts/seed-guides.js` and [DEPLOYMENT.md](DEPLOYMENT.md).
+Kadıköy, and chats on animal profiles. The first 20 users get 30 days of food
+and water records, the next 30 get 7 days, the rest 1-3 — which reaches silver
+on the care ladder (1/10/50/250) and bronze on most others; no gold or diamond
+tier appears in seeded data. For demo data that is safe beside real rows, see
+`npm run seed-showcase` (additive `is_demo` rows, removable with
+`seed-showcase:remove`) and [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -309,9 +321,11 @@ in [NOTES.md](NOTES.md); the most important:
    ledger would lift that constraint.
 4. ~~**Photo evidence unvalidated; rate limiting only on auth.**~~ **Both
    closed.** Every care and animal photo is checked by a vision model
-   (ADR-0005), and `backend/src/middleware/rateLimit.middleware.js` caps
-   every content write per user, not just auth. Reports, a moderation queue
-   and user blocking shipped as well.
+   (ADR-0005), and content writes are rate-limited across eight route files,
+   not just auth — seven keyed on the user through
+   `backend/src/middleware/rateLimit.middleware.js`, with `report.routes.js`
+   keying on the IP through its own limiter. Reports, a moderation queue and
+   user blocking shipped as well.
 5. **Automated-test coverage is uneven.** 134 backend unit tests and 193
    mobile ones pass, but none of them exercises an application route — the curl
    harnesses in `backend/scripts/*/run.sh` are what cover the API, and they

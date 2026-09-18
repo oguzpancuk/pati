@@ -57,8 +57,11 @@ echo "init: backend healthy at $BACKEND_URL"
 # 3. Optional: the app in the iOS simulator.
 if [ "${1:-}" = "--ios" ]; then
   [ -d mobile/node_modules ] || (cd mobile && npm ci)
-  # CocoaPods dies in Ruby's unicode_normalize without a UTF-8 locale
-  # ("not appropriate for ASCII-8BIT"), before it even reads the Podfile.
-  [ -d mobile/ios/Pods ] || (cd mobile/ios && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 pod install)
+  # Two traps in one line. CocoaPods dies in Ruby's unicode_normalize without
+  # a UTF-8 locale ("not appropriate for ASCII-8BIT") before it even reads the
+  # Podfile; and `bundle exec` is what pins CocoaPods below 1.15 (mobile/Gemfile),
+  # which the RN 0.74 template says breaks the build. A bare `pod` is also
+  # frequently not on PATH at all, being a gem binary.
+  [ -d mobile/ios/Pods ] || (cd mobile/ios && bundle install && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install)
   (cd mobile && npm run ios)
 fi
