@@ -412,9 +412,13 @@ impression/click/CTR reports), audit log.
 
 ### Badges, points, and ranking
 
-All badges come in bronze / silver / gold / diamond tiers. Once earned, a
-badge is permanent — the highest tier you ever reached is the one that
-scores. Three groups:
+All badges come in bronze / silver / gold / diamond tiers, and **a user's
+tier is recomputed from current counts on every read** — it is not stored and
+does not ratchet. In practice it only ever rises, because the counts only
+rise; but deleting a care record inside its 15-minute window, or an admin
+deleting an animal, takes the underlying count down and the tier with it.
+(Animal badges are the sticky ones: they read the awarded rows.) Three
+groups:
 
 **Nothing counts days.** Badges count what you did, not how many days running
 you did it (owner, 2026-09-11): a streak punished one missed day and rewarded
@@ -458,14 +462,17 @@ badge awards, so it must not move because a bot arrived.
 every foreground, to make up for windows the OS skipped) whether food/water
 remains within 100 m; if not, it shows an on-device notification (6 h
 cooldown). There is no background mode: iOS suspends the app and the timer
-stops with it, so the app asks only for when-in-use location. One key in
-`Info.plist` is deliberately absent, and it is a specific one: the **legacy**
-`NSLocationAlwaysUsageDescription`, whose mere presence makes
+stops with it, so the app asks only for when-in-use location. Two keys are
+deliberately absent from `Info.plist`, for different reasons. The modern
+`NSLocationAlwaysAndWhenInUseUsageDescription` is left out because writing a
+purpose string for a capability the app does not use would promise the user
+something untrue. The **legacy** `NSLocationAlwaysUsageDescription` is left
+out because it is a tripwire: its mere presence makes
 `@react-native-community/geolocation` turn every `getCurrentPosition` into a
-background-permission request. (The modern
-`NSLocationAlwaysAndWhenInUseUsageDescription` would be harmless — the two
-look interchangeable and are not.) Android asks separately for background
-location; without it the behaviour matches iOS.
+background-permission request. The two keys look interchangeable and are not:
+adding the modern one would be harmless, adding the legacy one would start
+asking every user for background location. Android asks separately for
+background location; without it the behaviour matches iOS.
 
 **Where the app gets your location:** always the device. A development
 override that pinned certain accounts to a fixed Kadıköy point used to live
@@ -493,9 +500,10 @@ See `mobile/src/location.ts`.
   (step 5a).
 - **`Unicode Normalization not appropriate for ASCII-8BIT`** from
   `pod install`: CocoaPods needs a UTF-8 locale. Re-run it as
-  `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install` (step 5a). `contracts/init.sh
-  --ios` runs the bare command, so a fresh checkout aborts there under
-  `set -e` with nothing pointing at the cause.
+  `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install` (step 5a).
+  `contracts/init.sh --ios` now runs that full command; it used to run the
+  bare one, and a fresh checkout aborted there under `set -e` with nothing
+  pointing at the cause.
 - **`npm run migrate` fails on a column that should exist**: the migration
   runner has no ledger and re-applies every file in order, so a statement
   that is not re-runnable breaks every later deploy. See known limit 3.

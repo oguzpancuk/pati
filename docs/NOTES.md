@@ -5420,3 +5420,39 @@ submitted 2026-09-16, answered 2026-09-17 with a Guideline 2.1 information
 request, and the owner pasted the reply from `docs/store/REVIEW-REPLY.md` into
 App Review Notes and resubmitted on 2026-09-18. The documents said only that a
 reply was owed, which made "in App Review" unverifiable from this repo.
+
+### The badge-permanence claim was wrong in three places, and it may be a product bug
+
+The second review of the README work found that "once earned, a badge is
+permanent" — in `README.md`, in `docs/PROJECT.md` and in `badges.js`'s own
+comment — is not what the code does. `getBadgesForUsers` recomputes every
+tier from live counts on each read (`tierFor(count, thresholds)`); it never
+reads `user_badge_awards`, whose header says as much: the badge is derived
+data, and the table exists to remember *when* you earned it and *what rank*
+you held, because that cannot be reconstructed. `animalBadgeLadder` is the
+one that passes awarded rows in — **animal badges are sticky, user badges are
+not.**
+
+So a tier follows its count downwards. The reachable path is
+`DELETE /care-actions/:id` inside its 15-minute window: a user sitting on
+exactly 10 food records holds silver Mama Gönüllüsü, deletes one mistaken tap,
+and the next profile read shows bronze — 25 points become 10, and the rank and
+possibly the level move with them. An admin deleting an animal does the same
+to the registrar and pattern badges.
+
+The documents now describe the behaviour instead of the intention. **Whether
+the behaviour is right is the owner's call**, and it is a real question: the
+celebration modal already fired for a badge the profile can now take back, and
+`user_badge_awards` holds everything needed to make user badges ratchet the
+way animal badges do. Recorded here rather than silently "fixed", because
+making badges sticky would change leaderboard points for anyone who has ever
+deleted a record.
+
+Two smaller corrections in the same round: the README's troubleshooting bullet
+still said `contracts/init.sh` runs the bare `pod install` in the very commit
+that changed it, and the notifications paragraph said one location key is
+deliberately absent when two are, for different reasons — the modern key
+because a purpose string for an unused capability promises the user something
+untrue, the legacy one because its presence flips every position request.
+`docs/store/APP-STORE.md`'s prerequisite rows are now marked
+**(owner-reported)** where a checkout cannot verify them.

@@ -119,7 +119,11 @@ product content and stay Turkish.)
 - Comments score extra but **weighted**: at most 5 comments per animal count
   (1 point each) plus 3 points per distinct animal commented on — piling
   comments on one animal doesn't farm points
-- A badge, once earned, never demotes
+- A user's tier is recomputed from live counts on every read — not stored, so
+  it follows the count down as well as up (deleting a care record inside its
+  15-minute window, or an admin deleting an animal). `user_badge_awards` is
+  history for the celebration modal, not the source of truth. Animal badges
+  are the sticky ones
 - Users feature up to 3 badges on their profile
 - The leaderboard ranks users by points; ties share ranks (1, 2, 2, 4).
   Showcase (demo), suspended and self-deleted accounts hold no rank

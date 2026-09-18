@@ -419,7 +419,8 @@ async function seed() {
         userId,
         // Registration dates are spread over the last 30 days. Piled onto
         // today, the admin panel's daily-activity chart is crushed by one
-        // giant column and the "registrar" badges never form.
+        // giant column. (The registrar badge counts animals with no date
+        // term at all, so it is only the chart that suffers.)
         Math.floor(Math.random() * 30)
       );
     }
