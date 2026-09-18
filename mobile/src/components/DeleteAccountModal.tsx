@@ -93,9 +93,19 @@ export default function DeleteAccountLink({
 
   return (
     <>
-      <Pressable onPress={() => setOpen(true)} hitSlop={hitSlop} style={styles.link}>
-        <Text variant="caption" color="textSubtle" center>
-          hesabı sil
+      {/* Named and coloured as what it is. It used to be a faint grey
+          "hesabı sil" on the sheet's last line, and App Review (2026-09-18,
+          guideline 5.1.1(v)) reported the app has no account deletion at
+          all — a control nobody can find is a control that is not there. */}
+      <Pressable
+        onPress={() => setOpen(true)}
+        hitSlop={hitSlop}
+        style={styles.link}
+        accessibilityRole="button"
+        accessibilityLabel="Hesabımı sil"
+      >
+        <Text variant="captionStrong" color="danger" center>
+          Hesabımı sil
         </Text>
       </Pressable>
 

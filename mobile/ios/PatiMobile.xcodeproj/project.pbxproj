@@ -579,7 +579,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PatiMobile/PatiMobile.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5J62WM72AV;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = PatiMobile/Info.plist;
@@ -595,6 +595,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati;
 				PRODUCT_NAME = PatiMobile;
+				TARGETED_DEVICE_FAMILY = 1;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -609,7 +610,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PatiMobile/PatiMobile.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5J62WM72AV;
 				INFOPLIST_FILE = PatiMobile/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -624,6 +625,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.oguzpancuk.pati;
 				PRODUCT_NAME = PatiMobile;
+				TARGETED_DEVICE_FAMILY = 1;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 			};

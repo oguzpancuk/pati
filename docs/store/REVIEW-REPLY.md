@@ -34,7 +34,7 @@ and any follow-up question are all easier to answer from it.
 Attached. One take on a physical iPhone, from a cold launch. Against your list:
 - Registration: e-mail + the 6-digit code.
 - Login: sign-out, then sign back in.
-- Account deletion: profilim > Ayarlar > "hesabimi sil", with the password.
+- Account deletion: profilim > Ayarlar > "Hesabimi sil", with the password.
 - User-generated content: water left at the current location with a camera photo, becoming a public record on the map; animal profiles with photos and comments.
 - Content reporting: a comment reported with a reason.
 - Blocking a user: blocked from their profile, then unblocked in Ayarlar > engellediklerim.
@@ -50,7 +50,7 @@ Content is location-based, so far from data the map looks empty — correct, not
 Where things are: harita = map; "Ekle" = add food/water/animal; hayvanlar = animal list; mesajlar = messages; profilim = settings.
 Reporting: flag in an animal profile header, "sikayet et" under any comment and in a user profile's ... menu.
 Blocking: ... menu on a user profile > "engelle". Blocked list: profilim > Ayarlar > engellediklerim.
-Account deletion: profilim > Ayarlar > "hesabimi sil".
+Account deletion: profilim > Ayarlar > "Hesabimi sil".
 Writing a comment or health record requires being one of that animal's carers — you become one via "bakim ver" on its profile, which asks for a photo of it. A non-carer sees the comments but no composer, by design: an animal's records stay with the people who look after it. Registering an animal (Ekle > Yeni hayvan) makes you its carer at once, the quickest route to the composer.
 Note: leaving food/water and registering an animal require a camera photo, checked by a vision model. A photo not showing food, water or the chosen species is refused with a Turkish reason — intended anti-abuse behaviour, not a bug. A bowl with food, or a cat or dog, passes.
 
@@ -143,7 +143,7 @@ of any user's profile; and a report action on individual messages.
 *Blocking:* the ⋯ menu on any user's profile → "engelle". The blocked list
 and the way to undo it are in **profilim → Ayarlar → engellediklerim**.
 
-*Account deletion:* **profilim → Ayarlar → "hesabımı sil"**. It asks for the
+*Account deletion:* **profilim → Ayarlar → "Hesabımı sil"**. It asks for the
 password again (or a fresh sign-in for Apple/Google accounts).
 
 *One deliberate behaviour worth knowing before testing:* leaving food or
@@ -231,7 +231,7 @@ Start from the home screen so the launch is visible.
 9. **Block**: on that same user's profile → ⋯ → "Engelle" → confirm. Show
    the button turning into "Engellendi".
 10. **Blocked list**: profilim → Ayarlar → engellediklerim → "engeli kaldır".
-11. **Account deletion**: profilim → Ayarlar → "hesabımı sil" → confirm with
+11. **Account deletion**: profilim → Ayarlar → "Hesabımı sil" → confirm with
     the password. Use the account registered in step 2, not the demo
     account the reviewer needs.
 

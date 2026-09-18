@@ -97,6 +97,11 @@ export default function SettingsSheet({
 
       {changePassword}
 
+      {/* Directly under the password form, above the legal line and the
+          logout: the account block's two destructive-ish actions together,
+          and deletion no longer the last thing in a scrolling sheet. */}
+      {deleteAccount}
+
       <Divider style={styles.divider} />
 
       <Text variant="caption" color="textSubtle" center style={styles.legal}>
@@ -122,8 +127,6 @@ export default function SettingsSheet({
           çıkış yap
         </Text>
       </Pressable>
-
-      {deleteAccount}
 
       {/* The basemap credit (owner, 2026-09-11 demo note 15). It left every
           map surface and lives here instead — the last line of this sheet

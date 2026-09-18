@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { Button, Input, Screen, Text } from '../components/ui';
 import { Wordmark } from '../components/brand';
@@ -89,7 +89,15 @@ export default function VerifyEmailScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.center}>
+        {/* Scrollable for the same reason as the login screen: a centered
+            View that does not fit cannot reach its own bottom, and this one
+            holds the only way out of a pending session. */}
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.center}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <Wordmark size="md" style={styles.brand} />
 
           <Text variant="heading" center style={styles.title}>
@@ -158,7 +166,7 @@ export default function VerifyEmailScreen() {
           <Text variant="caption" color="textSubtle" center style={styles.note}>
             Kod 15 dakika geçerli. Gelen kutunda yoksa spam klasörüne bak.
           </Text>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -166,7 +174,12 @@ export default function VerifyEmailScreen() {
 
 const useStyles = makeStyles(() => ({
   flex: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', paddingHorizontal: 34 },
+  center: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 34,
+    paddingVertical: spacing.lg,
+  },
   brand: { marginBottom: spacing.xl },
   title: { marginBottom: spacing.sm },
   lead: { marginBottom: spacing.xl, paddingHorizontal: spacing.xs },

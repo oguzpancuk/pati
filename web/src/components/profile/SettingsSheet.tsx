@@ -91,6 +91,10 @@ export function SettingsSheet({
 
       {changePassword}
 
+      {/* Directly under the password form, as on mobile: deletion is no
+          longer the last thing in a scrolling sheet. */}
+      {deleteAccount}
+
       <div className="hairline" />
 
       <div className="subtle" style={{ textAlign: 'center' }}>
@@ -106,8 +110,6 @@ export function SettingsSheet({
       </div>
 
       <LogoutLink onLogout={onLogout} />
-
-      {deleteAccount}
 
       {/* The basemap credit, off every map and onto the last line of this
           sheet (owner, demo note 15). ODbL wants it discoverable, so one

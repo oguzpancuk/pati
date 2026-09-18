@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation';
@@ -41,7 +41,17 @@ export default function LoginScreen({ navigation }: Props) {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.center}>
+        {/* A ScrollView, not a View: the stack grew when the Apple and Google
+            buttons arrived, and a centered View that does not fit has no way
+            to reach its own bottom — with the keyboard up on a short phone,
+            "Kayıt ol" sat under it. flexGrow keeps the handoff's vertical
+            centering whenever the content does fit. */}
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.center}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <Wordmark size="lg" style={styles.brand} />
 
           <Input
@@ -95,7 +105,7 @@ export default function LoginScreen({ navigation }: Props) {
           <Text variant="caption" color="textSubtle" center style={styles.note}>
             Kayıt olursan sana rastgele bir avatar atanır, profilden değiştirebilirsin.
           </Text>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       <ForgotPasswordSheet
@@ -110,7 +120,12 @@ export default function LoginScreen({ navigation }: Props) {
 const useStyles = makeStyles(() => ({
   flex: { flex: 1 },
   // 34pt horizontal padding comes from the handoff's 390pt canvas.
-  center: { flex: 1, justifyContent: 'center', paddingHorizontal: 34 },
+  center: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 34,
+    paddingVertical: spacing.lg,
+  },
   brand: { marginBottom: spacing.xxl + 2 },
   lastField: { marginBottom: spacing.lg },
   forgot: { marginTop: spacing.md, alignSelf: 'center' },

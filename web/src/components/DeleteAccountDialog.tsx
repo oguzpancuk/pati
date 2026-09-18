@@ -115,19 +115,25 @@ export function DeleteAccountLink() {
 
   return (
     <>
+      {/* Named and coloured as what it is, the same as mobile: App Review
+          (2026-09-18, 5.1.1(v)) could not find the faint grey "hesabı sil"
+          this used to be, and reported that deletion did not exist. */}
       <button
         type="button"
-        className="subtle"
         style={{
           display: 'block',
           margin: '8px auto 0',
           background: 'none',
           border: 'none',
           cursor: 'pointer',
+          // `font` first: it is a shorthand and would reset the weight below.
+          font: 'inherit',
+          fontWeight: 600,
+          color: 'var(--danger)',
         }}
         onClick={() => setOpen(true)}
       >
-        hesabı sil
+        Hesabımı sil
       </button>
 
       {open && (

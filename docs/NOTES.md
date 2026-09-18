@@ -5504,3 +5504,61 @@ gets updated where the work happened — the ROADMAP — and the summaries keep
 the old answer. `PROJECT.md` and `README.md` are both summaries of the
 ROADMAP, so any item whose status changes needs all three touched, or the two
 that are read most often become the two that are wrong.
+
+## 2026-09-19 · App Review rejected build 2: iPad scrolling, and deletion they could not find
+
+Review of 1.0 (2) on an **iPad Air 11-inch (M3), iPadOS 27** came back with
+two findings: guideline 4 ("we were unable to scroll down") and 5.1.1(v)
+("does not include an option to initiate account deletion").
+
+**The app was universal by omission.** `TARGETED_DEVICE_FAMILY` was absent
+from the Xcode project, and absent means Xcode's default — iPhone and iPad.
+Nobody chose to ship an iPad app; nothing was ever laid out, run or looked at
+on one, and `Info.plist` is portrait-only with no `~ipad` variant. The build
+now declares `TARGETED_DEVICE_FAMILY = 1`. An iPhone-only app still installs
+on an iPad, but runs the iPhone layout in an iPhone-sized window with a
+compact size class at every window size (checked against current iPadOS
+windowing behaviour before relying on it), so there is no iPad layout left to
+be wrong. Supporting iPad for real is a design project, not a fix.
+
+**Account deletion existed; the reviewer's finding was still fair.** It has
+been wired since before the first submission (`UserProfileScreen` → gear →
+settings sheet), the reply to the 2.1 request named the path twice, and the
+owner's recording shows it. But the control was a faint grey caption reading
+"hesabı sil" on the last line of a scrolling sheet, under the theme chips, the
+demo switch, the blocked list, the whole change-password form, the legal
+links and the logout. On a device where scrolling failed it was unreachable,
+which is probably why both findings arrived together; and even where scrolling
+works, it was styled to be overlooked. It is now "Hesabımı sil" in the danger
+colour, directly under the password form — visible on the sheet's first
+screenful on an iPhone 17 Pro without scrolling (screenshot taken). Both
+clients, same change, per the parity rule. The reply text had also called it
+"hesabımı sil" while the UI said "hesabı sil"; they now match.
+
+**A real scrolling bug turned up while looking, and it is not an iPad bug.**
+Checked statically, without an iPad build, because the machine has 13 GB free:
+every content screen scrolls through `<Screen scroll>` or a list, except
+`LoginScreen` and `VerifyEmailScreen`, which were a centered `View` inside a
+`KeyboardAvoidingView` with no scroller at all. Measured on the simulator, the
+login stack is about 745 pt tall — it grew when the Apple and Google buttons
+landed on 2026-09-16 and was never re-measured. An iPhone SE has roughly
+647 pt, so there the bottom of the screen ("Kayıt ol", the avatar note) was
+off-screen and unreachable **with no keyboard up at all**. Both screens are
+now a `ScrollView` with `flexGrow: 1` + `justifyContent: 'center'`, which
+keeps the handoff's vertical centering whenever the content fits. Verified on
+the simulator: layout unchanged at rest; with the keyboard up the content
+scrolls and "Kayıt ol" is reachable above it.
+
+Honest limit: static reading could not say WHICH screen the reviewer failed
+to scroll. At an iPad's full-screen height the login fits, so it was probably
+not that one. The device-family change removes the iPad layout rather than
+identifying its defect.
+
+Build number is 3 — App Store Connect refuses a second upload of build 2.
+
+**Sequencing consequence.** The owner asked the same day to start on Google
+Play. That needs targetSdk 36 (the deadline for new apps passed 2026-08-31)
+and 16 KB page support, which means React Native 0.74 → 0.77+, the New
+Architecture, and MapLibre 10 → 11 with a rewritten API. None of that starts
+until iOS 1.0 is approved: Apple has just shown it will ask for another build,
+and that build must be a small diff, not one carrying a major RN upgrade.
