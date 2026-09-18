@@ -5,11 +5,23 @@ const { CAT_PATTERNS, DOG_PATTERNS } = require('./taxonomy');
 // earns no badge: otherwise every typo would become its own badge.
 const BADGEABLE_PATTERNS = new Set([...CAT_PATTERNS, ...DOG_PATTERNS]);
 
-// Badge tiers and their points. Once earned, a badge is permanent — the
-// highest tier ever reached is the one that scores, and nothing below it is
-// ever re-evaluated. (This comment used to explain that a broken streak
-// doesn't demote you, which outlived streaks themselves by several releases
-// and was copied into the README from here.)
+// Badge tiers and their points. TIER_POINTS is the USER-badge scorer:
+// badgeEntry reads it for every badge buildBadgesFor produces, and animal
+// badges never take points from it.
+//
+// A user's tier is not stored. getBadgesForUsers recomputes it from live
+// counts on every read (tierFor(count, thresholds)) and never consults
+// user_badge_awards, which is history — when you earned it, and at what rank.
+// So the tier follows the count DOWN as well as up: deleting a care action
+// inside its 15-minute window, or an admin deleting an animal, can take a
+// silver back to bronze and its points with it. animalBadgeLadder is the one
+// that passes awarded rows in, so animal badges are the sticky ones.
+//
+// This comment claimed the opposite for months, first as "a broken streak
+// doesn't demote you" (which outlived streaks themselves) and then as a
+// blanket permanence rule — and the README and PROJECT.md were copied from
+// here. Whether user badges SHOULD ratchet is an open product question; see
+// docs/NOTES.md, 2026-09-18.
 const TIER_POINTS = { bronze: 10, silver: 25, gold: 60, diamond: 150 };
 const TIER_ORDER = ['bronze', 'silver', 'gold', 'diamond'];
 

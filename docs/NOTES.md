@@ -5456,3 +5456,11 @@ because a purpose string for an unused capability promises the user something
 untrue, the legacy one because its presence flips every position request.
 `docs/store/APP-STORE.md`'s prerequisite rows are now marked
 **(owner-reported)** where a checkout cannot verify them.
+
+**Postscript, same day.** The commit that wrote the entry above fixed the
+claim in `README.md` and `docs/PROJECT.md` and missed it in `badges.js` — the
+copy the other two were copied from, and the one attached to `TIER_POINTS`,
+which is the user-badge scorer itself. The next review caught it. Worth
+naming as a pattern rather than an accident: when the same false sentence
+exists in several files, the code comment is the one that regenerates the
+others, so it is the one to fix first, not last.
