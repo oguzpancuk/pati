@@ -479,11 +479,12 @@ Ops/owner side, still open — the actual go/no-go gates:
       open, with the rest of the Android wave
 - [x] Store metadata — listing text, App Privacy answers and the age rating
       are filed in docs/store/APP-STORE.md. **The screenshots that were
-      actually uploaded are not the ones in this repo**: the owner shot ten
-      on a real device and scaled them to 1284×2778 (the 6.5" slot the
-      console asked for), while `docs/store/screenshots/` still holds five
-      simulator shots at 1320×2868 with the "retake 03" caveat. Treat the
-      repo copies as superseded
+      actually uploaded are not the ones in this repo**: the owner shot
+      eleven on a real device, ten of them were uploaded at 1284×2778 (the
+      6.5" slot the console asked for, and its limit of ten), while
+      `docs/store/screenshots/` still holds five simulator shots at
+      1320×2868 with the "retake 03" caveat. Treat the repo copies as
+      superseded
 
 Deliberately deferred, with reasons. **Two of these three were overtaken by
 events and are kept only as a record of the decision at the time:**

@@ -47,11 +47,11 @@ step "web tsc"         web     npx tsc --noEmit
 # the glob expands inside web/, and tolerate an empty styles/ directory.
 step "web css"         web     sh -c 'set -e; files="src/theme.css"; for f in src/styles/*.css; do [ -f "$f" ] && files="$files $f"; done; npx esbuild $files --log-override:css-syntax-error=error --outdir=/tmp/pati-css-check'
 step "backend load"    backend node -e "require('./src/app.js')"
-# The backend's unit tests (14 files, 134 assertions: badges, rate-limit
+# The backend's unit tests (14 files, 134 tests: badges, rate-limit
 # shapes, block SQL, coordinate guards, storage, resizing, demo visibility);
 # node:test, no database. A few of them do bind a loopback port to drive a
-# tiny express or node:http app (rate limits, storage, publish-backlog), but
-# none exercises an APPLICATION route — the curl harnesses in
+# tiny express or node:http app (rate limits, password reset, storage,
+# publish-backlog), but none exercises an APPLICATION route — the curl harnesses in
 # backend/scripts/*/run.sh are what cover those. No path argument: a bare directory is not a test file
 # to node:test (it fails with "test failed"), the default discovery
 # (**/*.test.js, node_modules excluded) is what we want.

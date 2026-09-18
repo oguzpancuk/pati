@@ -190,7 +190,7 @@ is not a result. The push-gate hook runs the quick mode before every
 `git push` and blocks force pushes outright.
 
 **The backend's tests are unit tests, not HTTP tests.** `cd backend && node
---test` runs fourteen files and 134 assertions covering pure logic — badge
+--test` runs fourteen files and 134 tests covering pure logic — badge
 thresholds and staging, rate-limit shapes, demo visibility, block SQL
 fragments, coordinate guards, storage, image resizing, the showcase seed.
 None of them touches an application route or a database, though a few bind
@@ -207,7 +207,8 @@ review marker the harness writes when code-reviewer finishes, and
 review scan is coarse in one direction: it refuses a command that names the
 marker file **together with** a redirect or a writing binary (`tee`, `sed
 -i`, `python`, `node`, …), so a script that merely mentions it in a heredoc
-is refused even when it only reads. Use the editing tools for those. Commit first, then review — the reviewer
+is refused even when it only reads; a script that must name that file goes
+through the editing tools instead. Commit first, then review — the reviewer
 covers marker..HEAD; a fix made after a review needs its own. Force pushes
 and remote deletions are refused outright, and the same coarseness means a
 commit message mentioning a push flag is written with `git commit -F`.
