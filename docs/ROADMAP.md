@@ -131,8 +131,9 @@ GCS). Only PyPI was reachable — packages install, trained weights don't.
 most similar registered animals nearby with similarity. Picking one adds the
 user to that animal's carers; picking none creates a new record.
 
-> **Status (August 19, 2026):** the flow's UI and skeleton are **live**; only
-> the "AI" part is a rule-based placeholder. Form → "AI matching…" screen
+> **Status (August 19, 2026 — superseded by the September 4 status at the top
+> of this section; kept as the record of how the flow was built):** the flow's
+> UI and skeleton are **live**; only the "AI" part is a rule-based placeholder. Form → "AI matching…" screen
 > (min 2 s) → same-species animals within 1 km listed as **high / medium /
 > low** similarity → "it's this one" or "new record". The tier currently
 > comes from pattern (+2), color (+1), and ≤200 m distance (+1)

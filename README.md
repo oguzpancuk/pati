@@ -110,15 +110,21 @@ pati/
   clinic when adding a health record. Brands in the same slot rotate per
   popup open; impressions and clicks are measured separately for reporting
 
-## To do
+## The five big items
 
-Detailed plans, approaches, and open decisions: [docs/ROADMAP.md](docs/ROADMAP.md).
+Four are closed; the fifth waits on people outside this repo. Detailed plans,
+approaches and open decisions: [docs/ROADMAP.md](docs/ROADMAP.md).
 
-- [ ] **1. AI animal matching (v2)** — image-embedding model + pgvector over
-  photos, with a calibrated similarity score. What runs in production today is
-  a field heuristic (pattern + color + distance within 1 km) **whose ranking a
-  hosted vision model then adjusts** by comparing the new photo against each
-  candidate's gallery (ADR-0005); v2 replaces that comparison with vectors.
+- [x] **1. AI animal matching** — ✅ done, live since 2026-09-04 through a
+  hosted vision model (ADR-0005): a field ranking (pattern + color + distance
+  within 1 km) that one `generateContent` request then lifts or sinks by
+  comparing the posted photo against the best candidates' cover photos
+  (`POST /api/animals/match`; the `GET` form stays field-only). The
+  planned embedding service + pgvector is **retired as the way matching gets
+  built** — a vector index would now be an optimisation, not a missing
+  feature. The spike's measured cost and speed numbers are kept in
+  [ROADMAP §1](docs/ROADMAP.md) for the record. Without `GEMINI_API_KEY` the
+  ranking falls back to fields alone, and the user always has the final say.
 - [ ] **2. Donations** — ⏸️ **Deferred.** Blockers are external, not code:
   payment provider, legal entity, accountant/lawyer sign-off, store rules.
   The decision list is ready in [ROADMAP.md](docs/ROADMAP.md).

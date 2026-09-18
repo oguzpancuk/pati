@@ -71,8 +71,9 @@ The MVP is complete and tested end to end. All of the following works:
 - Manual registration: at least 1 photo, taken with the camera in the app
   (no gallery), multiple-choice breed/pattern lists per species
 - Adding an animal runs the match flow first: after the form, a short
-  "AI matching" screen, then same-species animals within 1 km listed with a
-  similarity level (high/medium/low). "It's this one" moves the animal's
+  "AI matching" screen — the name is literal, a vision model compares the
+  photo with each candidate's cover photo — then same-species animals within
+  1 km listed with a similarity level (high/medium/low). "It's this one" moves the animal's
   current location there and adds the user as a carer; "none" creates a new
   record (duplicate reduction — see ROADMAP §1)
 - The avatar previews live in the form as species/pattern are picked
@@ -249,7 +250,9 @@ GET    /api/care-actions/status       (is care missing at a location)
 POST   /api/care-actions              (multipart: photo + location verification)
 
 GET    /api/animals                   (proximity + species filter)
-GET    /api/animals/match             (heuristic duplicate matching)
+GET    /api/animals/match             (duplicate matching by fields alone)
+POST   /api/animals/match             (multipart: same ranking, then a vision model
+                                       compares the photo with the candidates)
 GET    /api/animals/:id
 POST   /api/animals
 POST   /api/animals/:id/sightings     (sighted: move location + add carer)
@@ -339,18 +342,28 @@ in [NOTES.md](NOTES.md); the most important:
 
 ---
 
-## 5. What's next?
+## 5. The five big items, and what's next
 
-Detailed plans and open decisions live in [ROADMAP.md](ROADMAP.md).
+Four of the five are closed; donations waits on external parties. What is
+actually next is the Android release. Detailed plans and open decisions live
+in [ROADMAP.md](ROADMAP.md).
 
-### 1. AI animal matching (v2)
-The current matcher is heuristic (breed + color + distance within 1 km). v2
-replaces it with image embeddings: a pretrained model (DINOv2/CLIP) produces
-vectors, cosine similarity runs over a PostGIS-narrowed candidate set, and
-vectors live in `pgvector`. **Important:** cosine similarity is not a
-probability — "87% same" would mislead. Tiered labels first ("very similar /
-similar"), a calibrated score once data accumulates. The final call always
-stays with the user.
+### 1. AI animal matching — ✅ done
+Live since 2026-09-04 through a hosted vision model (ADR-0005). The field
+ranking (pattern + color + distance within 1 km) still runs first; then, when
+the client posts the photo (`POST /api/animals/match` — the `GET` form stays
+field-only), one `generateContent` request compares it with the best
+candidates' cover photos and lifts or sinks them (same → high, similar → +1, different →
+low). Tiers, screens and the user's final say are unchanged, and without
+`GEMINI_API_KEY` the ranking is field-only.
+
+The embedding service + `pgvector` plan this section used to describe is
+**retired as the way matching gets built** — a vector index would now be an
+optimisation rather than a missing feature. See [ROADMAP §1](ROADMAP.md),
+which keeps the spike's measured cost and speed numbers for the record. Its one unmeasured risk was the one
+that mattered: whether a model recognises the same cat under street
+conditions. A hosted model answers that without the 2 GB of RAM, the vector
+store, or the calibration work.
 
 ### 2. Donations — deferred
 In-app donations to organizations entered via the admin panel; 5% stays with
@@ -375,7 +388,8 @@ See §2 above.
 ```
 ✅ Admin panel + roles  ──> ✅ Ads
 ⏸️  Donations — deferred (payment provider, legal, stores)
-⏸️  AI matching v2 — parked (cost/speed measured; accuracy needs real photos)
+✅ AI matching — live through a hosted vision model (ADR-0005); the embedding
+   + pgvector plan is retired
 ✅ Design system + UI
 ✅ Launch sprint — done except its Android items; iOS 1.0 build 2 is with
    App Review (docs/store/APP-STORE.md)

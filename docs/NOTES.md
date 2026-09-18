@@ -5464,3 +5464,41 @@ which is the user-badge scorer itself. The next review caught it. Worth
 naming as a pattern rather than an accident: when the same false sentence
 exists in several files, the code comment is the one that regenerates the
 others, so it is the one to fix first, not last.
+
+### AI matching was closed in the ROADMAP and open everywhere else
+
+The owner asked why AI matching is not closed in the README. It should have
+been: the ROADMAP has said "✅ live through a hosted vision model (ADR-0005)"
+since 2026-09-04, and says in the same breath that the embedding service +
+pgvector plan is retired. Two documents had not caught up, and the README pass
+the day before made its half worse rather than better — it rewrote the bullet
+while leaving the checkbox unticked, and described the retired plan as the
+next version ("v2 replaces that comparison with vectors").
+
+`PROJECT.md` was further behind still: §5.1 described the matcher as purely
+heuristic, with no mention of the vision model that shipped six weeks ago, and
+its status block read "⏸️ AI matching v2 — parked". Both now say what the
+ROADMAP says.
+
+Two precision points found while fixing it:
+
+- **`/animals/match` has two methods and they are not equivalent.** `GET` is
+  the field ranking alone; `POST` is the multipart form whose photo the vision
+  model compares against the candidates' cover photos. An intermediate edit
+  here described the `GET` row in PROJECT.md's API list as "fields, then a
+  vision model", which was false for that route. Both rows are listed now.
+- **"Retired" needed qualifying.** ROADMAP's own later line (2026-09-10) is
+  more exact than a flat retirement: the plan is off the table as the way
+  matching gets built, but a vector index would still be a legitimate
+  optimisation later. Both documents now use that phrasing.
+
+Also marked the August 19 status block inside ROADMAP §1 as superseded. It
+says the "AI" part is a rule-based placeholder, which was true when written
+and is contradicted by the September 4 status twenty lines above it; a reader
+arriving mid-section had nothing telling them which was current.
+
+**The pattern, since this is the second one this week.** A status that moves
+gets updated where the work happened — the ROADMAP — and the summaries keep
+the old answer. `PROJECT.md` and `README.md` are both summaries of the
+ROADMAP, so any item whose status changes needs all three touched, or the two
+that are read most often become the two that are wrong.
