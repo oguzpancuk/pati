@@ -5487,15 +5487,17 @@ Two precision points found while fixing it:
   model compares against the candidates' cover photos. An intermediate edit
   here described the `GET` row in PROJECT.md's API list as "fields, then a
   vision model", which was false for that route. Both rows are listed now.
-- **"Retired" needed qualifying.** ROADMAP's own later line (2026-09-10) is
-  more exact than a flat retirement: the plan is off the table as the way
+- **"Retired" needed qualifying.** ROADMAP's own later line (written
+  2026-09-17, in the audit commit) is more exact than a flat retirement: the plan is off the table as the way
   matching gets built, but a vector index would still be a legitimate
   optimisation later. Both documents now use that phrasing.
 
 Also marked the August 19 status block inside ROADMAP §1 as superseded. It
 says the "AI" part is a rule-based placeholder, which was true when written
-and is contradicted by the September 4 status twenty lines above it; a reader
-arriving mid-section had nothing telling them which was current.
+and is contradicted by the September 4 status at the top of the section. It
+sits about seventy lines down, inside a collapsed "Full plan" block, so most
+readers never reach either the stale text or its new marker — which is why
+the heading below needed marking too.
 
 **The pattern, since this is the second one this week.** A status that moves
 gets updated where the work happened — the ROADMAP — and the summaries keep

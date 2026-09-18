@@ -100,7 +100,7 @@ real DINOv2/CLIP weights too.
    smaller vectors (512 vs 768-d → 33% less storage). Accuracy measurement
    will decide which suffices.
 
-#### ⚠️ Not yet measured: accuracy
+#### ⚠️ Not yet measured: accuracy (of the retired embedding plan)
 
 The real risk isn't cost but whether the model **recognizes the same cat**
 under street conditions (bad light, distance, motion). It couldn't be
@@ -118,7 +118,8 @@ GCS). Only PyPI was reachable — packages install, trained weights don't.
 **Metric:** "does the second photo of the same animal land in the top 5?"
 (top-5 hit rate), plus the false-match rate for a score threshold.
 
-> **Setup note:** `pgvector` is a separate PostgreSQL extension. The
+> **Setup note** (for the retired plan; nothing below is scheduled work):
+> `pgvector` is a separate PostgreSQL extension. The
 > `imresamu/postgis` image may not include it; verify or install
 > `postgresql-16-pgvector` before integration.
 
@@ -174,7 +175,11 @@ would mislead. Options:
 
 Either way **the user makes the final call**; never auto-merge.
 
-### Tasks
+### Tasks — the retired plan's, kept for the record
+
+**None of these are scheduled.** Matching shipped through a hosted vision
+model instead (the September 4 status at the top of this section); an unticked
+box below is a task that will not be done, not one that is waiting.
 
 - [ ] Spike: measure DINOv2/CLIP similarity on 20–30 real street-animal
       photos; is accuracy sufficient (2–3 days)
