@@ -31,6 +31,20 @@ jobs:
           # deploy token for one app cannot do. Kept apart from the production
           # deploy credential on purpose.
           FLY_API_TOKEN: ${{ secrets.FLY_REVIEW_TOKEN }}
+      # The action destroys the app on close but leaves what `postgres attach`
+      # made: a database (17 MB even when empty — PostGIS) and a superuser
+      # role, one pair per pull request, on a 1 GB volume. Seen on pati-pr-4.
+      # `fly postgres connect` wants a terminal; psql inside the machine does
+      # not. The name is built from the pull request NUMBER only.
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: github.event.action == 'closed'
+      - name: Drop the review app's database and role
+        if: github.event.action == 'closed'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_REVIEW_TOKEN }}
+          DB: pati_pr_${{ github.event.number }}
+        run: |
+          flyctl ssh console -a pati-review-db -C "sh -c 'psql \"postgres://postgres:\$OPERATOR_PASSWORD@localhost:5432/postgres\" -v ON_ERROR_STOP=1 -c \"DROP DATABASE IF EXISTS $DB WITH (FORCE)\" -c \"DROP ROLE IF EXISTS $DB\"'"
       # A deploy that did not take must not look green. The request also wakes
       # the machine, which auto-stops when idle.
       - name: Health check
