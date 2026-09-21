@@ -5,10 +5,22 @@
 # every push to the pull request, destroyed when it closes. Configuration:
 # fly.review.toml. The URL is deterministic, so a pull request body can carry
 # it before this job has finished; the job going green is what makes it true.
+#
+# Why pull_request_target. The Fly token below is org-scoped — the only kind
+# that can create and destroy apps — so it can also deploy `pati-app`. With
+# plain `pull_request` this file is read from the pull request itself, and
+# any branch could rewrite these steps into a production deploy that runs
+# the moment the pull request opens. `pull_request_target` reads the file
+# from `main`, always. The pull request's code is still what gets built, but
+# it is built on Fly's remote builder and run inside the review app — it
+# never executes on this runner, next to the token.
 name: preview
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: read
 
 jobs:
   preview:
@@ -16,7 +28,12 @@ jobs:
     concurrency:
       group: preview-pr-${{ github.event.number }}
     steps:
+      # The pull request's tree, as the build context — by sha, and without
+      # leaving a credential in the checkout.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
       - uses: superfly/fly-pr-review-apps@f5d85309215d5700e7a42faf9aa5e9a718aaef7c # 1.5.0
         with:
           name: pati-pr-${{ github.event.number }}
