@@ -246,8 +246,10 @@ What a preview is NOT: it starts with an EMPTY database of its own
 no code), it has no photo volume (uploads live in `/tmp`), no Gemini key
 (the photo AI fails open) and no admin panel (chosen by hostname). Its
 first request after idling takes a few seconds: the machine auto-stops.
-A native-only screen has no URL: until the TestFlight path exists, the
-pull request says what to try and the owner builds it locally.
+A native-only screen has no URL: the pull request says what to try, and
+the owner checks it on a TestFlight build he asks for himself (Xcode
+Cloud, on request — not set up yet; until then, a local build). A thread
+never triggers a build.
 The workflow runs from `main` (`pull_request_target`): a pull request
 cannot change how its own preview is deployed or what the token is used for.
 
@@ -272,14 +274,11 @@ cannot change how its own preview is deployed or what the token is used for.
 
 ## Deploy
 
-maya's rule: deploys run in CI on the release tag (`deploy.yml`, after the
-owner approves the `production` environment); a thread never pushes a
-release tag or deploys. [STACK: TODO — `deploy.yml` is unconfigured and
-fails on purpose. Filling it needs a `FLY_API_TOKEN` Actions secret and a
-`production` environment with the owner as required reviewer — created
-BEFORE the workflow is filled, since GitHub otherwise auto-creates the
-environment with no reviewer. Until then the path below, run by the owner,
-is the deploy path.]
+Deploys are the owner's, run from a LOCAL Claude Code session through
+/deploy-checklist: the commands run on the owner's machine, with
+credentials that live only there — in no cloud environment and no Actions
+secret. The release tag is pushed after a verified deploy. A thread never
+deploys and never pushes a release tag.
 
 Fly.io: app `pati-app` (backend + web/dist + admin/dist in one image),
 database `pati-db` (PostGIS), region fra; `pati-app.com` and
