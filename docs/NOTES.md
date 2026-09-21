@@ -41,6 +41,24 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-09-21 — the preview workflow is a recorded exception
+
+maya's rule from today on (`docs/preview-recipes.md` there): a new product
+is hosted where the provider's Git integration makes the
+per-pull-request preview by itself, and a preview workflow of our own is
+an exception that needs its reason written down. This repository is one,
+by owner decision. Fly.io has no such integration, so following the rule
+would mean moving the host: a live app with PostGIS, a photo volume and
+custom domains, in the middle of its App Store review. Out of proportion
+to the gain. `preview.yml` stays — built, hardened (`pull_request_target`,
+no secrets beside a pull request's code) and verified from outside the
+job. Revisit only if the hosting changes for another reason.
+
+Correction to the entry below: "it waits for the Apple enrollment" was
+wrong when written. The owner is enrolled and builds are archived and
+uploaded by hand from Xcode (see the build entries further down). What is
+not set up is Xcode Cloud, the on-request TestFlight path.
+
 ### 2026-09-21 — port of maya 596facf: deploys are local, not CI
 
 Owner decision the same day as the Projects port: deploy commands run on
