@@ -25,19 +25,18 @@ A fail stops the deploy — no "deploy anyway" without my explicit say-so.
    checks every clause, not just the ones the battery could not see.
 
 ## Release
-7. Push the release tag (`vX.Y.Z` on the commit the gates passed). That is
-   the only deploy action anyone takes by hand: `deploy.yml` deploys web
-   and backend once the owner approves the `production` environment on
-   GitHub, and Xcode Cloud archives the iOS surface to TestFlight.
-8. Watch until done: the `deploy` workflow green, the health check
-   answering, the TestFlight build present — then open it on a device.
-   Rollback is the same workflow run by hand with the previous tag.
+This runs in a LOCAL session on the owner's machine — never in a project
+thread. Every step that changes production waits for my explicit
+go-ahead, each time.
+7. Run the product's deploy steps (below) from this machine, in order,
+   stopping at the first failure.
+8. Verify — the health check answering, the smoke-test flow — and only
+   then push the release tag (`vX.Y.Z` on the deployed commit). The tag
+   marks what is live; for an iOS surface it is also what Xcode Cloud
+   archives to TestFlight: confirm the build appears, then open it on a
+   device. Rollback is the product's rollback command below.
 
 ## Product steps
-[STACK: TODO — steps 7–8 above assume `deploy.yml` deploys on the tag. Here
-it is still unconfigured (see CLAUDE.md, Deploy), so until it is filled the
-tag deploys nothing and the steps below are the deploy path, run by the
-owner.]
 
 Source of truth: `docs/DEPLOYMENT.md`. Fly.io app `pati-app` (region fra),
 database `pati-db` (PostGIS). One image: backend + `web/dist` + `admin/dist`.

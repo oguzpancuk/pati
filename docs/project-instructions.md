@@ -57,10 +57,10 @@
   this pull request's preview URL (CLAUDE.md, Preview) — without it the
   pull request is not ready for me; what else it carries, CLAUDE.md says.
 - A `manual check` clause is listed in the body as "awaiting the owner's
-  check on a device", with what to try and which TestFlight build. I check
-  before merging; the thread does not report that item done. After review
-  fixes, do not trigger a new build yourself — I ask for one when I want
-  to look again.
+  check on a device", with what to try. I check before merging — on the
+  preview, or on a TestFlight build I ask for myself when a native screen
+  needs it; the thread does not report that item done and never triggers
+  a build.
 - `main` is protected: CI green and up to date with `main`, or no merge.
   When `main` moves under your open pull request, merge it into your branch
   yourself.
@@ -78,8 +78,9 @@
   authoring thread fixes what the review posts.
 
 ## Ask me first
-- Anything outward-facing: pushing a release tag, deploys, DNS, third-party
-  dashboards, production data.
+- Deploys and release tags are not done from this project at all: I run
+  them from a local session. Anything else outward-facing — DNS,
+  third-party dashboards, production data — ask me first.
 - A schema or API change that is not reversible in one commit.
 - A dependency that is not clearly better than the standard library.
 

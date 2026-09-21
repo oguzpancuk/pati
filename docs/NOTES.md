@@ -41,6 +41,24 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-09-21 — port of maya 596facf: deploys are local, not CI
+
+Owner decision the same day as the Projects port: deploy commands run on
+the owner's machine, from a local Claude Code session through
+`/deploy-checklist`; a thread never deploys. `deploy.yml` — added that
+morning, never configured — is removed, and the Fly steps stop being "the
+path until `deploy.yml` is filled": they are the path, as they always
+were in practice. No `production` environment and no `FLY_API_TOKEN`
+secret was ever created. `FLY_REVIEW_TOKEN` is the PREVIEW's, not a deploy
+credential in the owner's sense — but it is org-scoped and could deploy,
+which is why `preview.yml` runs from `main` and the pull request's code
+never runs next to it.
+Phone builds: a TestFlight build on request only, made by Xcode Cloud,
+never triggered by a thread; not set up yet (it waits for the Apple
+enrollment the App Store submission also waits for).
+`docs/project-instructions.md` changed in two bullets (manual checks, and
+"deploys are not done from this project") — the owner pastes it again.
+
 ### 2026-09-21 — the preview is a required check
 
 Owner decision, recorded here because it is a GitHub setting and not a
