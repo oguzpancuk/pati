@@ -238,3 +238,52 @@ Start from the home screen so the launch is visible.
 Apple asks specifically for registration, login, account deletion,
 user-generated content, and the reporting and blocking mechanisms. Steps 2,
 3, 7, 8, 9 and 11 are those; the rest is the typical flow they also ask for.
+
+---
+
+## Second round — reply to the rejection of 1.0 (2), for build 1.0 (3)
+
+Apple rejected 1.0 (2) on 2026-09-18 (review device: iPad Air 11-inch (M3),
+iPadOS 27) under **Guideline 4 – Design** ("we were unable to scroll down")
+and **Guideline 5.1.1(v)** ("does not include an option to initiate account
+deletion"). Cause and fixes: `docs/NOTES.md`, 2026-09-19 and 2026-09-21.
+
+Send only after the screen recording has been re-shot **on a physical iPhone
+with build 3** — the old recording shows the old control. If the report
+dialog's buttons do NOT stay above the keyboard on the device, fix that before
+sending: the Notes text below claims they do, and that is the one claim no
+simulator run could observe.
+
+### 1. Resolution Center reply (attach the recording)
+
+```
+Hello,
+
+Thank you for the detailed report. Both issues had a single cause, and build 1.0 (3) fixes it.
+
+Guideline 4 - Design
+pati is an iPhone-only app, so on iPad it runs in iPhone compatibility mode, in a shorter window than any iPhone we had tested on. We reproduced your environment on an iPad Air 11-inch and found two places that could not be scrolled in that window:
+- the sign-in screen: its content was taller than the window and did not scroll, so "Kayıt ol" (register) could not be reached;
+- the settings sheet (profile tab > gear icon): it did not respond to scrolling.
+Both scroll now. We also fixed the confirmation dialogs (account deletion, reporting) so their buttons stay above the keyboard in a short window.
+
+Guideline 5.1.1(v) - Account deletion
+Account deletion has been in the app since the first submission, but it sat at the bottom of that settings sheet, which could not be scrolled in your environment, so it was unreachable. It was also styled as a small text link. In build 3 it is a full-width red button labelled "Hesabımı sil" (Delete my account), directly under the change-password form:
+
+profilim (profile tab) > gear icon (Ayarlar) > "Hesabımı sil" > enter your password > "Hesabımı kalıcı olarak sil"
+
+Deletion happens in the app, immediately and permanently: the name, e-mail address and avatar are erased. Animal records and comments the person added stay for the animals' care history, under the name "Silinmiş Üye" (Deleted Member), and can no longer be linked to them. Accounts created with Apple or Google confirm by signing in with that provider once more instead of a password. No website, e-mail or phone call is involved.
+
+The attached screen recording was captured on a physical iPhone and shows signing in, navigating to the deletion option, and the complete flow through to the sign-in screen. It uses a separate test account so the demo account in App Review Information stays usable for you.
+```
+
+### 2. App Review Information → Notes
+
+Replace the account-deletion line of the existing notes with this, and attach
+the same recording there too (Apple asks for it "for future submissions"):
+
+```
+Account deletion: profilim (profile tab) > gear icon (Ayarlar) > red "Hesabımı sil" button > password > "Hesabımı kalıcı olarak sil". Completed entirely in the app. A screen recording of the full flow on a physical iPhone is attached. Please use a newly registered account rather than the demo account to try it, since deletion is permanent.
+
+iPad: pati is an iPhone-only app and runs on iPad in compatibility mode. Build 3 was verified in that mode on an iPad Air 11-inch: sign-in, settings, account deletion and reporting all scroll and keep their buttons above the keyboard.
+```

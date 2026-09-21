@@ -5772,3 +5772,49 @@ uncommitted working tree via fast refresh, minutes before the commit.
 Left alone, recorded: on a social-only account the provider buttons carry an
 8 pt bottom margin, so the red button sits 20 pt under them against 12 pt
 under "Şifreyi değiştir". Cosmetic.
+
+## 2026-09-21 (evening) · Build 3 archived and uploaded
+
+`1.0 (3)` was archived from the clean, pushed HEAD `92e9e00` and uploaded to
+App Store Connect at 17:26: `Upload succeeded`, `** EXPORT SUCCEEDED **`, exit
+0, through Xcode's own signed-in session — no API key or password handled
+here, as with build 2.
+
+Read from the archive before uploading, not assumed: `CFBundleVersion` 3,
+`CFBundleShortVersionString` 1.0, **`UIDeviceFamily` [1]**, bundle id
+`com.oguzpancuk.pati`. The owner asked whether "supported devices" had been
+set: it is explicit in the project now, it is in the binary, and there is no
+separate field for it in App Store Connect — but it also changes nothing,
+because build 2 was already iPhone only. Apple will review build 3 on an iPad
+in compatibility mode exactly as it did build 2; what answers the rejection is
+that the screens now scroll in that window.
+
+The JS bundle is Hermes bytecode, so "does it carry the new code" was checked
+in its own terms: `dangerSolid` and `dangerDark` are present, the production
+API host is present and `localhost:3000` is not, and "Hesabımı sil" is there
+**as UTF-16** — a UTF-8 grep for a non-ASCII label finds nothing in Hermes
+output and reads like a missing feature when it is only an encoding.
+
+The same two warnings as build 2, neither blocking: `MinimumOSVersion` 13.4
+(15.0 required from spring 2027), and no dSYM for the prebuilt
+`MapLibre.framework` and `hermes.framework`.
+
+**A tooling trap worth the paragraph.** The first archive attempt sat in
+"Resolve Package Graph" for 13 minutes at 0 % CPU with no child process; so
+had two earlier `xcodebuild -showBuildSettings` calls. No competing process,
+network fine. The same command outside the session's command sandbox resolved
+packages in under 20 seconds and archived normally — xcodebuild needs the
+SwiftPM caches, XPC services and, for signing, the keychain, and blocks
+silently without them. Any xcodebuild that resolves packages or signs has to
+run unsandboxed here.
+
+**"Uploaded" is not "accepted".** Build 1 was refused at processing
+(ITMS-90683) after a successful upload. Processing results reach the owner by
+e-mail and in App Store Connect, not this session.
+
+Still the owner's before resubmitting: install build 3 on a physical iPhone
+and re-record the flow Apple asked for — sign in, profilim → ⚙ → "Hesabımı
+sil" → **type** the password → confirm — and type into the report dialog's
+note once as well. The three dialogs now share one body, and the software
+keyboard over it is the one thing no simulator run here managed to show. The
+reply and the Notes text are in `docs/store/REVIEW-REPLY.md`.
