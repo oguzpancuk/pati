@@ -28,6 +28,12 @@ and any follow-up question are all easier to answer from it.
 > claim "reklam içermez", and the App Privacy answers declare Advertising
 > Data; the reply contradicted both. Corrected below. Use this version for
 > the Notes field and for any future submission.
+>
+> **Superseded 2026-09-21 — do not reuse as is.** For the Notes field use
+> section 3 at the end of this file. This text's Gemini line ("vision check on
+> one photo") is false: the same-animal comparison sends the new photo with up
+> to 40 photos of already-registered animals in one request. It is kept below
+> unchanged because it is what was actually sent to Apple on 2026-09-17.
 
 ```
 1. SCREEN RECORDING
@@ -74,6 +80,12 @@ Third-party material: map data © OpenStreetMap contributors under ODbL via Open
 ---
 
 ## The long version (reference — too long for the Reply box)
+
+> **Before answering a follow-up from this version (2026-09-21):** its Gemini
+> row and the sentence under the table ("the single photo being checked",
+> "sent for that one check") are false for the same-animal comparison, which
+> sends the new photo with up to 40 photos of already-registered animals in
+> one request. This version was never sent; the compressed one above was.
 
 **1. Screen recording**
 
@@ -319,7 +331,7 @@ wholesale: its "SETUP AND ACCESS" part is what every review pass needs. What
 goes is its "1. SCREEN RECORDING", which describes the old recording and the
 old label; the one-time 2.1 answers (purpose, services, regional, regulated)
 are kept but compressed — the full versions remain in the Resolution Center
-thread. ASCII only (the text it replaces was not: —, © and ü), and under 3600
+thread. ASCII only (the text it replaces was not), and under 3600
 characters, leaving room for the real demo credentials.
 
 **The send conditions at the top of this "Second round" apply to this text
@@ -330,7 +342,8 @@ the recording it describes covers sign-in and deletion only (the 2.1 full-flow
 take shows the superseded control; if that old attachment is still in App
 Store Connect, replace it), and the Gemini line is corrected — the 2.1 text
 said "one photo", but the same-animal comparison sends the new photo with up
-to 40 nearby cover photos in one request, as the KVKK notice already says.
+to 40 photos of already-registered animals in one request: nearby animals'
+cover photos when registering, the animal's own gallery at "bakim ver".
 
 Replace the ENTIRE field with:
 
@@ -355,7 +368,7 @@ Leaving food/water and registering an animal require a camera photo, checked by 
 A free community app for people in Turkiye who feed street cats and dogs: a shared map of where food and water were left and when, a profile per animal with photos and health records kept by its carers, and messaging. Not a veterinary tool; no advice, diagnosis or treatment.
 
 5. EXTERNAL SERVICES
-Fly.io (Frankfurt) backend and PostgreSQL; Sign in with Apple and Google Sign-In (optional); Resend (verification and password-reset e-mail only); Google Gemini (vision checks on photos: food/water, the claimed species, the face crop, and a same-animal comparison of a new photo with nearby animals' cover photos, up to 40 per request; not used for training); Cloudflare R2 (EU) photo storage; OpenFreeMap tiles rendered on-device with MapLibre. No payment processor, no third-party ad network or SDK, no analytics or crash-reporting SDK. Any promotional banner is served from our own backend, labelled "reklam", and links to the advertiser's own site.
+Fly.io (Frankfurt) backend and PostgreSQL; Sign in with Apple and Google Sign-In (optional); Resend (verification and password-reset e-mail only); Google Gemini (automated vision checks on photos taken in the app: food/water, the claimed species, the face crop, and a same-animal comparison of a new photo with already-registered animals' photos, up to 40 per request; not used for training); Cloudflare R2 (EU) photo storage; OpenFreeMap tiles rendered on-device with MapLibre. No payment processor, no third-party ad network or SDK, no analytics or crash-reporting SDK. Any promotional banner is served from our own backend, labelled "reklam", and links to the advertiser's own site.
 
 6. REGIONAL / REGULATED / THIRD-PARTY
 Nothing is gated by country; no purchases, payments, donations or fundraising. Not a regulated industry. Map data (c) OpenStreetMap contributors (ODbL) via OpenFreeMap, credited in-app under profilim > Ayarlar. Typefaces Quicksand and Nunito (SIL OFL). Other artwork was made for this app; animal photos come from users.

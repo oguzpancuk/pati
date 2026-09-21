@@ -5909,11 +5909,29 @@ whole field (3550 ASCII characters): the stale recording section goes,
 Review of it found a false sentence older than this week: **"Google Gemini
 (vision check on one photo)"**. Three of the four Gemini operations are
 single-photo; `compareAnimalPhotos` is not — it sends the new photo together
-with up to `MAX_MATCH_CANDIDATES` (40) nearby animals' cover photos in one
-`generateContent` request, from `POST /animals/match` and from the carer door.
-The KVKK notice has always said so ("en fazla kırk tanesi"); the text sent to
-Apple on 2026-09-17 said "the single photo being checked", and that reply is
-in the Resolution Center thread as sent — it is not rewritten here, this is
-the record that it was wrong. The consolidated Notes text states all four
-operations and the cap. A disclosure about what reaches a third-party AI is
+with up to `MAX_MATCH_CANDIDATES` (40) photos of already-registered animals in
+one `generateContent` request. Two doors reach it and they send different
+photos: `POST /animals/match` sends nearby animals' **cover photos**; the
+carer door (`POST /animals/:id/care-photos`, "bakım ver") sends that one
+animal's **own gallery**, one request per submitted photo. The compressed text
+sent to Apple on 2026-09-17 said "vision check on one photo" (the phrase "the
+single photo being checked" is from the long version, which was never sent);
+that reply is in the Resolution Center thread as sent — it is not rewritten
+here, this is the record that it was wrong, and both old versions in
+REVIEW-REPLY.md now carry a banner saying so. The consolidated Notes text
+names the operations and says "already-registered animals' photos, up to 40
+per request", which is true of both doors.
+
+It took three review rounds to get that one sentence right, each round fixing
+the previous round's wording: first "one photo", then "nearby animals' cover
+photos" (true of one door, not the other). The mistake was the same each
+time — enumerating code paths in prose from a summary of them. The sentence
+that survived stopped enumerating WHICH photos and named the category.
+
+Owner-visible and not fixed here: the KVKK notice (`web/src/legal.ts`, "Amaç
+üçtür") lists three purposes for the vision model — food/water, the
+registration comparison, the face crop. It has the 40-cover cap right, but it
+names neither the species check nor the carer-door gallery comparison, so the
+Notes text now discloses more to Apple than the privacy notice does to users.
+A legal text is the owner's to change. A disclosure about what reaches a third-party AI is
 exactly what a privacy reviewer compares against the policy.
