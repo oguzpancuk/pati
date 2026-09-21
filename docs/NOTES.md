@@ -41,6 +41,22 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-09-21 — the preview workflow runs from `main`
+
+Found the same day, while designing juno's preview: `FLY_REVIEW_TOKEN` is
+org-scoped — nothing narrower can create and destroy apps — so it can
+deploy `pati-app` too. Under `pull_request` the workflow file comes from
+the pull request, which made "a thread never deploys" a sentence, not a
+fact: any branch could have rewritten the steps and they would have run on
+open, before review or merge. Now `pull_request_target`: the file is read
+from `main`; the pull request's tree is only the build context, built on
+Fly's remote builder, never executed on the runner that holds the token.
+Residual, accepted: the branch still supplies `fly.review.toml` and the
+Dockerfile; the action passes the app name explicitly, so they configure
+the review app, not production. Consequence for THIS pull request: it gets
+no preview of its own — neither trigger matches while the two versions of
+the file disagree — and the first real run is the next pull request.
+
 ### 2026-09-21 — pull request previews: Fly review apps
 
 Owner decision: a full-stack review app per pull request, not a static

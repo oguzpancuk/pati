@@ -246,6 +246,8 @@ no code), it has no photo volume (uploads live in `/tmp`), no Gemini key
 first request after idling takes a few seconds: the machine auto-stops.
 A native-only screen has no URL: until the TestFlight path exists, the
 pull request says what to try and the owner builds it locally.
+The workflow runs from `main` (`pull_request_target`): a pull request
+cannot change how its own preview is deployed or what the token is used for.
 
 ## Environment pitfalls
 
