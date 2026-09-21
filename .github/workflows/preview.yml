@@ -1,0 +1,38 @@
+# Per-pull-request preview: the whole app — backend, web and admin in one
+# image, the same Dockerfile production uses — at
+#   https://pati-pr-<number>.fly.dev
+# with a database of its own in the `pati-review-db` cluster. Redeployed on
+# every push to the pull request, destroyed when it closes. Configuration:
+# fly.review.toml. The URL is deterministic, so a pull request body can carry
+# it before this job has finished; the job going green is what makes it true.
+name: preview
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: preview-pr-${{ github.event.number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/fly-pr-review-apps@1.5.0
+        with:
+          name: pati-pr-${{ github.event.number }}
+          region: fra
+          org: personal
+          config: fly.review.toml
+          postgres: pati-review-db
+          memory: 512
+          secrets: JWT_SECRET=${{ secrets.REVIEW_JWT_SECRET }}
+        env:
+          # An org-scoped token: the action creates and destroys apps, which a
+          # deploy token for one app cannot do. Kept apart from the production
+          # deploy credential on purpose.
+          FLY_API_TOKEN: ${{ secrets.FLY_REVIEW_TOKEN }}
+      # A deploy that did not take must not look green. The request also wakes
+      # the machine, which auto-stops when idle.
+      - name: Health check
+        if: github.event.action != 'closed'
+        run: curl -fsS --retry 10 --retry-delay 6 --retry-all-errors "https://pati-pr-${{ github.event.number }}.fly.dev/health"

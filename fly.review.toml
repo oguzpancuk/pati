@@ -1,0 +1,41 @@
+# Review-app configuration, used only by .github/workflows/preview.yml.
+# Production is fly.toml. This file differs from it on purpose:
+#   - no [mounts]: a review app has no volume; uploads go to /tmp and die
+#     with the machine, which is what a disposable preview should do
+#   - no CORS_ORIGINS: the app serves its own origin, and unset means "allow"
+#   - no ADMIN_HOST: the admin panel is chosen by hostname and a review app
+#     has one hostname, so the panel is not reachable on a preview
+#   - no DEMO_GUIDE_REFRESH: nothing to keep alive
+# The app name and region come from the workflow; DATABASE_URL from
+# `fly postgres attach` (a database of its own in pati-review-db);
+# JWT_SECRET from the workflow's secrets.
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  release_command = "node scripts/migrate.js"
+
+[env]
+  PORT = "3000"
+  UPLOADS_DIR = "/tmp/uploads"
+  WEB_DIST_DIR = "/app/web-dist"
+  ADMIN_DIST_DIR = "/app/admin-dist"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
