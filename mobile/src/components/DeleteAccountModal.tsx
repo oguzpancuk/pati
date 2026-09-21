@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, TextInput } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from 'react-native';
 import type { SocialProvider } from '../api/auth';
 import { deleteMyAccount } from '../api/users';
 import { useAuth } from '../context/AuthContext';
@@ -125,67 +133,91 @@ export default function DeleteAccountLink({
         // the same thing that happens when the screen is backgrounded.
         onRequestClose={reset}
       >
-        <Pressable style={styles.backdrop} onPress={() => !busy && reset()}>
-          <Pressable style={styles.card} onPress={() => {}}>
-            <Text variant="micro" center>
-              hesabı sil
-            </Text>
-            <Text variant="heading" center style={styles.title}>
-              Emin misin?
-            </Text>
-            <Text variant="body" style={styles.warning}>
-              Adın, e-postan ve avatarın kalıcı olarak silinir; bu geri alınamaz. Eklediğin hayvan
-              kayıtları ve yorumlar sokaktaki hayvanların takibi için "Silinmiş Üye" adıyla, sana
-              bağlanamayacak şekilde kalır.
-            </Text>
-
-            {hasPassword ? (
-              <TextInput
-                style={styles.input}
-                placeholder="Şifren"
-                placeholderTextColor={colors.textSubtle}
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                autoComplete="current-password"
-              />
-            ) : (
+        {/* With the keyboard up, a centred card with no avoidance left both
+            buttons underneath it: in the short window App Review uses, the
+            reviewer would type the password and find nothing to press
+            (observed 2026-09-21). The KeyboardAvoidingView re-centres the card
+            in what is left, and the card's body scrolls when even that is too
+            short. The backdrop is a sibling BEHIND the card, not a Pressable
+            around it: a ScrollView under a Pressable ancestor does not
+            receive drags on iOS (RCTScrollView's responder check — the
+            profile/Sheet.tsx bug). */}
+        <KeyboardAvoidingView
+          style={styles.backdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Pressable
+            style={styles.backdropPress}
+            onPress={() => !busy && reset()}
+            accessible={false}
+          />
+          <View style={styles.card}>
+            <ScrollView
+              contentContainerStyle={styles.cardContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              <Text variant="micro" center>
+                hesabı sil
+              </Text>
+              <Text variant="heading" center style={styles.title}>
+                Emin misin?
+              </Text>
               <Text variant="body" style={styles.warning}>
-                Hesabın {providerLabel(authProviders)} ile açılmış, şifresi yok. Silmeden önce{' '}
-                {providerLabel(authProviders)} ile kimliğini doğrula.
+                Adın, e-postan ve avatarın kalıcı olarak silinir; bu geri alınamaz. Eklediğin hayvan
+                kayıtları ve yorumlar sokaktaki hayvanların takibi için "Silinmiş Üye" adıyla, sana
+                bağlanamayacak şekilde kalır.
               </Text>
-            )}
 
-            {error && (
-              <Text variant="caption" color="danger" center style={styles.error}>
-                {error}
-              </Text>
-            )}
+              {hasPassword ? (
+                <TextInput
+                  style={styles.input}
+                  placeholder="Şifren"
+                  placeholderTextColor={colors.textSubtle}
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                  autoComplete="current-password"
+                />
+              ) : (
+                <Text variant="body" style={styles.warning}>
+                  Hesabın {providerLabel(authProviders)} ile açılmış, şifresi yok. Silmeden önce{' '}
+                  {providerLabel(authProviders)} ile kimliğini doğrula.
+                </Text>
+              )}
 
-            {hasPassword ? (
-              <Button
-                title="Hesabımı kalıcı olarak sil"
-                variant="danger"
-                onPress={submit}
-                loading={busy}
-                disabled={!password}
-                fullWidth
-              />
-            ) : (
-              authProviders.map((provider) => (
+              {error && (
+                <Text variant="caption" color="danger" center style={styles.error}>
+                  {error}
+                </Text>
+              )}
+
+              {hasPassword ? (
                 <Button
-                  key={provider}
-                  title={`${providerLabel([provider])} ile doğrula ve sil`}
+                  title="Hesabımı kalıcı olarak sil"
                   variant="danger"
-                  onPress={() => confirmWithProvider(provider)}
+                  onPress={submit}
                   loading={busy}
+                  disabled={!password}
                   fullWidth
                 />
-              ))
-            )}
-            <Button title="Vazgeç" variant="ghost" onPress={reset} disabled={busy} fullWidth />
-          </Pressable>
-        </Pressable>
+              ) : (
+                authProviders.map((provider) => (
+                  <Button
+                    key={provider}
+                    title={`${providerLabel([provider])} ile doğrula ve sil`}
+                    variant="danger"
+                    onPress={() => confirmWithProvider(provider)}
+                    loading={busy}
+                    fullWidth
+                  />
+                ))
+              )}
+              <Button title="Vazgeç" variant="ghost" onPress={reset} disabled={busy} fullWidth />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -206,16 +238,22 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     alignItems: 'center',
     padding: spacing.xl,
   },
+  backdropPress: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  // flexShrink: the card gives way when the keyboard leaves less room than
+  // its content needs, and the ScrollView inside takes over. The padding
+  // moved to the scroll content so the scrolled text does not touch the
+  // rounded edge.
   card: {
     width: '100%',
     maxWidth: 380,
+    flexShrink: 1,
     backgroundColor: c.surface,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: c.border,
-    padding: spacing.xl,
     ...shadow.modal,
   },
+  cardContent: { padding: spacing.xl },
   title: { marginTop: 2, marginBottom: spacing.sm },
   warning: { marginBottom: spacing.lg, lineHeight: 21 },
   input: {

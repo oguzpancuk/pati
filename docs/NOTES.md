@@ -5649,3 +5649,48 @@ settings sheet that scrolls, and a deletion control that is named and red.
 The earlier guess that the login screen was "the" rejection was half right:
 it was broken there too, but the sheet is what stood between the reviewer and
 account deletion.
+
+### Same day, after review: the delete modal hid its own buttons, and three corrections
+
+**The confirm modal had no keyboard avoidance — observed, then fixed.** In
+the reviewer's short window, tapping "Şifren" brought the keyboard up over
+BOTH "Hesabımı kalıcı olarak sil" and "Vazgeç": the reviewer would have typed
+the password and found nothing to press, which is a third rejection waiting.
+The entry above says the modal "fits the short window whole"; that was true
+only with the keyboard down, which is the only way I had looked at it. Now a
+`KeyboardAvoidingView` re-centres the card in what the keyboard leaves, the
+card's body is a `ScrollView` for when even that is too short, and the
+backdrop is a sibling behind the card (the same shape as the sheet — a
+ScrollView under the old no-op card Pressable would not have scrolled).
+Re-observed in the same window with the keyboard up: field, delete button and
+"Vazgeç" all above the keyboard. Web needs nothing here — the browser moves
+the viewport for its own keyboard — so this one is a stated divergence, not a
+skipped side.
+
+**Corrections to the entry above.**
+- "The other five files" is wrong: excluding the fixed group modal there are
+  **seven** files with a no-op card Pressable, plus the careDetail modal in
+  `CareHistorySheet` — `AnimalLocationSheet` splits the prop across lines and
+  my grep missed it. The conclusion survives a proper check (code review ran
+  an AST scan): none of them nests a ScrollView/FlatList/SectionList. The
+  `AnimalLocationSheet` map pans through MapLibre's own recognizers, which the
+  responder check does not govern; not observed.
+- "Never scrolled" is overstated. The mechanism, confirmed in
+  `RCTScrollView.m` (`_shouldDisableScrollInteraction`): the pan is switched
+  off while the JS responder is a native ANCESTOR of the scroll view. A drag
+  that began on a pressable child (a theme chip, "çıkış yap") did scroll, and
+  so did any drag with the keyboard up. So what was seen on 2026-09-11 may
+  well have been this sheet scrolling — from a chip. The durable rule is
+  narrower and stricter than the entry implied: **on iOS with the old
+  architecture, no ScrollView under any Pressable ancestor — one is enough.**
+- Web parity was not stated. Checked statically: `.profile-sheet-body` is
+  `flex: 1; min-height: 0; overflow-y: auto` under a `max-height: 86%` sheet,
+  so at 375×667 the body scrolls to "Hesabımı sil". Web never had this bug.
+
+**The gate this bug class was missing.** `mobile/__tests__/sheetScrolls.test.tsx`
+walks up from every ScrollView in `Sheet` and refuses any ancestor that
+handles a press or claims the responder, for both the sheet's own scroller
+and a body that brings one; a third case holds the backdrop's close. Jest
+cannot observe native scrolling, but it can hold the shape that breaks it —
+and the test was run against the pre-fix `Sheet.tsx` first, where all three
+cases fail, before being trusted on the fixed one.
