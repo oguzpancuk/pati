@@ -309,3 +309,42 @@ Account deletion: profilim (profile tab) > gear icon (Ayarlar) > red "Hesabımı
 
 iPad: pati is an iPhone-only app and runs on iPad in compatibility mode. The changes in build 3 were checked in that mode in the iPad simulator (iPad Air 11-inch): the sign-in screen and the settings sheet scroll, and account deletion completes through to the sign-in screen.
 ```
+
+### 3. The whole Notes field, consolidated — use this instead of section 2 when space runs out
+
+The Notes field holds 4000 characters and the 2.1 reply pasted there on
+2026-09-17 already used 3956, so section 2 above cannot simply be added
+(owner, 2026-09-21: "yoksa yer kalmıyor"). Do not delete the old text
+wholesale: its "SETUP AND ACCESS" part is what every review pass needs. What
+goes is its "1. SCREEN RECORDING", which describes the old recording and the
+old label; the one-time 2.1 answers (purpose, services, regional, regulated)
+are kept but compressed — the full versions remain in the Resolution Center
+thread. 3403 characters, ASCII only like the text it replaces, leaving room for
+the real demo credentials. Replace the ENTIRE field with:
+
+```
+1. ACCOUNT DELETION (5.1.1(v)) - SCREEN RECORDING ATTACHED
+Path: profilim (profile tab) > gear icon (Ayarlar) > red "Hesabimi sil" button > enter the password > "Hesabimi kalici olarak sil". Completed entirely in the app; an account that has no password (created with Apple or Google) confirms with that provider instead. The recording is from a physical iPhone running build 3 and shows sign-in, navigation and the full flow through to the sign-in screen, with a separate test account. Please try deletion with a newly registered account, not the demo account: it is permanent.
+
+2. IPAD (guideline 4)
+pati is an iPhone-only app and runs on iPad in compatibility mode. The changes in build 3 were checked in that mode in the iPad simulator (iPad Air 11-inch): the sign-in screen and the settings sheet scroll, and account deletion completes through to the sign-in screen.
+
+3. SETUP AND ACCESS
+Demo account (verified, no code needed): <E-POSTA> / <SIFRE>
+Turkish interface only. Apple and Google sign-in sit beside the e-mail form.
+Content is location-based, so far from data the map looks empty - correct, not a failure. Open the "hayvanlar" tab, which lists animals nearest-first at any distance, or set the device location to Kadikoy, Istanbul (40.9905, 29.0277).
+Where things are: harita = map; "Ekle" = add food/water/animal; hayvanlar = animal list; mesajlar = messages; profilim = profile and settings.
+Reporting: flag in an animal profile header, "sikayet et" under any comment and in a user profile's ... menu.
+Blocking: ... menu on a user profile > "engelle". Blocked list: profilim > Ayarlar > engellediklerim.
+Writing a comment or health record requires being one of that animal's carers - you become one via "bakim ver" on its profile, which asks for a photo of it. A non-carer sees the comments but no composer, by design. Registering an animal (Ekle > Yeni hayvan) makes you its carer at once, the quickest route to the composer.
+Leaving food/water and registering an animal require a camera photo, checked by a vision model. A photo not showing food, water or the chosen species is refused with a Turkish reason - intended anti-abuse behaviour, not a bug. A bowl with food, or a cat or dog, passes.
+
+4. PURPOSE AND AUDIENCE
+A free community app for people in Turkiye who feed street cats and dogs: a shared map of where food and water were left and when, a profile per animal with photos and health records kept by its carers, and messaging. Not a veterinary tool; no advice, diagnosis or treatment.
+
+5. EXTERNAL SERVICES
+Fly.io (Frankfurt) backend and PostgreSQL; Sign in with Apple and Google Sign-In (optional); Resend (verification and password-reset e-mail only); Google Gemini (vision check on one photo, not used for training); Cloudflare R2 (EU) photo storage; OpenFreeMap tiles rendered on-device with MapLibre. No payment processor, no third-party ad network or SDK, no analytics or crash-reporting SDK. Any promotional banner is served from our own backend, labelled "reklam", and links to the advertiser's own site.
+
+6. REGIONAL / REGULATED / THIRD-PARTY
+Nothing is gated by country; no purchases, payments, donations or fundraising. Not a regulated industry. Map data (c) OpenStreetMap contributors (ODbL) via OpenFreeMap, credited in-app under profilim > Ayarlar. Typefaces Quicksand and Nunito (SIL OFL). Other artwork was made for this app; animal photos come from users.
+```
