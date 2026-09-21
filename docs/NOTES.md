@@ -59,6 +59,10 @@ the file disagree — and the first real run is the next pull request.
 That next pull request is the one adding this sentence: opened only to
 run the deploy path under `pull_request_target` once. Its result is
 recorded here before it merges.
+Result: the `preview` check went green on the `pull_request_target`
+event in under two minutes; `pati-pr-7` came up as one machine in `fra`,
+`/health` answers ok, `/` serves the web client and `/api/animals`
+answers `[]` — checked from outside the job as well.
 
 ### 2026-09-21 — pull request previews: Fly review apps
 
