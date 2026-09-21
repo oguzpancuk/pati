@@ -5818,3 +5818,46 @@ sil" → **type** the password → confirm — and type into the report dialog's
 note once as well. The three dialogs now share one body, and the software
 keyboard over it is the one thing no simulator run here managed to show. The
 reply and the Notes text are in `docs/store/REVIEW-REPLY.md`.
+
+### Same evening: the reply to Apple claimed more than was seen, and was cut back
+
+Review of the commit above found the build-3 facts accurate (it re-read the
+archive's plist, the bundle and the upload log) and the text meant for Apple
+not. Three overclaims, all mine, all now removed from
+`docs/store/REVIEW-REPLY.md`:
+
+- **"Build 3 was verified."** Nothing has ever run build 3 — it is a
+  distribution-signed archive. What was exercised is a Debug build of the same
+  source, part of the time as uncommitted working-tree code through fast
+  refresh. The text now says "the changes in build 3 were checked".
+- **"On an iPad Air 11-inch."** It was the simulator: iPad Air 11-inch (M4),
+  iOS 26.5; the reviewer's device was an M3 on iPadOS 27. The text says
+  simulator.
+- **"Buttons stay above the keyboard."** True on a tall iPhone. In the 667 pt
+  window the design's actual guarantee is weaker and different: the dialog
+  moves above the keyboard and its body scrolls, so the buttons stay
+  *reachable*. Review estimates the report card at ~440 pt against ~350 pt of
+  room there. The text now claims reachability — and even that is unobserved
+  for the shared `DialogBody` with the software keyboard up, in all three
+  dialogs, not only the report one as the earlier entry implied. The condition
+  printed above the reply used to send the owner to a physical iPhone to check
+  it, which cannot test a 667 pt window; it now says so.
+
+Smaller corrections in the same pass: the reply listed "two places" that did
+not scroll when the verification screen shared the defect; "accounts created
+with Apple or Google" confirm with the provider only if they have no password
+(the code branches on `hasPassword`); and the description of what deletion
+erases and keeps was thin. Read from `accountDeletion.js`: erased are name,
+e-mail, avatar, password hash, provider links, friendships, blocks, care
+links, badge awards, featured badges, device tokens and the verification and
+reset rows; kept under the tombstone are care actions, animal and care photos,
+health records, likes, follows, comments, notifications, reports — **and
+direct messages and conversation memberships**, which neither the in-app
+confirmation text nor the KVKK notice mentions. That last gap is outside this
+change and is the owner's to weigh: the two product texts promise less
+retention than the code performs.
+
+On "archived from the clean HEAD", which review could not verify after the
+fact: `git status --porcelain` was run immediately before the archive command
+and printed nothing, with `92e9e00` as HEAD. That is an observation from this
+session's transcript, not something the repository can prove.
