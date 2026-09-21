@@ -41,6 +41,21 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-09-21 — /mvp-scope: a build order threads can execute
+
+Run from a local maya session with the owner. The ROADMAP was organised by
+sprint and none of its open items carried a done-when clause, so nothing in
+it could be handed to a thread. It now opens with "Build order from
+2026-09-21": five v1 items in order, each with a verification name and what
+failure looks like, and a Deferred list with reasons. Owner decisions:
+bugs first with the App Store submission in parallel; crash reporting is v1
+and gates the pilot; the parity test, admin 2FA and accessibility stay
+deferred. One thing this surfaced and did not change: the curl harnesses
+are not in the battery, so four of the five clauses are `manual check` —
+CI already starts Postgres for the migrate step, and wiring the harnesses
+into it would turn them into `test`. Not scheduled; the owner has not
+asked for it. Owner: paste `docs/project-instructions.md` again.
+
 ### 2026-09-21 — ported to maya's Projects layout (maya d58cc34)
 
 `/update-stack` run 6, from a local maya session; one pull request. maya

@@ -15,14 +15,28 @@
   Native — the primary app) · `web/` (Vite PWA, a full third client kept
   in sync with mobile) · `admin/` (panel) · `shared/` (SVG generators, the
   basemap builder).
-- Build order: [run /mvp-scope — `docs/ROADMAP.md` is organised by sprint,
-  not as skeleton / v1 / deferred. Sections open today: App Store
-  readiness (2026-09-16), three "open follow-up" sections from the
-  2026-09-16 review rounds, AI animal matching (rule-based version live),
-  the launch sprint (deferred), donations (deferred).]
-<!-- 2026-09-21: product and areas copied from CLAUDE.md by /update-stack;
-     the build order is NOT written — /mvp-scope writes it. Paste again
-     afterwards. -->
+- Walking skeleton: shipped — the PRD's §5 (registration, the map and its
+  areas, food/water actions, animal profiles, health records,
+  notifications). The product is live (v42).
+- v1, open, in this order (`docs/ROADMAP.md`, "Build order from
+  2026-09-21", has every clause in full):
+  1. Paged lists get a tiebreaker — manual check: the harnesses page a
+     seeded tie group and every id appears exactly once.
+  2. Anonymising an account must not resurface what a block hid — manual
+     check: the blocker's unread count does not move.
+  3. One shared animal-id guard — test: a `node --test` file refuses
+     `99999999999`, `0x10`, `abc`; manual check: no 500s.
+  4. The care-marker harness tells the truth — manual check: section 16
+     goes red with the marker insert removed.
+  5. Crash reporting, before the pilot — manual check: a forced Release
+     crash arrives symbolicated. Ask me first: the provider.
+  In parallel and mine: the App Store submission (its code side is done).
+  The pilot waits for item 5.
+- Deferred: the parity test for the three mirrors · admin 2FA / IP
+  allowlist · accessibility (contrast, screen-reader labels) · the Android
+  wave and background notifications · the App Review Notes fix (before the
+  first advertiser) · donations (external blockers) · small review-parked
+  debts. Reasons are in the ROADMAP.
 
 ## Work
 - The plan is `docs/ROADMAP.md`, written by me. Threads execute it in
