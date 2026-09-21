@@ -10,6 +10,114 @@ For the technical-debt list that must close before production, see
 
 ---
 
+## Build order from 2026-09-21 (/mvp-scope)
+
+The walking skeleton is the PRD's §5 and it shipped: the product is live
+(v42). What follows is what threads execute next, **in this order**, one
+item per thread. Every clause names its verification — `test` (the battery
+runs it), `screenshot` (a screen a thread can drive: the web client) or
+`manual check` — and says what failure looks like. The curl harnesses under
+`backend/scripts/*/run.sh` need a running instance and a database, and the
+battery runs neither, so a clause proved by one is a `manual check`:
+`evaluator-qa` runs the harness and the pull request carries its verdict.
+
+### v1 — open, in order
+
+- [ ] **1 — Paged lists get a tiebreaker.** `USER_COMMENTS_SQL`, the seven
+      admin lists behind `useList` (users, animals, care actions,
+      vaccinations, comment moderation, reports, audit log) and
+      `/care-actions/mine` all page over a bare timestamp; rows that share
+      one have no fixed order between two queries. The id joins every
+      `ORDER BY`, as `2620392` did for the cared-animal query. Both clients
+      of the comments list are re-checked (web merges by id and drifts its
+      offset; mobile appends without a dedupe). — done when (manual check):
+      `admin-check/run.sh` and the comments harness page a seeded tie group
+      page by page and every id appears exactly once. Failure looks like:
+      an id missing from every page — today a reported comment can sit on
+      no moderation page at all — or one repeated across a boundary.
+- [ ] **2 — Anonymising an account must not resurface what a block hid.**
+      `anonymizeAccount` deletes the `user_blocks` rows, and since
+      `markRead` became correct the notifications that block was hiding
+      come back **unread**, as fresh news carrying the blocked person's
+      name and words. Stamp those rows read before the delete, scoped to
+      recipients who had blocked that person. — done when (manual check):
+      a harness section blocks B from A, has B act, anonymises B, and A's
+      unread count is what it was before. Failure looks like: the count
+      rises, or — scoped wrongly — every recipient's rows are silenced.
+- [ ] **3 — One shared animal-id guard.** `DELETE /animals/99999999999/care`
+      overflows Postgres' int and answers 500; `/animals/0x10/care` leaves
+      care of animal 16; `DELETE /animals/abc/follow` still 500s. One
+      `animalIdParam` guard (or `:id(\d+)` on the routes), not a third
+      copy. — done when (test): a `node --test` file drives the guard —
+      `99999999999`, `0x10`, `abc`, `0`, `-1` are refused, `16` passes as
+      16 — and (manual check) the three requests above answer 400 or 404.
+      Failure looks like: a 500, or `0x10` acting on animal 16.
+- [ ] **4 — The care-marker harness tells the truth.** Section 16 of
+      `ai-check/checks.sh`: the sighting door's `care` marker is untested
+      (drop the insert in `reportSighting` and every test still passes);
+      `care_told()` reads one page of 30 and will fail spuriously past it;
+      the section reuses `MAIL2`/`JWT2`/`CODE2` bound earlier to another
+      account; `carer: false` is asserted against a literal. And
+      `caredBefore`'s comment says "both doors write one" where there are
+      three — make the code and the comment agree (the behaviour is
+      arguably right; the comment is the wrong part). — done when (manual
+      check): with the marker insert removed the section goes RED, and
+      with it restored it is green — the pull request shows both runs.
+      Failure looks like: the section staying green without the insert.
+- [ ] **5 — Crash reporting, before the pilot** (owner, 2026-09-21). The
+      first crash on a real device is invisible today. **Ask me first:**
+      the provider is a dependency and a third-party dashboard. The same
+      change updates what the app declares it collects —
+      `PrivacyInfo.xcprivacy`, the App Privacy answers in
+      `docs/store/APP-STORE.md` and the privacy text — never afterwards.
+      — done when (manual check): a forced test crash in a Release build
+      appears in the provider's dashboard with a symbolicated stack.
+      Failure looks like: nothing arrives, or a stack of bare addresses.
+
+**In parallel, and the owner's:** the App Store submission. Its code side
+closed on 2026-09-16 (R1–R6); what remains is enrollment, the App ID and
+Service ID, the Fly secrets and the paste-and-click sequence in
+`docs/store/APP-STORE.md`. It does not wait for items 1–4 and they do not
+wait for it; the pilot (10–20 real users, one neighbourhood) waits for
+item 5. — done when (manual check): the build is processed in App Store
+Connect and an external tester installs it from TestFlight.
+
+### Deferred — and why each can wait
+
+- **Parity test for the three comment-enforced mirrors** (taxonomy, badge
+  thresholds, `MAX_DISTANCE_TO_PIN`) — owner, 2026-09-21: not now. A
+  "Battery gaps"-class item; it returns the first time a mirror drifts.
+- **Admin 2FA / IP allowlist** — owner, 2026-09-21: not before the pilot;
+  the panel has one operator today.
+- **Accessibility** — white on `#F47A4A` measures 2.7:1 (AA wants 4.5:1)
+  and was kept deliberately; screen-reader labels are untested end to end.
+  Owner, 2026-09-21: not v1.
+- **The Android wave** — release signing, the unused
+  `ACCESS_BACKGROUND_LOCATION`, the Google Android OAuth client, the first
+  build: parked until iOS is out. Real background notifications
+  (APNs/FCM) wait with it.
+- **Fix the App Review Notes before the first advertiser goes live** —
+  harmless while no advertiser is active; activating one needs no deploy,
+  so nothing will prompt it. The corrected sentence is in
+  `docs/store/REVIEW-REPLY.md`. The other ad decisions (donor ad-free,
+  dismissible banner) wait with it.
+- **Donations** — the blockers are external: provider, legal entity,
+  store rules. The decision list under item 2 is ready.
+- **A simultaneous mutual unblock leaves a stale friend request** — rare
+  squared, no data lost; the proper fix is `SELECT … FOR UPDATE`.
+- **Tab-bar band test debts** (insets 19–28 never rendered; an assertion
+  that passes against the bug it names; `indicatorBand` exported without
+  its clamp) — none can produce a wrong result; carried into the next
+  commit that touches those files.
+- **The Podfile hook's scope and `PrivacyInfo.xcprivacy`'s lost comment** —
+  deliberately untouched while the `.ipa` awaiting upload is built from
+  these exact bytes; next touch of the iOS project.
+- **Admin palette; the mobile port of the studio aesthetic** — polish.
+- **The embedding-service plan for AI matching** — retired, not deferred:
+  matching shipped through a hosted vision model (ADR-0005).
+
+---
+
 ## Suggested order
 
 ```
