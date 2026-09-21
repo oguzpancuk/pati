@@ -5725,3 +5725,50 @@ Not fixed, recorded: `ReportSheet` and the conversation report modal are
 centred cards with a multiline field and no keyboard avoidance — the same
 defect the delete modal had. The field is optional, so a report can always be
 sent without touching it; next in line.
+
+### Same day: one DialogBody for the centred dialogs, and the red button's tokens
+
+**The report dialogs had the delete modal's defect, and now share its fix.**
+`ReportSheet` and the conversation's report modal were centred cards with a
+multiline note and no keyboard avoidance. A multiline field has no
+return-to-dismiss and the card was a no-op Pressable, so once the keyboard was
+up the only way out was the backdrop — which discards the report. Rather than
+hand-roll the fix a third and fourth time, the shape is now
+`components/ui/DialogBody`: KeyboardAvoidingView → padded centring View →
+[sibling backdrop Pressable, card View → ScrollView]. The delete modal moved
+onto it too, which also fixes what review found in its hand-rolled version:
+KeyboardAvoidingView's `padding` behaviour writes `paddingBottom`, overriding
+the `padding` shorthand on the same element, so the card sat off-centre with
+the keyboard down and touched the keyboard with it up. The padding now lives
+on an inner View. `sheetScrolls.test.tsx` gained three DialogBody cases (no
+pressable ancestor above the scroller; taps persist with the keyboard up; the
+backdrop closes and does not contain the body — asserted structurally, not
+through the a11y prop the Sheet case leans on).
+
+**Observed / not observed, precisely.** Seen on the iPad simulator in the
+compatibility window, light and dark: the report dialog renders whole through
+DialogBody and its field takes focus. **Not seen: DialogBody with the software
+keyboard up.** After the `text` injection used for the deletion walk, the
+Simulator stayed in hardware-keyboard mode; rebooting the device did not reset
+it and the ⌘K toggle needs an accessibility grant this session does not have.
+What was seen with the keyboard up is the delete modal's hand-rolled
+predecessor of the same structure. A physical device always shows the
+keyboard, so the owner's re-recording covers it.
+
+**`dangerSolid`, corrected by review's WCAG arithmetic.** Pressed was
+`onDanger`, which is "text on dangerSoft" — lighter than `danger` in dark
+mode, so pressing made the button fade to a 1.94:1 label. It is `dangerDark`
+now, which darkens in both themes. And the label is `surface` rather than
+`textOnBrand`: white on the light theme's red (3.91:1, the band the primary
+gradient already lives in), but the dark page colour on dark mode's salmon
+`danger` — 7.3:1 where white was 2.5:1. Seen in dark mode on the simulator.
+Web uses `var(--surface)` for the same reason. DESIGN.md's Button row and the
+variant JSDoc list the new fill.
+
+For the record, against a doubt review raised from timestamps: the end-to-end
+deletion walk above DID go through the new red button — it was tapped in the
+uncommitted working tree via fast refresh, minutes before the commit.
+
+Left alone, recorded: on a social-only account the provider buttons carry an
+8 pt bottom margin, so the red button sits 20 pt under them against 12 pt
+under "Şifreyi değiştir". Cosmetic.

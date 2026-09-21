@@ -13,6 +13,7 @@ export { default as MultiChoiceField, MULTI_CHOICE_SEPARATOR } from './MultiChoi
 export { default as Banner } from './Banner';
 export { default as Avatar } from './Avatar';
 export { default as Divider } from './Divider';
+export { default as DialogBody } from './DialogBody';
 export { default as SectionHeader } from './SectionHeader';
 export { default as EmptyState, LoadingState } from './EmptyState';
 export { default as LoadMoreButton } from './LoadMoreButton';

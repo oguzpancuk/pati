@@ -160,7 +160,7 @@ Screens import these via `import { ... } from '../components/ui'`.
 | Component | Purpose |
 | --- | --- |
 | `Text` | All text goes through here; takes `variant` + `color` |
-| `Button` | `primary` (the app's only gradient fill) / `secondary` / `ghost` / `danger` / `success` (outline), `sm/md/lg`, `loading`, `icon` |
+| `Button` | `primary` (the app's only gradient fill) / `secondary` / `ghost` / `danger` / `success` (outline) / `dangerSolid` (the one flat fill — "Hesabımı sil"; label is `surface` so it stays readable on dark mode's salmon `danger`), `sm/md/lg`, `loading`, `icon` |
 | `Card` | `flat` (default: white + hairline) / `tinted` (cream); `raised` is an alias of flat — nothing casts a card shadow |
 | `Screen` | Theme background + safe area + optional scroll/refresh |
 | `Input` | The label lives **inside** the box (10.5pt lowercase micro label over the value); border turns accent on focus |

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, TextInput, View } from 'react-native';
 import { createReport } from '../api/reports';
 import { REPORT_REASONS, ReportReason, ReportTargetType } from '../reportReasons';
-import { Button, Chip, Text } from './ui';
+import { Button, Chip, DialogBody, Text } from './ui';
 import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme';
 
 /**
@@ -102,89 +102,73 @@ export function ReportSheet({
         // the same thing that happens when the screen is backgrounded.
         onRequestClose={reset}
       >
-        <Pressable style={styles.backdrop} onPress={() => !busy && reset()}>
-          <Pressable style={styles.card} onPress={() => {}}>
-            {done ? (
-              <>
-                <Text variant="body" center style={styles.doneText}>
-                  Şikayetin alındı; en kısa sürede incelenecek. Teşekkürler.
-                </Text>
-                <Button title="Tamam" onPress={reset} fullWidth />
-              </>
-            ) : (
-              <>
-                <Text variant="micro" center>
-                  şikayet
-                </Text>
-                <Text variant="heading" center style={styles.title}>
-                  Sorun ne?
-                </Text>
-                <Text variant="caption" center style={styles.sub}>
-                  Şikayetin yalnızca moderasyon ekibine gider.
-                </Text>
+        {/* DialogBody: the multiline note has no return-to-dismiss, so without
+            keyboard avoidance "Şikayeti gönder" and "Vazgeç" sat under the
+            keyboard with no way back but the backdrop, which discards. */}
+        <DialogBody onBackdropPress={() => !busy && reset()}>
+          {done ? (
+            <>
+              <Text variant="body" center style={styles.doneText}>
+                Şikayetin alındı; en kısa sürede incelenecek. Teşekkürler.
+              </Text>
+              <Button title="Tamam" onPress={reset} fullWidth />
+            </>
+          ) : (
+            <>
+              <Text variant="micro" center>
+                şikayet
+              </Text>
+              <Text variant="heading" center style={styles.title}>
+                Sorun ne?
+              </Text>
+              <Text variant="caption" center style={styles.sub}>
+                Şikayetin yalnızca moderasyon ekibine gider.
+              </Text>
 
-                <View style={styles.chips}>
-                  {REPORT_REASONS.map((r) => (
-                    <Chip
-                      key={r.key}
-                      label={r.label}
-                      selected={reason === r.key}
-                      onPress={() => setReason(r.key)}
-                    />
-                  ))}
-                </View>
+              <View style={styles.chips}>
+                {REPORT_REASONS.map((r) => (
+                  <Chip
+                    key={r.key}
+                    label={r.label}
+                    selected={reason === r.key}
+                    onPress={() => setReason(r.key)}
+                  />
+                ))}
+              </View>
 
-                <TextInput
-                  style={styles.input}
-                  placeholder="Açıklama (isteğe bağlı)"
-                  placeholderTextColor={colors.textSubtle}
-                  value={details}
-                  onChangeText={setDetails}
-                  multiline
-                  maxLength={1000}
-                />
+              <TextInput
+                style={styles.input}
+                placeholder="Açıklama (isteğe bağlı)"
+                placeholderTextColor={colors.textSubtle}
+                value={details}
+                onChangeText={setDetails}
+                multiline
+                maxLength={1000}
+              />
 
-                {error && (
-                  <Text variant="caption" color="danger" center style={styles.error}>
-                    {error}
-                  </Text>
-                )}
+              {error && (
+                <Text variant="caption" color="danger" center style={styles.error}>
+                  {error}
+                </Text>
+              )}
 
-                <Button
-                  title="Şikayeti gönder"
-                  onPress={submit}
-                  loading={busy}
-                  disabled={!reason}
-                  fullWidth
-                />
-                <Button title="Vazgeç" variant="ghost" onPress={reset} disabled={busy} fullWidth />
-              </>
-            )}
-          </Pressable>
-        </Pressable>
+              <Button
+                title="Şikayeti gönder"
+                onPress={submit}
+                loading={busy}
+                disabled={!reason}
+                fullWidth
+              />
+              <Button title="Vazgeç" variant="ghost" onPress={reset} disabled={busy} fullWidth />
+            </>
+          )}
+        </DialogBody>
       </Modal>
     </>
   );
 }
 
-const useStyles = makeStyles(({ colors: c, shadow }) => ({
-  backdrop: {
-    flex: 1,
-    backgroundColor: c.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: c.surface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: c.border,
-    padding: spacing.xl,
-    ...shadow.modal,
-  },
+const useStyles = makeStyles(({ colors: c }) => ({
   title: { marginTop: 2 },
   sub: { marginBottom: spacing.lg },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },

@@ -22,8 +22,9 @@ export type ButtonProps = {
 
 /**
  * `primary` is the only gradient-filled button in the app (handoff rule);
- * every other variant is an outline or plain text. `danger`/`success` keep
- * flat status colors — they carry meaning, not brand.
+ * every other variant is an outline or plain text, except `dangerSolid`, the
+ * one flat fill (owner, 2026-09-21). `danger`/`success` keep flat status
+ * colors — they carry meaning, not brand.
  */
 function variantColors(c: Palette, variant: Variant) {
   switch (variant) {
@@ -36,8 +37,15 @@ function variantColors(c: Palette, variant: Variant) {
     // The one filled button besides `primary` (owner, 2026-09-21): "Hesabımı
     // sil" is to read as the same button as "Şifreyi değiştir" above it, in
     // red. Flat, not a gradient — the gradient stays the brand's alone.
+    // Two token choices that look odd and are deliberate (review, WCAG maths):
+    // pressed is `dangerDark`, which darkens in BOTH themes — `onDanger` is
+    // "text on dangerSoft", lighter than `danger` in dark mode, so pressing
+    // made the button fade (white label at 1.94:1). And the label is
+    // `surface`, not `textOnBrand`: white on the light theme's red, but the
+    // dark page colour on the dark theme's salmon `danger` — 7.3:1 where
+    // white would be 2.5:1.
     case 'dangerSolid':
-      return { bg: c.danger, pressedBg: c.onDanger, fg: c.textOnBrand, border: undefined };
+      return { bg: c.danger, pressedBg: c.dangerDark, fg: c.surface, border: undefined };
     case 'success':
       return { bg: c.surface, pressedBg: c.successSoft, fg: c.onSuccess, border: c.success };
     default:

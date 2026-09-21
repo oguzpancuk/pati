@@ -123,7 +123,14 @@ export function DeleteAccountLink() {
         type="button"
         className="btn full"
         // Filled red, flat: the same fill the confirm button inside uses.
-        style={{ marginTop: 12, background: 'var(--danger)', boxShadow: 'none' }}
+        // `--surface` as the label colour: white on the light theme's red, the
+        // dark page colour on the dark theme's salmon — white there is 2.5:1.
+        style={{
+          marginTop: 12,
+          background: 'var(--danger)',
+          color: 'var(--surface)',
+          boxShadow: 'none',
+        }}
         onClick={() => setOpen(true)}
       >
         Hesabımı sil

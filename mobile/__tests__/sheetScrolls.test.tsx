@@ -20,6 +20,7 @@ import React from 'react';
 import { ScrollView, Text } from 'react-native';
 import { act, create, ReactTestInstance, ReactTestRenderer } from 'react-test-renderer';
 import Sheet from '../src/components/profile/Sheet';
+import DialogBody from '../src/components/ui/DialogBody';
 
 jest.mock('../src/components/brand', () => ({ Icon: () => null }));
 
@@ -110,5 +111,47 @@ describe('profile/Sheet', () => {
     expect(backdrop).toBeDefined();
     act(() => backdrop!.props.onPress());
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The centred dialogs (delete account, both report flows) share this body, so
+// one case here covers all three call sites.
+describe('ui/DialogBody', () => {
+  it('puts no pressable ancestor above its ScrollView', () => {
+    const tree = render(
+      <DialogBody onBackdropPress={() => {}}>
+        <Text>body</Text>
+      </DialogBody>
+    );
+    const scrollers = tree.root.findAllByType(ScrollView);
+    expect(scrollers).toHaveLength(1);
+    expect(pressableAncestors(scrollers[0])).toEqual([]);
+  });
+
+  it('keeps taps alive with the keyboard up, so a button submits on the first tap', () => {
+    const tree = render(
+      <DialogBody onBackdropPress={() => {}}>
+        <Text>body</Text>
+      </DialogBody>
+    );
+    expect(tree.root.findByType(ScrollView).props.keyboardShouldPersistTaps).toBe('handled');
+  });
+
+  it('closes from the backdrop, which is not an ancestor of the content', () => {
+    const onBackdropPress = jest.fn();
+    const tree = render(
+      <DialogBody onBackdropPress={onBackdropPress}>
+        <Text>body</Text>
+      </DialogBody>
+    );
+    const scroller = tree.root.findByType(ScrollView);
+    const pressables = tree.root.findAll((n) => n.props.onPress === onBackdropPress);
+    expect(pressables.length).toBeGreaterThan(0);
+    for (const pressable of pressables) {
+      // Structural, not a11y-coupled: the backdrop must not contain the body.
+      expect(pressable.findAll((n) => n === scroller)).toHaveLength(0);
+    }
+    act(() => pressables[0].props.onPress());
+    expect(onBackdropPress).toHaveBeenCalledTimes(1);
   });
 });

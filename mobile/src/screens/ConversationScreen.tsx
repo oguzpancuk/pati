@@ -18,7 +18,15 @@ import {
   withDeleted,
 } from '../api/messages';
 import { REPORT_REASONS, ReportReason } from '../reportReasons';
-import { Avatar, Button, Chip, KeyboardInsetView, LoadingState, Text } from '../components/ui';
+import {
+  Avatar,
+  Button,
+  Chip,
+  DialogBody,
+  KeyboardInsetView,
+  LoadingState,
+  Text,
+} from '../components/ui';
 import { Icon } from '../components/brand';
 import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme';
 
@@ -545,62 +553,61 @@ function ReportMessageModal({ message, onClose }: { message: Message; onClose: (
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={() => !busy && onClose()}>
-        <Pressable style={styles.card} onPress={() => {}}>
-          {done ? (
-            <>
-              <Text variant="body" center style={styles.doneText}>
-                Şikayetin alındı; en kısa sürede incelenecek. Teşekkürler.
+      {/* DialogBody, for the same reason as components/ReportSheet. */}
+      <DialogBody onBackdropPress={() => !busy && onClose()}>
+        {done ? (
+          <>
+            <Text variant="body" center style={styles.doneText}>
+              Şikayetin alındı; en kısa sürede incelenecek. Teşekkürler.
+            </Text>
+            <Button title="Tamam" onPress={onClose} fullWidth />
+          </>
+        ) : (
+          <>
+            <Text variant="micro" center>
+              şikayet
+            </Text>
+            <Text variant="heading" center style={styles.title}>
+              Sorun ne?
+            </Text>
+            <Text variant="caption" center style={styles.sub}>
+              Şikayetin yalnızca moderasyon ekibine gider.
+            </Text>
+            <View style={styles.chips}>
+              {REPORT_REASONS.map((r) => (
+                <Chip
+                  key={r.key}
+                  label={r.label}
+                  selected={reason === r.key}
+                  onPress={() => setReason(r.key)}
+                />
+              ))}
+            </View>
+            <TextInput
+              style={styles.reportInput}
+              placeholder="Açıklama (isteğe bağlı)"
+              placeholderTextColor={colors.textSubtle}
+              value={details}
+              onChangeText={setDetails}
+              multiline
+              maxLength={1000}
+            />
+            {error ? (
+              <Text variant="caption" color="danger" center style={styles.error}>
+                {error}
               </Text>
-              <Button title="Tamam" onPress={onClose} fullWidth />
-            </>
-          ) : (
-            <>
-              <Text variant="micro" center>
-                şikayet
-              </Text>
-              <Text variant="heading" center style={styles.title}>
-                Sorun ne?
-              </Text>
-              <Text variant="caption" center style={styles.sub}>
-                Şikayetin yalnızca moderasyon ekibine gider.
-              </Text>
-              <View style={styles.chips}>
-                {REPORT_REASONS.map((r) => (
-                  <Chip
-                    key={r.key}
-                    label={r.label}
-                    selected={reason === r.key}
-                    onPress={() => setReason(r.key)}
-                  />
-                ))}
-              </View>
-              <TextInput
-                style={styles.reportInput}
-                placeholder="Açıklama (isteğe bağlı)"
-                placeholderTextColor={colors.textSubtle}
-                value={details}
-                onChangeText={setDetails}
-                multiline
-                maxLength={1000}
-              />
-              {error ? (
-                <Text variant="caption" color="danger" center style={styles.error}>
-                  {error}
-                </Text>
-              ) : null}
-              <Button
-                title="Şikayeti gönder"
-                onPress={submit}
-                loading={busy}
-                disabled={!reason}
-                fullWidth
-              />
-              <Button title="Vazgeç" variant="ghost" onPress={onClose} disabled={busy} fullWidth />
-            </>
-          )}
-        </Pressable>
-      </Pressable>
+            ) : null}
+            <Button
+              title="Şikayeti gönder"
+              onPress={submit}
+              loading={busy}
+              disabled={!reason}
+              fullWidth
+            />
+            <Button title="Vazgeç" variant="ghost" onPress={onClose} disabled={busy} fullWidth />
+          </>
+        )}
+      </DialogBody>
     </Modal>
   );
 }
@@ -724,23 +731,6 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
   sendGlyph: { transform: [{ translateX: -(SEND_GLYPH * 0.8) / 24 }] },
   sendOff: { backgroundColor: c.disabled },
   blocked: { paddingVertical: spacing.sm },
-  backdrop: {
-    flex: 1,
-    backgroundColor: c.overlay,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: c.surface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: c.border,
-    padding: spacing.xl,
-    ...shadow.modal,
-  },
   title: { marginTop: 2 },
   sub: { marginBottom: spacing.lg },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
