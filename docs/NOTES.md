@@ -41,6 +41,24 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-09-21 — the preview is a required check
+
+Owner decision, recorded here because it is a GitHub setting and not a
+file: `main` now requires `verify`, `docker` and `preview`. This
+supersedes the sentence two entries below ("`preview` is not a required
+check yet") — true when written, an hour earlier. Required does not mean
+"built on request": a review app is built for every pull request either
+way; it means a red or unfinished preview blocks the merge. Accepted cost:
+a Fly outage blocks merges. Reverting is one API call and needs no pull
+request. The merge gate itself went on the same day, after the port
+landed: pull request required, branches up to date, direct pushes off for
+admins too — which also supersedes "the merge gate is NOT on yet" in the
+port entry.
+Also noticed that day and not acted on: CI runs the migrations against
+`postgis:16` while production and the review cluster run
+`postgres-flex:18.1` — two major versions apart. Nothing has broken on it;
+it is the kind of difference the battery cannot see.
+
 ### 2026-09-21 — the preview workflow runs from `main`
 
 Found the same day, while designing juno's preview: `FLY_REVIEW_TOKEN` is

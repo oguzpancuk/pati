@@ -237,7 +237,9 @@ Provider: Fly.io review apps (`.github/workflows/preview.yml`,
 and admin's build, one image, the production Dockerfile — at
 `https://pati-pr-<number>.fly.dev`. The URL is known the moment the pull
 request has a number: put it in the body, and treat it as true only once
-the `preview` check is green (it ends with a `/health` request). It is
+the `preview` check is green (it ends with a `/health` request). `preview`
+is a REQUIRED check: a pull request whose preview is red or still
+running cannot merge. It is
 redeployed on every push and destroyed when the pull request closes.
 What a preview is NOT: it starts with an EMPTY database of its own
 (migrations only — register an account; mail is off, so registration needs
