@@ -65,6 +65,18 @@ First run, same day: the release command died on `001_init.sql` —
 256 MB. `pati-db` turned out to run at 1024 MB, raised at some point after
 creation and never written down; DEPLOYMENT.md now says so and the review
 cluster was raised to match.
+Second finding: that first app landed in `iad` while its database sat in
+`fra` — `fly.review.toml` had no `primary_region`, and the workflow's
+`region` input alone did not decide it. With the line added the next deploy
+put a machine in `fra`; the stray `iad` machine of `pati-pr-4` was removed
+by hand. Third: closing the pull request ran NOTHING — no workflow run, app
+and database still there. The likely reason is that GitHub reads the
+workflow for a `closed` event from the base branch, where `preview.yml`
+does not exist until this very pull request merges. So the cleanup path
+(app destroyed; database and user dropped or not) is still unverified and
+can only be checked on the first pull request opened AFTER this one
+merges. Reopening against the existing database worked: `attach` did not
+fail on it.
 
 ### 2026-09-21 — /mvp-scope: a build order threads can execute
 
