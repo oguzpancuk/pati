@@ -60,6 +60,11 @@ when the app is destroyed was not verified — check `pati-review-db` after
 the first few pull requests close. The admin panel is not reachable on a
 preview (it is chosen by hostname). `preview` is not a required check yet:
 it becomes one after it has gone green on a real pull request.
+First run, same day: the release command died on `001_init.sql` —
+`CREATE EXTENSION postgis` was OOM-killed on the new cluster's default
+256 MB. `pati-db` turned out to run at 1024 MB, raised at some point after
+creation and never written down; DEPLOYMENT.md now says so and the review
+cluster was raised to match.
 
 ### 2026-09-21 — /mvp-scope: a build order threads can execute
 
