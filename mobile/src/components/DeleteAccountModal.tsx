@@ -19,7 +19,7 @@ import {
   SocialAuthError,
 } from '../socialAuth';
 import { Button, Text } from './ui';
-import { fonts, hitSlop, makeStyles, radius, spacing, useTheme } from '../theme';
+import { fonts, makeStyles, radius, spacing, useTheme } from '../theme';
 
 /**
  * Self-service account deletion (the KVKK promise on /gizlilik + App Store
@@ -101,21 +101,19 @@ export default function DeleteAccountLink({
 
   return (
     <>
-      {/* Named and coloured as what it is. It used to be a faint grey
-          "hesabı sil" on the sheet's last line, and App Review (2026-09-18,
-          guideline 5.1.1(v)) reported the app has no account deletion at
-          all — a control nobody can find is a control that is not there. */}
-      <Pressable
+      {/* The same button as "Şifreyi değiştir" directly above it (owner,
+          2026-09-21). It used to be a faint grey "hesabı sil" on the sheet's
+          last line, and App Review (2026-09-18, guideline 5.1.1(v)) reported
+          the app has no account deletion at all — a control nobody can find
+          is a control that is not there. It only opens the confirmation;
+          the destructive, danger-styled step is inside the modal. */}
+      <Button
+        title="Hesabımı sil"
+        variant="dangerSolid"
         onPress={() => setOpen(true)}
-        hitSlop={hitSlop}
+        fullWidth
         style={styles.link}
-        accessibilityRole="button"
-        accessibilityLabel="Hesabımı sil"
-      >
-        <Text variant="captionStrong" color="danger" center>
-          Hesabımı sil
-        </Text>
-      </Pressable>
+      />
 
       {/* A sheet is not a page (DESIGN §8): hardware back closes it rather
           than leaving the screen. Unlike the backdrop it is NOT locked while
@@ -230,7 +228,7 @@ function providerLabel(providers: SocialProvider[]): string {
 }
 
 const useStyles = makeStyles(({ colors: c, shadow }) => ({
-  link: { marginTop: spacing.sm, alignSelf: 'center' },
+  link: { marginTop: spacing.md },
   backdrop: {
     flex: 1,
     backgroundColor: c.overlay,

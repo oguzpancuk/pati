@@ -4,7 +4,7 @@ import Text from './Text';
 import Gradient from '../brand/Gradient';
 import { makeStyles, minTouch, radius, spacing, useTheme, type Palette } from '../../theme';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSolid' | 'success';
 type Size = 'sm' | 'md' | 'lg';
 
 export type ButtonProps = {
@@ -33,6 +33,11 @@ function variantColors(c: Palette, variant: Variant) {
       return { bg: 'transparent', pressedBg: c.brandTint, fg: c.brand, border: undefined };
     case 'danger':
       return { bg: c.surface, pressedBg: c.dangerSoft, fg: c.onDanger, border: c.danger };
+    // The one filled button besides `primary` (owner, 2026-09-21): "Hesabımı
+    // sil" is to read as the same button as "Şifreyi değiştir" above it, in
+    // red. Flat, not a gradient — the gradient stays the brand's alone.
+    case 'dangerSolid':
+      return { bg: c.danger, pressedBg: c.onDanger, fg: c.textOnBrand, border: undefined };
     case 'success':
       return { bg: c.surface, pressedBg: c.successSoft, fg: c.onSuccess, border: c.success };
     default:

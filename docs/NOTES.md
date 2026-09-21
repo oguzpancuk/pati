@@ -5694,3 +5694,34 @@ and a body that brings one; a third case holds the backdrop's close. Jest
 cannot observe native scrolling, but it can hold the shape that breaks it —
 and the test was run against the pre-fix `Sheet.tsx` first, where all three
 cases fail, before being trusted on the fixed one.
+
+### Same day: the deletion path walked to the end, and the button the owner wanted
+
+**Observed end to end in the reviewer's window** (iPad Air simulator, iPhone
+compatibility mode, local backend, a throwaway account registered for the
+purpose): profilim → ⚙ → scroll → "Hesabımı sil" → password → "Hesabımı kalıcı
+olarak sil". Both modals — the confirm dialog and the settings sheet under it
+— dismissed together, the app landed on the login screen with nothing left in
+front of it, and the row in the local database became "Silinmiş Üye" with a
+`@deleted.pati-app.com` tombstone address and `suspended_at` set. Code review
+had flagged this as the one step nobody had ever watched: `remove()` calls
+`logout()` while two presented modals are still mounted. It is fine.
+
+Also observed there, closing the last "unobserved" line from 2026-09-19: the
+login screen scrolls in that window — "Kayıt ol" and the avatar note are
+reachable.
+
+**The control itself, by the owner's direction.** The red caption link from
+two days ago was rejected ("beğenmedim"): it is now the same full-width button
+as "Şifreyi değiştir" directly above it, filled red ("dolu kırmızı"). That
+needed a `dangerSolid` Button variant — flat `danger` fill, not a gradient, so
+the handoff rule that the gradient is the brand's alone still holds; `danger`
+stays the outlined one and is what the confirm step inside the modal uses.
+Web got the same fill through the inline style its confirm button already
+used. The button only opens the confirmation; the destructive step is still
+behind the password.
+
+Not fixed, recorded: `ReportSheet` and the conversation report modal are
+centred cards with a multiline field and no keyboard avoidance — the same
+defect the delete modal had. The field is optional, so a report can always be
+sent without touching it; next in line.

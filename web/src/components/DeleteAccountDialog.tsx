@@ -115,22 +115,15 @@ export function DeleteAccountLink() {
 
   return (
     <>
-      {/* Named and coloured as what it is, the same as mobile: App Review
-          (2026-09-18, 5.1.1(v)) could not find the faint grey "hesabı sil"
-          this used to be, and reported that deletion did not exist. */}
+      {/* The same button as "Şifreyi değiştir" above it, as on mobile (owner,
+          2026-09-21): App Review (2026-09-18, 5.1.1(v)) could not find the
+          faint grey "hesabı sil" this used to be, and reported that deletion
+          did not exist. */}
       <button
         type="button"
-        style={{
-          display: 'block',
-          margin: '8px auto 0',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          // `font` first: it is a shorthand and would reset the weight below.
-          font: 'inherit',
-          fontWeight: 600,
-          color: 'var(--danger)',
-        }}
+        className="btn full"
+        // Filled red, flat: the same fill the confirm button inside uses.
+        style={{ marginTop: 12, background: 'var(--danger)', boxShadow: 'none' }}
         onClick={() => setOpen(true)}
       >
         Hesabımı sil
