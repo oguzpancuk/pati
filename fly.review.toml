@@ -10,6 +10,11 @@
 # `fly postgres attach` (a database of its own in pati-review-db);
 # JWT_SECRET from the workflow's secrets.
 
+# Same region as pati-review-db. Without this line the first review app
+# landed in iad while its database sat in fra — every query crossed the
+# Atlantic. The workflow passes the region too; this is what makes it stick.
+primary_region = "fra"
+
 [build]
   dockerfile = "Dockerfile"
 
