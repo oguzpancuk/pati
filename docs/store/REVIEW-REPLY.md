@@ -265,12 +265,16 @@ ships is the one that was walked.
 
 **One check is still open, and a physical iPhone cannot make it** — its screen
 is taller than the reviewer's window. Before sending, in the "pati iPad
-review" simulator: I/O → Keyboard → untick "Connect Hardware Keyboard" (or
-⌘K), open profilim → ⚙ → "Hesabımı sil", tap "Şifren", and confirm that
-"Hesabımı kalıcı olarak sil" can be reached with the keyboard up (scrolling
-the dialog if needed); then the same for "Şikayet et" → the note field. That
-is exactly what Apple's reviewer will do when typing the password. If a button
-cannot be reached, fix it before sending.
+review" simulator: I/O → Keyboard → untick "Connect Hardware Keyboard"
+(⇧⌘K — not ⌘K, which is "Toggle Software Keyboard" and does nothing until a
+field has focus), open profilim → ⚙ → "Hesabımı sil", tap "Şifren", and
+confirm that "Hesabımı kalıcı olarak sil" can be reached with the keyboard up
+(scrolling the dialog if needed); then the same for "Şikayet et" → the note
+field, on a profile and on a message in a conversation — all three dialogs
+share `DialogBody`. **The software keyboard must actually be on screen when
+you judge this**: no keyboard covering anything is not a pass, it is the check
+not having run. That is exactly what Apple's reviewer will do when typing the
+password. If a button cannot be reached, fix it before sending.
 
 ### 1. Resolution Center reply (attach the recording)
 
