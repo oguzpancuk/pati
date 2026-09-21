@@ -41,6 +41,43 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-09-21 — pull request previews: Fly review apps
+
+Owner decision: a full-stack review app per pull request, not a static
+host. The web client calls `/api` on its own origin and the backend, web
+and admin ship as one image, so a preview of `web/` alone would have needed
+a proxy into some backend — and the only backend was production. Each
+review app gets its own database through `fly postgres attach` into a
+separate cluster, `pati-review-db`; production's cluster is never named.
+Two secrets, deliberately apart from the production deploy credential:
+`FLY_REVIEW_TOKEN` (org-scoped — the action creates and destroys apps) and
+`REVIEW_JWT_SECRET`.
+Known gaps, written down rather than papered over: a preview's database is
+EMPTY — `seed-showcase` is additive but not idempotent, so running it on
+every deploy would multiply the demo world; seeding a preview once is an
+open item. Whether the action drops the attached database and its user
+when the app is destroyed was not verified — check `pati-review-db` after
+the first few pull requests close. The admin panel is not reachable on a
+preview (it is chosen by hostname). `preview` is not a required check yet:
+it becomes one after it has gone green on a real pull request.
+First run, same day: the release command died on `001_init.sql` —
+`CREATE EXTENSION postgis` was OOM-killed on the new cluster's default
+256 MB. `pati-db` turned out to run at 1024 MB, raised at some point after
+creation and never written down; DEPLOYMENT.md now says so and the review
+cluster was raised to match.
+Second finding: that first app landed in `iad` while its database sat in
+`fra` — `fly.review.toml` had no `primary_region`, and the workflow's
+`region` input alone did not decide it. With the line added the next deploy
+put a machine in `fra`; the stray `iad` machine of `pati-pr-4` was removed
+by hand. Third: closing the pull request ran NOTHING — no workflow run, app
+and database still there. The likely reason is that GitHub reads the
+workflow for a `closed` event from the base branch, where `preview.yml`
+does not exist until this very pull request merges. So the cleanup path
+(app destroyed; database and user dropped or not) is still unverified and
+can only be checked on the first pull request opened AFTER this one
+merges. Reopening against the existing database worked: `attach` did not
+fail on it.
+
 ### 2026-09-21 — /mvp-scope: a build order threads can execute
 
 Run from a local maya session with the owner. The ROADMAP was organised by

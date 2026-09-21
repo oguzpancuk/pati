@@ -232,10 +232,20 @@ reading it to skip the suite that would have caught them.
 
 Every pull request gets a preview URL and its body carries it. A pull
 request without its preview link is not ready for the owner.
-[STACK: TODO — no per-pull-request preview exists yet. The web client
-(`web/`, a full client by the sync rule) is what a URL would show; the Fly
-app serves production only. A native-only screen names its TestFlight
-build instead. Until filled: no pull request is ready.]
+Provider: Fly.io review apps (`.github/workflows/preview.yml`,
+`fly.review.toml`). Every pull request gets the whole app — backend, web
+and admin's build, one image, the production Dockerfile — at
+`https://pati-pr-<number>.fly.dev`. The URL is known the moment the pull
+request has a number: put it in the body, and treat it as true only once
+the `preview` check is green (it ends with a `/health` request). It is
+redeployed on every push and destroyed when the pull request closes.
+What a preview is NOT: it starts with an EMPTY database of its own
+(migrations only — register an account; mail is off, so registration needs
+no code), it has no photo volume (uploads live in `/tmp`), no Gemini key
+(the photo AI fails open) and no admin panel (chosen by hostname). Its
+first request after idling takes a few seconds: the machine auto-stops.
+A native-only screen has no URL: until the TestFlight path exists, the
+pull request says what to try and the owner builds it locally.
 
 ## Environment pitfalls
 

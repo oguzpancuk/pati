@@ -22,6 +22,35 @@ fly open                                        # https://pati-app.fly.dev
 PostGIS ships in the `postgres-flex` image; `CREATE EXTENSION IF NOT EXISTS
 postgis` in `001_init.sql` runs in the release step.
 
+**The create command above leaves the database machine at Fly's default
+256 MB, and that is not enough.** `CREATE EXTENSION postgis` gets the
+Postgres backend OOM-killed there, and the release command dies with
+"Connection terminated unexpectedly" (seen on `pati-review-db`,
+2026-09-21). `pati-db` runs at 1024 MB — raised after creation, which this
+file never said. Give a new cluster the same before its first deploy:
+
+```bash
+fly machine list -a <cluster>                                   # the machine id
+fly machine update <machine-id> --vm-memory 1024 -a <cluster> --yes
+```
+
+### Review apps (pull request previews)
+
+`.github/workflows/preview.yml` deploys every pull request as
+`pati-pr-<number>` from `fly.review.toml`, with a database of its own in a
+second cluster, `pati-review-db` — production's cluster is never named.
+One-time setup (done 2026-09-21):
+
+```bash
+fly postgres create --name pati-review-db --region fra --vm-size shared-cpu-1x --initial-cluster-size 1 --volume-size 1
+fly machine update <machine-id> --vm-memory 1024 -a pati-review-db --yes
+fly tokens create org personal | gh secret set FLY_REVIEW_TOKEN -R oguzpancuk/pati
+openssl rand -hex 32 | gh secret set REVIEW_JWT_SECRET -R oguzpancuk/pati
+```
+
+The token is org-scoped because the action creates and destroys apps; it
+is kept apart from the production deploy credential on purpose.
+
 First admin: register in the app, then
 `fly ssh console --app pati-app -C "node scripts/make-admin.js email@address"`.
 
