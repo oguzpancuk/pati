@@ -231,8 +231,17 @@ export default function CareHistorySheet({
           }
         }}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setCareGroup(null)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
+        {/* The backdrop is a sibling behind the card, not a parent around it:
+            a ScrollView nested in two Pressables never receives the drag
+            (found in profile/Sheet.tsx, 2026-09-21), and this card holds the
+            one list in the file that has to scroll. */}
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={styles.modalBackdropPress}
+            onPress={() => setCareGroup(null)}
+            accessible={false}
+          />
+          <View style={styles.modalCard}>
             <Text variant="heading" center>
               Bu noktadaki kayıtlar
             </Text>
@@ -262,8 +271,8 @@ export default function CareHistorySheet({
               ))}
             </ScrollView>
             <Button title="Kapat" variant="ghost" onPress={() => setCareGroup(null)} fullWidth />
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {/* Drop-detail popup: where this record landed, as a static map. */}
@@ -391,6 +400,7 @@ const useStyles = makeStyles(({ colors: c, shadow }) => ({
     alignItems: 'center',
     padding: spacing.xl,
   },
+  modalBackdropPress: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   modalCard: {
     width: '100%',
     maxWidth: 380,

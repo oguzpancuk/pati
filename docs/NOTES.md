@@ -5604,3 +5604,48 @@ The pattern is the one this week keeps teaching: I checked the project file,
 saw a key missing, and stated what its absence meant from memory. One
 `plutil -p` on the platform plist, or one look at a bundle already on disk,
 would have shown the default.
+
+## 2026-09-21 · The rejection reproduced: the settings sheet never scrolled, on any device
+
+Both findings of the 2026-09-18 rejection are one bug, and it is now observed
+rather than inferred. On an iPad Air simulator running the iPhone app in its
+compatibility window (the reviewer's environment; the existing Debug bundle
+was installed on it, no new build): profile → gear opens the settings sheet,
+the change-password form fills the short window, "Hesabımı sil" is below the
+fold — and **the sheet does not scroll**. "We were unable to scroll down" and
+"no option to initiate account deletion" are the same moment.
+
+It was not the gesture injection: the identical swipe scrolls the profile
+screen behind it (control), and a slow drag started away from any text field
+fails the same way. And it was **not an iPad bug**: the same sheet on the
+iPhone 17 Pro does not scroll either. There the content nearly fits — only
+the basemap credit is cut off — so nobody noticed.
+
+**Cause:** `profile/Sheet.tsx` wrapped the card in a backdrop `Pressable` and
+made the card itself a second, no-op `Pressable` to swallow taps. The body's
+`ScrollView` sat inside both and never received the drag. The fix is
+structural: the backdrop is a `View`, the way out is an absolutely-filled
+`Pressable` **sibling behind** the card, and the card is a plain `View`.
+Verified after fast refresh with the same gestures: the sheet scrolls on the
+iPhone (the credit line visible for the first time) and in the iPad window
+("Hesabımı sil" reachable, and its modal — text, password field, both
+buttons — fits the short window whole); a tap on empty card space does not
+close the sheet; a tap on the backdrop does. Deletion was opened, not
+completed.
+
+The 2026-09-11 commit "let a tall sheet scroll" added `flexShrink: 1` and a
+comment crediting it with the fix. RN's ScrollView shrinks by default; the
+change did nothing, and whatever was observed that day was not this sheet
+scrolling. The comment now says so. Every user of `Sheet` gets the fix —
+settings, notifications, friends, care history — and the care-history
+**group modal** had its own copy of the nested-Pressable shape around a
+`ScrollView` ("a busy spot can hold dozens of records"), fixed the same way.
+The other five files with a no-op card `Pressable` hold no scroller and were
+left alone.
+
+So three things go to Apple in build 3: a login screen that scrolls (the
+consent line was cut and "Kayıt ol" unreachable in the same window), a
+settings sheet that scrolls, and a deletion control that is named and red.
+The earlier guess that the login screen was "the" rejection was half right:
+it was broken there too, but the sheet is what stood between the reviewer and
+account deletion.

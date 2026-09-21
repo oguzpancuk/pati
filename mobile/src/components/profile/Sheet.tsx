@@ -69,11 +69,19 @@ export default function Sheet({
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Not labelled: it wraps the whole card, and a label here would
-            make a screen reader announce the sheet itself as one button. */}
-        <Pressable style={styles.backdrop} onPress={onClose}>
-          {/* Swallows the press so a tap inside the card doesn't close it. */}
-          <Pressable style={[styles.card, fill && styles.cardFill]} onPress={() => {}}>
+        <View style={styles.backdrop}>
+          {/* The way out is a SIBLING behind the card, not a parent around it.
+              It used to wrap the card, with a second no-op Pressable as the
+              card itself to swallow taps — which put the body's ScrollView
+              inside two Pressables, and there it never received the drag: the
+              sheet did not scroll on any device. On a tall iPhone the content
+              nearly fit and nobody noticed; in the short window App Review
+              uses (an iPad running the iPhone app), "Hesabımı sil" sat below
+              the fold and could not be reached — both findings of the
+              2026-09-18 rejection. Not labelled: it is the backdrop, and the
+              close button is what a screen reader should find. */}
+          <Pressable style={styles.backdropPress} onPress={onClose} accessible={false} />
+          <View style={[styles.card, fill && styles.cardFill]}>
             <View style={styles.grabber} />
             <View style={styles.header}>
               <Text variant="heading" numberOfLines={1} style={styles.title}>
@@ -90,8 +98,8 @@ export default function Sheet({
               </Pressable>
             </View>
             {body}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -100,6 +108,7 @@ export default function Sheet({
 const useStyles = makeStyles(({ colors: c }) => ({
   flex: { flex: 1 },
   backdrop: { flex: 1, backgroundColor: c.overlay, justifyContent: 'flex-end' },
+  backdropPress: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
   card: {
     maxHeight: '88%',
     backgroundColor: c.surface,
@@ -129,11 +138,11 @@ const useStyles = makeStyles(({ colors: c }) => ({
     paddingBottom: spacing.md,
   },
   title: { flex: 1 },
-  // flexShrink so the ScrollView is BOUNDED by the card's maxHeight. Without
-  // it the list lays out at its full content height and the card simply
-  // clips the overflow — the settings sheet's last line, the basemap
-  // credit, was unreachable and no swipe would bring it back (simulator,
-  // 2026-09-11). A ScrollView only scrolls when its parent bounds it.
+  // flexShrink keeps the ScrollView bounded by the card's maxHeight. This
+  // comment used to credit it with making the sheet scroll (2026-09-11); it
+  // did not — RN's ScrollView already shrinks by default, and the sheet went
+  // on not scrolling until 2026-09-21, when the real cause turned out to be
+  // the two Pressables the body was nested in (see the backdrop above).
   body: { paddingHorizontal: spacing.lg, flexShrink: 1 },
   bodyContent: { paddingBottom: spacing.xxl },
   bodyFill: { flex: 1 },
