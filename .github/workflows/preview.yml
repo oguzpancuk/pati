@@ -17,7 +17,7 @@ jobs:
       group: preview-pr-${{ github.event.number }}
     steps:
       - uses: actions/checkout@v4
-      - uses: superfly/fly-pr-review-apps@1.5.0
+      - uses: superfly/fly-pr-review-apps@f5d85309215d5700e7a42faf9aa5e9a718aaef7c # 1.5.0
         with:
           name: pati-pr-${{ github.event.number }}
           region: fra
@@ -36,7 +36,9 @@ jobs:
       # role, one pair per pull request, on a 1 GB volume. Seen on pati-pr-4.
       # `fly postgres connect` wants a terminal; psql inside the machine does
       # not. The name is built from the pull request NUMBER only.
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      # Third-party actions are pinned to a commit: both end up running with an
+      # org-scoped Fly token, and a tag or branch can be moved under us.
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
         if: github.event.action == 'closed'
       - name: Drop the review app's database and role
         if: github.event.action == 'closed'
