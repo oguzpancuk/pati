@@ -77,6 +77,11 @@ does not exist until this very pull request merges. So the cleanup path
 can only be checked on the first pull request opened AFTER this one
 merges. Reopening against the existing database worked: `attach` did not
 fail on it.
+Settled on merge: the `closed` event of the merge DID run the workflow
+(it is read from the base branch as it stands after the merge), and the
+app — both machines — was destroyed. The database and its superuser role
+were not: `pati_pr_4`, 17 MB, stayed in the cluster. The workflow now drops
+both after the app is gone, through `psql` inside the cluster's machine.
 
 ### 2026-09-21 — /mvp-scope: a build order threads can execute
 
