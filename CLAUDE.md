@@ -30,7 +30,7 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 | test           | `cd mobile && npx jest`; `cd backend && node --test` (14 files, 134 unit tests — no routes, no database; web/admin have none)                                         |
 | typecheck      | `npx tsc --noEmit` in mobile/, web/, admin/                                                                                                                           |
 | lint           | `cd mobile && npm run lint` (mobile only; not yet in the battery)                                                                                                     |
-| quick battery  | `bash .claude/hooks/verify.sh` (tsc ×3, jest, web css parse, backend load + node:test — what the push-gate runs)                                                      |
+| quick battery  | `bash .claude/hooks/verify.sh` (tsc ×3, jest, web css parse, backend load + node:test)                                                                                |
 | full battery   | `bash .claude/hooks/verify.sh full` (+ RN release bundle, admin build, web build)                                                                                     |
 | seed demo data | `cd backend && npm run seed` — **wipes every table**, ask first, never against production                                                                             |
 | showcase world | `cd backend && npm run seed-showcase` — ADDITIVE `is_demo` rows (44 districts × 50 bots); `npm run seed-showcase:remove` deletes exactly those. Safe beside real data |
@@ -42,8 +42,10 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 
 - Strict typing where the language offers it; schema validation at every
   external boundary. `any`/untyped escape hatches need a `// why:` comment.
-- Every feature lands with its verification: a test, or for UI a screenshot
-  check — named in the ROADMAP done-when clause it satisfies. In this
+- A new test is seen red before the change that makes it pass; the pull
+  request says which test and how it was made to fail.
+- Every feature lands with the verification its ROADMAP done-when clause
+  names: a test, a screenshot check, or a manual check. In this
   project the bugs that escape tests are visual (clipping, drift): if a
   change can produce a screenshot, produce it.
 - Code, comments, docs, commits and tooling are English (the repo is a
@@ -183,11 +185,23 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 
 ## Verification
 
-`bash .claude/hooks/verify.sh` is the single battery (CI runs the same file).
-It must pass on a clean, committed HEAD before a push or a "done" report —
-`git status --porcelain` empty before and after. A result from a dirty tree
-is not a result. The push-gate hook runs the quick mode before every
-`git push` and blocks force pushes outright.
+- `bash .claude/hooks/verify.sh` is the single battery. CI runs the same
+  file (`full` mode) as the required check on every pull request.
+- Run it before opening a pull request, on a clean committed HEAD
+  (`git status --porcelain` empty before and after), and put the result in
+  the pull request body. A step this machine cannot run (a native iOS
+  build on a Linux thread) goes in the body as "not run here — CI's
+  `<job>` is the run", never as passing.
+- If the item's done-when clause names a screenshot or manual check, run the
+  `evaluator-qa` agent on it and put its verdict in the pull request body.
+  NEEDS_WORK means not done: fix, run it again, open the pull request only
+  on PASS. A clause that names a test needs no QA pass.
+- A native mobile screen cannot be driven from a cloud thread. For such a
+  clause the pull request says exactly what to try and where (see Preview);
+  the owner checks it on a device before merging, and the item is not
+  reported done until then. The web client is the screen a thread CAN
+  drive — and web and mobile stay in sync (Standards).
+- Never report a check you did not run.
 
 **The backend's tests are unit tests, not HTTP tests.** `cd backend && node
 --test` runs fourteen files and 134 tests covering pure logic — badge
@@ -200,35 +214,28 @@ still run the end-to-end curl harness against a running instance
 used to say the backend had no automated tests at all, which told anyone
 reading it to skip the suite that would have caught them.
 
-Nothing leaves this machine unreviewed. Two hooks, not one:
-`.claude/hooks/review-gate.sh` refuses any local commit newer than the
-review marker the harness writes when code-reviewer finishes, and
-`.claude/hooks/push-gate.sh` runs the battery and refuses force pushes. The
-review scan is coarse in one direction: it refuses a command that names the
-marker file **together with** a redirect or a writing binary (`tee`, `sed
--i`, `python`, `node`, …), so a script that merely mentions it in a heredoc
-is refused even when it only reads; a script that must name that file goes
-through the editing tools instead. Commit first, then review — the reviewer
-covers marker..HEAD; a fix made after a review needs its own. Force pushes
-and remote deletions are refused outright, and the same coarseness means a
-commit message mentioning a push flag is written with `git commit -F`.
-
 ## Workflow
 
-- The repo is the memory. Read `docs/ROADMAP.md` + `docs/NOTES.md` when
-  starting; update `docs/NOTES.md` (dated, append-only) when stopping.
-  Decisions that constrain the future go to `docs/adr/`.
-- Every task states its stopping condition up front; when met, stop & report.
-- Work happens on `main`; no PR flow. Push/deploy authority comes from the
-  global constitution's authority tiers (ask per push); the old local
-  "push freely" loosening was retired 2026-08-30. CI must be green before
-  any deploy.
-- Unattended runs (goal loops, overnight): follow `contracts/README.md` —
-  one feature per session, default-FAIL feature list, evidence before
-  `passes: true`.
-- Launch code-reviewer before reporting a feature done, and evaluator-qa
-  before any deploy and after an unattended run — unprompted; the roster
-  is a standing instruction, not an option.
+- Work on a branch, never on `main`; land through a pull request.
+- Read `docs/ROADMAP.md` and `docs/NOTES.md` when starting. When stopping,
+  add a dated entry to `docs/NOTES.md`; decisions that constrain the
+  future go to `docs/adr/`.
+- Always into `docs/NOTES.md`, whatever else you remember them in: an
+  improvement to `CLAUDE.md`, `verify.sh`, `ci.yml` or
+  `docs/project-instructions.md` under "Upstream candidates"; anything the
+  battery passed that turned out broken under "Battery gaps".
+- State the stopping condition up front; when met, stop and report.
+- Never merge, force-push, or change CI configuration. Merging is the
+  owner's.
+
+## Preview
+
+Every pull request gets a preview URL and its body carries it. A pull
+request without its preview link is not ready for the owner.
+[STACK: TODO — no per-pull-request preview exists yet. The web client
+(`web/`, a full client by the sync rule) is what a URL would show; the Fly
+app serves production only. A native-only screen names its TestFlight
+build instead. Until filled: no pull request is ready.]
 
 ## Environment pitfalls
 
@@ -250,6 +257,15 @@ commit message mentioning a push flag is written with `git commit -F`.
   (`contracts/init.sh` creates or starts it).
 
 ## Deploy
+
+maya's rule: deploys run in CI on the release tag (`deploy.yml`, after the
+owner approves the `production` environment); a thread never pushes a
+release tag or deploys. [STACK: TODO — `deploy.yml` is unconfigured and
+fails on purpose. Filling it needs a `FLY_API_TOKEN` Actions secret and a
+`production` environment with the owner as required reviewer — created
+BEFORE the workflow is filled, since GitHub otherwise auto-creates the
+environment with no reviewer. Until then the path below, run by the owner,
+is the deploy path.]
 
 Fly.io: app `pati-app` (backend + web/dist + admin/dist in one image),
 database `pati-db` (PostGIS), region fra; `pati-app.com` and

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# THE verification battery — single implementation (CI, /deploy-checklist and
-# the push-gate hook both call this; CLAUDE.md "Verification" documents it).
+# THE verification battery — single implementation (CI runs it as the
+# required check; CLAUDE.md "Verification" documents it).
 # Modes:
 #   quick (default) — mobile tsc+jest, admin tsc, web tsc + css parse,
 #     backend load + node:test.
-#     Used by the push-gate before every push: fast, catches whole classes.
+#     The fast local pass: catches whole classes.
 #   full — quick + RN release bundle + admin build + web build.
 #     Used by CI and before deploys.
 # Contract: a failing step does NOT stop the run —
@@ -32,6 +32,12 @@ step() { # step <name> <dir> <command...>
     fail=1
   fi
 }
+
+# Every tracked shell script keeps its exec bit: a write-then-rename drops it
+# and no content diff shows it (maya d58cc34). Not a `step`: it has no
+# node_modules to require.
+bad="$(git -c core.quotePath=false ls-files -- '*.sh' | while IFS= read -r f; do [ -x "$f" ] || printf ' %s' "$f"; done)"
+if [ -z "$bad" ]; then results+=("ok    exec bits"); else results+=("FAIL  exec bits:$bad (chmod +x, git update-index --chmod=+x)"); fail=1; fi
 
 step "mobile tsc"      mobile  npx tsc --noEmit
 step "mobile jest"     mobile  npx jest --ci

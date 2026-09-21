@@ -1,0 +1,31 @@
+# Deploys run HERE, on the release tag — never from a laptop, never from a
+# thread. The owner pushes the tag; this workflow deploys every surface CI
+# can reach (web, backend) after the owner approves the `production`
+# environment. A native iOS surface is archived by Xcode Cloud on the same
+# tag. Credentials live in this repository's Actions secrets, nowhere else.
+name: deploy
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to deploy — an earlier tag is the rollback"
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production   # required reviewer = the owner: a tag deploys only after approval
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      # [STACK: toolchain setup, the deploy command, then a health check that
+      # fails the job when the deploy did not take, e.g.
+      #   - run: flyctl deploy --remote-only
+      #     env: { FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} }
+      #   - run: curl -fsS https://example.com/health
+      # Until filled, this job fails on purpose: a deploy path that does
+      # nothing must not look green.]
+      - run: echo "deploy.yml is not configured — this product has no deploy path" >&2; exit 1

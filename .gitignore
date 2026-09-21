@@ -17,10 +17,6 @@ __pycache__/
 docs/pilot/*.xlsx
 
 # maya harness state (see contracts/README.md)
-.claude/.session-reads.log
 .claude/settings.local.json
 .env.*
 
-# Agent worktrees (parallel-track sessions)
-.claude/worktrees/
-.claude/last-reviewed
