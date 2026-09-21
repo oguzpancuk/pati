@@ -5897,3 +5897,23 @@ This is the second consecutive round spent fixing a sentence the previous
 round wrote. Both errors were the same kind — describing the code from a
 summary of it instead of from the file — and both were in text bound for
 Apple, where a checkable false sentence is worth more care than a commit.
+
+### 2026-09-21 (night): the Notes field was full, and "one photo" was never true
+
+The owner could not add the new paragraphs to App Review Notes: the field
+holds 4000 characters and the 2.1 reply pasted on 2026-09-17 used 3956.
+`docs/store/REVIEW-REPLY.md` section 3 is a consolidated replacement for the
+whole field (3550 ASCII characters): the stale recording section goes,
+"SETUP AND ACCESS" stays whole, the one-time 2.1 answers are compressed.
+
+Review of it found a false sentence older than this week: **"Google Gemini
+(vision check on one photo)"**. Three of the four Gemini operations are
+single-photo; `compareAnimalPhotos` is not — it sends the new photo together
+with up to `MAX_MATCH_CANDIDATES` (40) nearby animals' cover photos in one
+`generateContent` request, from `POST /animals/match` and from the carer door.
+The KVKK notice has always said so ("en fazla kırk tanesi"); the text sent to
+Apple on 2026-09-17 said "the single photo being checked", and that reply is
+in the Resolution Center thread as sent — it is not rewritten here, this is
+the record that it was wrong. The consolidated Notes text states all four
+operations and the cap. A disclosure about what reaches a third-party AI is
+exactly what a privacy reviewer compares against the policy.

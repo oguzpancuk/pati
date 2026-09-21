@@ -319,8 +319,20 @@ wholesale: its "SETUP AND ACCESS" part is what every review pass needs. What
 goes is its "1. SCREEN RECORDING", which describes the old recording and the
 old label; the one-time 2.1 answers (purpose, services, regional, regulated)
 are kept but compressed — the full versions remain in the Resolution Center
-thread. 3403 characters, ASCII only like the text it replaces, leaving room for
-the real demo credentials. Replace the ENTIRE field with:
+thread. ASCII only (the text it replaces was not: —, © and ü), and under 3600
+characters, leaving room for the real demo credentials.
+
+**The send conditions at the top of this "Second round" apply to this text
+too** — it says "SCREEN RECORDING ATTACHED" and "running build 3", so paste it
+only once the recording has been re-shot with build 3, and see the still-open
+keyboard check there. Two deliberate narrowings against the text it replaces:
+the recording it describes covers sign-in and deletion only (the 2.1 full-flow
+take shows the superseded control; if that old attachment is still in App
+Store Connect, replace it), and the Gemini line is corrected — the 2.1 text
+said "one photo", but the same-animal comparison sends the new photo with up
+to 40 nearby cover photos in one request, as the KVKK notice already says.
+
+Replace the ENTIRE field with:
 
 ```
 1. ACCOUNT DELETION (5.1.1(v)) - SCREEN RECORDING ATTACHED
@@ -343,7 +355,7 @@ Leaving food/water and registering an animal require a camera photo, checked by 
 A free community app for people in Turkiye who feed street cats and dogs: a shared map of where food and water were left and when, a profile per animal with photos and health records kept by its carers, and messaging. Not a veterinary tool; no advice, diagnosis or treatment.
 
 5. EXTERNAL SERVICES
-Fly.io (Frankfurt) backend and PostgreSQL; Sign in with Apple and Google Sign-In (optional); Resend (verification and password-reset e-mail only); Google Gemini (vision check on one photo, not used for training); Cloudflare R2 (EU) photo storage; OpenFreeMap tiles rendered on-device with MapLibre. No payment processor, no third-party ad network or SDK, no analytics or crash-reporting SDK. Any promotional banner is served from our own backend, labelled "reklam", and links to the advertiser's own site.
+Fly.io (Frankfurt) backend and PostgreSQL; Sign in with Apple and Google Sign-In (optional); Resend (verification and password-reset e-mail only); Google Gemini (vision checks on photos: food/water, the claimed species, the face crop, and a same-animal comparison of a new photo with nearby animals' cover photos, up to 40 per request; not used for training); Cloudflare R2 (EU) photo storage; OpenFreeMap tiles rendered on-device with MapLibre. No payment processor, no third-party ad network or SDK, no analytics or crash-reporting SDK. Any promotional banner is served from our own backend, labelled "reklam", and links to the advertiser's own site.
 
 6. REGIONAL / REGULATED / THIRD-PARTY
 Nothing is gated by country; no purchases, payments, donations or fundraising. Not a regulated industry. Map data (c) OpenStreetMap contributors (ODbL) via OpenFreeMap, credited in-app under profilim > Ayarlar. Typefaces Quicksand and Nunito (SIL OFL). Other artwork was made for this app; animal photos come from users.
