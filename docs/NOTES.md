@@ -12,8 +12,8 @@ When you make a decision or knowingly accept a limit, add a line here.
 ## Upstream candidates (maya)
 
 <!-- Improvements made HERE to files that came from the maya template
-     (.claude/hooks/, contracts/, evaluator-qa, loop.md) that maya should
-     inherit. /update-stack harvests this list monthly. Format:
+     (CLAUDE.md, verify.sh, ci.yml, project-instructions.md) that maya
+     should inherit. /update-stack harvests this list. Format:
      date · file · one-line what/why. Remove entries once upstreamed. -->
 
 - (upstreamed to maya `cd1a40d`, 2026-08-30: the plan-and-parallelize and
@@ -27,6 +27,56 @@ When you make a decision or knowingly accept a limit, add a line here.
   A small jest test that `require`s the backend copies by relative path and
   asserts equality would make the mirrors machine-checked (suggested by the
   S4 code review).
+
+
+## Battery gaps
+
+<!-- Every time evaluator-qa or production finds something the battery
+     passed: date · done-when clause · what the battery missed · the test
+     added. This is how the battery learns. /update-stack harvests the
+     classes of miss so other products' batteries can close them too. -->
+
+- (2026-09-21: the parked parity-test candidate above is this section's
+  kind of item — three comment-enforced mirrors the battery cannot see.)
+
+---
+
+### 2026-09-21 — ported to maya's Projects layout (maya d58cc34)
+
+`/update-stack` run 6, from a local maya session; one pull request. maya
+was rebuilt around claude.ai/code projects on 2026-09-18: enforcement moves
+from hooks on this machine to GitHub (`main` protected, pull request
+required, the `verify` check required), review runs as a thread on the pull
+request, deploys run in CI on the release tag. This REVERSES the line this
+file's CLAUDE.md carried since 2026-08-30 ("work happens on `main`; no PR
+flow; ask per push"): work now happens on a branch, and the owner's
+decision is the merge.
+
+- Removed with the template: push/review gates and `review-mark`, the
+  format hook, `code-reviewer`, `/parallel-tracks`, `loop.md` (locally
+  edited, but unattended local runs no longer exist), `settings.json` (its
+  thirteen local allow entries served local sessions, which no longer
+  build features), `.mcp.json.example`, the template-born files under
+  `contracts/`. `contracts/init.sh` and `.claude/launch.json` are this
+  repo's own and stay.
+- Added: `deploy.yml` — UNCONFIGURED, fails on purpose; the Fly deploy
+  stays owner-run until a `FLY_API_TOKEN` secret and a `production`
+  environment with a required reviewer exist. `docs/project-instructions.md`
+  — source of the project's instructions field. An exec-bits battery step,
+  which on its first run found three tracked scripts without the bit
+  (`backend/scripts/check-lib.sh`, `email-verification-check/checks.sh`
+  and `run.sh`; the six sibling harnesses had it) — fixed in the same
+  commit.
+- The merge gate is NOT on yet: `main` is unprotected and was pushed to
+  directly as late as today. This port lands first because the gate's
+  checks arrive with it; protecting `main` — both `verify` and `docker`
+  jobs required — is the owner's next step (private repo: needs a GitHub
+  plan that allows it).
+- Open, owner-side: protect `main`; create the project's cloud environment
+  (`npm ci` ×4; the battery's quick mode needs no database); paste
+  `docs/project-instructions.md`; choose a per-pull-request preview for
+  `web/`; decide the iOS archive path (Xcode Cloud, per maya) before the
+  App Store readiness work ships.
 
 ---
 
