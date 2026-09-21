@@ -259,8 +259,18 @@ on a device; and the dialogs' buttons are said to stay **reachable** with the
 keyboard up — in a short window the card shrinks and its body scrolls — not
 "above the keyboard", which holds on a tall iPhone but was never seen in the
 667 pt window for the shared `DialogBody` (no simulator run here managed to
-raise the software keyboard over it). A check on a physical iPhone cannot
-settle that window either; the simulator with the software keyboard on can.
+raise the software keyboard over it). The deletion walk itself was repeated on
+HEAD after the delete dialog moved onto `DialogBody`, so the dialog build 3
+ships is the one that was walked.
+
+**One check is still open, and a physical iPhone cannot make it** — its screen
+is taller than the reviewer's window. Before sending, in the "pati iPad
+review" simulator: I/O → Keyboard → untick "Connect Hardware Keyboard" (or
+⌘K), open profilim → ⚙ → "Hesabımı sil", tap "Şifren", and confirm that
+"Hesabımı kalıcı olarak sil" can be reached with the keyboard up (scrolling
+the dialog if needed); then the same for "Şikayet et" → the note field. That
+is exactly what Apple's reviewer will do when typing the password. If a button
+cannot be reached, fix it before sending.
 
 ### 1. Resolution Center reply (attach the recording)
 
@@ -280,7 +290,7 @@ Account deletion has been in the app since the first submission, but it sat at t
 
 profilim (profile tab) > gear icon (Ayarlar) > "Hesabımı sil" > enter your password > "Hesabımı kalıcı olarak sil"
 
-Deletion happens in the app, immediately and permanently: the name, e-mail address, avatar, password and any Apple/Google sign-in link are erased, along with friendships, blocks, badges and device tokens. What the person contributed to the shared record — animal and care records, photos, comments and messages — stays under the name "Silinmiş Üye" (Deleted Member) and can no longer be linked to them. Accounts that have no password (created with Apple or Google) confirm by signing in with that provider once more instead. No website, e-mail or phone call is involved.
+Deletion happens in the app, immediately and permanently: the name, e-mail address, avatar, password and any Apple/Google sign-in link are erased, along with friendships, blocks, the badge history and device tokens. What the person contributed to the shared record — animal and care records, photos, comments and messages — stays under the name "Silinmiş Üye" (Deleted Member) and can no longer be linked to them. Accounts that have no password (created with Apple or Google) confirm by signing in with that provider once more instead. No website, e-mail or phone call is involved.
 
 The attached screen recording was captured on a physical iPhone and shows signing in, navigating to the deletion option, and the complete flow through to the sign-in screen. It uses a separate test account so the demo account in App Review Information stays usable for you.
 ```
@@ -291,7 +301,7 @@ Replace the account-deletion line of the existing notes with this, and attach
 the same recording there too (Apple asks for it "for future submissions"):
 
 ```
-Account deletion: profilim (profile tab) > gear icon (Ayarlar) > red "Hesabımı sil" button > enter the password (an account created with Apple or Google confirms with that provider instead) > "Hesabımı kalıcı olarak sil". Completed entirely in the app. A screen recording of the full flow on a physical iPhone is attached. Please use a newly registered account rather than the demo account to try it, since deletion is permanent.
+Account deletion: profilim (profile tab) > gear icon (Ayarlar) > red "Hesabımı sil" button > enter the password (an account that has no password, created with Apple or Google, confirms with that provider instead) > "Hesabımı kalıcı olarak sil". Completed entirely in the app. A screen recording of the full flow on a physical iPhone is attached. Please use a newly registered account rather than the demo account to try it, since deletion is permanent.
 
 iPad: pati is an iPhone-only app and runs on iPad in compatibility mode. The changes in build 3 were checked in that mode in the iPad simulator (iPad Air 11-inch): the sign-in screen and the settings sheet scroll, and account deletion completes through to the sign-in screen.
 ```

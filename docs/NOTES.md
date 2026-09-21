@@ -5861,3 +5861,39 @@ On "archived from the clean HEAD", which review could not verify after the
 fact: `git status --porcelain` was run immediately before the archive command
 and printed nothing, with `92e9e00` as HEAD. That is an observation from this
 session's transcript, not something the repository can prove.
+
+### Same evening, second correction: "badges are erased" was false too
+
+The rewritten deletion paragraph told Apple that badges are erased. They are
+not, and this file already said why three days ago: a user's badges are not
+stored — `badges.js` recomputes every tier on each read from care actions,
+animals, comments, vaccinations and health records, all of which deletion
+keeps; what deletion removes is `user_badge_awards` (history) and
+`featured_badges`. `getPublicProfile` has no `suspended_at` check, so a
+reviewer who deletes a test account and then opens "Silinmiş Üye" from one of
+its comments sees the same medallions. The reply now says "the badge
+history", which is the KVKK notice's own wording ("rozet geçmişin"). Whether a
+tombstone profile SHOULD still show badges is a product question next to the
+direct-messages one above.
+
+Two smaller things from the same review. The Notes text still said any
+Apple/Google account confirms with the provider; it is accounts without a
+password, and now says so. And the claim "account deletion completes through
+to the sign-in screen" rested on a walk made before the delete dialog moved
+onto `DialogBody` — so the dialog build 3 ships had never been rendered. It
+has now: a second throwaway account, on HEAD (only a docs file modified), in
+the same iPad-simulator window — the DialogBody dialog renders whole, takes
+the password, deletes, both modals dismiss, the app lands on sign-in, and the
+row became "Silinmiş Üye" / `silinmis-15849@deleted.pati-app.com` with
+`suspended_at` set.
+
+What is still open is written into REVIEW-REPLY.md as an instruction rather
+than left as a caveat: the three dialogs with the SOFTWARE keyboard up in the
+667 pt window. A physical iPhone is too tall to show it; the iPad simulator
+can, once its hardware-keyboard setting is unticked, which needs the owner's
+hand on the Simulator menu.
+
+This is the second consecutive round spent fixing a sentence the previous
+round wrote. Both errors were the same kind — describing the code from a
+summary of it instead of from the file — and both were in text bound for
+Apple, where a checkable false sentence is worth more care than a commit.
