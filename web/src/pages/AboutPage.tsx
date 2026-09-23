@@ -218,7 +218,14 @@ export default function AboutPage() {
 
         <section className="about-shots" aria-labelledby="about-shots-heading">
           <h2 id="about-shots-heading">{t.shotsHeading}</h2>
-          <ul style={{ '--shots': SHOTS.length } as CSSProperties}>
+          {/* Focusable so a keyboard can scroll it where it becomes a swipe
+              row: nothing inside it takes focus, and Safari does not make
+              a scroller focusable on its own. */}
+          <ul
+            style={{ '--shots': SHOTS.length } as CSSProperties}
+            tabIndex={0}
+            aria-labelledby="about-shots-heading"
+          >
             {t.shots.map((shot, i) => (
               <li key={shot.title}>
                 <img

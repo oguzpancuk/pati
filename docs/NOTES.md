@@ -6188,3 +6188,37 @@ directly: what pati is, three screenshots, the App Store link once approved.
   image would fill LinkedIn's wide card and does not exist yet.
 - **Web only, by nature**: the page advertises the native app, which has no
   equivalent screen to add.
+
+## 2026-09-23 (later) · The about page's phone swipe centres each shot
+
+After the first deploy the owner opened pati-app.com in iPhone Safari: in
+the sideways swipe every screenshot sat against the left edge with the next
+one peeking in, so none was centred ("her fotoğraf sayfayı ortalamalı").
+The row now snaps each shot to the centre (`scroll-snap-align: center`),
+with a neighbour peeking in at both edges.
+
+- **The ends.** The first and last shots can only reach the centre with room
+  beside them, and that room is two pseudo-element flex spacers
+  (`ul::before/::after`: half of what the slide leaves, less the gap), not
+  padding. A percentage in padding is taken from the parent, not the
+  full-bleed row, and not every browser keeps a scroll container's end
+  padding. The gap is one `--gap` property, because the spacers depend on it.
+- **Slide width** is `min(72%, 300px)`. The first cut was a flat 72%, and
+  the QA pass found that on a wide phone held sideways (about 495–719 px)
+  the neighbours then fell off both edges, hiding that the row swipes at
+  all; 300 px is the caption's own width.
+- **The centre is the content column's**, not the screen's: `scroll-padding`
+  is the two gutters and the spacers shift by half their difference, so a
+  phone held sideways with its notch on one side still lines the shot up
+  with the heading above it (the code review's catch).
+- **One shot per swipe** (`scroll-snap-stop: always`). Without it a fast
+  flick in Chromium went 1 → 3 → 5; iOS momentum is stronger still.
+- **Keyboard.** The row is `tabIndex=0` and labelled by its heading, so the
+  arrow keys can scroll it: nothing inside it takes focus, and Safari does
+  not make a scroller focusable on its own.
+
+Measured in Chromium from 320 to 719 px: every shot, its title and its
+caption within half a pixel of the heading's centre, including with a 48 px
+gutter on one side only; the neighbours show 23–169 px; no sideways page
+overflow. The 720 px and wider layouts are untouched. Not seen in WebKit
+here (the container has only Chromium); the owner's iPhone is that check.
