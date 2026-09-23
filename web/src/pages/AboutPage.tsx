@@ -116,8 +116,8 @@ const SHOTS = [mapShot, animalsShot, profileShot];
  * The public introduction at pati-app.com: what pati is, three screens from
  * the app, and where to get it. A signed-out stranger meets it at `/`
  * (frontDoor.ts decides who counts), and it stays reachable at `/hakkinda`
- * for everyone. Web only:
- * the native app is what this page points to, so it has no mobile twin.
+ * for everyone. Web only: the native app is what this page points to, so it
+ * has no mobile twin.
  */
 export default function AboutPage() {
   const { me } = useAuth();

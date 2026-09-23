@@ -6164,6 +6164,10 @@ directly: what pati is, three screenshots, the App Store link once approved.
   switches, the choice is remembered (`pati-about-lang`, storage failures
   tolerated). The page sets `<html lang>` and the title while mounted and
   restores both on leaving. Everything else in the product stays Turkish.
+  This is an exception to CLAUDE.md's "product-facing text stays Turkish";
+  the review flagged it and the owner chose to keep both (2026-09-23), and
+  CLAUDE.md now names the exception. The link-preview text in `index.html`
+  is English for the same audience.
 - **Screenshots** are the App Store set's 01, 02 and 05, downscaled to 720 px
   WebP (`web/src/assets/about/`, 33–95 KB each). 03 is left out for the
   reason APP-STORE.md gives. Retaking the store set does not update these.
