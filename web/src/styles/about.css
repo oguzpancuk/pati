@@ -138,6 +138,14 @@
   gap: 28px;
 }
 
+.about-shots ul:focus-visible {
+  /* Inside the edge: on a phone the row runs to the screen's sides, where
+     an outline drawn outside it would be cut off. */
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
 .about-shots li {
   display: flex;
   flex-direction: column;
@@ -239,35 +247,50 @@
     width: 100%;
   }
 
-  .about-shots ul {
-    display: flex;
-    gap: 16px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    margin: 0 calc(-1 * var(--gutter-right)) 0 calc(-1 * var(--gutter-left));
-    padding: 0 0 12px;
-  }
-
   /* A slide is most of a phone held upright, but no wider than its
      caption (300px): on a wider phone held sideways, 72% would push the
      neighbours off both edges and hide that the row swipes. */
   .about-shots ul {
     --slide: min(72%, 300px);
+    --gap: 16px;
+    display: flex;
+    gap: var(--gap);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin: 0 calc(-1 * var(--gutter-right)) 0 calc(-1 * var(--gutter-left));
+    padding: 0 0 12px;
+    /* The row runs edge to edge, but a shot comes to rest in the middle of
+       the content column, like the heading above it: the two differ when a
+       phone held sideways has its notch on one side only. */
+    scroll-padding: 0 var(--gutter-right) 0 var(--gutter-left);
   }
 
   /* Spacers that let the first and last shot scroll to the centre too:
      half of what the slide leaves, less the gap the row adds after the
-     spacer. Flex items rather than padding, because a percentage in padding
-     is taken from the parent rather than this full-bleed row, and a scroll
-     container's end padding is not kept by every browser. */
+     spacer, shifted by half the difference between the gutters. Flex items
+     rather than padding, because a percentage in padding is taken from the
+     parent rather than this full-bleed row, and a scroll container's end
+     padding is not kept by every browser. */
   .about-shots ul::before,
   .about-shots ul::after {
+    --spacer: calc((100% - var(--slide)) / 2 - var(--gap));
+    --shift: calc((var(--gutter-left) - var(--gutter-right)) / 2);
     content: '';
-    flex: 0 0 calc((100% - var(--slide)) / 2 - 16px);
   }
 
+  .about-shots ul::before {
+    flex: 0 0 calc(var(--spacer) + var(--shift));
+  }
+
+  .about-shots ul::after {
+    flex: 0 0 calc(var(--spacer) - var(--shift));
+  }
+
+  /* One shot per swipe, however fast the flick: iOS momentum would
+     otherwise carry the row past a shot without ever centring it. */
   .about-shots li {
     flex: 0 0 var(--slide);
     scroll-snap-align: center;
+    scroll-snap-stop: always;
   }
 }
