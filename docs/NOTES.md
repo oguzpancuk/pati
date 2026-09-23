@@ -6197,11 +6197,14 @@ one peeking in, so none was centred ("her fotoğraf sayfayı ortalamalı").
 The row now snaps each shot to the centre (`scroll-snap-align: center`),
 with a neighbour peeking in at both edges. The first and last shots can
 only reach the centre with room beside them, and that room is two
-pseudo-element flex spacers (`ul::before/::after`, 14% less the 16 px gap),
-not padding: a percentage in padding is taken from the parent, not the
+pseudo-element flex spacers (`ul::before/::after`, half of what the slide
+leaves, less the 16 px gap), not padding: a percentage in padding is taken from the parent, not the
 full-bleed row, and not every browser keeps a scroll container's end
-padding. Measured in Chromium at 360, 390, 430 and 719 px: every shot, its
-title and its caption within half a pixel of the page centre, no sideways
-page overflow. The 720 px and wider layouts are untouched. Not seen in
+padding. A slide is `min(72%, 300px)`: the first cut was a flat 72%, and
+the QA pass found that on a wide phone held sideways (about 495–719 px)
+the neighbours then fell off both edges, hiding that the row swipes at all;
+300 px is the caption's own width. Measured in Chromium from 320 to 719 px:
+every shot, its title and its caption within half a pixel of the page
+centre, the neighbours showing 23–169 px, no sideways page overflow. The 720 px and wider layouts are untouched. Not seen in
 WebKit here (the container has only Chromium); the owner's iPhone is that
 check.

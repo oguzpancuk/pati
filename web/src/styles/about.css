@@ -248,19 +248,26 @@
     padding: 0 0 12px;
   }
 
+  /* A slide is most of a phone held upright, but no wider than its
+     caption (300px): on a wider phone held sideways, 72% would push the
+     neighbours off both edges and hide that the row swipes. */
+  .about-shots ul {
+    --slide: min(72%, 300px);
+  }
+
   /* Spacers that let the first and last shot scroll to the centre too:
-     14% on each side of a 72% shot, less the gap the row adds after the
+     half of what the slide leaves, less the gap the row adds after the
      spacer. Flex items rather than padding, because a percentage in padding
      is taken from the parent rather than this full-bleed row, and a scroll
      container's end padding is not kept by every browser. */
   .about-shots ul::before,
   .about-shots ul::after {
     content: '';
-    flex: 0 0 calc(14% - 16px);
+    flex: 0 0 calc((100% - var(--slide)) / 2 - 16px);
   }
 
   .about-shots li {
-    flex: 0 0 72%;
+    flex: 0 0 var(--slide);
     scroll-snap-align: center;
   }
 }
