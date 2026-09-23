@@ -6134,3 +6134,36 @@ names neither the species check nor the carer-door gallery comparison, so the
 Notes text now discloses more to Apple than the privacy notice does to users.
 A legal text is the owner's to change. A disclosure about what reaches a third-party AI is
 exactly what a privacy reviewer compares against the policy.
+
+## 2026-09-23 · A front door for pati-app.com
+
+The owner's CV links pati-app.com, and a signed-out visitor there met the
+sign-in form under a logo and one word, "pati". Not a ROADMAP item; asked for
+directly: what pati is, three screenshots, the App Store link once approved.
+
+- **Where it lives.** `web/src/pages/AboutPage.tsx`, rendered at `/` for a
+  signed-out browser visitor and at `/hakkinda` for everyone. Its button goes
+  to `/giris`, which is not a route of its own: every signed-out path other
+  than `/` already rendered the sign-in form, and once signed in `/giris`
+  falls through to the map. So password-reset and social sign-in flows (all
+  popups, no redirect back to `/`) are untouched. `backend/public` at
+  `/tanitim` is the old installable glance page and was left alone.
+- **An installed PWA skips it.** `start_url` is `/`; someone who added pati
+  to their home screen has already chosen it, so `isInstalledApp()`
+  (`display-mode: standalone`, or `navigator.standalone` on iOS) keeps `/`
+  on the sign-in form for them.
+- **Both languages.** The audience is the CV link, so English exists; the
+  product is Turkish, so Turkish exists. The browser language picks, a toggle
+  switches, the choice is remembered (`pati-about-lang`, storage failures
+  tolerated). The page sets `<html lang>` and the title while mounted and
+  restores both on leaving. Everything else in the product stays Turkish.
+- **Screenshots** are the App Store set's 01, 02 and 05, downscaled to 720 px
+  WebP (`web/src/assets/about/`, 33–95 KB each). 03 is left out for the
+  reason APP-STORE.md gives. Retaking the store set does not update these.
+- **App Store link:** `APP_STORE_URL` at the top of `AboutPage.tsx` is null
+  until Apple approves; the page says "coming to the App Store" instead of
+  linking. The day the listing is live, that constant is the whole change.
+- `web/index.html` gained a description and Open Graph tags, so a pasted
+  link previews as something other than "pati" with no text.
+- **Web only, by nature**: the page advertises the native app, which has no
+  equivalent screen to add.

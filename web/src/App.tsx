@@ -7,6 +7,7 @@ import {
   UNREAD_POLL_INTERVAL_MS,
 } from './api/messages';
 import './styles/messages.css';
+import AboutPage, { isInstalledApp } from './pages/AboutPage';
 import AnimalPage from './pages/AnimalPage';
 import AnimalsPage from './pages/AnimalsPage';
 import AddAnimalPage from './pages/AddAnimalPage';
@@ -161,6 +162,11 @@ export default function App() {
         {/* The register form links here, so both must open without a session. */}
         <Route path="/gizlilik" element={<PrivacyPage />} />
         <Route path="/kosullar" element={<TermsPage />} />
+        {/* A stranger at pati-app.com meets the introduction, not a bare
+            sign-in form; its button leads to /giris, which like every other
+            path signs in. An installed PWA skips it. */}
+        {!me && <Route path="/hakkinda" element={<AboutPage />} />}
+        {!me && !isInstalledApp() && <Route path="/" element={<AboutPage />} />}
         {/* An unverified e-mail gets the code page and nothing else: the
             server would refuse every other request anyway (ADR-0004). */}
         <Route path="*" element={me ? <VerifyEmailPage /> : <LoginPage />} />
@@ -192,6 +198,7 @@ export default function App() {
           <Route path="gizlilik" element={<PrivacyPage />} />
           <Route path="kosullar" element={<TermsPage />} />
         </Route>
+        <Route path="/hakkinda" element={<AboutPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BadgeAwardProvider>

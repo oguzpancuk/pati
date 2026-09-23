@@ -1,0 +1,236 @@
+/* The public introduction (pages/AboutPage). Same studio discipline as the
+   app: white ground, hairlines, the gradient only on the logo and the one
+   primary button. It is a document rather than an app screen, so the page
+   itself scrolls (and a phone's address bar can collapse) instead of a box
+   inside it like `.page`. */
+
+.about {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.about > * {
+  width: 100%;
+  max-width: 1040px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.about-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(14px + env(safe-area-inset-top)) 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.about-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 19px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text);
+}
+
+.about-lang {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+}
+
+.about-lang button {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.about-lang button[aria-pressed='true'] {
+  background: var(--brand-tint);
+  color: var(--brand);
+}
+
+.about-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 44px 0 40px;
+}
+
+.about-hero h1 {
+  margin: 18px 0 0;
+  max-width: 640px;
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.about-lead {
+  margin: 16px 0 0;
+  max-width: 600px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text-body);
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 20px;
+  margin-top: 28px;
+}
+
+.about-actions .btn {
+  text-decoration: none;
+  min-width: 220px;
+}
+
+.about-soon {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.about-shots {
+  border-top: 1px solid var(--border);
+  padding: 36px 0 40px;
+}
+
+.about-shots h2 {
+  margin: 0 0 24px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+
+.about-shots ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+}
+
+.about-shots li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.about-shots img {
+  display: block;
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  border-radius: 28px;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-float);
+  background: var(--cream);
+}
+
+.about-shots h3 {
+  margin: 20px 0 0;
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.about-shots p {
+  margin: 8px 0 0;
+  max-width: 300px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-body);
+}
+
+.about-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding: 22px 0 28px;
+  text-align: center;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.about-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 20px;
+}
+
+.about-footer a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.about-footer p {
+  margin: 10px 0 0;
+}
+
+/* A phone: the three screens become a row that swipes sideways, each one
+   most of the width with the next peeking in, rather than three full-height
+   frames stacked into a very long page. */
+@media (max-width: 719px) {
+  .about-hero {
+    padding: 32px 0 32px;
+  }
+
+  .about-hero h1 {
+    font-size: 26px;
+    line-height: 1.25;
+  }
+
+  .about-lead {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .about-actions {
+    flex-direction: column;
+  }
+
+  .about-actions .btn {
+    width: 100%;
+  }
+
+  .about-shots ul {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin: 0 -20px;
+    padding: 0 20px 12px;
+    scroll-padding: 0 20px;
+  }
+
+  .about-shots li {
+    flex: 0 0 72%;
+    scroll-snap-align: start;
+  }
+}
