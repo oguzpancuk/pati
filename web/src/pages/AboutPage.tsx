@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react';
+import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { Logo } from '../brand';
 import '../styles/about.css';
 // The owner's own iPhone screenshots (2026-09-23), downscaled to 720 px
 // WebP with sharp. In the animals list one dog's name was shortened from
-// "şerefsiz" to "şeref" at the owner's request.
+// "şerefsiz" to "şeref" at the owner's request; the other person in the
+// chat agreed to it being shown (owner, 2026-09-23).
 import mapShot from '../assets/about/map.webp';
 import animalsShot from '../assets/about/animals.webp';
 import animalShot from '../assets/about/animal.webp';
+import messagesShot from '../assets/about/messages.webp';
 import profileShot from '../assets/about/profile.webp';
 
 /**
@@ -71,6 +73,13 @@ const COPY = {
         alt: "A dog's profile: two photos, one follower and one carer, two badges, the follow and care buttons, and a map of where it was last seen.",
       },
       {
+        title: 'Messages',
+        body:
+          'Carers write to each other one to one or in groups, and split the days between ' +
+          'them: who feeds, who fills the water.',
+        alt: 'A chat between two carers agreeing who puts out food and water on which day, with one reply quoting an earlier message.',
+      },
+      {
         title: 'You',
         body:
           'Points, rank and level, tiered badges for food, water and new animals, and the ' +
@@ -114,6 +123,13 @@ const COPY = {
         alt: 'Bir köpek profili: iki fotoğraf, bir takipçi ve bir bakıcı, iki rozet, takip ve bakım düğmeleri ve en son görüldüğü yerin haritası.',
       },
       {
+        title: 'Mesajlar',
+        body:
+          'Bakıcılar birebir ya da grupta yazışır, günleri aralarında paylaşır: kim mama ' +
+          'verecek, kim suyu dolduracak.',
+        alt: 'İki bakıcı arasında hangi gün kimin mama ve su bırakacağını konuştukları bir sohbet; bir yanıt önceki mesajı alıntılıyor.',
+      },
+      {
         title: 'Sen',
         body:
           'Puanın, sıran ve seviyen; mama, su ve yeni hayvanlar için basamaklı rozetler; ' +
@@ -126,7 +142,7 @@ const COPY = {
   },
 } as const;
 
-const SHOTS = [mapShot, animalsShot, animalShot, profileShot];
+const SHOTS = [mapShot, animalsShot, animalShot, messagesShot, profileShot];
 
 /**
  * The public introduction at pati-app.com: what pati is, screens from the
@@ -202,7 +218,7 @@ export default function AboutPage() {
 
         <section className="about-shots" aria-labelledby="about-shots-heading">
           <h2 id="about-shots-heading">{t.shotsHeading}</h2>
-          <ul style={{ gridTemplateColumns: `repeat(${SHOTS.length}, minmax(0, 1fr))` }}>
+          <ul style={{ '--shots': SHOTS.length } as CSSProperties}>
             {t.shots.map((shot, i) => (
               <li key={shot.title}>
                 <img

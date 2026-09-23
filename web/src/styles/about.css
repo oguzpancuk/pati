@@ -17,7 +17,7 @@
 
 .about > * {
   width: 100%;
-  max-width: 1040px;
+  max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -131,9 +131,10 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  /* One row on a wide screen; the column count is the number of shots
-     (set inline by the page). */
+  /* One row on a wide screen: --shots is the number of screenshots, set
+     inline by the page. */
   display: grid;
+  grid-template-columns: repeat(var(--shots, 3), minmax(0, 1fr));
   gap: 28px;
 }
 
@@ -195,6 +196,21 @@
 
 .about-footer p {
   margin: 10px 0 0;
+}
+
+/* Between a phone and a full desktop row, one row would leave each shot
+   and its caption too narrow: three to a row, the last row centred. */
+@media (min-width: 720px) and (max-width: 1199px) {
+  .about-shots ul {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 40px 28px;
+  }
+
+  .about-shots li {
+    flex: 0 1 calc((100% - 56px) / 3);
+  }
 }
 
 /* A phone: the screens become a row that swipes sideways, each one

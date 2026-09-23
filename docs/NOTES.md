@@ -6171,12 +6171,14 @@ directly: what pati is, three screenshots, the App Store link once approved.
 - **Screenshots** were first the App Store set's 01, 02 and 05; the owner
   then supplied his own iPhone screenshots (2026-09-23) and they replaced
   them: map, animals list, an animal's profile, own profile, as 720 px WebP
-  in `web/src/assets/about/` (45–63 KB each). In the animals list one dog's
+  in `web/src/assets/about/` (40–63 KB each). In the animals list one dog's
   name, "şerefsiz", was painted down to "şeref" at his request (a white box
-  over the last three letters, nothing else touched). A fifth, a chat, was
-  held back: it shows another user's name, photo and messages, and this
-  session's safety check refused to publish it without her consent being
-  settled. The grid's column count follows the number of shots.
+  over the last three letters, nothing else touched). The fifth, a chat,
+  shows another user's name, photo and messages; it went in only after the
+  owner said she had agreed (2026-09-23; the session's safety check had
+  refused it until then). Layout: one row of five from 1200 px (the page's
+  max width went from 1040 to 1200 for it), three-then-two centred between
+  720 and 1199, a sideways swipe below that.
 - **App Store link:** `APP_STORE_URL` at the top of `AboutPage.tsx` is null
   until Apple approves; the page says "coming to the App Store" instead of
   linking. The day the listing is live, that constant is the whole change.
