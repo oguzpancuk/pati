@@ -17,16 +17,6 @@ import profileShot from '../assets/about/profile.webp';
  */
 export const APP_STORE_URL: string | null = null;
 
-/**
- * An installed PWA opens at `/` too, and its user has already chosen the
- * app: they go straight to sign-in rather than through the introduction.
- * iOS Safari reports standalone mode only through `navigator.standalone`.
- */
-export function isInstalledApp(): boolean {
-  const iosStandalone = (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return iosStandalone || window.matchMedia('(display-mode: standalone)').matches;
-}
-
 type Lang = 'en' | 'tr';
 
 const LANG_KEY = 'pati-about-lang';
@@ -124,8 +114,9 @@ const SHOTS = [mapShot, animalsShot, profileShot];
 
 /**
  * The public introduction at pati-app.com: what pati is, three screens from
- * the app, and where to get it. It is the first thing a signed-out visitor
- * sees at `/`, and it stays reachable at `/hakkinda` for everyone. Web only:
+ * the app, and where to get it. A signed-out stranger meets it at `/`
+ * (frontDoor.ts decides who counts), and it stays reachable at `/hakkinda`
+ * for everyone. Web only:
  * the native app is what this page points to, so it has no mobile twin.
  */
 export default function AboutPage() {
@@ -153,8 +144,8 @@ export default function AboutPage() {
     }
   }
 
-  // Signed out, the web app starts at the sign-in form; any path other than
-  // `/` renders it, and once signed in `/giris` falls through to the map.
+  // Signed out, /giris is the sign-in form; once signed in it falls through
+  // to the map.
   const appPath = me ? '/' : '/giris';
 
   return (
@@ -184,7 +175,7 @@ export default function AboutPage() {
               {me ? t.openSignedIn : t.openWeb}
             </Link>
             {APP_STORE_URL ? (
-              <a className="btn secondary" href={APP_STORE_URL} rel="noopener">
+              <a className="btn secondary" href={APP_STORE_URL}>
                 {t.appStore}
               </a>
             ) : (
@@ -219,7 +210,7 @@ export default function AboutPage() {
           <Link to="/kosullar">{t.terms}</Link>
           <a href="mailto:iletisim@pati-app.com">iletisim@pati-app.com</a>
         </nav>
-        <p>© 2026 Oğuz Pançuk</p>
+        <p>© {new Date().getFullYear()} Oğuz Pançuk</p>
       </footer>
     </div>
   );

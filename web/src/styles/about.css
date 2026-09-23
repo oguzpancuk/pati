@@ -4,12 +4,15 @@
    itself scrolls (and a phone's address bar can collapse) instead of a box
    inside it like `.page`. */
 
+/* index.html sets viewport-fit=cover, so a notched phone held sideways
+   puts its inset on the left or right: the gutter grows to clear it. */
 .about {
+  --gutter-left: max(20px, env(safe-area-inset-left));
+  --gutter-right: max(20px, env(safe-area-inset-right));
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 0 20px;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 var(--gutter-right) env(safe-area-inset-bottom) var(--gutter-left);
 }
 
 .about > * {
@@ -224,9 +227,9 @@
     gap: 16px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    margin: 0 -20px;
-    padding: 0 20px 12px;
-    scroll-padding: 0 20px;
+    margin: 0 calc(-1 * var(--gutter-right)) 0 calc(-1 * var(--gutter-left));
+    padding: 0 var(--gutter-right) 12px var(--gutter-left);
+    scroll-padding: 0 var(--gutter-right) 0 var(--gutter-left);
   }
 
   .about-shots li {

@@ -6141,17 +6141,24 @@ The owner's CV links pati-app.com, and a signed-out visitor there met the
 sign-in form under a logo and one word, "pati". Not a ROADMAP item; asked for
 directly: what pati is, three screenshots, the App Store link once approved.
 
-- **Where it lives.** `web/src/pages/AboutPage.tsx`, rendered at `/` for a
-  signed-out browser visitor and at `/hakkinda` for everyone. Its button goes
-  to `/giris`, which is not a route of its own: every signed-out path other
-  than `/` already rendered the sign-in form, and once signed in `/giris`
-  falls through to the map. So password-reset and social sign-in flows (all
-  popups, no redirect back to `/`) are untouched. `backend/public` at
-  `/tanitim` is the old installable glance page and was left alone.
-- **An installed PWA skips it.** `start_url` is `/`; someone who added pati
-  to their home screen has already chosen it, so `isInstalledApp()`
-  (`display-mode: standalone`, or `navigator.standalone` on iOS) keeps `/`
-  on the sign-in form for them.
+- **Where it lives.** `web/src/pages/AboutPage.tsx` (lazy-loaded), at `/`
+  for a signed-out stranger and at `/hakkinda` for everyone. Its button goes
+  to `/giris`, a signed-out route to the sign-in form; once signed in it
+  falls through to the map. Social sign-in is popups only, so nothing
+  redirects back to `/`. `backend/public` at `/tanitim` is the old
+  installable glance page and was left alone.
+- **Who counts as a stranger** (`web/src/frontDoor.ts`). Not an installed
+  PWA (`start_url` is `/`; `display-mode: standalone` or iOS
+  `navigator.standalone`, via `install.tsx`'s `isStandalone`), and not a
+  browser that has ever been signed in (`pati-returning`, set whenever `me`
+  exists). For those, `/` stays the sign-in form, so an expired session or a
+  "back to `/`" fallback such as the privacy page's lands where the user was
+  heading, not on the intro (review finding). The cost: a returning browser
+  sees the intro only at `/hakkinda`.
+- **Back after signing in** from the about page lands on the map a second
+  time (history is about → `/giris`, and sign-in replaces `/giris` with `/`).
+  Kept deliberately: Back from the sign-in form returning to the intro
+  matters more to a first-time visitor than one redundant entry afterwards.
 - **Both languages.** The audience is the CV link, so English exists; the
   product is Turkish, so Turkish exists. The browser language picks, a toggle
   switches, the choice is remembered (`pati-about-lang`, storage failures
@@ -6163,7 +6170,9 @@ directly: what pati is, three screenshots, the App Store link once approved.
 - **App Store link:** `APP_STORE_URL` at the top of `AboutPage.tsx` is null
   until Apple approves; the page says "coming to the App Store" instead of
   linking. The day the listing is live, that constant is the whole change.
-- `web/index.html` gained a description and Open Graph tags, so a pasted
-  link previews as something other than "pati" with no text.
+- `web/index.html` gained a description, Open Graph tags and a `summary`
+  Twitter card, so a pasted link previews as something other than "pati"
+  with no text. The image is the square 512 px app icon; a 1200×630 preview
+  image would fill LinkedIn's wide card and does not exist yet.
 - **Web only, by nature**: the page advertises the native app, which has no
   equivalent screen to add.

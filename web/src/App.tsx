@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
 import {
@@ -7,7 +7,7 @@ import {
   UNREAD_POLL_INTERVAL_MS,
 } from './api/messages';
 import './styles/messages.css';
-import AboutPage, { isInstalledApp } from './pages/AboutPage';
+import { markReturningVisitor, showsAboutAtRoot } from './frontDoor';
 import AnimalPage from './pages/AnimalPage';
 import AnimalsPage from './pages/AnimalsPage';
 import AddAnimalPage from './pages/AddAnimalPage';
@@ -28,6 +28,15 @@ import GroupSettingsPage from './pages/GroupSettingsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import { BadgeAwardProvider } from './badgeAwards';
 import { useCareAlerts } from './careAlerts';
+
+// Only signed-out strangers see it, so it stays out of the app's startup
+// bundle: its copy, stylesheet and screenshots load on first render.
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const aboutPage = (
+  <Suspense fallback={null}>
+    <AboutPage />
+  </Suspense>
+);
 
 function TabIcon({ d }: { d: string }) {
   return (
@@ -147,6 +156,9 @@ export default function App() {
   // Care alerts only run while signed in — and verified: the server would
   // refuse the poll otherwise.
   useCareAlerts(!!me && !me.email_verification_pending);
+  useEffect(() => {
+    if (me) markReturningVisitor();
+  }, [me]);
 
   if (loading) {
     return (
@@ -163,10 +175,11 @@ export default function App() {
         <Route path="/gizlilik" element={<PrivacyPage />} />
         <Route path="/kosullar" element={<TermsPage />} />
         {/* A stranger at pati-app.com meets the introduction, not a bare
-            sign-in form; its button leads to /giris, which like every other
-            path signs in. An installed PWA skips it. */}
-        {!me && <Route path="/hakkinda" element={<AboutPage />} />}
-        {!me && !isInstalledApp() && <Route path="/" element={<AboutPage />} />}
+            sign-in form; its button leads to /giris. Someone who already
+            uses pati keeps `/` on sign-in (frontDoor.ts). */}
+        {!me && <Route path="/hakkinda" element={aboutPage} />}
+        {!me && <Route path="/giris" element={<LoginPage />} />}
+        {!me && showsAboutAtRoot() && <Route path="/" element={aboutPage} />}
         {/* An unverified e-mail gets the code page and nothing else: the
             server would refuse every other request anyway (ADR-0004). */}
         <Route path="*" element={me ? <VerifyEmailPage /> : <LoginPage />} />
@@ -198,7 +211,7 @@ export default function App() {
           <Route path="gizlilik" element={<PrivacyPage />} />
           <Route path="kosullar" element={<TermsPage />} />
         </Route>
-        <Route path="/hakkinda" element={<AboutPage />} />
+        <Route path="/hakkinda" element={aboutPage} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BadgeAwardProvider>
