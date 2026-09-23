@@ -34,25 +34,15 @@ fly machine list -a <cluster>                                   # the machine id
 fly machine update <machine-id> --vm-memory 1024 -a <cluster> --yes
 ```
 
-### Review apps (pull request previews)
+### Review apps (removed 2026-09-23)
 
-`.github/workflows/preview.yml` deploys every pull request as
-`pati-pr-<number>` from `fly.review.toml`, with a database of its own in a
-second cluster, `pati-review-db` — production's cluster is never named.
-One-time setup (done 2026-09-21):
-
-```bash
-fly postgres create --name pati-review-db --region fra --vm-size shared-cpu-1x --initial-cluster-size 1 --volume-size 1
-fly machine update <machine-id> --vm-memory 1024 -a pati-review-db --yes
-fly tokens create org personal | gh secret set FLY_REVIEW_TOKEN -R oguzpancuk/pati
-openssl rand -hex 32 | gh secret set REVIEW_JWT_SECRET -R oguzpancuk/pati
-```
-
-The token is org-scoped because the action creates and destroys apps; it
-is kept apart from the production deploy credential on purpose.
-
-First admin: register in the app, then
-`fly ssh console --app pati-app -C "node scripts/make-admin.js email@address"`.
+From 2026-09-21 to 2026-09-23 every pull request was deployed as
+`pati-pr-<number>` with its own database in a second cluster,
+`pati-review-db`. Dropped by owner decision (no preview URL anywhere: a
+thread shows screenshots, the owner runs the app locally). The cluster
+was destroyed, the `FLY_REVIEW_TOKEN` and `REVIEW_JWT_SECRET` secrets
+removed, the token revoked. The recipe survives in git history:
+`git show 79fe7d0:.github/workflows/preview.yml` and `fly.review.toml`.
 
 ## Guide (demo) data
 

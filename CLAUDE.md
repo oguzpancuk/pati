@@ -197,7 +197,8 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
   NEEDS_WORK means not done: fix, run it again, open the pull request only
   on PASS. A clause that names a test needs no QA pass.
 - A native mobile screen cannot be driven from a cloud thread. For such a
-  clause the pull request says exactly what to try and where (see Preview);
+  clause the pull request says exactly what to try and where (see Looking
+  at it);
   the owner checks it on a device before merging, and the item is not
   reported done until then. The web client is the screen a thread CAN
   drive — and web and mobile stay in sync (Standards).
@@ -228,30 +229,17 @@ reading it to skip the suite that would have caught them.
 - Never merge, force-push, or change CI configuration. Merging is the
   owner's.
 
-## Preview
+## Looking at it
 
-Every pull request gets a preview URL and its body carries it. A pull
-request without its preview link is not ready for the owner.
-Provider: Fly.io review apps (`.github/workflows/preview.yml`,
-`fly.review.toml`). Every pull request gets the whole app — backend, web
-and admin's build, one image, the production Dockerfile — at
-`https://pati-pr-<number>.fly.dev`. The URL is known the moment the pull
-request has a number: put it in the body, and treat it as true only once
-the `preview` check is green (it ends with a `/health` request). `preview`
-is a REQUIRED check: a pull request whose preview is red or still
-running cannot merge. It is
-redeployed on every push and destroyed when the pull request closes.
-What a preview is NOT: it starts with an EMPTY database of its own
-(migrations only — register an account; mail is off, so registration needs
-no code), it has no photo volume (uploads live in `/tmp`), no Gemini key
-(the photo AI fails open) and no admin panel (chosen by hostname). Its
-first request after idling takes a few seconds: the machine auto-stops.
-A native-only screen has no URL: the pull request says what to try, and
-the owner checks it on a TestFlight build he asks for himself (Xcode
-Cloud, on request — not set up yet; until then, a local build). A thread
-never triggers a build.
-The workflow runs from `main` (`pull_request_target`): a pull request
-cannot change how its own preview is deployed or what the token is used for.
+There is no preview URL. A thread runs the web surface in its own
+container, drives it (`evaluator-qa`; `cd web && node scripts/shot.mjs …`,
+see the commands table) and puts the screenshots in the pull request
+body: that is what the owner sees of the change. When the owner wants to
+try it himself he brings it up from a LOCAL session — `bash
+contracts/init.sh --ios` gives the backend, the web client and the
+simulator — before merging. A thread never sets up hosting for that and
+never triggers a build. Until 2026-09-23 every pull request had a Fly
+review app (`pati-pr-<n>.fly.dev`); `docs/NOTES.md` says why it went.
 
 ## Environment pitfalls
 
