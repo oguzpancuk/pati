@@ -6168,9 +6168,15 @@ directly: what pati is, three screenshots, the App Store link once approved.
   the review flagged it and the owner chose to keep both (2026-09-23), and
   CLAUDE.md now names the exception. The link-preview text in `index.html`
   is English for the same audience.
-- **Screenshots** are the App Store set's 01, 02 and 05, downscaled to 720 px
-  WebP (`web/src/assets/about/`, 33–95 KB each). 03 is left out for the
-  reason APP-STORE.md gives. Retaking the store set does not update these.
+- **Screenshots** were first the App Store set's 01, 02 and 05; the owner
+  then supplied his own iPhone screenshots (2026-09-23) and they replaced
+  them: map, animals list, an animal's profile, own profile, as 720 px WebP
+  in `web/src/assets/about/` (45–63 KB each). In the animals list one dog's
+  name, "şerefsiz", was painted down to "şeref" at his request (a white box
+  over the last three letters, nothing else touched). A fifth, a chat, was
+  held back: it shows another user's name, photo and messages, and this
+  session's safety check refused to publish it without her consent being
+  settled. The grid's column count follows the number of shots.
 - **App Store link:** `APP_STORE_URL` at the top of `AboutPage.tsx` is null
   until Apple approves; the page says "coming to the App Store" instead of
   linking. The day the listing is live, that constant is the whole change.

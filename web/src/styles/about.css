@@ -131,9 +131,10 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  /* One row on a wide screen; the column count is the number of shots
+     (set inline by the page). */
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 32px;
+  gap: 28px;
 }
 
 .about-shots li {
@@ -146,9 +147,9 @@
 .about-shots img {
   display: block;
   width: 100%;
-  max-width: 280px;
+  max-width: 250px;
   height: auto;
-  border-radius: 28px;
+  border-radius: 26px;
   border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-float);
   background: var(--cream);
@@ -196,7 +197,7 @@
   margin: 10px 0 0;
 }
 
-/* A phone: the three screens become a row that swipes sideways, each one
+/* A phone: the screens become a row that swipes sideways, each one
    most of the width with the next peeking in, rather than three full-height
    frames stacked into a very long page. */
 @media (max-width: 719px) {

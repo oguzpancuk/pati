@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { Logo } from '../brand';
 import '../styles/about.css';
-// Downscaled from the App Store set (docs/store/screenshots 01, 02, 05) to
-// 720 px WebP with sharp; 03 is left out for the reason APP-STORE.md gives
-// (its photo strip is placeholder squares).
+// The owner's own iPhone screenshots (2026-09-23), downscaled to 720 px
+// WebP with sharp. In the animals list one dog's name was shortened from
+// "şerefsiz" to "şeref" at the owner's request.
 import mapShot from '../assets/about/map.webp';
 import animalsShot from '../assets/about/animals.webp';
+import animalShot from '../assets/about/animal.webp';
 import profileShot from '../assets/about/profile.webp';
 
 /**
@@ -52,21 +53,29 @@ const COPY = {
       {
         title: 'The map',
         body:
-          'Food and water left around the neighbourhood. Each ring empties as the drop ' +
-          'gets older, so the gaps are easy to spot.',
-        alt: 'The pati map: food and water markers with green rings around a neighbourhood, and animal faces between them.',
+          'Food and water left around the neighbourhood, and the animals who live there. ' +
+          'Each drop sits in a ring that empties as it gets older, and the card below says ' +
+          'what the area is missing.',
+        alt: 'The pati map: a water drop in a green ring with four animal photos around it, and a card saying there is water here but no food.',
       },
       {
         title: 'The animals',
-        body:
-          'Cats and dogs nearby, nearest first. Each one has photos, a health and ' +
-          'vaccination record, and a chat for its carers.',
-        alt: 'The animals list: cats and dogs with their colour or breed and distance, nearest first.',
+        body: 'Every cat and dog nearby, nearest first, with the badges each one has earned.',
+        alt: 'The animals list: dogs and cats with their photos, breed and distance, nearest first, each with a row of badges.',
       },
       {
-        title: 'The carers',
-        body: 'Points, tiered badges and a leaderboard for the neighbours who keep showing up.',
-        alt: 'A profile: points, rank and level, featured badges and the animals this person cares for.',
+        title: 'An animal',
+        body:
+          'Its photos, followers and carers, its badges and where it was last seen. Follow ' +
+          'an animal, or start caring for it.',
+        alt: "A dog's profile: two photos, one follower and one carer, two badges, the follow and care buttons, and a map of where it was last seen.",
+      },
+      {
+        title: 'You',
+        body:
+          'Points, rank and level, tiered badges for food, water and new animals, and the ' +
+          'animals you look after.',
+        alt: 'A profile: points, rank and level, three bronze badges and the animals this person cares for.',
       },
     ],
     privacy: 'Privacy notice (Turkish)',
@@ -88,21 +97,28 @@ const COPY = {
       {
         title: 'Harita',
         body:
-          'Mahallede bırakılan mama ve su. Her halka kayıt eskidikçe boşalır; boş kalan ' +
-          'yerler hemen göze çarpar.',
-        alt: 'pati haritası: bir mahallede yeşil halkalı mama ve su işaretleri, aralarında hayvan yüzleri.',
+          'Mahallede bırakılan mama ve su, ve orada yaşayan hayvanlar. Her kayıt, eskidikçe ' +
+          'boşalan bir halkanın içinde; alttaki kart bölgede neyin eksik olduğunu söyler.',
+        alt: 'pati haritası: yeşil halkalı bir su işareti, çevresinde dört hayvan fotoğrafı ve bölgede su olduğunu ama mama olmadığını söyleyen bir kart.',
       },
       {
         title: 'Hayvanlar',
-        body:
-          'Yakındaki kedi ve köpekler, en yakından uzağa. Her birinin fotoğrafları, sağlık ve ' +
-          'aşı kaydı, bakıcılarının sohbeti var.',
-        alt: 'Hayvan listesi: renk ya da ırk ve mesafeyle kedi ve köpekler, en yakından uzağa.',
+        body: 'Yakındaki her kedi ve köpek, en yakından uzağa; her birinin kazandığı rozetlerle.',
+        alt: 'Hayvan listesi: fotoğrafı, ırkı ve mesafesiyle köpekler ve kediler, en yakından uzağa, her birinin altında rozetleri.',
       },
       {
-        title: 'Bakım verenler',
-        body: 'Düzenli gelen komşular için puan, basamaklı rozetler ve liderlik tablosu.',
-        alt: 'Bir profil: puan, sıra ve seviye, öne çıkan rozetler ve bakım verilen hayvanlar.',
+        title: 'Bir hayvan',
+        body:
+          'Fotoğrafları, takipçileri ve bakıcıları, rozetleri ve en son görüldüğü yer. ' +
+          'Bir hayvanı takip et ya da ona bakmaya başla.',
+        alt: 'Bir köpek profili: iki fotoğraf, bir takipçi ve bir bakıcı, iki rozet, takip ve bakım düğmeleri ve en son görüldüğü yerin haritası.',
+      },
+      {
+        title: 'Sen',
+        body:
+          'Puanın, sıran ve seviyen; mama, su ve yeni hayvanlar için basamaklı rozetler; ' +
+          'baktığın hayvanlar.',
+        alt: 'Bir profil: puan, sıra ve seviye, üç bronz rozet ve bakım verilen hayvanlar.',
       },
     ],
     privacy: 'Aydınlatma Metni',
@@ -110,11 +126,11 @@ const COPY = {
   },
 } as const;
 
-const SHOTS = [mapShot, animalsShot, profileShot];
+const SHOTS = [mapShot, animalsShot, animalShot, profileShot];
 
 /**
- * The public introduction at pati-app.com: what pati is, three screens from
- * the app, and where to get it. A signed-out stranger meets it at `/`
+ * The public introduction at pati-app.com: what pati is, screens from the
+ * app, and where to get it. A signed-out stranger meets it at `/`
  * (frontDoor.ts decides who counts), and it stays reachable at `/hakkinda`
  * for everyone. Web only: the native app is what this page points to, so it
  * has no mobile twin.
@@ -186,14 +202,14 @@ export default function AboutPage() {
 
         <section className="about-shots" aria-labelledby="about-shots-heading">
           <h2 id="about-shots-heading">{t.shotsHeading}</h2>
-          <ul>
+          <ul style={{ gridTemplateColumns: `repeat(${SHOTS.length}, minmax(0, 1fr))` }}>
             {t.shots.map((shot, i) => (
               <li key={shot.title}>
                 <img
                   src={SHOTS[i]}
                   alt={shot.alt}
                   width={720}
-                  height={1564}
+                  height={1558}
                   loading={i === 0 ? 'eager' : 'lazy'}
                 />
                 <h3>{shot.title}</h3>
