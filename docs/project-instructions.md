@@ -54,13 +54,12 @@
 ## Pull requests
 - Start from `main`, work on your own branch, open one pull request per
   thread. The body names the done-when clause it satisfies and carries
-  this pull request's preview URL (CLAUDE.md, Preview) — without it the
-  pull request is not ready for me; what else it carries, CLAUDE.md says.
+  screenshots of what changed on the web surface (CLAUDE.md, Looking at
+  it); what else it carries, CLAUDE.md says.
 - A `manual check` clause is listed in the body as "awaiting the owner's
-  check on a device", with what to try. I check before merging — on the
-  preview, or on a TestFlight build I ask for myself when a native screen
-  needs it; the thread does not report that item done and never triggers
-  a build.
+  check on a device", with what to try. I check before merging, from a
+  local session on the web or in the simulator; the thread does not
+  report that item done and never triggers a build.
 - `main` is protected: CI green and up to date with `main`, or no merge.
   When `main` moves under your open pull request, merge it into your branch
   yourself.

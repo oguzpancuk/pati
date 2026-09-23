@@ -41,6 +41,21 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-09-23 — port of maya e87bb6f: no preview URL; the review apps go
+
+Owner decision two days after they were built, for simplicity: projects
+develop, looking is local. A thread already puts screenshots of the web
+surface in its pull request; whatever the owner wants to try himself he
+brings up from a local session, web and simulator, which the cloud
+container cannot do anyway. So `preview.yml` and `fly.review.toml` are
+removed, the `Preview` section of `CLAUDE.md` becomes `Looking at it`,
+the project instructions lose the preview-URL and TestFlight lines (the
+owner pastes them again), and `docs/DEPLOYMENT.md` keeps a pointer to
+the recipe in history. The merge gate is `verify` and `docker` again;
+`preview` stops being required when this merges. Owner-side, after the
+merge: destroy `pati-review-db`, delete the two secrets, revoke the Fly
+token. The exception entry below is void with the rule it excepted.
+
 ### 2026-09-21 — the preview workflow is a recorded exception
 
 maya's rule from today on (`docs/preview-recipes.md` there): a new product
