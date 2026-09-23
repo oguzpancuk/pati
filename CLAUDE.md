@@ -51,7 +51,9 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 - Code, comments, docs, commits and tooling are English (the repo is a
   portfolio piece); comments explain why, not what. **Product-facing text
   stays Turkish**: UI strings, API error messages, seeded demo content,
-  routes (`/hayvanlar`). Don't "fix" these into English.
+  routes (`/hayvanlar`). Don't "fix" these into English. One exception
+  (owner, 2026-09-23): the public about page (`web/src/pages/AboutPage.tsx`)
+  also speaks English, for readers arriving from outside Türkiye.
 - **Web and mobile stay in sync.** The web PWA is a full client, not a
   companion: every feature/UX change lands on BOTH `mobile/` and `web/`
   in the same task, each verified with its own screenshot. Where exact

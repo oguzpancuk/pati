@@ -6134,3 +6134,57 @@ names neither the species check nor the carer-door gallery comparison, so the
 Notes text now discloses more to Apple than the privacy notice does to users.
 A legal text is the owner's to change. A disclosure about what reaches a third-party AI is
 exactly what a privacy reviewer compares against the policy.
+
+## 2026-09-23 · A front door for pati-app.com
+
+The owner's CV links pati-app.com, and a signed-out visitor there met the
+sign-in form under a logo and one word, "pati". Not a ROADMAP item; asked for
+directly: what pati is, three screenshots, the App Store link once approved.
+
+- **Where it lives.** `web/src/pages/AboutPage.tsx` (lazy-loaded), at `/`
+  for a signed-out stranger and at `/hakkinda` for everyone. Its button goes
+  to `/giris`, a signed-out route to the sign-in form; once signed in it
+  falls through to the map. Social sign-in is popups only, so nothing
+  redirects back to `/`. `backend/public` at `/tanitim` is the old
+  installable glance page and was left alone.
+- **Who counts as a stranger** (`web/src/frontDoor.ts`). Not an installed
+  PWA (`start_url` is `/`; `display-mode: standalone` or iOS
+  `navigator.standalone`, via `install.tsx`'s `isStandalone`), and not a
+  browser that has ever been signed in (`pati-returning`, set whenever `me`
+  exists). For those, `/` stays the sign-in form, so an expired session or a
+  "back to `/`" fallback such as the privacy page's lands where the user was
+  heading, not on the intro (review finding). The cost: a returning browser
+  sees the intro only at `/hakkinda`.
+- **Back after signing in** from the about page lands on the map a second
+  time (history is about → `/giris`, and sign-in replaces `/giris` with `/`).
+  Kept deliberately: Back from the sign-in form returning to the intro
+  matters more to a first-time visitor than one redundant entry afterwards.
+- **Both languages.** The audience is the CV link, so English exists; the
+  product is Turkish, so Turkish exists. The browser language picks, a toggle
+  switches, the choice is remembered (`pati-about-lang`, storage failures
+  tolerated). The page sets `<html lang>` and the title while mounted and
+  restores both on leaving. Everything else in the product stays Turkish.
+  This is an exception to CLAUDE.md's "product-facing text stays Turkish";
+  the review flagged it and the owner chose to keep both (2026-09-23), and
+  CLAUDE.md now names the exception. The link-preview text in `index.html`
+  is English for the same audience.
+- **Screenshots** were first the App Store set's 01, 02 and 05; the owner
+  then supplied his own iPhone screenshots (2026-09-23) and they replaced
+  them: map, animals list, an animal's profile, own profile, as 720 px WebP
+  in `web/src/assets/about/` (40–63 KB each). In the animals list one dog's
+  name, "şerefsiz", was painted down to "şeref" at his request (a white box
+  over the last three letters, nothing else touched). The fifth, a chat,
+  shows another user's name, photo and messages; it went in only after the
+  owner said she had agreed (2026-09-23; the session's safety check had
+  refused it until then). Layout: one row of five from 1200 px (the page's
+  max width went from 1040 to 1200 for it), three-then-two centred between
+  720 and 1199, a sideways swipe below that.
+- **App Store link:** `APP_STORE_URL` at the top of `AboutPage.tsx` is null
+  until Apple approves; the page says "coming to the App Store" instead of
+  linking. The day the listing is live, that constant is the whole change.
+- `web/index.html` gained a description, Open Graph tags and a `summary`
+  Twitter card, so a pasted link previews as something other than "pati"
+  with no text. The image is the square 512 px app icon; a 1200×630 preview
+  image would fill LinkedIn's wide card and does not exist yet.
+- **Web only, by nature**: the page advertises the native app, which has no
+  equivalent screen to add.
