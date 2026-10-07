@@ -6235,3 +6235,10 @@ has never tracked the store version and is not read by the iOS build.
 `docs/store/APP-STORE.md` step 4 said the marketing version "stays 1.0";
 it now says what to do for a new version. The archive, upload and release
 tag are the owner's, from a local session.
+
+Android's pair in `mobile/android/app/build.gradle` (`versionName "1.0"`,
+`versionCode 1`) is left alone on purpose: Android has never shipped (the
+Android wave is deferred), so the two platforms now report different
+versions until that wave sets its own. Section 3 of APP-STORE.md now
+carries the 1.0.1 "What's New" text, since App Store Connect will not
+submit an update without one.
