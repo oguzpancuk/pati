@@ -6289,3 +6289,12 @@ Android wave is deferred), so the two platforms now report different
 versions until that wave sets its own. Section 3 of APP-STORE.md now
 carries the 1.0.1 "What's New" text, since App Store Connect will not
 submit an update without one.
+
+## 2026-10-07 · The about page links the App Store
+
+The listing went live, so `APP_STORE_URL` in `AboutPage.tsx` is now the URL
+the owner gave, `https://apps.apple.com/tr/app/id6812656456`, and the
+"coming to the App Store" line gave way to the existing "Download on the
+App Store" button, in both languages. The null fallback stays in the code,
+so pulling the app is a one-line revert. Web only, by nature (the native
+app has no about page).
