@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AdminPetshop, api } from '../api';
 import Modal from '../components/Modal';
 import { formatDate, formatPoint } from '../format';
@@ -106,7 +106,7 @@ export default function Petshops() {
                   </a>
                 </td>
                 <td>
-                  {formatDate(shop.starts_at)} –{' '}
+                  {shop.starts_at ? formatDate(shop.starts_at) : 'Hemen'} –{' '}
                   {shop.ends_at ? formatDate(lastDay(shop.ends_at)) : 'süresiz'}
                 </td>
                 <td>{statusTag(shop)}</td>
@@ -222,6 +222,13 @@ function PetshopModal({
   // Shown inside the form: a mistyped coordinate is the usual refusal, and
   // closing the form over it would throw away everything else typed.
   const [formError, setFormError] = useState<string | null>(null);
+  // The form is taller than the modal on a laptop screen, so Kaydet sits
+  // below the fold and the banner above it: bring the banner into view, or
+  // a refused save looks like a click that did nothing (QA finding).
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (formError) errorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [formError]);
   const point = parseLocation(location);
 
   async function save() {
@@ -269,7 +276,11 @@ function PetshopModal({
         </>
       }
     >
-      {formError && <div className="error-banner">{formError}</div>}
+      {formError && (
+        <div className="error-banner" ref={errorRef} role="alert">
+          {formError}
+        </div>
+      )}
 
       <label className="field">
         <span>Dükkân adı</span>

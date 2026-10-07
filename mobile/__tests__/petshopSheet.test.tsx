@@ -50,12 +50,15 @@ function texts(tree: ReactTestRenderer): string[] {
   return tree.root.findAllByType(Text).map((t) => [].concat(t.props.children).join(''));
 }
 
-function pressRow(tree: ReactTestRenderer, label: string) {
+async function pressRow(tree: ReactTestRenderer, label: string) {
   const row = tree.root
     .findAllByType(Pressable)
     .find((p) => p.props.accessibilityLabel?.startsWith(`${label}:`));
   if (!row) throw new Error(`no "${label}" row`);
-  act(() => row.props.onPress());
+  // onPress is async (Linking.openURL is awaited inside).
+  await act(async () => {
+    await row.props.onPress();
+  });
 }
 
 describe('PetshopSheet', () => {
@@ -65,7 +68,7 @@ describe('PetshopSheet', () => {
   });
   afterEach(() => openURL.mockRestore());
 
-  it('shows the listing and dials the phone as a tel: link', () => {
+  it('shows the listing and dials the phone as a tel: link', async () => {
     let tree!: ReactTestRenderer;
     act(() => {
       tree = create(<PetshopSheet shop={shop} onClose={() => {}} />);
@@ -79,9 +82,9 @@ describe('PetshopSheet', () => {
         'instagram.com/modapetshop',
       ])
     );
-    pressRow(tree, 'Ara');
+    await pressRow(tree, 'Ara');
     expect(openURL).toHaveBeenCalledWith('tel:+902165551234');
-    pressRow(tree, 'Aç');
+    await pressRow(tree, 'Aç');
     expect(openURL).toHaveBeenLastCalledWith('https://www.instagram.com/modapetshop/');
   });
 
