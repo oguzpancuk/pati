@@ -256,9 +256,11 @@ Ayarlar → engellediklerim.
    → Signing & Capabilities: tick "Automatically manage signing", pick
    the Team. Sign in with Apple is already listed (the entitlement file);
    Xcode registers the capability on the App ID if it is missing.
-4. **Build numbers** — `MARKETING_VERSION` stays 1.0;
-   `CURRENT_PROJECT_VERSION` goes up by one for every upload (both are
-   build settings, edit them in Xcode or in `project.pbxproj`).
+4. **Build numbers** — `MARKETING_VERSION` is the store version (1.0.1
+   since 2026-10-07; raise it for each new App Store version);
+   `CURRENT_PROJECT_VERSION` goes up by one for every upload and never
+   repeats (both are build settings, in both the Debug and Release
+   configurations; edit them in Xcode or in `project.pbxproj`).
 5. **Archive** — Product → Destination → Any iOS Device (arm64), Product →
    Archive, Distribute App → App Store Connect → Upload. Or from the
    terminal:

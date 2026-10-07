@@ -6222,3 +6222,16 @@ caption within half a pixel of the heading's centre, including with a 48 px
 gutter on one side only; the neighbours show 23–169 px; no sideways page
 overflow. The 720 px and wider layouts are untouched. Not seen in WebKit
 here (the container has only Chromium); the owner's iPhone is that check.
+
+## 2026-10-07 · Version 1.0.1, build 4, for a store-only release
+
+The app is live on the App Store (id6812656456). The owner wants a second
+version whose only change is a new set of App Store screenshots, so the
+binary moves to `MARKETING_VERSION` 1.0.1 and `CURRENT_PROJECT_VERSION` 4
+in both configurations of `project.pbxproj`. Nothing else in the code
+changes: `Info.plist` reads both through `$(MARKETING_VERSION)` and
+`$(CURRENT_PROJECT_VERSION)`, and `mobile/package.json`'s `version` (0.1.0)
+has never tracked the store version and is not read by the iOS build.
+`docs/store/APP-STORE.md` step 4 said the marketing version "stays 1.0";
+it now says what to do for a new version. The archive, upload and release
+tag are the owner's, from a local session.
