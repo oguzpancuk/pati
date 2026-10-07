@@ -6225,9 +6225,9 @@ here (the container has only Chromium); the owner's iPhone is that check.
 
 ## 2026-10-07 · The about page links the App Store
 
-The listing went live on the Turkish storefront, so `APP_STORE_URL` in
-`AboutPage.tsx` is now `https://apps.apple.com/tr/app/id6812656456` and the
+The listing went live, so `APP_STORE_URL` in `AboutPage.tsx` is now the URL
+the owner gave, `https://apps.apple.com/tr/app/id6812656456`, and the
 "coming to the App Store" line gave way to the existing "Download on the
-App Store" button, in both languages. The URL is the one the owner gave,
-`/tr/` storefront included (the app is listed only there). The null fallback stays in the code, so pulling the app is a one-line
-revert. Web only, by nature (the native app has no about page).
+App Store" button, in both languages. The null fallback stays in the code,
+so pulling the app is a one-line revert. Web only, by nature (the native
+app has no about page).
