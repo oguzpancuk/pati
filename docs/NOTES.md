@@ -6300,11 +6300,14 @@ Left for later, not in this change:
 - **Link an ad to a petshop listing.** Item 3 (petshops on the map) adds a
   listings table with a location; once it is merged, the ad form could take
   its point from a listing instead of typed coordinates.
-- **A first visit with no location fix yet.** The banner reads the viewer's
-  location when the sheet opens. On the web, a first-time user whose
-  browser has not answered the location prompt yet is sent without one (and
-  falls back to their last drop, if any). Refetching when the fix lands
-  would swap the brand under their eyes, so it is left as is.
+- **The first open before a fix.** The banner reads the viewer's location
+  when the sheet opens. On both clients, a user whose first location grant
+  comes with that very open (the web's browser prompt; mobile's first
+  `ensureLocationPermission`) has no fix yet, so the request goes without
+  one and falls back to their last drop, if any. Every later open carries
+  the fix. Refetching when the fix lands would swap the brand under their
+  eyes; waiting for it would delay the sheet's banner. Left as is (code
+  review on PR #18 agreed to record it).
 - **No priority for local ads.** Near the shop, the targeted ad shares the
   rotation evenly with the nationwide ones. If petshops expect to win
   their own street, that is a sort-order decision for the owner.

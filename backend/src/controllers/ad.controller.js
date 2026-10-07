@@ -52,8 +52,8 @@ async function getNextAd(req, res, next) {
     const ads = await pool.query(
       `WITH viewer AS (
          SELECT COALESCE(
-           CASE WHEN $2::float8 IS NULL THEN NULL
-                ELSE ST_SetSRID(ST_MakePoint($3::float8, $2::float8), 4326)::geography END,
+           -- ST_MakePoint is STRICT: no lat/lng sent makes this NULL.
+           ST_SetSRID(ST_MakePoint($3::float8, $2::float8), 4326)::geography,
            (SELECT location FROM care_actions
              WHERE user_id = $4 AND created_at > now() - make_interval(days => $5)
              ORDER BY created_at DESC LIMIT 1)

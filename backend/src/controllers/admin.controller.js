@@ -745,9 +745,7 @@ async function createAdvertiser(req, res, next) {
          (name, slot, headline, body, image_url, target_url, starts_at, ends_at, sort_order,
           target_location, target_radius_m)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
-         CASE WHEN $10::float8 IS NULL THEN NULL
-              ELSE ST_SetSRID(ST_MakePoint($11::float8, $10::float8), 4326)::geography END,
-         $12)
+         ST_SetSRID(ST_MakePoint($11::float8, $10::float8), 4326)::geography, $12)
        RETURNING id`,
       [
         String(name).trim(),
@@ -810,10 +808,9 @@ async function updateAdvertiser(req, res, next) {
          starts_at = CASE WHEN $8::boolean THEN $9::timestamptz ELSE starts_at END,
          ends_at = CASE WHEN $10::boolean THEN $11::timestamptz ELSE ends_at END,
          sort_order = COALESCE($12, sort_order),
-         target_location = CASE
-           WHEN NOT $14::boolean THEN target_location
-           WHEN $15::float8 IS NULL THEN NULL
-           ELSE ST_SetSRID(ST_MakePoint($16::float8, $15::float8), 4326)::geography END,
+         target_location = CASE WHEN $14::boolean
+           THEN ST_SetSRID(ST_MakePoint($16::float8, $15::float8), 4326)::geography
+           ELSE target_location END,
          target_radius_m = CASE WHEN $14::boolean THEN $17::int ELSE target_radius_m END
        WHERE id = $13
        RETURNING id`,
