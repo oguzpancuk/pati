@@ -460,3 +460,17 @@ td.actions button + button {
   gap: 8px;
   margin-top: 22px;
 }
+
+/* The targeting fields in the ad form: a link and a note under a field. */
+.modal .field-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.modal .field-note {
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+.modal .field-error {
+  margin: 14px 0 0;
+}

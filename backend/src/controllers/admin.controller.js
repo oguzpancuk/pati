@@ -8,6 +8,7 @@ const { coverPhotoJoin } = require('../utils/coverPhoto');
 const { writeAuditLog } = require('../utils/auditLog');
 const { anonymizeAccount } = require('../utils/accountDeletion');
 const { SLOTS } = require('./ad.controller');
+const { parseAdTarget } = require('../utils/adTargeting');
 
 const MAX_PAGE_SIZE = 100;
 
@@ -690,6 +691,9 @@ async function deleteComment(req, res, next) {
 const ADVERTISER_SELECT_SQL = `
   SELECT a.id, a.name, a.slot, a.headline, a.body, a.image_url, a.target_url,
          a.active, a.starts_at, a.ends_at, a.sort_order, a.created_at,
+         ST_Y(a.target_location::geometry) AS target_lat,
+         ST_X(a.target_location::geometry) AS target_lng,
+         a.target_radius_m,
          COALESCE(e.impressions, 0)::int AS impressions,
          COALESCE(e.clicks, 0)::int AS clicks
   FROM advertisers a
@@ -731,11 +735,19 @@ async function createAdvertiser(req, res, next) {
       req.body;
     const error = validateAdvertiser({ name, slot, targetUrl });
     if (error) return res.status(400).json({ error });
+    const parsed = parseAdTarget(req.body.target);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    // Not sent and null both mean nationwide for a new ad.
+    const target = parsed.target ?? null;
 
     const inserted = await pool.query(
       `INSERT INTO advertisers
-         (name, slot, headline, body, image_url, target_url, starts_at, ends_at, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (name, slot, headline, body, image_url, target_url, starts_at, ends_at, sort_order,
+          target_location, target_radius_m)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+         CASE WHEN $10::float8 IS NULL THEN NULL
+              ELSE ST_SetSRID(ST_MakePoint($11::float8, $10::float8), 4326)::geography END,
+         $12)
        RETURNING id`,
       [
         String(name).trim(),
@@ -747,11 +759,18 @@ async function createAdvertiser(req, res, next) {
         startsAt || null,
         endsAt || null,
         Number(sortOrder) || 0,
+        target?.lat ?? null,
+        target?.lng ?? null,
+        target?.radiusMeters ?? null,
       ]
     );
 
     const id = inserted.rows[0].id;
-    await writeAuditLog(req.user.userId, 'advertiser.create', 'advertiser', id, { name, slot });
+    await writeAuditLog(req.user.userId, 'advertiser.create', 'advertiser', id, {
+      name,
+      slot,
+      target,
+    });
 
     const result = await pool.query(`${ADVERTISER_SELECT_SQL} WHERE a.id = $1`, [id]);
     res.status(201).json(result.rows[0]);
@@ -772,10 +791,13 @@ async function updateAdvertiser(req, res, next) {
     if (targetUrl !== undefined && !/^https?:\/\//i.test(targetUrl)) {
       return res.status(400).json({ error: 'Hedef adres http:// veya https:// ile başlamalıdır' });
     }
+    const parsed = parseAdTarget(req.body.target);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const { target } = parsed;
 
-    // Partial update via COALESCE: fields not sent stay unchanged. active and
-    // the date fields are handled separately because they can be deliberately
-    // set to NULL.
+    // Partial update via COALESCE: fields not sent stay unchanged. active, the
+    // date fields and the target are handled separately because they can be
+    // deliberately set to NULL (a null target makes the ad nationwide).
     const result = await pool.query(
       `UPDATE advertisers SET
          name = COALESCE($1, name),
@@ -787,7 +809,12 @@ async function updateAdvertiser(req, res, next) {
          active = COALESCE($7, active),
          starts_at = CASE WHEN $8::boolean THEN $9::timestamptz ELSE starts_at END,
          ends_at = CASE WHEN $10::boolean THEN $11::timestamptz ELSE ends_at END,
-         sort_order = COALESCE($12, sort_order)
+         sort_order = COALESCE($12, sort_order),
+         target_location = CASE
+           WHEN NOT $14::boolean THEN target_location
+           WHEN $15::float8 IS NULL THEN NULL
+           ELSE ST_SetSRID(ST_MakePoint($16::float8, $15::float8), 4326)::geography END,
+         target_radius_m = CASE WHEN $14::boolean THEN $17::int ELSE target_radius_m END
        WHERE id = $13
        RETURNING id`,
       [
@@ -804,6 +831,10 @@ async function updateAdvertiser(req, res, next) {
         endsAt || null,
         sortOrder ?? null,
         id,
+        target !== undefined,
+        target?.lat ?? null,
+        target?.lng ?? null,
+        target?.radiusMeters ?? null,
       ]
     );
     if (result.rows.length === 0) {

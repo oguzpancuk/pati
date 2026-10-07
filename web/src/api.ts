@@ -778,9 +778,18 @@ export const fetchMyBlocks = async () => {
 
 // ---------------------------------------------------------------- reklam
 
-/** The next ad for a placement; null when none is live — the banner never renders. */
-export const fetchAd = async (slot: AdSlot) => {
-  const data = await api.get<{ ad: Ad | null }>(`/ads?${new URLSearchParams({ slot })}`);
+/**
+ * The next ad for a placement; null when none is live — the banner never
+ * renders. `near` places the viewer for area-targeted ads (mobile's fetchAd
+ * says why, and why three decimals).
+ */
+export const fetchAd = async (slot: AdSlot, near?: { lat: number; lng: number } | null) => {
+  const params = new URLSearchParams({ slot });
+  if (near) {
+    params.set('lat', near.lat.toFixed(3));
+    params.set('lng', near.lng.toFixed(3));
+  }
+  const data = await api.get<{ ad: Ad | null }>(`/ads?${params}`);
   return data.ad;
 };
 // Impressions and clicks are separate: a fetched-but-never-shown ad must not be billed.

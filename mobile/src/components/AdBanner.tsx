@@ -4,11 +4,14 @@ import { Ad, AdSlot, fetchAd, recordAdClick, recordAdImpression } from '../api/a
 import Text from './ui/Text';
 import Icon from './brand/Icon';
 import { makeStyles, radius, spacing, useTheme } from '../theme';
+import type { Coordinates } from '../location';
 
 interface Props {
   slot: AdSlot;
   /** So the banner loads only while visible: false while the popup is closed. */
   visible?: boolean;
+  /** Where the viewer is, for area-targeted ads (see fetchAd). */
+  near?: Coordinates | null;
 }
 
 /**
@@ -18,8 +21,12 @@ interface Props {
  * the layout. The impression is reported when the ad actually reaches the
  * screen; that keeps billing honest and advances rotation to the next brand.
  */
-export default function AdBanner({ slot, visible = true }: Props) {
+export default function AdBanner({ slot, visible = true, near = null }: Props) {
   const [ad, setAd] = useState<Ad | null>(null);
+  // Read when the banner opens, not watched: a location fix landing while
+  // the popup is up must not swap the brand under the user's eyes.
+  const nearRef = useRef(near);
+  nearRef.current = near;
   const styles = useStyles();
   const { colors } = useTheme();
   // To avoid reporting the same ad's impression twice (on React re-renders
@@ -34,7 +41,7 @@ export default function AdBanner({ slot, visible = true }: Props) {
     }
 
     let cancelled = false;
-    fetchAd(slot)
+    fetchAd(slot, nearRef.current)
       .then((next) => {
         if (cancelled || !next) return;
         setAd(next);

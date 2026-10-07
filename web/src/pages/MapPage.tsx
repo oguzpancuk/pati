@@ -1315,6 +1315,7 @@ export default function MapPage() {
                 <AdBanner
                   slot={dropType === 'food' ? 'food_popup' : 'water_popup'}
                   visible={confirmOpen}
+                  near={myLocation}
                 />
               </>
             )}

@@ -1183,6 +1183,7 @@ export default function MapScreen({ navigation }: any) {
                 <AdBanner
                   slot={dropType === 'food' ? 'food_popup' : 'water_popup'}
                   visible={confirmOpen}
+                  near={myLocation}
                 />
               </>
             )}

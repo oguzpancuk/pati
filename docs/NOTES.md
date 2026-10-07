@@ -6251,3 +6251,49 @@ the owner gave, `https://apps.apple.com/tr/app/id6812656456`, and the
 App Store" button, in both languages. The null fallback stays in the code,
 so pulling the app is a one-line revert. Web only, by nature (the native
 app has no about page).
+
+## 2026-10-07 · Ads can target the area around a point
+
+`getNextAd` used to rotate every live ad in a slot to every user in the
+country, so a petshop's ad reached Edirne and Van alike. An ad now carries
+an optional target point and radius (`advertisers.target_location`,
+`target_radius_m`; migration 017, mirrored in 001's table body), set in the
+admin ad form ("Hedef bölge": Tüm Türkiye, or a point and a radius of
+0,1–200 km). An ad without one stays nationwide — which is what every
+existing row became on this deploy.
+
+- **Who counts as near.** A targeted ad is served only when the viewer is
+  known to be inside the circle (PostGIS `ST_DWithin`), never to a viewer
+  whose location is unknown. Where the viewer is, in order: the `lat`/`lng`
+  the request carries (the map's own fix under the food/water sheets; the
+  animal's place under the health-record and vaccine dialogs), else the
+  viewer's own most recent care drop within 30 days. The location is used
+  for that one query and never stored; the clients round it to three
+  decimals (about 100 m) before sending.
+- **Why the fallback.** The iOS build in the store sends only `slot`. The
+  last care drop is the one location the server already had, so targeting
+  works for those users without an update, as long as they fed or watered
+  in the last month. The `lat`/`lng` half reaches the web app on deploy and
+  iOS users only with the next build.
+- **Rotation is unchanged** and counts only the ads the viewer is eligible
+  for, so a local and a nationwide ad alternate evenly near the shop.
+- **Evidence.** `backend/scripts/ad-targeting-check/run.sh` (26 curl checks
+  against a running backend and database: inside, outside, unknown, last
+  drop, a 31-day-old drop, a request location winning over the drop, clearing
+  and re-targeting from admin) and `backend/test/adTargeting.test.js` for the
+  two wire parsers. The harness is not in the battery (it needs a database),
+  like the other `scripts/*/run.sh`.
+
+Left for later, not in this change:
+
+- **Link an ad to a petshop listing.** Item 3 (petshops on the map) adds a
+  listings table with a location; once it is merged, the ad form could take
+  its point from a listing instead of typed coordinates.
+- **A first visit with no location fix yet.** The banner reads the viewer's
+  location when the sheet opens. On the web, a first-time user whose
+  browser has not answered the location prompt yet is sent without one (and
+  falls back to their last drop, if any). Refetching when the fix lands
+  would swap the brand under their eyes, so it is left as is.
+- **No priority for local ads.** Near the shop, the targeted ad shares the
+  rotation evenly with the nationwide ones. If petshops expect to win
+  their own street, that is a sort-order decision for the owner.

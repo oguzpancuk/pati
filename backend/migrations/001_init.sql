@@ -355,7 +355,12 @@ CREATE TABLE IF NOT EXISTS advertisers (
     starts_at TIMESTAMPTZ,
     ends_at TIMESTAMPTZ,
     sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Optional geographic target: served only to viewers inside the circle.
+    -- Both NULL = nationwide. Also in 017_ad_targeting.sql, which carries the
+    -- constraint tying the two together (production never reruns this body).
+    target_location GEOGRAPHY(POINT, 4326),
+    target_radius_m INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_advertisers_slot ON advertisers (slot, sort_order, id);
