@@ -781,13 +781,13 @@ export const fetchMyBlocks = async () => {
 /**
  * The next ad for a placement; null when none is live — the banner never
  * renders. `near` places the viewer for area-targeted ads (mobile's fetchAd
- * says why, and why three decimals).
+ * says why, and why four decimals).
  */
 export const fetchAd = async (slot: AdSlot, near?: { lat: number; lng: number } | null) => {
   const params = new URLSearchParams({ slot });
   if (near) {
-    params.set('lat', near.lat.toFixed(3));
-    params.set('lng', near.lng.toFixed(3));
+    params.set('lat', near.lat.toFixed(4));
+    params.set('lng', near.lng.toFixed(4));
   }
   const data = await api.get<{ ad: Ad | null }>(`/ads?${params}`);
   return data.ad;

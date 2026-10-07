@@ -6275,8 +6275,12 @@ existing row became on this deploy.
   the request carries (the map's own fix under the food/water sheets; the
   animal's place under the health-record and vaccine dialogs), else the
   viewer's own most recent care drop within 30 days. The location is used
-  for that one query and never stored; the clients round it to three
-  decimals (about 100 m) before sending.
+  for that one query and never stored; the clients round it to four
+  decimals (about 11 m) before sending — three moved it by up to ~70 m,
+  too coarse next to the 100 m smallest circle (review finding). The web
+  map sends only a real fix: the map centre a location-less drop falls
+  back to is wherever the user had panned, so it never counts as where
+  they are for an ad.
 - **Why the fallback.** The iOS build in the store sends only `slot`. The
   last care drop is the one location the server already had, so targeting
   works for those users without an update, as long as they fed or watered

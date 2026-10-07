@@ -19,12 +19,14 @@ export interface Ad {
  *
  * `near` is where the viewer is, for ads targeted at an area: without it the
  * server falls back to the viewer's last care drop, and a viewer it cannot
- * place sees only nationwide ads. Rounded to three decimals (about 100 m):
- * a shop's radius is kilometres, and the ad endpoint has no use for more.
+ * place sees only nationwide ads. Rounded to four decimals (about 11 m):
+ * the smallest circle an ad may have is 100 m, and three decimals moved the
+ * point by up to ~70 m — enough to put a viewer 40 m from the shop outside
+ * its circle (review finding). Finer than that the endpoint has no use for.
  */
 export async function fetchAd(slot: AdSlot, near?: Coordinates | null): Promise<Ad | null> {
   const { data } = await apiClient.get<{ ad: Ad | null }>('/ads', {
-    params: near ? { slot, lat: near.lat.toFixed(3), lng: near.lng.toFixed(3) } : { slot },
+    params: near ? { slot, lat: near.lat.toFixed(4), lng: near.lng.toFixed(4) } : { slot },
   });
   return data.ad;
 }
