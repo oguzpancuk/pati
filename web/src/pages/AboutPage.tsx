@@ -14,11 +14,11 @@ import messagesShot from '../assets/about/messages.webp';
 import profileShot from '../assets/about/profile.webp';
 
 /**
- * The App Store listing. Null until Apple approves the app: the page shows
- * a "coming soon" line instead of a link that would lead nowhere. Once the
- * listing is live, put its URL here (https://apps.apple.com/app/id…).
+ * The App Store listing (live since 2026-10-07, Turkish storefront). While
+ * it is null the page shows a "coming soon" line instead of a link that
+ * would lead nowhere, so pulling the app means setting this back to null.
  */
-export const APP_STORE_URL: string | null = null;
+export const APP_STORE_URL: string | null = 'https://apps.apple.com/tr/app/id6812656456';
 
 type Lang = 'en' | 'tr';
 
