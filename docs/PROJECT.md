@@ -237,6 +237,8 @@ user_badge_awards  the moment a badge was first earned + points/rank/level then
 audit_log          every admin-panel change: who, what, when, why
 advertisers        advertiser: slot, image, target URL, campaign window
 ad_events          impression and click records (rotation + billing)
+petshops           shop listing on the map: name, address, phone, hours,
+                   link, location, hidden flag, visibility window
 ```
 Geo columns are `GEOGRAPHY(POINT, 4326)` with GIST indexes. Proximity uses
 `ST_DWithin`, the map viewport `ST_MakeEnvelope`, and responses `ST_AsGeoJSON`.
@@ -274,6 +276,9 @@ POST   /api/friendships | /:id/accept    DELETE /api/friendships/:id
 
 GET    /api/leaderboard
 
+GET    /api/petshops                  (bbox; only listings inside their window,
+                                       open to signed-out visitors)
+
 GET    /api/ads?slot=...                  # next ad for a slot
 POST   /api/ads/:id/impression            POST /api/ads/:id/click
 
@@ -287,6 +292,8 @@ GET    /api/admin/comments                DELETE /api/admin/comments/:id
 GET    /api/admin/advertisers             POST  /api/admin/advertisers
 PATCH  /api/admin/advertisers/:id         DELETE /api/admin/advertisers/:id
 POST   /api/admin/advertisers/:id/image
+GET    /api/admin/petshops                POST  /api/admin/petshops
+PATCH  /api/admin/petshops/:id            DELETE /api/admin/petshops/:id
 GET    /api/admin/audit-log
 ```
 

@@ -30,8 +30,10 @@ import {
 } from '../api/care';
 import { openAddAnimal } from '../addAnimalGate';
 import { Animal, fetchAnimals } from '../api/animals';
+import { fetchPetshopsInBounds, Petshop } from '../api/petshops';
 import AdBanner from '../components/AdBanner';
 import AnimalAvatar from '../components/AnimalAvatar';
+import PetshopSheet from '../components/PetshopSheet';
 import HeartBurst, { HEART_BURST_DURATION_MS, heartRiseFor } from '../components/HeartBurst';
 import UserLocationMarker from '../components/UserLocationMarker';
 import {
@@ -55,7 +57,8 @@ import {
   ringStep,
   ringTone,
 } from '../map/careMarkers';
-import { CARE_MARKER_IMAGES } from '../map/markers';
+import { CARE_MARKER_IMAGES, PETSHOP_MARKER_IMAGES } from '../map/markers';
+import { PETSHOP_MIN_ZOOM, petshopMarkerKey } from '../map/petshopMarker';
 import { viewportBoxes } from '../map/viewport';
 import { mapStyles } from '../map/styles';
 import { Button, Text } from '../components/ui';
@@ -134,6 +137,9 @@ const CARE_TYPE_LABEL: Record<CareType, string> = { food: 'mama', water: 'su' };
 // labels above mid-sentence.
 const CARE_TYPE_TITLE: Record<CareType, string> = { food: 'Mama', water: 'Su' };
 const NO_PLACEMENT = new Map<string, { drawAt: Coordinates; spot: Coordinates | null }>();
+// Every image the map's symbol layers may ask for, registered once (see the
+// <Images> note below): the care rings and the petshop pin.
+const MAP_IMAGES = { ...CARE_MARKER_IMAGES, ...PETSHOP_MARKER_IMAGES };
 
 // A tapped marker explains itself instead of the add sheet explaining the
 // rings (owner, 2026-09-11 demo note 13): what it is, when it was left and
@@ -219,6 +225,11 @@ export default function MapScreen({ navigation }: any) {
   // viewport refetch that drops the record closes the callout with it
   // instead of leaving a card describing something no longer on the map.
   const [selectedCareId, setSelectedCareId] = useState<number | null>(null);
+  // The petshops in the viewport (zoom ≥ PETSHOP_MIN_ZOOM) and the one whose
+  // card is open.
+  const [petshops, setPetshops] = useState<Petshop[]>([]);
+  const [selectedPetshop, setSelectedPetshop] = useState<Petshop | null>(null);
+  const petshopsSeqRef = useRef(0);
   // The latest render's seat function, for callbacks armed by older renders.
   const seatsAtRef = useRef<(zoom: number) => Map<string, Coordinates>>(() => new Map());
   // Heart bursts draw in a separate layer above the map at screen
@@ -298,6 +309,29 @@ export default function MapScreen({ navigation }: any) {
     }
   }, []);
 
+  /**
+   * The petshops in the viewport, from city scale on (PETSHOP_MIN_ZOOM; the
+   * layer draws nothing below it, so nothing is asked for). A failed fetch
+   * keeps the pins already drawn: a shop that was there a pan ago is still
+   * there, and the "Kayıtlar yüklenemedi" pill is about care records.
+   */
+  const loadPetshopsIn = useCallback(async (boxes: Bounds[], zoom: number) => {
+    const seq = ++petshopsSeqRef.current;
+    if (zoom < PETSHOP_MIN_ZOOM) {
+      setPetshops([]);
+      return;
+    }
+    try {
+      const parts = await Promise.all(boxes.map((box) => fetchPetshopsInBounds(box)));
+      if (seq !== petshopsSeqRef.current) return;
+      const byId = new Map<number, Petshop>();
+      for (const part of parts) for (const shop of part) byId.set(shop.id, shop);
+      setPetshops([...byId.values()]);
+    } catch {
+      // Keep what is drawn (see above).
+    }
+  }, []);
+
   const loadActionsForViewport = useCallback(async () => {
     // The sequence number is taken BEFORE the async bounds read: a slow
     // native call must not overwrite a newer viewport's records.
@@ -307,8 +341,11 @@ export default function MapScreen({ navigation }: any) {
     // next region settle asks again.
     if (!visible || seq !== actionsSeqRef.current) return;
     const [ne, sw] = visible;
-    await loadActionsIn(viewportBoxes(ne, sw), seq);
-  }, [loadActionsIn]);
+    const boxes = viewportBoxes(ne, sw);
+    const zoom = await mapRef.current?.getZoom().catch(() => null);
+    if (zoom != null) loadPetshopsIn(boxes, zoom);
+    await loadActionsIn(boxes, seq);
+  }, [loadActionsIn, loadPetshopsIn]);
 
   const load = useCallback(
     async (known?: Coordinates, ask = false) => {
@@ -377,10 +414,11 @@ export default function MapScreen({ navigation }: any) {
     // burst of settles; the refetch waits for the map to stand still.
     const [ne, sw] = visibleBounds;
     if (viewportTimerRef.current) clearTimeout(viewportTimerRef.current);
-    viewportTimerRef.current = setTimeout(
-      () => loadActionsIn(viewportBoxes(ne, sw), ++actionsSeqRef.current),
-      VIEWPORT_REFRESH_MS
-    );
+    viewportTimerRef.current = setTimeout(() => {
+      const boxes = viewportBoxes(ne, sw);
+      loadActionsIn(boxes, ++actionsSeqRef.current);
+      loadPetshopsIn(boxes, zoomLevel);
+    }, VIEWPORT_REFRESH_MS);
     currentZoomRef.current = zoomLevel;
     setAnimalsVisible(zoomLevel >= ANIMAL_VISIBLE_MIN_ZOOM);
     setZoomLevel(zoomLevel);
@@ -412,6 +450,15 @@ export default function MapScreen({ navigation }: any) {
       if (!best || distance < best.distance) best = { id, distance };
     }
     if (best) setSelectedCareId(best.id);
+  }
+
+  /** A tapped shop pin opens its card; the care callout steps aside. */
+  function handlePetshopPress(event: OnPressEvent) {
+    const id = Number((event.features[0]?.properties as { id?: unknown } | null)?.id);
+    const shop = petshops.find((p) => p.id === id);
+    if (!shop) return;
+    setSelectedCareId(null);
+    setSelectedPetshop(shop);
   }
 
   /**
@@ -711,6 +758,21 @@ export default function MapScreen({ navigation }: any) {
     [actions, placement]
   );
 
+  // One point per listed shop; not part of the fan layout — a shop is a
+  // fixed place, not a pile to spread.
+  const petshopMarkers = useMemo(
+    () =>
+      featureCollection(
+        petshops.map((shop) =>
+          pointFeature(
+            { lat: shop.location.coordinates[1], lng: shop.location.coordinates[0] },
+            { id: shop.id }
+          )
+        )
+      ),
+    [petshops]
+  );
+
   // The open callout's record, and how many others share its spot. Derived
   // from `actions`, so a refetch either refreshes the card or closes it.
   const selectedCare = useMemo(
@@ -763,7 +825,7 @@ export default function MapScreen({ navigation }: any) {
             image-missing path (MLRNImages fetches each key from this set
             again). Keep <Images> — dropping it for onImageMissing alone
             would leave nothing for that path to fetch. */}
-        <Images images={CARE_MARKER_IMAGES} />
+        <Images images={MAP_IMAGES} />
         <ShapeSource id="care-markers" shape={careMarkers} onPress={handleCarePress}>
           <SymbolLayer
             id="care-markers-icon"
@@ -793,6 +855,24 @@ export default function MapScreen({ navigation }: any) {
               iconAllowOverlap: ['step', ['zoom'], false, ANIMAL_VISIBLE_MIN_ZOOM, true],
               iconIgnorePlacement: ['step', ['zoom'], false, ANIMAL_VISIBLE_MIN_ZOOM, true],
               symbolSortKey: ['-', 1, ['get', 'weight']],
+            }}
+          />
+        </ShapeSource>
+
+        {/* Petshop pins above the care markers, from city scale on (same
+            zoom as web). They take no part in collision placement: a shop
+            is always shown (there are few) and never hides a care record.
+            The pin points at the shop with its tip, hence the bottom
+            anchor. */}
+        <ShapeSource id="petshops" shape={petshopMarkers} onPress={handlePetshopPress}>
+          <SymbolLayer
+            id="petshops-icon"
+            minZoomLevel={PETSHOP_MIN_ZOOM}
+            style={{
+              iconImage: petshopMarkerKey(themeName),
+              iconAnchor: 'bottom',
+              iconAllowOverlap: true,
+              iconIgnorePlacement: true,
             }}
           />
         </ShapeSource>
@@ -1189,6 +1269,8 @@ export default function MapScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      <PetshopSheet shop={selectedPetshop} onClose={() => setSelectedPetshop(null)} />
 
       {(loading || submitting) && (
         <View style={styles.loadingOverlay} pointerEvents="none">

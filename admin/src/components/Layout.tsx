@@ -10,6 +10,7 @@ const LINKS = [
   { to: '/comments', label: 'Yorumlar' },
   { to: '/reports', label: 'Şikayetler' },
   { to: '/advertisers', label: 'Reklamlar' },
+  { to: '/petshops', label: 'Petshoplar' },
   { to: '/audit-log', label: 'Denetim Kaydı' },
 ];
 

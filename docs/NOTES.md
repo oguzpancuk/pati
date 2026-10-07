@@ -41,6 +41,53 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-10-07 — petshops on the map
+
+Owner's item 3 of the 2026-10-07 list (not a ROADMAP item): petshops get a
+free first month that includes a pin on the map. One new table,
+`petshops` (017, also in 001), nothing else in the schema changes, so the
+commit reverts cleanly and leaves at most an unused table. Decisions taken
+where the ask forked, each cheap to change:
+
+- **The window ends a listing, not a person.** `starts_at`/`ends_at`
+  (NULL = unbounded) plus a `hidden` flag; the map shows a row only while
+  `LISTED_NOW_SQL` (utils/petshops.js) holds, and the admin list's
+  "Haritada" tag reads the same fragment. Admin dates are whole days in the
+  admin's own time zone and the end day is inclusive: the form stores the
+  next day's midnight. A new listing defaults to 30 days from today.
+- **Opening hours are free text**, up to 300 characters, printed with its
+  line breaks. Structured hours would buy an "açık / kapalı" badge; nobody
+  asked for one and shops write their hours every which way.
+- **Pins from zoom 11 on** (`PETSHOP_MIN_ZOOM`, shared by both clients), and
+  neither client asks for listings below it. They take no part in collision
+  placement (always drawn, never hide a care record) and stay out of the
+  fan layout of map/stacks.ts: a shop is a fixed place. A pin can therefore
+  sit on top of a care marker at street scale; revisit if that bites.
+- **Admin can also delete**, beside create, edit and hide — for a mistyped
+  row. Every write lands in `audit_log` (`petshop.*`).
+- No `is_demo` column and no demo filter: listings are real businesses the
+  owner enters by hand, never showcase rows.
+- Advertising is untouched; tying ads to a shop's location is item 4.
+
+Evidence: `backend/test/petshops.test.js` (input rules, viewport guard),
+`backend/scripts/petshop-check/run.sh` (49 curl checks, including a window
+ending and the listing leaving the map), `mobile/__tests__/petshopMarker`
+and `petshopSheet` (tel: link, the generated images exist). The harness
+falls back to `psql "$DATABASE_URL"` when there is no `stray-db` container,
+which is how a cloud thread runs it (PostGIS from apt, cluster on 5432).
+
+Found on the way, not fixed here:
+- `.claude/hooks/verify.sh` still says "14 files, 134 tests" in a comment;
+  CLAUDE.md now says 15 and 142. Left alone because the file is the CI check.
+- The cloud container's Playwright (revision 1234) finds no browser; only
+  revision 1194 is installed under /opt/pw-browsers. Symlinking the 1194
+  headless shell into the 1234 path made `generate-care-markers.mjs` and
+  `web/scripts/shot.mjs` run. Re-rendering every care PNG with that Chromium
+  changes their bytes, so only the two new petshop PNGs were committed.
+- `generate-care-markers.mjs` deleted every PNG before launching the
+  browser, so a failed launch left the app with no markers at all. It now
+  launches first (fixed here: the script was being changed anyway).
+
 ### 2026-09-23 — port of maya e87bb6f: no preview URL; the review apps go
 
 Owner decision two days after they were built, for simplicity: projects
