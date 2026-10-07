@@ -335,14 +335,19 @@ export default function MapScreen({ navigation }: any) {
   const loadActionsForViewport = useCallback(async () => {
     // The sequence number is taken BEFORE the async bounds read: a slow
     // native call must not overwrite a newer viewport's records.
+    // The zoom is read alongside the bounds, not after them: a second wait
+    // past the check below would let this older viewport's pins land after
+    // a newer settle's, and would hold the care fetch back (review finding).
     const seq = ++actionsSeqRef.current;
-    const visible = await mapRef.current?.getVisibleBounds().catch(() => null);
+    const [visible, zoom] = await Promise.all([
+      mapRef.current?.getVisibleBounds().catch(() => null),
+      mapRef.current?.getZoom().catch(() => null),
+    ]);
     // No bounds yet (the map is still coming up) is not a failure; the
     // next region settle asks again.
     if (!visible || seq !== actionsSeqRef.current) return;
     const [ne, sw] = visible;
     const boxes = viewportBoxes(ne, sw);
-    const zoom = await mapRef.current?.getZoom().catch(() => null);
     if (zoom != null) loadPetshopsIn(boxes, zoom);
     await loadActionsIn(boxes, seq);
   }, [loadActionsIn, loadPetshopsIn]);

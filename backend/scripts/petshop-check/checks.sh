@@ -107,6 +107,13 @@ check "…the admin list says not listed" false "$(j .listed)"
 check "…the other fields survive a partial edit" "0216 555 12 34" "$(j .phone)"
 get "petshops?$ISTANBUL" >/dev/null
 check "…and the map drops it" false "$(has "$LIVE")"
+for junk in '"false"' '0' '"hayır"'; do
+  check "a non-boolean hidden ($junk) -> 400" 400 \
+    "$(patch_auth "admin/petshops/$LIVE" "$ADMIN_JWT" "{\"hidden\":$junk}")"
+done
+check "…in Turkish" "Gizli alanı true ya da false olmalıdır" "$(j .error)"
+get "petshops?$ISTANBUL" >/dev/null
+check "…and the listing stays hidden" false "$(has "$LIVE")"
 check "show again -> 200" 200 "$(patch_auth "admin/petshops/$LIVE" "$ADMIN_JWT" '{"hidden":false}')"
 get "petshops?$ISTANBUL" >/dev/null
 check "…and it is back" true "$(has "$LIVE")"

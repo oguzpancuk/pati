@@ -93,8 +93,15 @@ function parsePetshopInput(body) {
   if (startsAt === undefined || endsAt === undefined) {
     return { value: null, error: 'Başlangıç ve bitiş geçerli bir tarih olmalıdır' };
   }
-  if (startsAt && endsAt && endsAt <= startsAt) {
+  // As instants: ISO text stops sorting by time past year 9999 ("+010000-…").
+  if (startsAt && endsAt && Date.parse(endsAt) <= Date.parse(startsAt)) {
     return { value: null, error: 'Bitiş tarihi başlangıçtan sonra olmalıdır' };
+  }
+
+  // A real boolean or nothing: coercing "true" or 1 to false would let an
+  // edit sent as form text put a hidden listing back on the public map.
+  if (body.hidden !== undefined && body.hidden !== null && typeof body.hidden !== 'boolean') {
+    return { value: null, error: 'Gizli alanı true ya da false olmalıdır' };
   }
 
   return {

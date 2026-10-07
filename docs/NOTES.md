@@ -52,7 +52,8 @@ where the ask forked, each cheap to change:
 - **The window ends a listing, not a person.** `starts_at`/`ends_at`
   (NULL = unbounded) plus a `hidden` flag; the map shows a row only while
   `LISTED_NOW_SQL` (utils/petshops.js) holds, and the admin list's
-  "Haritada" tag reads the same fragment. Admin dates are whole days in the
+  "Haritada" tag reads the same fragment (its `listed` column, not the
+  browser clock). Admin dates are whole days in the
   admin's own time zone and the end day is inclusive: the form stores the
   next day's midnight. A new listing defaults to 30 days from today.
 - **Opening hours are free text**, up to 300 characters, printed with its
@@ -70,7 +71,7 @@ where the ask forked, each cheap to change:
 - Advertising is untouched; tying ads to a shop's location is item 4.
 
 Evidence: `backend/test/petshops.test.js` (input rules, viewport guard),
-`backend/scripts/petshop-check/run.sh` (49 curl checks, including a window
+`backend/scripts/petshop-check/run.sh` (54 curl checks, including a window
 ending and the listing leaving the map), `mobile/__tests__/petshopMarker`
 and `petshopSheet` (tel: link, the generated images exist). The harness
 falls back to `psql "$DATABASE_URL"` when there is no `stray-db` container,
@@ -78,7 +79,7 @@ which is how a cloud thread runs it (PostGIS from apt, cluster on 5432).
 
 Found on the way, not fixed here:
 - `.claude/hooks/verify.sh` still says "14 files, 134 tests" in a comment;
-  CLAUDE.md now says 15 and 142. Left alone because the file is the CI check.
+  CLAUDE.md now says 15 and 144. Left alone because the file is the CI check.
 - The cloud container's Playwright (revision 1234) finds no browser; only
   revision 1194 is installed under /opt/pw-browsers. Symlinking the 1194
   headless shell into the 1234 path made `generate-care-markers.mjs` and
@@ -87,6 +88,18 @@ Found on the way, not fixed here:
 - `generate-care-markers.mjs` deleted every PNG before launching the
   browser, so a failed launch left the app with no markers at all. It now
   launches first (fixed here: the script was being changed anyway).
+- The PR #17 review fixed six findings (a non-boolean `hidden`
+  is now a 400 instead of un-hiding; Turkish audit labels; mobile reads
+  zoom with bounds; place links use `!3d!4d`; the tag reads `listed`; an
+  edit sends only changed fields, so a phone fix cannot move the window).
+  Three duplication findings were left for a follow-up, since each would
+  touch the working care-marker code beside this feature: one
+  `registerSvgImages` for web's care and petshop rasterisers, one
+  `viewportFromQuery` for the care and petshop controllers, and one
+  `fetchAcrossBoxes`/union-by-id in map/viewport.ts for the four
+  antimeridian unions (mobile and web, care and petshops).
+- Migration number: PR #18 (targeted ads) also adds a 017. Whichever of
+  the two merges second renumbers its file to 018 when it merges main in.
 
 ### 2026-09-23 — port of maya e87bb6f: no preview URL; the review apps go
 

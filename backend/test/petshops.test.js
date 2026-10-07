@@ -110,3 +110,20 @@ test('the public route refuses a missing or junk viewport with a Turkish 400', a
     assert.match(res.body.error, /Harita sınırları/);
   }
 });
+
+test('hidden must be a real boolean, so a stray "true" cannot un-hide a listing', () => {
+  assert.strictEqual(parsePetshopInput({ ...valid, hidden: true }).value.hidden, true);
+  assert.strictEqual(parsePetshopInput({ ...valid, hidden: false }).value.hidden, false);
+  assert.strictEqual(parsePetshopInput({ ...valid }).value.hidden, false);
+  for (const hidden of ['true', 'false', 1, 0, 'evet', {}]) {
+    const { value, error } = parsePetshopInput({ ...valid, hidden });
+    assert.strictEqual(value, null, JSON.stringify(hidden));
+    assert.match(error, /Gizli/, JSON.stringify(hidden));
+  }
+});
+
+test('the window order is compared as instants, not as ISO text', () => {
+  // Year 10000 prints as "+010000-…", which sorts before "2026-…" as text.
+  const { error } = parsePetshopInput({ ...valid, endsAt: '+010000-01-01T00:00:00.000Z' });
+  assert.strictEqual(error, null);
+});

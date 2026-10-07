@@ -179,16 +179,16 @@ export default function Petshops() {
   );
 }
 
+// Whether the pin is on the map is the server's answer (`listed`, the same
+// SQL the map reads), not this browser's clock, which may be off by minutes
+// (review finding). The dates only name why an unlisted shop is off it.
 function statusTag(shop: AdminPetshop) {
   if (shop.hidden) return <span className="tag tag-user">Gizli</span>;
-  const now = Date.now();
-  if (shop.starts_at && new Date(shop.starts_at).getTime() > now) {
+  if (shop.listed) return <span className="tag tag-admin">Haritada</span>;
+  if (shop.starts_at && new Date(shop.starts_at).getTime() > Date.now()) {
     return <span className="tag tag-vet">Başlamadı</span>;
   }
-  if (shop.ends_at && new Date(shop.ends_at).getTime() <= now) {
-    return <span className="tag tag-suspended">Süresi doldu</span>;
-  }
-  return <span className="tag tag-admin">Haritada</span>;
+  return <span className="tag tag-suspended">Süresi doldu</span>;
 }
 
 function PetshopModal({
@@ -246,7 +246,7 @@ function PetshopModal({
     setBusy(true);
     setFormError(null);
     try {
-      const payload = {
+      const payload: Record<string, string | number | null> = {
         name: name.trim(),
         address: address.trim() || null,
         phone: phone.trim() || null,
@@ -257,8 +257,12 @@ function PetshopModal({
         startsAt: startsAt ? dayStartIso(startsAt) : null,
         endsAt: endsAt ? dayAfterIso(endsAt) : null,
       };
-      if (shop) await api.patch(`/admin/petshops/${shop.id}`, payload);
-      else await api.post('/admin/petshops', payload);
+      if (!shop) await api.post('/admin/petshops', payload);
+      else {
+        const changed = changedFields(shop, payload, startsAt, endsAt);
+        // Nothing edited: no request, so the audit log only records real edits.
+        if (Object.keys(changed).length) await api.patch(`/admin/petshops/${shop.id}`, changed);
+      }
       onSaved();
     } catch (err) {
       refuse(err instanceof Error ? err.message : 'Kaydedilemedi');
@@ -379,15 +383,55 @@ function PetshopModal({
 }
 
 /**
- * "40.9875, 29.027", "40.9875 29.027" or a Google Maps address with
- * "@40.9875,29.027," in it. Null when nothing like a coordinate pair is
- * there; the server checks the ranges.
+ * "40.9875, 29.027", "40.9875 29.027" or a Google Maps address. A place
+ * link carries the place itself as "!3d40.9875!4d29.027"; its
+ * "@40.98,29.02," is only the camera, shifted to make room for the side
+ * panel, so it is the fallback (review finding). Null when nothing like a
+ * coordinate pair is there; the server checks the ranges.
  */
 function parseLocation(text: string): { lat: number; lng: number } | null {
-  const at = text.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
-  const pair = at ?? text.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/);
+  const place = text.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  const camera = text.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  const pair =
+    place ?? camera ?? text.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/);
   if (!pair) return null;
   return { lat: Number(pair[1]), lng: Number(pair[2]) };
+}
+
+/**
+ * An edit sends only what the admin changed. The window above all: it is
+ * rebuilt from date-only inputs in this browser's time zone, so resending
+ * it on a phone-number fix would move a window another admin set from
+ * another zone, or cut an exact start the API stored to midnight (review
+ * finding). The dates compare as the inputs show them; the rest as values.
+ */
+function changedFields(
+  shop: AdminPetshop,
+  payload: Record<string, string | number | null>,
+  startsInput: string,
+  endsInput: string
+): Record<string, string | number | null> {
+  const stored: Record<string, string | number | null> = {
+    name: shop.name,
+    address: shop.address,
+    phone: shop.phone,
+    openingHours: shop.opening_hours,
+    websiteUrl: shop.website_url,
+  };
+  const changed: Record<string, string | number | null> = {};
+  for (const key of Object.keys(stored)) {
+    if (payload[key] !== stored[key]) changed[key] = payload[key];
+  }
+  const [lng, lat] = shop.location.coordinates;
+  if (payload.lat !== lat || payload.lng !== lng) {
+    changed.lat = payload.lat;
+    changed.lng = payload.lng;
+  }
+  if (startsInput !== toDateInput(shop.starts_at)) changed.startsAt = payload.startsAt;
+  if (endsInput !== (shop.ends_at ? toDateInput(lastDay(shop.ends_at)) : '')) {
+    changed.endsAt = payload.endsAt;
+  }
+  return changed;
 }
 
 function osmLink(lat: number, lng: number): string {
