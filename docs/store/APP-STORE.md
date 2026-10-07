@@ -69,7 +69,15 @@ are recorded here because the owner reported them.
 - Privacy Policy URL: `https://pati-app.com/gizlilik`
 - License agreement: Apple's standard EULA.
 
-## 3. Version information (1.0)
+## 3. Version information (1.0.1)
+
+The fields below were written for 1.0 and carry over to each new version
+unchanged unless a release says otherwise. 1.0.1 changes only the store
+screenshots; no app feature changes.
+
+**What's New in This Version (4000), 1.0.1:**
+`App Store sayfamızı yeni ekran görüntüleriyle yeniledik. Uygulamada bir
+değişiklik yok.`
 
 **Promotional text (170):**
 `Mahallendeki kedilere ve köpeklere mama bırak, onları kaydet, sağlık
@@ -103,8 +111,10 @@ istediğin an uygulama içinden silebilirsin.
 - Keywords (100): `sokak hayvanı,kedi,köpek,mama,besleme,hayvan,mahalle,bakım,gönüllü,patili`
 - Support URL: `https://pati-app.com` · Marketing URL: `https://pati-app.com`
 - Copyright: `2026 Oğuz Pançuk`
-- Version: 1.0 · Build: whatever Xcode uploads (`CURRENT_PROJECT_VERSION`,
-  bump it for every upload).
+- Version: whatever `MARKETING_VERSION` says (1.0.1 for this release); App
+  Store Connect's version must match it or the upload will not attach.
+  Build: whatever Xcode uploads (`CURRENT_PROJECT_VERSION`, bump it for
+  every upload).
 
 **Screenshots** — 6.9" (1320 × 2868) from the iPhone 17 Pro Max simulator,
 in `docs/store/screenshots/`: the map over a neighbourhood in use, the
@@ -256,9 +266,11 @@ Ayarlar → engellediklerim.
    → Signing & Capabilities: tick "Automatically manage signing", pick
    the Team. Sign in with Apple is already listed (the entitlement file);
    Xcode registers the capability on the App ID if it is missing.
-4. **Build numbers** — `MARKETING_VERSION` stays 1.0;
-   `CURRENT_PROJECT_VERSION` goes up by one for every upload (both are
-   build settings, edit them in Xcode or in `project.pbxproj`).
+4. **Build numbers** — `MARKETING_VERSION` is the store version; raise it
+   for each new App Store version;
+   `CURRENT_PROJECT_VERSION` goes up by one for every upload and never
+   repeats (both are build settings, in both the Debug and Release
+   configurations; edit them in Xcode or in `project.pbxproj`).
 5. **Archive** — Product → Destination → Any iOS Device (arm64), Product →
    Archive, Distribute App → App Store Connect → Upload. Or from the
    terminal:
