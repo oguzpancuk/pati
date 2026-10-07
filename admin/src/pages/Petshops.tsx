@@ -225,15 +225,22 @@ function PetshopModal({
   // The form is taller than the modal on a laptop screen, so Kaydet sits
   // below the fold and the banner above it: bring the banner into view, or
   // a refused save looks like a click that did nothing (QA finding).
+  // Keyed on every refusal, not on the text: a second refusal with the same
+  // message must scroll too (QA finding).
   const errorRef = useRef<HTMLDivElement>(null);
+  const [refusals, setRefusals] = useState(0);
   useEffect(() => {
-    if (formError) errorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }, [formError]);
+    if (refusals) errorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [refusals]);
+  function refuse(message: string) {
+    setFormError(message);
+    setRefusals((n) => n + 1);
+  }
   const point = parseLocation(location);
 
   async function save() {
     if (!point) {
-      setFormError('Konumu "enlem, boylam" olarak girin (ör. 40.98750, 29.02700).');
+      refuse('Konumu "enlem, boylam" olarak girin (ör. 40.98750, 29.02700).');
       return;
     }
     setBusy(true);
@@ -254,7 +261,7 @@ function PetshopModal({
       else await api.post('/admin/petshops', payload);
       onSaved();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Kaydedilemedi');
+      refuse(err instanceof Error ? err.message : 'Kaydedilemedi');
     } finally {
       setBusy(false);
     }
