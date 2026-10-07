@@ -6222,3 +6222,12 @@ caption within half a pixel of the heading's centre, including with a 48 px
 gutter on one side only; the neighbours show 23–169 px; no sideways page
 overflow. The 720 px and wider layouts are untouched. Not seen in WebKit
 here (the container has only Chromium); the owner's iPhone is that check.
+
+## 2026-10-07 · The about page links the App Store
+
+The listing went live on the Turkish storefront, so `APP_STORE_URL` in
+`AboutPage.tsx` is now `https://apps.apple.com/tr/app/id6812656456` and the
+"coming to the App Store" line gave way to the existing "Download on the
+App Store" button, in both languages. The URL is the one the owner gave,
+`/tr/` storefront included (the app is listed only there). The null fallback stays in the code, so pulling the app is a one-line
+revert. Web only, by nature (the native app has no about page).
