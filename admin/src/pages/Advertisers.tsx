@@ -204,9 +204,14 @@ function targetLabel(ad: Advertiser): string {
   return `${formatKm(ad.target_radius_m)} km çevresi`;
 }
 
-/** Metres as Turkish kilometres: 2500 -> "2,5". */
+/**
+ * Metres as Turkish kilometres: 2500 -> "2,5", 1250 -> "1,25". Three
+ * decimals because the radius is whole metres: the edit form is seeded from
+ * this text and saves it back, so any rounding here would resize a shop's
+ * circle on an edit that never touched it (QA finding).
+ */
 function formatKm(meters: number): string {
-  return (meters / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 1 });
+  return (meters / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 3 });
 }
 
 /**
@@ -405,7 +410,10 @@ function AdvertiserModal({
         <span>Hedef bölge</span>
         <select
           value={targeted ? 'point' : 'national'}
-          onChange={(e) => setTargeted(e.target.value === 'point')}
+          onChange={(e) => {
+            setTargeted(e.target.value === 'point');
+            setFormError(null);
+          }}
         >
           <option value="national">Tüm Türkiye</option>
           <option value="point">Bir noktanın çevresi (ör. dükkânın çevresi)</option>
@@ -418,7 +426,10 @@ function AdvertiserModal({
             <span>Merkez (enlem, boylam — Google Haritalar'da yere sağ tıklayıp kopyalayın)</span>
             <input
               value={point}
-              onChange={(e) => setPoint(e.target.value)}
+              onChange={(e) => {
+                setPoint(e.target.value);
+                setFormError(null);
+              }}
               placeholder="40.99030, 29.02900"
               inputMode="decimal"
             />
@@ -437,7 +448,10 @@ function AdvertiserModal({
             <span>Yarıçap (km)</span>
             <input
               value={radiusKm}
-              onChange={(e) => setRadiusKm(e.target.value)}
+              onChange={(e) => {
+                setRadiusKm(e.target.value);
+                setFormError(null);
+              }}
               inputMode="decimal"
             />
           </label>

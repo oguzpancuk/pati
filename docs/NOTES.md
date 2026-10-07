@@ -38,6 +38,13 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 - (2026-09-21: the parked parity-test candidate above is this section's
   kind of item — three comment-enforced mirrors the battery cannot see.)
+- 2026-10-07 · location-targeted ads ("create a targeted ad in admin and
+  see it served only near its point") · the admin ad form showed the
+  radius rounded to 0,1 km and saved that text back, so editing only the
+  headline of a 1250 m ad made it 1300 m (140 m became 100 m). tsc and the
+  curl harness both passed; evaluator-qa caught it by driving the form.
+  admin/ has no test runner, so no test was added: the form now shows the
+  radius to the metre (three decimals of a km).
 
 ---
 
