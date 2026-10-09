@@ -11,8 +11,8 @@ const LocationPicker = lazy(() => import('../components/LocationPicker'));
 const SLOT_LABELS: Record<AdSlot, string> = {
   food_popup: 'Mama pop-up',
   water_popup: 'Su pop-up',
-  // Not "veteriner": vets may not advertise (owner, 2026-10-09); the
-  // health-record dialogs carry other brands' ads.
+  // Not "veteriner": vets may not advertise (owner, 2026-10-09; ADR-0006);
+  // the health-record dialogs carry other brands' ads.
   vet_health_record: 'Sağlık kaydı',
 };
 
@@ -22,6 +22,8 @@ const SLOT_HINTS: Record<AdSlot, string> = {
   vet_health_record: 'Hayvan profilinde sağlık kaydı ya da aşı eklenirken görünür.',
 };
 
+// `vet_health_record` is the health-record slot; it is never sold to vets
+// (Turkish law forbids veterinary advertising) and keeps its key: ADR-0006.
 const SLOTS: AdSlot[] = ['food_popup', 'water_popup', 'vet_health_record'];
 
 type SlotFilter = '' | AdSlot;

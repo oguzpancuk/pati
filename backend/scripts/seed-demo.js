@@ -732,19 +732,21 @@ async function seed() {
       'https://ornek.example.com/damla',
       2,
     ],
+    // The health-record slot is never sold to vets: Turkish law forbids
+    // veterinary advertising (ADR-0006), so its demo brands are petshops.
     [
-      'Kadıköy Veteriner Kliniği',
+      'Kadıköy Petshop',
       'vet_health_record',
-      'Kadıköy Veteriner',
-      '7/24 acil hizmet, sokak hayvanlarına indirim',
-      'https://ornek.example.com/vet-kadikoy',
+      'Kadıköy Petshop',
+      'Mama kabı ve tasma, sokak dostlarına indirim',
+      'https://ornek.example.com/kadikoy-petshop',
       1,
     ],
     [
-      'Pati Dostu Veteriner',
+      'Pati Dostu Petshop',
       'vet_health_record',
-      'Pati Dostu Veteriner',
-      'Ücretsiz ilk muayene',
+      'Pati Dostu Petshop',
+      'Taşıma çantası ve battaniye, ilk alışverişe hediye',
       'https://ornek.example.com/pati-dostu',
       2,
     ],
