@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AdminPetshop, api } from '../api';
 import Modal from '../components/Modal';
 import { formatDate, formatPoint } from '../format';
+
+// MapLibre is most of a megabyte: loaded when the form opens, not with
+// every admin page.
+const LocationPicker = lazy(() => import('../components/LocationPicker'));
 
 // The free first month the petshop offer includes (owner, 2026-10-07): a new
 // listing's window defaults to it, and the admin extends it when the shop
@@ -313,8 +317,20 @@ function PetshopModal({
         />
       </label>
 
+      {/* Not a .field: that rule styles every span inside, and the map's
+          own controls are spans. */}
+      <div className="location-field">
+        <span className="location-label">Konum</span>
+        <Suspense fallback={<div className="location-picker" />}>
+          <LocationPicker value={point} onPick={(at) => setLocation(`${at.lat}, ${at.lng}`)} />
+        </Suspense>
+        <p className="muted location-hint">
+          Haritada dükkânın yerine tıklayın; işareti sürükleyerek düzeltebilirsiniz.
+        </p>
+      </div>
+
       <label className="field">
-        <span>Konum (enlem, boylam)</span>
+        <span>ya da koordinat (enlem, boylam) veya Google Haritalar bağlantısı</span>
         <input
           value={location}
           onChange={(e) => setLocation(e.target.value)}
@@ -323,12 +339,7 @@ function PetshopModal({
       </label>
       <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
         Google Haritalar'da dükkânın üstüne sağ tıklayıp ilk satırdaki koordinatları kopyalayın ya
-        da adres çubuğundaki bağlantıyı yapıştırın.{' '}
-        {point && (
-          <a href={osmLink(point.lat, point.lng)} target="_blank" rel="noreferrer">
-            Haritada kontrol et
-          </a>
-        )}
+        da adres çubuğundaki bağlantıyı yapıştırın; işaret haritada oraya taşınır.
       </p>
 
       <label className="field">

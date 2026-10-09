@@ -41,6 +41,31 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 ---
 
+### 2026-10-09 — petshops: map picker in admin, gradient pin
+
+Oğuz tried PR #17 locally and asked for two changes, both on the same PR:
+
+- **The admin form picks the location on a map**
+  (`admin/src/components/LocationPicker.tsx`): click to place the pin,
+  drag to correct it. The typed "enlem, boylam" / Google Maps link field
+  stays as the other way in, and both edit the same value, so a pasted
+  link moves the pin. The map is the same generated basemap and the same
+  pin the public map draws. Admin gained `maplibre-gl` (6.6.0, as web) and
+  imports `mobile/src` by relative path, as it already did `shared/`; the
+  Dockerfile copies both before the admin build, so it needed no change.
+  The picker is lazy-loaded: MapLibre stays out of the admin's main chunk.
+  There is no address search: geocoding would need a provider and a key,
+  and the Google Maps link covers that case.
+- **The pin wears the brand gradient** (`#F4581C` → `#F9A052`, the "Ekle"
+  button's), in both themes; only its edge follows the ground. That makes
+  the pin a fifth use of a gradient the handoff reserves for four, which
+  is the owner's call: DESIGN.md, `theme/colors.ts` and `Gradient.tsx`
+  say so.
+
+The cloud container still cannot reach the tile server, so the picker was
+checked on a blank ground: click, drag, a pasted far-away link (the pin
+follows and the map recentres) and an existing listing opening on its pin.
+
 ### 2026-10-07 — petshops on the map
 
 Owner's item 3 of the 2026-10-07 list (not a ROADMAP item): petshops get a
