@@ -383,12 +383,21 @@ CREATE TABLE IF NOT EXISTS ad_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Rotation order is derived from the user's impression count of the ads in
--- a placement, so this index sits on the hot path (every popup open); since
--- one ad can run in several placements the count filters by ad, and only the
--- user_id prefix is used.
+-- Rotation order is derived from the user's impression count in that
+-- placement, so this index sits on the hot path (every popup open).
 CREATE INDEX IF NOT EXISTS idx_ad_events_rotation ON ad_events (user_id, slot, type);
 CREATE INDEX IF NOT EXISTS idx_ad_events_report ON ad_events (advertiser_id, type);
+
+-- Where an ad that runs in several placements was last served to a viewer,
+-- for events that do not name their placement (017_ad_targeting.sql says
+-- why, and carries the same table for production).
+CREATE TABLE IF NOT EXISTS ad_serves (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    advertiser_id INTEGER NOT NULL REFERENCES advertisers(id) ON DELETE CASCADE,
+    slot VARCHAR(30) NOT NULL,
+    served_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, advertiser_id)
+);
 
 -- User reports on content (moderation). target_type/target_id are free-form
 -- like audit_log: no foreign key, so a new reportable entity type never

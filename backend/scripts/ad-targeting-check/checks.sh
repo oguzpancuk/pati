@@ -55,6 +55,30 @@ served_ids() { # jwt query-suffix [slot] [fetches]
     post_auth "ads/$id/impression" "$1" '{}' >/dev/null
   done
   echo "$ids"; }
+# The water and food sheets opened in turn, n times each, as a volunteer who
+# leaves both at one spot does. Prints the water ids, then "|", then the
+# food ids. $3 = "named" reports each impression's slot (this release's
+# clients); anything else reports none (the iOS build in the store).
+alternate_ids() { # jwt opens named|legacy
+  local w="" f="" id
+  for _ in $(seq 1 "$2"); do
+    for slot in water_popup food_popup; do
+      get_auth "ads?slot=$slot" "$1" >/dev/null
+      id=$(j '.ad.id // empty')
+      [ -n "$id" ] || continue
+      if [ "$slot" = water_popup ]; then w="$w $id"; else f="$f $id"; fi
+      if [ "$3" = named ]; then post_auth "ads/$id/impression?slot=$slot" "$1" '{}' >/dev/null
+      else post_auth "ads/$id/impression" "$1" '{}' >/dev/null; fi
+    done
+  done
+  echo "$w|$f"; }
+# "Each open shows the next brand": every n consecutive ids are n different
+# ads, and the sequence repeats with period n.
+rotates() { # ids n
+  echo "$1" | awk -v n="$2" '{ ok = NF >= n
+    for (i = 1; i <= NF; i++) { if (i + n <= NF && $i != $(i + n)) ok = 0
+      for (k = i + 1; k < i + n && k <= NF; k++) if ($i == $k) ok = 0 }
+    print (ok ? "yes" : "no: " $0) }'; }
 has() { case " $1 " in *" $2 "*) echo yes ;; *) echo no ;; esac; }
 times() { local c=0; for x in $1; do [ "$x" = "$2" ] && c=$((c+1)); done; echo "$c"; }
 
@@ -161,6 +185,20 @@ n=$(psql_db "SELECT count(*) FROM advertisers WHERE 'water_popup' = ANY(COALESCE
   AND target_location IS NULL")
 ids=$(served_ids "$FAR_JWT" "" water_popup $((2 * n)))
 check "rotation keeps moving in its second slot ($n eligible, $((2 * n)) opens)" 2 "$(times "$ids" "$MULTI_ID")"
+# Food and water in turn: a shared ad's impression in one slot must not move
+# the other's rotation (QA on 15d5836: water showed the same brand on every
+# open), whether the client names the slot or not.
+nf=$(psql_db "SELECT count(*) FROM advertisers WHERE 'food_popup' = ANY(COALESCE(slots, ARRAY[slot]))
+  AND active AND (starts_at IS NULL OR starts_at <= now()) AND (ends_at IS NULL OR ends_at >= now())
+  AND target_location IS NULL")
+gcd() { local a=$1 b=$2; while [ "$b" -ne 0 ]; do set -- "$b" $(( a % b )); a=$1; b=$2; done; echo "$a"; }
+rounds=$(( 2 * n * nf / $(gcd "$n" "$nf") ))  # a whole number of rotations of each
+for kind in named legacy; do
+  both=$(alternate_ids "$FAR_JWT" "$rounds" "$kind")
+  check "food and water in turn, $kind: water shows the next brand each open" \
+    yes "$(rotates "${both%|*}" "$n")"
+  check "food and water in turn, $kind: so does food" yes "$(rotates "${both#*|}" "$nf")"
+done
 code=$(patch_auth "admin/advertisers/$MULTI_ID" "$ADMIN_JWT" '{"slots":["vet_health_record"]}')
 check "moved to the health-record slot -> 200" 200 "$code"
 ids=$(served_ids "$FAR_JWT" "" water_popup)

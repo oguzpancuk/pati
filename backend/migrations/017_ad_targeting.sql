@@ -12,8 +12,8 @@
 -- the new columns (or sit on a table 001 already created), so they live in
 -- this file only (CLAUDE.md, v28). Every statement survives a re-run.
 --
--- Reversible in one commit: drop the constraints, the index and the three
--- columns; nothing else reads them.
+-- Reversible in one commit: drop the constraints, the index, the three
+-- columns and the ad_serves table; nothing else reads them.
 ALTER TABLE advertisers ADD COLUMN IF NOT EXISTS target_location GEOGRAPHY(POINT, 4326);
 ALTER TABLE advertisers ADD COLUMN IF NOT EXISTS target_radius_m INTEGER;
 
@@ -44,4 +44,20 @@ ALTER TABLE advertisers ADD CONSTRAINT advertisers_slots_check CHECK (
   slots IS NULL
   OR (cardinality(slots) >= 1
       AND slots <@ ARRAY['food_popup', 'water_popup', 'vet_health_record']::VARCHAR(30)[])
+);
+
+-- Where a multi-slot ad was last served to a viewer, so an impression or
+-- click that does not name its slot (the iOS build in the store) is
+-- recorded under the slot it was shown in rather than the ad's first.
+-- Rotation counts impressions per slot; filed under the first slot, a shared
+-- ad shown in its second would never advance that slot's rotation and would
+-- come up on every open. One row per (viewer, ad), overwritten on each
+-- serve, and written only for ads with more than one slot. 001_init.sql has
+-- the same table for a database built from scratch.
+CREATE TABLE IF NOT EXISTS ad_serves (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    advertiser_id INTEGER NOT NULL REFERENCES advertisers(id) ON DELETE CASCADE,
+    slot VARCHAR(30) NOT NULL,
+    served_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, advertiser_id)
 );

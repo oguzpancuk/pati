@@ -6289,7 +6289,7 @@ existing row became on this deploy.
 - **Rotation** runs over only the ads the viewer is eligible for, so a
   local and a nationwide ad alternate evenly near the shop.
 - **Evidence.** `backend/scripts/ad-targeting-check/run.sh` (26 curl checks
-  then; 40 since the multi-slot entry below
+  then; 43 since the multi-slot entry below
   against a running backend and database: inside, outside, unknown, last
   drop, a 31-day-old drop, a request location winning over the drop, clearing
   and re-targeting from admin) and `backend/test/adTargeting.test.js` for the
@@ -6332,17 +6332,22 @@ The slot key `vet_health_record` is unchanged; renaming it is item 5's.
   impression and click, so reports count the slot it was seen in. A slot
   the ad is not in is a 400. The store iOS build sends no `?slot=`; its
   events go to the ad's first slot.
-- **Rotation now counts by ad, not by the event's slot**: the viewer's
-  impressions of the ads eligible for this request. Counted by slot, an
-  impression the store build reports for a food+water ad lands on food, the
-  water count stops moving whenever that ad comes up, and every water open
-  shows it again. The harness pins this (exactly twice in two rotations).
-  The side effect: impressions of a shared ad in one slot also advance the
-  others' rotation, which keeps brands even across the sheets.
+- **Rotation still counts per slot**, so the slot an event is filed under
+  is load-bearing. The store iOS build names none, so `ad_serves` (017, one
+  row per viewer and ad, written only for multi-slot ads) remembers where
+  each shared ad was last served to whom, and a nameless impression or click
+  goes there. Filed under the ad's first slot instead, a food+water ad shown
+  under water never moved water's rotation and came up on every open.
+  Counting per ad across slots (the first version, 15d5836) failed the
+  other way: QA found that a user alternating the food and water sheets
+  could get the same brand in one of them every time.
 - **Evidence.** `backend/test/adSlots.test.js` (the form's parser; seen red
   4/4 against a stub) and the harness's new section, red on 10 of its first
-  12 checks before the controllers changed. `migrate.js` run twice on a database built from
-  main's migration files, a pre-existing ad intact.
+  12 checks before the controllers changed. Its food-and-water-in-turn
+  checks failed on 15d5836 (food showed `35 35 35 9 9 9 …`) and, with the
+  slot counted but no `ad_serves`, failed for the store build (`9 9 9 …`).
+  `migrate.js` ran twice on a database built from main's migration files,
+  a pre-existing ad intact.
 
 Waiting: the owner's first request, picking the ad's centre on a map. The
 petshops thread built an admin map picker on PR #17

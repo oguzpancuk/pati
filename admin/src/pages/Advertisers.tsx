@@ -14,7 +14,7 @@ const SLOT_LABELS: Record<AdSlot, string> = {
 const SLOT_HINTS: Record<AdSlot, string> = {
   food_popup: 'Kullanıcı haritada mama bırakmak için pin koyduğunda görünür.',
   water_popup: 'Kullanıcı haritada su bırakmak için pin koyduğunda görünür.',
-  vet_health_record: 'Hayvan profilinde sağlık kaydı eklenirken görünür.',
+  vet_health_record: 'Hayvan profilinde sağlık kaydı ya da aşı eklenirken görünür.',
 };
 
 const SLOTS: AdSlot[] = ['food_popup', 'water_popup', 'vet_health_record'];
