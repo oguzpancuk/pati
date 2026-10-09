@@ -806,14 +806,27 @@ export const fetchMyBlocks = async () => {
 
 // ---------------------------------------------------------------- reklam
 
-/** The next ad for a placement; null when none is live — the banner never renders. */
-export const fetchAd = async (slot: AdSlot) => {
-  const data = await api.get<{ ad: Ad | null }>(`/ads?${new URLSearchParams({ slot })}`);
+/**
+ * The next ad for a placement; null when none is live — the banner never
+ * renders. `near` places the viewer for area-targeted ads (mobile's fetchAd
+ * says why, and why four decimals).
+ */
+export const fetchAd = async (slot: AdSlot, near?: { lat: number; lng: number } | null) => {
+  const params = new URLSearchParams({ slot });
+  if (near) {
+    params.set('lat', near.lat.toFixed(4));
+    params.set('lng', near.lng.toFixed(4));
+  }
+  const data = await api.get<{ ad: Ad | null }>(`/ads?${params}`);
   return data.ad;
 };
 // Impressions and clicks are separate: a fetched-but-never-shown ad must not be billed.
-export const recordAdImpression = (adId: number) => api.post<void>(`/ads/${adId}/impression`);
-export const recordAdClick = (adId: number) => api.post<void>(`/ads/${adId}/click`);
+// `slot` is where the ad was shown, since one ad can run in several (mobile's
+// recordAdImpression).
+export const recordAdImpression = (ad: Pick<Ad, 'id' | 'slot'>) =>
+  api.post<void>(`/ads/${ad.id}/impression?slot=${ad.slot}`);
+export const recordAdClick = (ad: Pick<Ad, 'id' | 'slot'>) =>
+  api.post<void>(`/ads/${ad.id}/click?slot=${ad.slot}`);
 
 // ---------------------------------------------------------------- health records
 

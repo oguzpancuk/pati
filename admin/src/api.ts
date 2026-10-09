@@ -182,6 +182,8 @@ export type AdSlot = 'food_popup' | 'water_popup' | 'vet_health_record';
 export interface Advertiser {
   id: number;
   name: string;
+  /** Every slot the ad runs in, in a fixed order; `slot` is the first. */
+  slots: AdSlot[];
   slot: AdSlot;
   headline: string | null;
   body: string | null;
@@ -194,6 +196,17 @@ export interface Advertiser {
   created_at: string;
   impressions: number;
   clicks: number;
+  /** The ad's target circle; all three null for a nationwide ad. */
+  target_lat: number | null;
+  target_lng: number | null;
+  target_radius_m: number | null;
+}
+
+/** What the create/edit form sends: null makes the ad nationwide. */
+export interface AdTarget {
+  lat: number;
+  lng: number;
+  radiusMeters: number;
 }
 
 /** Image upload is multipart, so it lives outside the shared JSON client. */

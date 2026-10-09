@@ -357,7 +357,15 @@ CREATE TABLE IF NOT EXISTS advertisers (
     starts_at TIMESTAMPTZ,
     ends_at TIMESTAMPTZ,
     sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Optional geographic target: served only to viewers inside the circle.
+    -- Both NULL = nationwide. Also in 018_ad_targeting.sql, which carries the
+    -- constraint tying the two together (production never reruns this body).
+    target_location GEOGRAPHY(POINT, 4326),
+    target_radius_m INTEGER,
+    -- Every slot the ad runs in; `slot` above is its first entry. NULL on
+    -- rows that predate it (readers COALESCE to ARRAY[slot]). Also in 018.
+    slots VARCHAR(30)[]
 );
 
 CREATE INDEX IF NOT EXISTS idx_advertisers_slot ON advertisers (slot, sort_order, id);
@@ -381,6 +389,17 @@ CREATE TABLE IF NOT EXISTS ad_events (
 -- placement, so this index sits on the hot path (every popup open).
 CREATE INDEX IF NOT EXISTS idx_ad_events_rotation ON ad_events (user_id, slot, type);
 CREATE INDEX IF NOT EXISTS idx_ad_events_report ON ad_events (advertiser_id, type);
+
+-- Where an ad that runs in several placements was last served to a viewer,
+-- for events that do not name their placement (018_ad_targeting.sql says
+-- why, and carries the same table for production).
+CREATE TABLE IF NOT EXISTS ad_serves (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    advertiser_id INTEGER NOT NULL REFERENCES advertisers(id) ON DELETE CASCADE,
+    slot VARCHAR(30) NOT NULL,
+    served_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, advertiser_id)
+);
 
 -- User reports on content (moderation). target_type/target_id are free-form
 -- like audit_log: no foreign key, so a new reportable entity type never

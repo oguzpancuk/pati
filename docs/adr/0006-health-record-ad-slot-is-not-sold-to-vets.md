@@ -18,9 +18,9 @@ panel's slot label, "Sağlık kaydı (veteriner)", becomes "Sağlık kaydı" wit
 this decision, so nobody choosing a slot sees the word.
 
 What is left is the key itself. It is written in many places: the `CHECK`
-constraint on `advertisers.slot` (and, once PR #18 lands, on
-`advertisers.slots`); every `advertisers` and `ad_events` row in that slot
-(and #18's `ad_serves`); the `slot` query parameter of `GET /ads`; and the slot
+constraints on `advertisers.slot` and `advertisers.slots`
+(`018_ad_targeting.sql`); every `advertisers`, `ad_events` and `ad_serves`
+row in that slot; the `slot` query parameter of `GET /ads`; and the slot
 lists of the backend, admin, web and mobile. The iOS build in the App Store
 sends `slot=vet_health_record`, so the server must accept that string for as
 long as that build is in use.
@@ -34,7 +34,7 @@ long as that build is in use.
 - **The key `vet_health_record` stays.** It is an internal identifier that
   no user sees. Renaming it would need a migration over every constraint
   and table above, plus a permanent alias for the installed iOS build, to buy a
-  better name for developers only. Each slot list (backend controller,
+  better name for developers only. Each slot list (backend `adSlots.js`,
   admin, web, mobile) carries a comment pointing here instead.
 - What people see calls it the health-record slot ("Sağlık kaydı").
 

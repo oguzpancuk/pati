@@ -6,9 +6,22 @@ import { Ad, AdSlot, fetchAd, recordAdClick, recordAdImpression } from '../api';
  * renders when no ad is live; the impression is reported only when it
  * actually reaches the screen.
  */
-export function AdBanner({ slot, visible = true }: { slot: AdSlot; visible?: boolean }) {
+export function AdBanner({
+  slot,
+  visible = true,
+  near = null,
+}: {
+  slot: AdSlot;
+  visible?: boolean;
+  /** Where the viewer is, for area-targeted ads (see fetchAd). */
+  near?: { lat: number; lng: number } | null;
+}) {
   const [ad, setAd] = useState<Ad | null>(null);
   const reported = useRef<number | null>(null);
+  // Read when the banner opens, not watched: a location fix landing while
+  // the sheet is up must not swap the brand under the user's eyes.
+  const nearRef = useRef(near);
+  nearRef.current = near;
 
   useEffect(() => {
     if (!visible) {
@@ -17,13 +30,13 @@ export function AdBanner({ slot, visible = true }: { slot: AdSlot; visible?: boo
       return;
     }
     let cancelled = false;
-    fetchAd(slot)
+    fetchAd(slot, nearRef.current)
       .then((next) => {
         if (cancelled || !next) return;
         setAd(next);
         if (reported.current !== next.id) {
           reported.current = next.id;
-          recordAdImpression(next.id).catch(() => {});
+          recordAdImpression(next).catch(() => {});
         }
       })
       .catch(() => {});
@@ -39,7 +52,7 @@ export function AdBanner({ slot, visible = true }: { slot: AdSlot; visible?: boo
       href={ad.target_url}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={() => recordAdClick(ad.id).catch(() => {})}
+      onClick={() => recordAdClick(ad).catch(() => {})}
     >
       {/* The "REKLAM" (ad) label is mandatory: content and ads must be distinguishable. */}
       <span className="subtle" style={{ letterSpacing: '0.08em' }}>

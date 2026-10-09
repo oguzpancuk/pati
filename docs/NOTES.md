@@ -38,6 +38,13 @@ When you make a decision or knowingly accept a limit, add a line here.
 
 - (2026-09-21: the parked parity-test candidate above is this section's
   kind of item — three comment-enforced mirrors the battery cannot see.)
+- 2026-10-07 · location-targeted ads ("create a targeted ad in admin and
+  see it served only near its point") · the admin ad form showed the
+  radius rounded to 0,1 km and saved that text back, so editing only the
+  headline of a 1250 m ad made it 1300 m (140 m became 100 m). tsc and the
+  curl harness both passed; evaluator-qa caught it by driving the form.
+  admin/ has no test runner, so no test was added: the form now shows the
+  radius to the metre (three decimals of a km).
 
 ---
 
@@ -6365,16 +6372,116 @@ App Store" button, in both languages. The null fallback stays in the code,
 so pulling the app is a one-line revert. Web only, by nature (the native
 app has no about page).
 
+## 2026-10-07 · Ads can target the area around a point
+
+`getNextAd` used to rotate every live ad in a slot to every user in the
+country, so a petshop's ad reached Edirne and Van alike. An ad now carries
+an optional target point and radius (`advertisers.target_location`,
+`target_radius_m`; migration 018, mirrored in 001's table body), set in the
+admin ad form ("Hedef bölge": Tüm Türkiye, or a point and a radius of
+0,1–200 km). An ad without one stays nationwide — which is what every
+existing row became on this deploy.
+
+- **Who counts as near.** A targeted ad is served only when the viewer is
+  known to be inside the circle (PostGIS `ST_DWithin`), never to a viewer
+  whose location is unknown. Where the viewer is, in order: the `lat`/`lng`
+  the request carries (the map's own fix under the food/water sheets; the
+  animal's place under the health-record and vaccine dialogs), else the
+  viewer's own most recent care drop within 30 days. The location is used
+  for that one query and never stored; the clients round it to four
+  decimals (about 11 m) before sending — three moved it by up to ~70 m,
+  too coarse next to the 100 m smallest circle (review finding). The web
+  map sends only a real fix: the map centre a location-less drop falls
+  back to is wherever the user had panned, so it never counts as where
+  they are for an ad.
+- **Why the fallback.** The iOS build in the store sends only `slot`. The
+  last care drop is the one location the server already had, so targeting
+  works for those users without an update, as long as they fed or watered
+  in the last month. The `lat`/`lng` half reaches the web app on deploy and
+  iOS users only with the next build.
+- **Rotation** runs over only the ads the viewer is eligible for, so a
+  local and a nationwide ad alternate evenly near the shop.
+- **Evidence.** `backend/scripts/ad-targeting-check/run.sh` (26 curl checks
+  then; 43 since the multi-slot entry below
+  against a running backend and database: inside, outside, unknown, last
+  drop, a 31-day-old drop, a request location winning over the drop, clearing
+  and re-targeting from admin) and `backend/test/adTargeting.test.js` for the
+  two wire parsers. The harness is not in the battery (it needs a database),
+  like the other `scripts/*/run.sh`.
+
+Left for later, not in this change:
+
+- **Link an ad to a petshop listing.** Item 3 (petshops on the map) adds a
+  listings table with a location; once it is merged, the ad form could take
+  its point from a listing instead of typed coordinates.
+- **The first open before a fix.** The banner reads the viewer's location
+  when the sheet opens. On both clients, a user whose first location grant
+  comes with that very open (the web's browser prompt; mobile's first
+  `ensureLocationPermission`) has no fix yet, so the request goes without
+  one and falls back to their last drop, if any. Every later open carries
+  the fix. Refetching when the fix lands would swap the brand under their
+  eyes; waiting for it would delay the sheet's banner. Left as is (code
+  review on PR #18 agreed to record it).
+- **No priority for local ads.** Near the shop, the targeted ad shares the
+  rotation evenly with the nationwide ones. If petshops expect to win
+  their own street, that is a sort-order decision for the owner.
+
+## 2026-10-09 · One ad in several slots; the picker no longer says "veteriner"
+
+The owner tested PR #18 and asked for two changes to the ad form. Vets may
+not advertise in Türkiye (item 5), so the health-record dialogs will carry
+other brands' ads: the slot is now labelled "Sağlık kaydı", without
+"(veteriner)". And one ad may run in several slots, ticked as checkboxes.
+The slot key `vet_health_record` is unchanged; renaming it is item 5's.
+
+- **Schema.** `advertisers.slots VARCHAR(30)[]`, nullable, beside the old
+  `slot`, which every write keeps equal to the list's first entry (018 and
+  001's table body). Readers use `COALESCE(slots, ARRAY[slot])`
+  (`backend/src/utils/adSlots.js`), so rows from before need no backfill,
+  and reverting the code commit leaves a working system: the old code reads
+  `slot` and simply serves a multi-slot ad in its first slot only.
+- **GET /ads** serves an ad in any of its slots and returns the requested
+  slot as the ad's `slot`; the clients send it back as `?slot=` with the
+  impression and click, so reports count the slot it was seen in. A slot
+  the ad is not in is a 400. The store iOS build sends no `?slot=`; its
+  events go to the ad's first slot.
+- **Rotation still counts per slot**, so the slot an event is filed under
+  is load-bearing. The store iOS build names none, so `ad_serves` (018, one
+  row per viewer and ad, written only for multi-slot ads) remembers where
+  each shared ad was last served to whom, and a nameless impression or click
+  goes there. Filed under the ad's first slot instead, a food+water ad shown
+  under water never moved water's rotation and came up on every open.
+  Counting per ad across slots (the first version, 15d5836) failed the
+  other way: QA found that a user alternating the food and water sheets
+  could get the same brand in one of them every time.
+- **Evidence.** `backend/test/adSlots.test.js` (the form's parser; seen red
+  4/4 against a stub) and the harness's new section, red on 10 of its first
+  12 checks before the controllers changed. Its food-and-water-in-turn
+  checks failed on 15d5836 (food showed `35 35 35 9 9 9 …`) and, with the
+  slot counted but no `ad_serves`, failed for the store build (`9 9 9 …`).
+  `migrate.js` ran twice on a database built from main's migration files,
+  a pre-existing ad intact.
+
+The owner's first request, picking the ad's centre on a map, landed after
+#17 merged: this branch's migration became `018_ad_targeting.sql`, and the
+ad form reuses #17's `admin/src/components/LocationPicker.tsx` with one new
+optional prop, `radiusMeters`, which draws the target circle around the
+pin, redraws it as the radius field changes, and widens the view until the
+whole circle shows. Radius comes first in the form so the circle has a size
+when the pin lands. The typed field stays below the map and now takes what
+the petshop form takes, Google Maps links included: its parser moved from
+Petshops.tsx to `admin/src/location.ts` for both forms. The pin is #17's
+petshop pin; ads are sold to petshops, so it reads right.
+
 ## 2026-10-09 · The vet ad slot: not for vets, name kept, pilot plan retired
 
 Turkish law forbids veterinarians to advertise (Law 6343 and the veterinary
 chambers' rules), so the `vet_health_record` slot is never sold to clinics;
 the owner will sell it to other advertisers, petshops first. ADR-0006
-records that rule and the choice to keep the key: nobody sees it (the
-admin label loses "(veteriner)" here, as it does in PR #18; whichever merges
-second resolves that one-line conflict), while a rename would touch the
+records that rule and the choice to keep the key: nobody sees it (PR #18
+took "(veteriner)" out of the admin label), while a rename would touch the
 slot constraints, the ad tables and the store iOS build's requests, which
-would need a permanent alias. Each slot list (backend controller, admin,
+would need a permanent alias. Each slot list (backend `adSlots.js`, admin,
 web, mobile) carries a two-line comment pointing at the ADR. The demo
 seed's two health-record brands were vet clinics; they are petshops now, so
 a demo never shows the forbidden kind of ad. The README's feature list and

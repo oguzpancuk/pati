@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AdSlot, Advertiser, api, uploadAdvertiserImage } from '../api';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { AdSlot, AdTarget, Advertiser, api, uploadAdvertiserImage } from '../api';
+import ErrorBoundary from '../components/ErrorBoundary';
 import Modal from '../components/Modal';
 import { formatDate } from '../format';
+import { parseLocation } from '../location';
+
+// MapLibre is large; only the form that shows a map loads it (as Petshops).
+const LocationPicker = lazy(() => import('../components/LocationPicker'));
 
 const SLOT_LABELS: Record<AdSlot, string> = {
   food_popup: 'Mama pop-up',
   water_popup: 'Su pop-up',
+  // Not "veteriner": vets may not advertise (owner, 2026-10-09; ADR-0006);
+  // the health-record dialogs carry other brands' ads.
   vet_health_record: 'Sağlık kaydı',
 };
 
 const SLOT_HINTS: Record<AdSlot, string> = {
   food_popup: 'Kullanıcı haritada mama bırakmak için pin koyduğunda görünür.',
   water_popup: 'Kullanıcı haritada su bırakmak için pin koyduğunda görünür.',
-  vet_health_record: 'Hayvan profilinde sağlık kaydı eklenirken görünür.',
+  vet_health_record: 'Hayvan profilinde sağlık kaydı ya da aşı eklenirken görünür.',
 };
 
 // `vet_health_record` is the health-record slot; it is never sold to vets
@@ -62,7 +69,8 @@ export default function Advertisers() {
       <h1>Reklamlar</h1>
       <p className="page-hint">
         Markalar buradan girilir. Aynı yerleşimdeki markalar sırayla gösterilir — kullanıcı pop-up'ı
-        her açtığında sıradaki markayı görür.
+        her açtığında sıradaki markayı görür. Hedef bölgesi olan bir reklam yalnızca o çevrede
+        bulunan kullanıcılara gösterilir; konumu bilinmeyen kullanıcı onu görmez.
       </p>
 
       <div className="toolbar">
@@ -121,7 +129,10 @@ export default function Advertisers() {
                     {ad.target_url}
                   </a>
                 </td>
-                <td>{SLOT_LABELS[ad.slot]}</td>
+                <td>
+                  <div>{ad.slots.map((s) => SLOT_LABELS[s]).join(', ')}</div>
+                  <div className="muted">{targetLabel(ad)}</div>
+                </td>
                 <td className="num">{ad.sort_order}</td>
                 <td className="num">{ad.impressions}</td>
                 <td className="num">{ad.clicks}</td>
@@ -197,6 +208,40 @@ export default function Advertisers() {
   );
 }
 
+function targetLabel(ad: Advertiser): string {
+  if (ad.target_radius_m === null) return 'Tüm Türkiye';
+  return `${formatKm(ad.target_radius_m)} km çevresi`;
+}
+
+/**
+ * Metres as Turkish kilometres: 2500 -> "2,5", 1250 -> "1,25". Three
+ * decimals because the radius is whole metres: the edit form is seeded from
+ * this text and saves it back, so any rounding here would resize a shop's
+ * circle on an edit that never touched it (QA finding).
+ */
+function formatKm(meters: number): string {
+  return (meters / 1000).toLocaleString('tr-TR', { maximumFractionDigits: 3 });
+}
+
+/**
+ * The centre as the map placed it or the admin pasted it ("40.99030,
+ * 29.02900", or a Google Maps link: parseLocation), held to real
+ * coordinates here because this form refuses before sending.
+ */
+function parsePoint(text: string): { lat: number; lng: number } | null {
+  const at = parseLocation(text);
+  if (!at || Math.abs(at.lat) > 90 || Math.abs(at.lng) > 180) return null;
+  return at;
+}
+
+/** Kilometres as typed ("2,5" or "2.5") into whole metres, or null. */
+function parseRadiusKm(text: string): number | null {
+  const km = Number(text.trim().replace(',', '.'));
+  if (!text.trim() || !Number.isFinite(km)) return null;
+  const meters = Math.round(km * 1000);
+  return meters >= 100 && meters <= 200000 ? meters : null;
+}
+
 function ctr(ad: Advertiser): string {
   if (!ad.impressions) return '—';
   return `%${((ad.clicks / ad.impressions) * 100).toFixed(1)}`;
@@ -226,28 +271,61 @@ function AdvertiserModal({
   onError: (m: string) => void;
 }) {
   const [name, setName] = useState(advertiser?.name ?? '');
-  const [slot, setSlot] = useState<AdSlot>(advertiser?.slot ?? 'food_popup');
+  const [slots, setSlots] = useState<AdSlot[]>(advertiser?.slots ?? ['food_popup']);
   const [headline, setHeadline] = useState(advertiser?.headline ?? '');
   const [body, setBody] = useState(advertiser?.body ?? '');
   const [targetUrl, setTargetUrl] = useState(advertiser?.target_url ?? 'https://');
   const [sortOrder, setSortOrder] = useState(String(advertiser?.sort_order ?? 0));
   const [startsAt, setStartsAt] = useState(toDateInput(advertiser?.starts_at));
   const [endsAt, setEndsAt] = useState(toDateInput(advertiser?.ends_at));
+  const [targeted, setTargeted] = useState(advertiser?.target_radius_m != null);
+  const [point, setPoint] = useState(
+    advertiser?.target_lat != null && advertiser.target_lng != null
+      ? `${advertiser.target_lat}, ${advertiser.target_lng}`
+      : ''
+  );
+  const [radiusKm, setRadiusKm] = useState(
+    advertiser?.target_radius_m != null ? formatKm(advertiser.target_radius_m) : '3'
+  );
+  const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const parsedPoint = parsePoint(point);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function toggleSlot(s: AdSlot, on: boolean) {
+    // SLOTS' order, so the list reads the same however it was ticked.
+    setSlots((current) => SLOTS.filter((x) => (x === s ? on : current.includes(x))));
+  }
+
   async function save() {
+    // The note under the checkboxes already says why.
+    if (slots.length === 0) return;
+    let target: AdTarget | null = null;
+    if (targeted) {
+      const radiusMeters = parseRadiusKm(radiusKm);
+      if (!parsedPoint) {
+        setFormError('Merkezi haritada seçin ya da "enlem, boylam" olarak girin');
+        return;
+      }
+      if (radiusMeters === null) {
+        setFormError('Yarıçap 0,1 ile 200 km arasında olmalı');
+        return;
+      }
+      target = { ...parsedPoint, radiusMeters };
+    }
+    setFormError(null);
     setBusy(true);
     try {
       const payload = {
         name: name.trim(),
-        slot,
+        slots,
         headline: headline.trim() || null,
         body: body.trim() || null,
         targetUrl: targetUrl.trim(),
         sortOrder: Number(sortOrder) || 0,
         startsAt: startsAt ? new Date(startsAt).toISOString() : null,
         endsAt: endsAt ? new Date(endsAt).toISOString() : null,
+        target,
       };
 
       const saved = advertiser
@@ -269,14 +347,13 @@ function AdvertiserModal({
   return (
     <Modal
       title={advertiser ? advertiser.name : 'Yeni reklam'}
-      hint={SLOT_HINTS[slot]}
       onClose={onClose}
       footer={
         <>
           <button onClick={onClose} disabled={busy}>
             Vazgeç
           </button>
-          <button className="primary" onClick={save} disabled={busy}>
+          <button className="primary" onClick={save} disabled={busy || slots.length === 0}>
             {busy ? 'Kaydediliyor…' : 'Kaydet'}
           </button>
         </>
@@ -287,16 +364,25 @@ function AdvertiserModal({
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Pati Mama" />
       </label>
 
-      <label className="field">
-        <span>Yerleşim</span>
-        <select value={slot} onChange={(e) => setSlot(e.target.value as AdSlot)}>
-          {SLOTS.map((s) => (
-            <option key={s} value={s}>
-              {SLOT_LABELS[s]}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="field">
+        <span>Yerleşim (birden fazla seçilebilir)</span>
+        {SLOTS.map((s) => (
+          <label key={s} className="check-row">
+            <input
+              type="checkbox"
+              checked={slots.includes(s)}
+              onChange={(e) => toggleSlot(s, e.target.checked)}
+            />
+            <div>
+              <div>{SLOT_LABELS[s]}</div>
+              <div className="muted check-hint">{SLOT_HINTS[s]}</div>
+            </div>
+          </label>
+        ))}
+        {slots.length === 0 && (
+          <div className="error-banner field-error">En az bir yerleşim seçin</div>
+        )}
+      </div>
 
       <label className="field">
         <span>Başlık (bantta büyük yazı)</span>
@@ -340,6 +426,82 @@ function AdvertiserModal({
           inputMode="numeric"
         />
       </label>
+
+      <label className="field">
+        <span>Hedef bölge</span>
+        <select
+          value={targeted ? 'point' : 'national'}
+          onChange={(e) => {
+            setTargeted(e.target.value === 'point');
+            setFormError(null);
+          }}
+        >
+          <option value="national">Tüm Türkiye</option>
+          <option value="point">Bir noktanın çevresi (ör. dükkânın çevresi)</option>
+        </select>
+      </label>
+
+      {targeted && (
+        <>
+          <label className="field">
+            <span>Yarıçap (km)</span>
+            <input
+              value={radiusKm}
+              onChange={(e) => {
+                setRadiusKm(e.target.value);
+                setFormError(null);
+              }}
+              inputMode="decimal"
+            />
+          </label>
+          {/* Not a .field: that rule styles every span inside, and the map's
+              own controls are spans (Petshops). */}
+          <div className="location-field">
+            <span className="location-label">Merkez</span>
+            {/* Without the map the field below still does the job. */}
+            <ErrorBoundary
+              fallback={
+                <p className="error-banner location-picker-failed" role="status">
+                  Harita yüklenemedi; merkezi aşağıya koordinat ya da Google Haritalar bağlantısı
+                  olarak yazın.
+                </p>
+              }
+            >
+              <Suspense fallback={<div className="location-picker" />}>
+                <LocationPicker
+                  value={parsedPoint}
+                  onPick={(at) => {
+                    setPoint(`${at.lat}, ${at.lng}`);
+                    setFormError(null);
+                  }}
+                  radiusMeters={parseRadiusKm(radiusKm)}
+                />
+              </Suspense>
+            </ErrorBoundary>
+            <p className="muted location-hint">
+              Haritada merkeze (ör. dükkâna) tıklayın; işareti sürükleyerek düzeltebilirsiniz.
+              Daire, reklamın gösterileceği bölgedir.
+            </p>
+          </div>
+          <label className="field">
+            <span>ya da koordinat (enlem, boylam) veya Google Haritalar bağlantısı</span>
+            <input
+              value={point}
+              onChange={(e) => {
+                setPoint(e.target.value);
+                setFormError(null);
+              }}
+              placeholder="40.99030, 29.02900"
+            />
+          </label>
+          <p className="muted field-note">
+            Yalnızca bu çevrede bulunan kullanıcılar görür: haritadaki konumu, hayvanın yeri ya da
+            son 30 günde bıraktığı mama/su. Konumu bilinmeyen kullanıcıya gösterilmez.
+          </p>
+        </>
+      )}
+
+      {formError && <div className="error-banner field-error">{formError}</div>}
 
       <label className="field">
         <span>Başlangıç (boş = hemen)</span>

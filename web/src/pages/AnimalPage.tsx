@@ -646,6 +646,12 @@ export default function AnimalPage() {
   // report a sighting and add photos without one, so "Bu o" must not drop
   // the photos a carer took in the flow (B1 follow-up).
   const confirmReports = matchHit || animal.isCarer === true;
+  // Under the health-record dialogs an area-targeted ad is placed by where
+  // the animal lives, not by where the person happens to be typing.
+  const animalPlace = {
+    lat: animal.location.coordinates[1],
+    lng: animal.location.coordinates[0],
+  };
 
   // The grid's cells come from animalPhotoSlots (shared with mobile): at
   // most two rows of photos, a carer's add tile after them, dashed
@@ -1329,7 +1335,7 @@ export default function AnimalPage() {
               Vazgeç
             </button>
             {/* Vet/clinic ad while opening a health record. */}
-            <AdBanner slot="vet_health_record" visible={recordOpen} />
+            <AdBanner slot="vet_health_record" visible={recordOpen} near={animalPlace} />
           </div>
         </div>
       )}
@@ -1354,7 +1360,7 @@ export default function AnimalPage() {
             >
               Vazgeç
             </button>
-            <AdBanner slot="vet_health_record" visible={vaccineOpen} />
+            <AdBanner slot="vet_health_record" visible={vaccineOpen} near={animalPlace} />
           </div>
         </div>
       )}
