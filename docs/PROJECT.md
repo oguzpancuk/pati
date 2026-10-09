@@ -177,7 +177,7 @@ Not an ad network — a small in-house ad server. Brands are entered manually
 in the admin panel and slots are deliberately specific.
 
 - **Three slots:** food popup, water popup, and the health-record screen
-  (vet clinics)
+  (never sold to vets: Turkish law forbids veterinary advertising, ADR-0006)
 - **Rotation:** brands in a slot take turns; each popup open shows the next
 - **Measurement:** impressions and clicks are recorded separately and
   reported with CTR — without this you can't sell to a brand

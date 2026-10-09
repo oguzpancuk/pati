@@ -845,10 +845,11 @@ pod set. They are now versioned like any lockfile. React Native 0.74's
 the reasons the pods require, e.g. `3B52.1`) and links it into the target's
 Resources; that rewrite is deterministic and required by the App Store, so
 its output is committed rather than reverted after every install.
-`docs/pilot/` holds the pilot plan and the veterinary promo PDF (the plan's
-attachment); the revenue-model spreadsheet is gitignored because the repo
-is a portfolio piece that may go public and a binary spreadsheet in git
-history cannot be un-published later.
+`docs/pilot/` held the pilot plan and the veterinary promo PDF (the plan's
+attachment) until both were retired on 2026-10-09 (entry of that date); the
+revenue-model spreadsheet stays gitignored there because the repo is a
+portfolio piece that may go public and a binary spreadsheet in git history
+cannot be un-published later.
 
 ## 3. Known limits and technical debt
 
@@ -932,6 +933,18 @@ To close before production, in rough priority order:
 15. **The admin panel isn't aligned with the brand palette.** Mobile moved to
     the "pati" identity; `admin/src/styles.css` still uses its own variables
     (`--moss`, `--clay`).
+
+16. **"Veteriner onaylı" proves nothing yet** (parked by the owner,
+    2026-10-07). `vet_verified` on `health_records` and `vaccinations` is
+    set only at insert, from the author's own role: a carer whose role is
+    `vet` or `admin` may tick it on a record they write
+    (`animal.controller.js`), and nobody can confirm a record afterwards.
+    The `vet` role is granted by hand in the admin panel with no licence
+    check behind it. The owner wants the reverse: volunteers enter records,
+    and a vet verifies them. That needs a verification step on an existing
+    record (who verified, when), a vet role backed by a licence check, and
+    a decision on what happens to the ticks already set. Not started; no
+    thread.
 
 ---
 
@@ -6349,3 +6362,31 @@ the owner gave, `https://apps.apple.com/tr/app/id6812656456`, and the
 App Store" button, in both languages. The null fallback stays in the code,
 so pulling the app is a one-line revert. Web only, by nature (the native
 app has no about page).
+
+## 2026-10-09 · The vet ad slot: not for vets, name kept, pilot plan retired
+
+Turkish law forbids veterinarians to advertise (Law 6343 and the veterinary
+chambers' rules), so the `vet_health_record` slot is never sold to clinics;
+the owner will sell it to other advertisers, petshops first. ADR-0006
+records that rule and the choice to keep the key: nobody sees it (PR #18
+took "veteriner" out of the admin label), while a rename would touch two
+constraints, three tables and the store iOS build's requests, which would
+need a permanent alias. The demo seed's two health-record brands were vet
+clinics; they are petshops now, so a demo never shows the forbidden kind of
+ad.
+
+`docs/pilot/PILOT.md` and `pati-veteriner-tanitim.pdf` are retired (deleted;
+git history keeps them). They described an invitation-only pilot in Hatay,
+İzmir, recruited through veterinary clinics before launch, and offered those
+clinics "in-app visibility" free for the pilot, which is the advertising the
+law forbids. The app has since launched nationwide on the App Store. The
+`.gitignore` line for the local revenue spreadsheet in `docs/pilot/` stays.
+
+Left for the owner, not changed here: `docs/ROADMAP.md` still says "the
+pilot (10–20 real users, one neighbourhood) waits for item 5" and names
+crash reporting "before the pilot", and `docs/DEPLOYMENT.md` has a "Known
+limits (pilot)" heading. The ROADMAP is the owner's to re-plan; whether
+"pilot" now means something else there is the owner's call.
+
+Item 6 of the owner's 2026-10-07 list (vets verify volunteers' records) is
+parked as section 3, item 16.
