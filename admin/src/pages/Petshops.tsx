@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AdminPetshop, api } from '../api';
+import ErrorBoundary from '../components/ErrorBoundary';
 import Modal from '../components/Modal';
 import { formatDate, formatPoint } from '../format';
 
@@ -321,9 +322,19 @@ function PetshopModal({
           own controls are spans. */}
       <div className="location-field">
         <span className="location-label">Konum</span>
-        <Suspense fallback={<div className="location-picker" />}>
-          <LocationPicker value={point} onPick={(at) => setLocation(`${at.lat}, ${at.lng}`)} />
-        </Suspense>
+        {/* Without the map the field below still does the job. */}
+        <ErrorBoundary
+          fallback={
+            <p className="error-banner location-picker-failed" role="status">
+              Harita yüklenemedi; konumu aşağıya koordinat ya da Google Haritalar bağlantısı olarak
+              yazın.
+            </p>
+          }
+        >
+          <Suspense fallback={<div className="location-picker" />}>
+            <LocationPicker value={point} onPick={(at) => setLocation(`${at.lat}, ${at.lng}`)} />
+          </Suspense>
+        </ErrorBoundary>
         <p className="muted location-hint">
           Haritada dükkânın yerine tıklayın; işareti sürükleyerek düzeltebilirsiniz.
         </p>

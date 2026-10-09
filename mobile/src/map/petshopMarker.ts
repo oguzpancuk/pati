@@ -73,8 +73,13 @@ export function petshopMarkerKey(theme: PetshopTheme): string {
 
 const GLYPH_SCALE = 0.72;
 
-/** The marker as a plain SVG string (transparent ground). */
-export function petshopMarkerSvg(theme: PetshopTheme): string {
+/**
+ * The marker as a plain SVG string (transparent ground). Rasterised alone,
+ * the gradient's id cannot collide; a page that puts several pins inline
+ * (admin's LocationPicker) passes `idSuffix` so each keeps its own fill.
+ */
+export function petshopMarkerSvg(theme: PetshopTheme, idSuffix = ''): string {
+  const fillId = idSuffix ? `petshop-fill-${idSuffix}` : 'petshop-fill';
   const c = PIN_COLORS[theme];
   const w = PETSHOP_MARKER_WIDTH;
   const h = PETSHOP_MARKER_HEIGHT;
@@ -93,11 +98,11 @@ export function petshopMarkerSvg(theme: PetshopTheme): string {
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
     // 135°, top-left to bottom-right, like components/brand/Gradient.
-    `<defs><linearGradient id="petshop-fill" x1="0" y1="0" x2="1" y2="1">` +
+    `<defs><linearGradient id="${fillId}" x1="0" y1="0" x2="1" y2="1">` +
     `<stop offset="0" stop-color="${PIN_GRADIENT.start}"/>` +
     `<stop offset="1" stop-color="${PIN_GRADIENT.end}"/>` +
     '</linearGradient></defs>' +
-    `<path d="${pin}" fill="url(#petshop-fill)" stroke="${c.edge}" stroke-width="2" stroke-linejoin="round"/>` +
+    `<path d="${pin}" fill="url(#${fillId})" stroke="${c.edge}" stroke-width="2" stroke-linejoin="round"/>` +
     `<g transform="translate(${mid - offset} ${
       cy - offset
     }) scale(${GLYPH_SCALE})" fill="none" stroke="${

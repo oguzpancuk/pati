@@ -22,6 +22,19 @@ describe('linkLabel', () => {
   });
 });
 
+describe('petshopMarkerSvg', () => {
+  it('gives each inline copy its own gradient id when asked', () => {
+    // Two pins inline on one page must not share one <linearGradient>:
+    // removing the first would strip the second's fill.
+    const a = petshopMarkerSvg('light', 'a');
+    const b = petshopMarkerSvg('light', 'b');
+    expect(a).toContain('id="petshop-fill-a"');
+    expect(a).toContain('fill="url(#petshop-fill-a)"');
+    expect(b).toContain('id="petshop-fill-b"');
+    expect(petshopMarkerSvg('light')).toContain('id="petshop-fill"');
+  });
+});
+
 describe('the petshop marker images', () => {
   it('exist for every theme under the key the map asks for', () => {
     // The generator writes PETSHOP_MARKER_IMAGES from the same keys: a

@@ -66,6 +66,19 @@ The cloud container still cannot reach the tile server, so the picker was
 checked on a blank ground: click, drag, a pasted far-away link (the pin
 follows and the map recentres) and an existing listing opening on its pin.
 
+Review round 3 fixed three ways the picker could lose the form: a latitude
+typo past ±90 made MapLibre throw and blanked the admin (the picker now
+ignores an off-earth value and leaves the refusal to the server); a map drag
+released over the backdrop closed the dialog (`Modal` now closes only on a
+press that began on the backdrop too); and a failed lazy load blanked the
+page (an `ErrorBoundary` falls back to a line pointing at the coordinate
+field). Also: clicked longitudes are wrapped to ±180, the view follows the
+typed field only after a pause, and inline pins get their own gradient id.
+Not shared: MapLibre's worker workaround now lives in two places,
+`web/src/mapSetup.ts` and `admin/src/components/LocationPicker.tsx`; the two
+are separate Vite projects. A maplibre-gl upgrade that moves the worker file
+must fix both, and only web's map is in a screenshot check.
+
 ### 2026-10-07 — petshops on the map
 
 Owner's item 3 of the 2026-10-07 list (not a ROADMAP item): petshops get a
