@@ -506,6 +506,32 @@ export const fetchCareActionsInBounds = (
       (actionType ? `&actionType=${actionType}` : '')
   );
 
+/**
+ * A petshop listed on the map (entered in the admin panel). Only the card's
+ * fields: the listing's window and hidden flag stay on the server, which
+ * returns a shop only while it is inside its window. Mobile's
+ * `api/petshops.ts` declares the same shape.
+ */
+export interface Petshop {
+  id: number;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  opening_hours: string | null;
+  website_url: string | null;
+  location: { type: 'Point'; coordinates: [number, number] };
+}
+
+export const fetchPetshopsInBounds = (b: {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}) =>
+  api.get<Petshop[]>(
+    `/petshops?minLat=${b.minLat}&maxLat=${b.maxLat}&minLng=${b.minLng}&maxLng=${b.maxLng}`
+  );
+
 export const fetchCareStatus = (lat: number, lng: number, actionType: 'food' | 'water') =>
   api.get<CareStatus>(`/care-actions/status?lat=${lat}&lng=${lng}&actionType=${actionType}`);
 

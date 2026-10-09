@@ -6,6 +6,7 @@ import Animals from './pages/Animals';
 import AuditLog from './pages/AuditLog';
 import CareActions from './pages/CareActions';
 import Comments from './pages/Comments';
+import Petshops from './pages/Petshops';
 import Reports from './pages/Reports';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="comments" element={<Comments />} />
         <Route path="reports" element={<Reports />} />
         <Route path="advertisers" element={<Advertisers />} />
+        <Route path="petshops" element={<Petshops />} />
         <Route path="audit-log" element={<AuditLog />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

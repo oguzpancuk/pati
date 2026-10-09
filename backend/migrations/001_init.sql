@@ -402,3 +402,24 @@ CREATE TABLE IF NOT EXISTS content_reports (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_content_reports_unique_open
     ON content_reports (reporter_id, target_type, target_id) WHERE status = 'open';
 CREATE INDEX IF NOT EXISTS idx_content_reports_queue ON content_reports (status, created_at DESC);
+
+-- Petshop listings on the map, managed from the admin panel; the map shows a
+-- listing only inside its starts_at/ends_at window and while not hidden.
+-- Also in 017_petshops.sql, which is what production runs (see there).
+CREATE TABLE IF NOT EXISTS petshops (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    address VARCHAR(300),
+    phone VARCHAR(40),
+    opening_hours VARCHAR(300),
+    website_url VARCHAR(500),
+    location GEOGRAPHY(POINT, 4326) NOT NULL,
+    hidden BOOLEAN NOT NULL DEFAULT false,
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_petshops_location_geom
+  ON petshops USING GIST ((location::geometry));

@@ -27,7 +27,7 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | install        | `npm ci` in each of backend/, mobile/, web/, admin/; then `cd mobile/ios && bundle install && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install`             |
 | dev            | `bash contracts/init.sh` (DB + backend + health check); `--ios` also launches the simulator                                                                           |
-| test           | `cd mobile && npx jest`; `cd backend && node --test` (14 files, 134 unit tests — no routes, no database; web/admin have none)                                         |
+| test           | `cd mobile && npx jest`; `cd backend && node --test` (15 files, 144 unit tests — no routes, no database; web/admin have none)                                         |
 | typecheck      | `npx tsc --noEmit` in mobile/, web/, admin/                                                                                                                           |
 | lint           | `cd mobile && npm run lint` (mobile only; not yet in the battery)                                                                                                     |
 | quick battery  | `bash .claude/hooks/verify.sh` (tsc ×3, jest, web css parse, backend load + node:test)                                                                                |
@@ -166,7 +166,8 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
   10.4.2 until the RN new-architecture upgrade.
 - **The care markers are generated files too.** `mobile/src/map/careMarkers.ts`
   is the single source (SVG, ring steps, image keys; web imports it via
-  `@mobile`); `mobile/src/map/markers/*.png` + `index.ts` are its output
+  `@mobile`), and `mobile/src/map/petshopMarker.ts` is the same for the
+  petshop pin; `mobile/src/map/markers/*.png` + `index.ts` are their output
   from `mobile/scripts/generate-care-markers.mjs` — rerun it after any
   change there, never edit the PNGs or the index by hand.
 
@@ -207,7 +208,7 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 - Never report a check you did not run.
 
 **The backend's tests are unit tests, not HTTP tests.** `cd backend && node
---test` runs fourteen files and 134 tests covering pure logic — badge
+--test` runs fifteen files and 144 tests covering pure logic — badge
 thresholds and staging, rate-limit shapes, demo visibility, block SQL
 fragments, coordinate guards, storage, image resizing, the showcase seed.
 None of them touches an application route or a database, though a few bind

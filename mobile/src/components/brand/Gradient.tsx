@@ -20,8 +20,9 @@ type Props = {
  * dependency, so the gradient is an absolutely positioned SVG rectangle
  * behind the content.
  *
- * Use it in the four places the handoff allows — the logo, the primary
- * button, the progress bar and the selected chip — and nowhere else.
+ * Use it in the places the handoff allows — the logo, the primary button,
+ * the progress bar and the selected chip — and nowhere else. The fifth use,
+ * the petshop map pin, is a pre-rendered image (map/petshopMarker.ts).
  */
 export default function Gradient({ radius = 18, direction = 'diagonal', style }: Props) {
   const { colors } = useTheme();
