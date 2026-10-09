@@ -6447,9 +6447,13 @@ The slot key `vet_health_record` is unchanged; renaming it is item 5's.
   `migrate.js` ran twice on a database built from main's migration files,
   a pre-existing ad intact.
 
-Waiting: the owner's first request, picking the ad's centre on a map. The
-petshops thread built an admin map picker on PR #17
-(`admin/src/components/LocationPicker.tsx`); once #17 merges this branch
-merges main and reuses it with optional props for the pin and the radius
-circle, rather than a second picker. Whichever of #17 and #18 merges second
-renumbers its 017 migration to 018.
+The owner's first request, picking the ad's centre on a map, landed after
+#17 merged: this branch's migration became `018_ad_targeting.sql`, and the
+ad form reuses #17's `admin/src/components/LocationPicker.tsx` with one new
+optional prop, `radiusMeters`, which draws the target circle around the
+pin, redraws it as the radius field changes, and widens the view until the
+whole circle shows. Radius comes first in the form so the circle has a size
+when the pin lands. The typed field stays below the map and now takes what
+the petshop form takes, Google Maps links included: its parser moved from
+Petshops.tsx to `admin/src/location.ts` for both forms. The pin is #17's
+petshop pin; ads are sold to petshops, so it reads right.

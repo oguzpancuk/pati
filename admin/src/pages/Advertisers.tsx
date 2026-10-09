@@ -1,7 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AdSlot, AdTarget, Advertiser, api, uploadAdvertiserImage } from '../api';
+import ErrorBoundary from '../components/ErrorBoundary';
 import Modal from '../components/Modal';
 import { formatDate } from '../format';
+import { parseLocation } from '../location';
+
+// MapLibre is large; only the form that shows a map loads it (as Petshops).
+const LocationPicker = lazy(() => import('../components/LocationPicker'));
 
 const SLOT_LABELS: Record<AdSlot, string> = {
   food_popup: 'Mama pop-up',
@@ -217,17 +222,14 @@ function formatKm(meters: number): string {
 }
 
 /**
- * "40.99030, 29.02900" — what Google Maps copies when you right-click a
- * place — into a point. Dots are the decimal mark here (a comma separates
- * the two numbers); anything else is null and the form says so.
+ * The centre as the map placed it or the admin pasted it ("40.99030,
+ * 29.02900", or a Google Maps link: parseLocation), held to real
+ * coordinates here because this form refuses before sending.
  */
 function parsePoint(text: string): { lat: number; lng: number } | null {
-  const m = text.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)$/);
-  if (!m) return null;
-  const lat = Number(m[1]);
-  const lng = Number(m[2]);
-  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
-  return { lat, lng };
+  const at = parseLocation(text);
+  if (!at || Math.abs(at.lat) > 90 || Math.abs(at.lng) > 180) return null;
+  return at;
 }
 
 /** Kilometres as typed ("2,5" or "2.5") into whole metres, or null. */
@@ -300,7 +302,7 @@ function AdvertiserModal({
     if (targeted) {
       const radiusMeters = parseRadiusKm(radiusKm);
       if (!parsedPoint) {
-        setFormError('Konumu "enlem, boylam" olarak girin, ör. 40.99030, 29.02900');
+        setFormError('Merkezi haritada seçin ya da "enlem, boylam" olarak girin');
         return;
       }
       if (radiusMeters === null) {
@@ -440,28 +442,6 @@ function AdvertiserModal({
       {targeted && (
         <>
           <label className="field">
-            <span>Merkez (enlem, boylam — Google Haritalar'da yere sağ tıklayıp kopyalayın)</span>
-            <input
-              value={point}
-              onChange={(e) => {
-                setPoint(e.target.value);
-                setFormError(null);
-              }}
-              placeholder="40.99030, 29.02900"
-              inputMode="decimal"
-            />
-          </label>
-          {parsedPoint && (
-            <a
-              className="field-link"
-              href={`https://www.openstreetmap.org/?mlat=${parsedPoint.lat}&mlon=${parsedPoint.lng}#map=15/${parsedPoint.lat}/${parsedPoint.lng}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Haritada kontrol et ↗
-            </a>
-          )}
-          <label className="field">
             <span>Yarıçap (km)</span>
             <input
               value={radiusKm}
@@ -470,6 +450,46 @@ function AdvertiserModal({
                 setFormError(null);
               }}
               inputMode="decimal"
+            />
+          </label>
+          {/* Not a .field: that rule styles every span inside, and the map's
+              own controls are spans (Petshops). */}
+          <div className="location-field">
+            <span className="location-label">Merkez</span>
+            {/* Without the map the field below still does the job. */}
+            <ErrorBoundary
+              fallback={
+                <p className="error-banner location-picker-failed" role="status">
+                  Harita yüklenemedi; merkezi aşağıya koordinat ya da Google Haritalar bağlantısı
+                  olarak yazın.
+                </p>
+              }
+            >
+              <Suspense fallback={<div className="location-picker" />}>
+                <LocationPicker
+                  value={parsedPoint}
+                  onPick={(at) => {
+                    setPoint(`${at.lat}, ${at.lng}`);
+                    setFormError(null);
+                  }}
+                  radiusMeters={parseRadiusKm(radiusKm)}
+                />
+              </Suspense>
+            </ErrorBoundary>
+            <p className="muted location-hint">
+              Haritada merkeze (ör. dükkâna) tıklayın; işareti sürükleyerek düzeltebilirsiniz.
+              Daire, reklamın gösterileceği bölgedir.
+            </p>
+          </div>
+          <label className="field">
+            <span>ya da koordinat (enlem, boylam) veya Google Haritalar bağlantısı</span>
+            <input
+              value={point}
+              onChange={(e) => {
+                setPoint(e.target.value);
+                setFormError(null);
+              }}
+              placeholder="40.99030, 29.02900"
             />
           </label>
           <p className="muted field-note">
