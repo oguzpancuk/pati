@@ -550,6 +550,9 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
   const confirmReports = matchHit || animal.isCarer;
   const latitude = animal.location.coordinates[1];
   const longitude = animal.location.coordinates[0];
+  // Under the health-record dialogs an area-targeted ad is placed by where
+  // the animal lives, not by where the person happens to be typing.
+  const animalPlace = { lat: latitude, lng: longitude };
   // Recovered records are closed; the server rejects comments on them too,
   // so they never appear in the selectable list.
   const openRecords = animal.healthRecords.filter((r) => r.status !== 'recovered');
@@ -1193,7 +1196,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
 
               {/* People entering illness/injury records may be looking for
                   a vet; that's why the ad sits here. */}
-              <AdBanner slot="vet_health_record" visible={recordModalVisible} />
+              <AdBanner slot="vet_health_record" visible={recordModalVisible} near={animalPlace} />
             </ScrollView>
             <Button
               title="Kaydet"
@@ -1250,7 +1253,7 @@ export default function AnimalProfileScreen({ route, navigation }: any) {
                 onChangeText={setVaccineNote}
                 multiline
               />
-              <AdBanner slot="vet_health_record" visible={vaccineModalVisible} />
+              <AdBanner slot="vet_health_record" visible={vaccineModalVisible} near={animalPlace} />
             </ScrollView>
             <Button
               title="Kaydet"

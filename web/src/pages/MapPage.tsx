@@ -348,6 +348,11 @@ export default function MapPage() {
     [pendingPhotoUrl]
   );
   const [myLocation, setMyLocation] = useState<Coordinates | null>(null);
+  // The last REAL fix, for area-targeted ads. myLocation can also be the map
+  // centre a drop fell back to (handleConfirmDrop), which is wherever the
+  // user had panned: an ad that targets the people near a shop must not be
+  // served on that guess (review finding).
+  const [adFix, setAdFix] = useState<Coordinates | null>(null);
   // Flips once the (rAF-deferred) map exists, so the data effects below
   // re-run instead of bailing out against a still-null mapRef.
   const [mapReady, setMapReady] = useState(false);
@@ -477,6 +482,7 @@ export default function MapPage() {
       const loc = await getCurrentLocation();
       clearLocationWarning();
       setMyLocation(loc);
+      setAdFix(loc);
       placeUserDot(loc);
       map.flyTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM, duration: 500 });
     } catch (err) {
@@ -730,6 +736,7 @@ export default function MapPage() {
         // map having been removed.
         if (mapRef.current !== map) return;
         setMyLocation(loc);
+        setAdFix(loc);
         map.jumpTo({ center: [loc.lng, loc.lat], zoom: USER_ZOOM });
         placeUserDot(loc);
       })
@@ -1025,6 +1032,7 @@ export default function MapPage() {
         return { lat: center.lat, lng: center.lng };
       });
       setMyLocation(loc);
+      if (!usedFallback) setAdFix(loc);
       // The dot, its ring and the layout anchor follow the drop's fix.
       placeUserDot(loc);
       const created = await addCareAction(loc.lat, loc.lng, dropType, photoCheck.photoToken);
@@ -1104,6 +1112,7 @@ export default function MapPage() {
       const loc = await getCurrentLocation();
       clearLocationWarning();
       setMyLocation(loc);
+      setAdFix(loc);
       placeUserDot(loc);
     } catch (err) {
       const refusal = describeLocationRefusal(
@@ -1429,6 +1438,7 @@ export default function MapPage() {
                 <AdBanner
                   slot={dropType === 'food' ? 'food_popup' : 'water_popup'}
                   visible={confirmOpen}
+                  near={adFix}
                 />
               </>
             )}
