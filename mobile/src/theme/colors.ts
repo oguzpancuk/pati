@@ -3,9 +3,10 @@
  * (docs/design/studio-aesthetic-handoff.md).
  *
  * The discipline: screens are pure white, structure comes from **hairlines**
- * rather than stacked cards, and the orange **gradient** is reserved for four
- * places only — the logo, the primary button, the progress bar and the
- * selected chip. Everywhere else orange appears as the flat accent
+ * rather than stacked cards, and the orange **gradient** is reserved for five
+ * places only — the logo, the primary button, the progress bar, the
+ * selected chip and (owner, 2026-10-09) the petshop map pin, whose
+ * pre-rendered SVG in map/petshopMarker.ts repeats these two stops. Everywhere else orange appears as the flat accent
  * (`brand`, #E05E2B): links, active icons, micro labels.
  *
  * The dark theme is not in the handoff; it is derived here as a warm-charcoal
@@ -16,7 +17,7 @@
  * `useTheme()` or `makeStyles((t) => ...)`.
  */
 export const lightPalette = {
-  // The gradient — forbidden outside its four uses. `gradStart`/`gradEnd`
+  // The gradient — forbidden outside its five uses. `gradStart`/`gradEnd`
   // feed the SVG gradient in components/brand/Gradient.
   gradStart: '#F4581C',
   gradEnd: '#F9A052',

@@ -1,6 +1,6 @@
 /**
- * The petshop marker (owner, 2026-10-07: petshops appear on the map): an
- * orange pin with a white storefront, so a shop never reads as a care record
+ * The petshop marker (owner, 2026-10-07: petshops appear on the map): a
+ * brand-gradient pin with a white storefront, so a shop never reads as a care record
  * (round, green ring) or an animal (an avatar in a white disc). It points at
  * its spot from above — the icon is anchored at the pin's tip.
  *
@@ -8,7 +8,8 @@
  * scripts/generate-care-markers.mjs (→ ./markers/) and web rasterises the
  * SVG at runtime; both use the same image key. Imported by web through the
  * `@mobile` alias without mobile's node_modules — no imports here.
- * The colors duplicate theme/colors.ts (`brand`, `surface`); the glyph
+ * The colors duplicate theme/colors.ts (`gradStart`/`gradEnd`, the dark
+ * `surface`); the glyph
  * paths are mirrored in components/brand/Icon (shop, phone, clock, link):
  * change one, change the other.
  */
@@ -52,9 +53,17 @@ export const PETSHOP_GLYPH_PATHS = {
   ],
 } as const;
 
-const PIN_COLORS: Record<PetshopTheme, { pin: string; edge: string; glyph: string }> = {
-  light: { pin: '#E05E2B', edge: '#FFFFFF', glyph: '#FFFFFF' },
-  dark: { pin: '#F9824E', edge: '#161412', glyph: '#FFFFFF' },
+/**
+ * The pin is filled with the brand gradient, the one on the "Ekle" button
+ * (owner, 2026-10-09: the flat orange read too dark on the map). The
+ * gradient keeps its colors in dark mode, as the button does; only the
+ * edge follows the ground.
+ */
+const PIN_GRADIENT = { start: '#F4581C', end: '#F9A052' };
+
+const PIN_COLORS: Record<PetshopTheme, { edge: string; glyph: string }> = {
+  light: { edge: '#FFFFFF', glyph: '#FFFFFF' },
+  dark: { edge: '#161412', glyph: '#FFFFFF' },
 };
 
 /** The image key both clients use in the symbol layer's icon-image. */
@@ -83,7 +92,12 @@ export function petshopMarkerSvg(theme: PetshopTheme): string {
   const glyph = PETSHOP_GLYPH_PATHS.shop.map((d) => `<path d="${d}"/>`).join('');
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-    `<path d="${pin}" fill="${c.pin}" stroke="${c.edge}" stroke-width="2" stroke-linejoin="round"/>` +
+    // 135°, top-left to bottom-right, like components/brand/Gradient.
+    `<defs><linearGradient id="petshop-fill" x1="0" y1="0" x2="1" y2="1">` +
+    `<stop offset="0" stop-color="${PIN_GRADIENT.start}"/>` +
+    `<stop offset="1" stop-color="${PIN_GRADIENT.end}"/>` +
+    '</linearGradient></defs>' +
+    `<path d="${pin}" fill="url(#petshop-fill)" stroke="${c.edge}" stroke-width="2" stroke-linejoin="round"/>` +
     `<g transform="translate(${mid - offset} ${
       cy - offset
     }) scale(${GLYPH_SCALE})" fill="none" stroke="${

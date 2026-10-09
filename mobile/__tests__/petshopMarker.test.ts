@@ -31,8 +31,14 @@ describe('the petshop marker images', () => {
     );
   });
 
-  it('are the brand orange, not the care green', () => {
-    expect(petshopMarkerSvg('light')).toContain('#E05E2B');
-    expect(petshopMarkerSvg('light')).not.toContain('#34A853');
+  it('are filled with the Ekle button gradient in both themes, not the care green', () => {
+    for (const theme of PETSHOP_THEMES) {
+      const svg = petshopMarkerSvg(theme);
+      expect(svg).toMatch(/<linearGradient id="petshop-fill"[^>]*x2="1" y2="1"/);
+      expect(svg).toContain('stop-color="#F4581C"');
+      expect(svg).toContain('stop-color="#F9A052"');
+      expect(svg).toContain('fill="url(#petshop-fill)"');
+      expect(svg).not.toContain('#34A853');
+    }
   });
 });
