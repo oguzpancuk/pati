@@ -1,5 +1,7 @@
 const pool = require('../config/db');
 
+// `vet_health_record` is the health-record slot; it is never sold to vets
+// (Turkish law forbids veterinary advertising) and keeps its key: ADR-0006.
 const SLOTS = ['food_popup', 'water_popup', 'vet_health_record'];
 
 // Live ads: marked active and inside the campaign date window.

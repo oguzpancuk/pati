@@ -175,6 +175,8 @@ export interface DashboardStats {
   vaccineTypes: { vaccine_type: string; count: number }[];
 }
 
+// `vet_health_record` is the health-record slot; it is never sold to vets
+// (Turkish law forbids veterinary advertising) and keeps its key: ADR-0006.
 export type AdSlot = 'food_popup' | 'water_popup' | 'vet_health_record';
 
 export interface Advertiser {

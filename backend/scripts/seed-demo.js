@@ -738,7 +738,7 @@ async function seed() {
       'Kadıköy Petshop',
       'vet_health_record',
       'Kadıköy Petshop',
-      'Pire-kene damlası ve tasma, sokak dostlarına indirim',
+      'Mama kabı ve tasma, sokak dostlarına indirim',
       'https://ornek.example.com/kadikoy-petshop',
       1,
     ],

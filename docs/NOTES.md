@@ -943,8 +943,10 @@ To close before production, in rough priority order:
     check behind it. The owner wants the reverse: volunteers enter records,
     and a vet verifies them. That needs a verification step on an existing
     record (who verified, when), a vet role backed by a licence check, and
-    a decision on what happens to the ticks already set. Not started; no
-    thread.
+    a decision on what happens to the ticks already set, including the
+    ones the seeds write directly whatever the author's role
+    (`seed-demo.js`, `seed-showcase.js`; the showcase rows are in
+    production). Not started; no thread.
 
 ---
 
@@ -6368,12 +6370,15 @@ app has no about page).
 Turkish law forbids veterinarians to advertise (Law 6343 and the veterinary
 chambers' rules), so the `vet_health_record` slot is never sold to clinics;
 the owner will sell it to other advertisers, petshops first. ADR-0006
-records that rule and the choice to keep the key: nobody sees it (PR #18
-took "veteriner" out of the admin label), while a rename would touch two
-constraints, three tables and the store iOS build's requests, which would
-need a permanent alias. The demo seed's two health-record brands were vet
-clinics; they are petshops now, so a demo never shows the forbidden kind of
-ad.
+records that rule and the choice to keep the key: nobody sees it (the
+admin label loses "(veteriner)" here, as it does in PR #18; whichever merges
+second resolves that one-line conflict), while a rename would touch the
+slot constraints, the ad tables and the store iOS build's requests, which
+would need a permanent alias. Each slot list (backend controller, admin,
+web, mobile) carries a two-line comment pointing at the ADR. The demo
+seed's two health-record brands were vet clinics; they are petshops now, so
+a demo never shows the forbidden kind of ad. The README's feature list and
+001's comment on `advertisers` no longer call the slot a vet placement.
 
 `docs/pilot/PILOT.md` and `pati-veteriner-tanitim.pdf` are retired (deleted;
 git history keeps them). They described an invitation-only pilot in Hatay,
@@ -6381,6 +6386,9 @@ git history keeps them). They described an invitation-only pilot in Hatay,
 clinics "in-app visibility" free for the pilot, which is the advertising the
 law forbids. The app has since launched nationwide on the App Store. The
 `.gitignore` line for the local revenue spreadsheet in `docs/pilot/` stays.
+Deleting does not take the PDF out of git history, so it would be readable
+if the repo went public; scrubbing history is a force-push and the owner's
+call, not done here.
 
 Left for the owner, not changed here: `docs/ROADMAP.md` still says "the
 pilot (10–20 real users, one neighbourhood) waits for item 5" and names

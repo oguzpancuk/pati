@@ -106,8 +106,9 @@ pati/
 - **Admin panel (web):** dashboard, user management (roles, suspension),
   animal management (edit, delete, **duplicate merge**), care-photo
   moderation, comment moderation, ad management, and a full audit log
-- **Ads:** food brand in the food popup, water brand in the water popup, vet
-  clinic when adding a health record. Brands in the same slot rotate per
+- **Ads:** food brand in the food popup, water brand in the water popup, a
+  petshop or other brand when adding a health record (never a vet clinic:
+  Turkish law forbids veterinary advertising). Brands in the same slot rotate per
   popup open; impressions and clicks are measured separately for reporting
 
 ## The five big items

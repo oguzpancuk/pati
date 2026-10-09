@@ -6,7 +6,7 @@ import { formatDate } from '../format';
 const SLOT_LABELS: Record<AdSlot, string> = {
   food_popup: 'Mama pop-up',
   water_popup: 'Su pop-up',
-  vet_health_record: 'Sağlık kaydı (veteriner)',
+  vet_health_record: 'Sağlık kaydı',
 };
 
 const SLOT_HINTS: Record<AdSlot, string> = {
@@ -15,6 +15,8 @@ const SLOT_HINTS: Record<AdSlot, string> = {
   vet_health_record: 'Hayvan profilinde sağlık kaydı eklenirken görünür.',
 };
 
+// `vet_health_record` is the health-record slot; it is never sold to vets
+// (Turkish law forbids veterinary advertising) and keeps its key: ADR-0006.
 const SLOTS: AdSlot[] = ['food_popup', 'water_popup', 'vet_health_record'];
 
 type SlotFilter = '' | AdSlot;

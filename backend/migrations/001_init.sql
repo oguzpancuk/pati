@@ -341,7 +341,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_target ON audit_log (target_type, targe
 -- Advertisers. Our own simple ad server instead of an off-the-shelf network
 -- (AdMob etc.): brands are entered by hand in the admin panel and placements
 -- are very specific (a food brand in the food popup, a water brand in the
--- water popup, a vet clinic when adding a health record).
+-- water popup, a petshop or another brand when adding a health record; the
+-- health-record slot is never sold to vets, whose advertising Turkish law
+-- forbids, and keeps its `vet_health_record` key: ADR-0006).
 CREATE TABLE IF NOT EXISTS advertisers (
     id SERIAL PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
