@@ -1,7 +1,6 @@
 const pool = require('../config/db');
 const { parseViewerLocation } = require('../utils/adTargeting');
-
-const SLOTS = ['food_popup', 'water_popup', 'vet_health_record'];
+const { SLOTS, AD_SLOTS_SQL } = require('../utils/adSlots');
 
 // How recent a care drop must be to place a viewer who sent no location.
 // Volunteers feed the same streets week after week, so a month-old drop is
@@ -19,9 +18,13 @@ const LIVE_FILTER = `
  *
  * Rotation: "each open shows the next brand" was the requirement. Instead of
  * a cursor table, the position derives from how many impressions the user has
- * in that slot — impressions are recorded for billing anyway, so we get a
- * per-user, evenly distributed rotation with zero extra state. Every popup
- * open shows the user the next brand.
+ * of the ads in this list — impressions are recorded for billing anyway, so
+ * we get a per-user, evenly distributed rotation with zero extra state. Every
+ * popup open shows the user the next brand. Counted by ad rather than by the
+ * event's slot because one ad can run in several slots (owner, 2026-10-09)
+ * and clients that predate that report no slot: their impression lands on
+ * the ad's first slot, and a count by slot would then stop moving in the
+ * others, showing the same ad on every open.
  *
  * If the ad list changes (brands added/removed) the order shifts; acceptable.
  *
@@ -59,9 +62,11 @@ async function getNextAd(req, res, next) {
              ORDER BY created_at DESC LIMIT 1)
          ) AS location
        )
-       SELECT a.id, a.name, a.slot, a.headline, a.body, a.image_url, a.target_url
+       -- The requested slot, not the ad's first: the client reports it back
+       -- with the impression.
+       SELECT a.id, a.name, $1::varchar AS slot, a.headline, a.body, a.image_url, a.target_url
        FROM advertisers a CROSS JOIN viewer v
-       WHERE a.slot = $1 AND ${LIVE_FILTER}
+       WHERE $1 = ANY(${AD_SLOTS_SQL}) AND ${LIVE_FILTER}
          AND (a.target_location IS NULL
               OR (v.location IS NOT NULL
                   AND ST_DWithin(a.target_location, v.location, a.target_radius_m)))
@@ -76,8 +81,8 @@ async function getNextAd(req, res, next) {
 
     const seen = await pool.query(
       `SELECT count(*)::int AS count FROM ad_events
-       WHERE user_id = $1 AND slot = $2 AND type = 'impression'`,
-      [req.user.userId, slot]
+       WHERE user_id = $1 AND advertiser_id = ANY($2::int[]) AND type = 'impression'`,
+      [req.user.userId, ads.rows.map((ad) => ad.id)]
     );
 
     const index = seen.rows[0].count % ads.rows.length;
@@ -94,16 +99,26 @@ async function recordEvent(req, res, next, type) {
       return res.status(400).json({ error: 'Geçersiz reklam' });
     }
 
-    const ad = await pool.query('SELECT id, slot, target_url FROM advertisers WHERE id = $1', [
-      advertiserId,
-    ]);
+    const ad = await pool.query(
+      `SELECT id, ${AD_SLOTS_SQL} AS slots FROM advertisers WHERE id = $1`,
+      [advertiserId]
+    );
     if (ad.rows.length === 0) {
       return res.status(404).json({ error: 'Reklam bulunamadı' });
     }
 
+    // ?slot= names where the ad was shown; it must be one of the ad's own.
+    // Clients that predate multi-slot ads send none, and their event goes to
+    // the ad's first slot, as before.
+    const { slots } = ad.rows[0];
+    const shownIn = req.query.slot;
+    if (shownIn !== undefined && !slots.includes(shownIn)) {
+      return res.status(400).json({ error: 'Geçersiz reklam yerleşimi' });
+    }
+
     await pool.query(
       'INSERT INTO ad_events (advertiser_id, slot, user_id, type) VALUES ($1, $2, $3, $4)',
-      [advertiserId, ad.rows[0].slot, req.user.userId, type]
+      [advertiserId, shownIn ?? slots[0], req.user.userId, type]
     );
 
     res.status(201).json({ recorded: type });

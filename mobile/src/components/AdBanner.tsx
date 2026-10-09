@@ -49,7 +49,7 @@ export default function AdBanner({ slot, visible = true, near = null }: Props) {
           reportedRef.current = next.id;
           // If the impression report fails the ad still shows; only the
           // counter and rotation fall one step behind.
-          recordAdImpression(next.id).catch(() => {});
+          recordAdImpression(next).catch(() => {});
         }
       })
       .catch(() => {
@@ -65,7 +65,7 @@ export default function AdBanner({ slot, visible = true, near = null }: Props) {
 
   async function handlePress() {
     if (!ad) return;
-    recordAdClick(ad.id).catch(() => {});
+    recordAdClick(ad).catch(() => {});
     try {
       await Linking.openURL(ad.target_url);
     } catch {

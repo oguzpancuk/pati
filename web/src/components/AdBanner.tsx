@@ -36,7 +36,7 @@ export function AdBanner({
         setAd(next);
         if (reported.current !== next.id) {
           reported.current = next.id;
-          recordAdImpression(next.id).catch(() => {});
+          recordAdImpression(next).catch(() => {});
         }
       })
       .catch(() => {});
@@ -52,7 +52,7 @@ export function AdBanner({
       href={ad.target_url}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={() => recordAdClick(ad.id).catch(() => {})}
+      onClick={() => recordAdClick(ad).catch(() => {})}
     >
       {/* The "REKLAM" (ad) label is mandatory: content and ads must be distinguishable. */}
       <span className="subtle" style={{ letterSpacing: '0.08em' }}>

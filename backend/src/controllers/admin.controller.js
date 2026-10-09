@@ -7,7 +7,7 @@ const pool = require('../config/db');
 const { coverPhotoJoin } = require('../utils/coverPhoto');
 const { writeAuditLog } = require('../utils/auditLog');
 const { anonymizeAccount } = require('../utils/accountDeletion');
-const { SLOTS } = require('./ad.controller');
+const { SLOTS, AD_SLOTS_SQL, parseAdSlots } = require('../utils/adSlots');
 const { parseAdTarget } = require('../utils/adTargeting');
 
 const MAX_PAGE_SIZE = 100;
@@ -689,8 +689,8 @@ async function deleteComment(req, res, next) {
 // The list returns impression/click counts too: telling a brand "this many
 // impressions, this many clicks" is a precondition for selling the ad.
 const ADVERTISER_SELECT_SQL = `
-  SELECT a.id, a.name, a.slot, a.headline, a.body, a.image_url, a.target_url,
-         a.active, a.starts_at, a.ends_at, a.sort_order, a.created_at,
+  SELECT a.id, a.name, a.slot, ${AD_SLOTS_SQL} AS slots, a.headline, a.body, a.image_url,
+         a.target_url, a.active, a.starts_at, a.ends_at, a.sort_order, a.created_at,
          ST_Y(a.target_location::geometry) AS target_lat,
          ST_X(a.target_location::geometry) AS target_lng,
          a.target_radius_m,
@@ -708,7 +708,7 @@ async function listAdvertisers(req, res, next) {
   try {
     const slot = req.query.slot;
     const filter = filterBuilder();
-    if (SLOTS.includes(slot)) filter.add((i) => `a.slot = $${i}`, slot);
+    if (SLOTS.includes(slot)) filter.add((i) => `$${i} = ANY(${AD_SLOTS_SQL})`, slot);
 
     const rows = await pool.query(
       `${ADVERTISER_SELECT_SQL} ${filter.where} ORDER BY a.slot, a.sort_order, a.id`,
@@ -720,9 +720,8 @@ async function listAdvertisers(req, res, next) {
   }
 }
 
-function validateAdvertiser({ name, slot, targetUrl }) {
+function validateAdvertiser({ name, targetUrl }) {
   if (!name || !String(name).trim()) return 'Marka adı zorunludur';
-  if (!SLOTS.includes(slot)) return 'Geçersiz reklam yerleşimi';
   if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) {
     return 'Hedef adres http:// veya https:// ile başlamalıdır';
   }
@@ -731,10 +730,13 @@ function validateAdvertiser({ name, slot, targetUrl }) {
 
 async function createAdvertiser(req, res, next) {
   try {
-    const { name, slot, headline, body, targetUrl, imageUrl, startsAt, endsAt, sortOrder } =
-      req.body;
-    const error = validateAdvertiser({ name, slot, targetUrl });
+    const { name, headline, body, targetUrl, imageUrl, startsAt, endsAt, sortOrder } = req.body;
+    const error = validateAdvertiser({ name, targetUrl });
     if (error) return res.status(400).json({ error });
+    const { slots, error: slotError } = parseAdSlots(req.body);
+    if (slotError || !slots) {
+      return res.status(400).json({ error: slotError ?? 'Geçersiz reklam yerleşimi' });
+    }
     const parsed = parseAdTarget(req.body.target);
     if (parsed.error) return res.status(400).json({ error: parsed.error });
     // Not sent and null both mean nationwide for a new ad.
@@ -742,14 +744,15 @@ async function createAdvertiser(req, res, next) {
 
     const inserted = await pool.query(
       `INSERT INTO advertisers
-         (name, slot, headline, body, image_url, target_url, starts_at, ends_at, sort_order,
-          target_location, target_radius_m)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+         (name, slot, slots, headline, body, image_url, target_url, starts_at, ends_at,
+          sort_order, target_location, target_radius_m)
+       VALUES ($1, $2, $13::varchar(30)[], $3, $4, $5, $6, $7, $8, $9,
          ST_SetSRID(ST_MakePoint($11::float8, $10::float8), 4326)::geography, $12)
        RETURNING id`,
       [
         String(name).trim(),
-        slot,
+        // slot keeps the first entry, for the code before slots (017).
+        slots[0],
         headline || null,
         body || null,
         imageUrl || null,
@@ -760,13 +763,14 @@ async function createAdvertiser(req, res, next) {
         target?.lat ?? null,
         target?.lng ?? null,
         target?.radiusMeters ?? null,
+        slots,
       ]
     );
 
     const id = inserted.rows[0].id;
     await writeAuditLog(req.user.userId, 'advertiser.create', 'advertiser', id, {
       name,
-      slot,
+      slots,
       target,
     });
 
@@ -780,12 +784,11 @@ async function createAdvertiser(req, res, next) {
 async function updateAdvertiser(req, res, next) {
   try {
     const id = Number(req.params.id);
-    const { name, slot, headline, body, targetUrl, imageUrl, active, startsAt, endsAt, sortOrder } =
+    const { name, headline, body, targetUrl, imageUrl, active, startsAt, endsAt, sortOrder } =
       req.body;
 
-    if (slot !== undefined && !SLOTS.includes(slot)) {
-      return res.status(400).json({ error: 'Geçersiz reklam yerleşimi' });
-    }
+    const { slots, error: slotError } = parseAdSlots(req.body);
+    if (slotError) return res.status(400).json({ error: slotError });
     if (targetUrl !== undefined && !/^https?:\/\//i.test(targetUrl)) {
       return res.status(400).json({ error: 'Hedef adres http:// veya https:// ile başlamalıdır' });
     }
@@ -811,12 +814,13 @@ async function updateAdvertiser(req, res, next) {
          target_location = CASE WHEN $14::boolean
            THEN ST_SetSRID(ST_MakePoint($16::float8, $15::float8), 4326)::geography
            ELSE target_location END,
-         target_radius_m = CASE WHEN $14::boolean THEN $17::int ELSE target_radius_m END
+         target_radius_m = CASE WHEN $14::boolean THEN $17::int ELSE target_radius_m END,
+         slots = COALESCE($18::varchar(30)[], slots)
        WHERE id = $13
        RETURNING id`,
       [
         name ?? null,
-        slot ?? null,
+        slots?.[0] ?? null,
         headline ?? null,
         body ?? null,
         imageUrl ?? null,
@@ -832,6 +836,7 @@ async function updateAdvertiser(req, res, next) {
         target?.lat ?? null,
         target?.lng ?? null,
         target?.radiusMeters ?? null,
+        slots ?? null,
       ]
     );
     if (result.rows.length === 0) {
@@ -881,7 +886,7 @@ async function deleteAdvertiser(req, res, next) {
   try {
     const id = Number(req.params.id);
     const result = await pool.query(
-      'DELETE FROM advertisers WHERE id = $1 RETURNING id, name, slot',
+      `DELETE FROM advertisers WHERE id = $1 RETURNING id, name, ${AD_SLOTS_SQL} AS slots`,
       [id]
     );
     if (result.rows.length === 0) {

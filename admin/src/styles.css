@@ -461,6 +461,23 @@ td.actions button + button {
   margin-top: 22px;
 }
 
+/* A field of checkboxes, each with its hint under the label (the ad form's
+   slots). */
+.modal .field .check-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 8px;
+  cursor: pointer;
+}
+.modal .field .check-row input {
+  width: auto;
+  margin: 3px 0 0;
+}
+.modal .check-hint {
+  font-size: 12px;
+}
+
 /* The targeting fields in the ad form: a link and a note under a field. */
 .modal .field-link {
   display: inline-block;

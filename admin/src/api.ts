@@ -180,6 +180,8 @@ export type AdSlot = 'food_popup' | 'water_popup' | 'vet_health_record';
 export interface Advertiser {
   id: number;
   name: string;
+  /** Every slot the ad runs in, in a fixed order; `slot` is the first. */
+  slots: AdSlot[];
   slot: AdSlot;
   headline: string | null;
   body: string | null;

@@ -360,7 +360,10 @@ CREATE TABLE IF NOT EXISTS advertisers (
     -- Both NULL = nationwide. Also in 017_ad_targeting.sql, which carries the
     -- constraint tying the two together (production never reruns this body).
     target_location GEOGRAPHY(POINT, 4326),
-    target_radius_m INTEGER
+    target_radius_m INTEGER,
+    -- Every slot the ad runs in; `slot` above is its first entry. NULL on
+    -- rows that predate it (readers COALESCE to ARRAY[slot]). Also in 017.
+    slots VARCHAR(30)[]
 );
 
 CREATE INDEX IF NOT EXISTS idx_advertisers_slot ON advertisers (slot, sort_order, id);
@@ -380,8 +383,10 @@ CREATE TABLE IF NOT EXISTS ad_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Rotation order is derived from the user's impression count in that
--- placement, so this index sits on the hot path (every popup open).
+-- Rotation order is derived from the user's impression count of the ads in
+-- a placement, so this index sits on the hot path (every popup open); since
+-- one ad can run in several placements the count filters by ad, and only the
+-- user_id prefix is used.
 CREATE INDEX IF NOT EXISTS idx_ad_events_rotation ON ad_events (user_id, slot, type);
 CREATE INDEX IF NOT EXISTS idx_ad_events_report ON ad_events (advertiser_id, type);
 

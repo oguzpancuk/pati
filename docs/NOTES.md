@@ -6286,9 +6286,10 @@ existing row became on this deploy.
   works for those users without an update, as long as they fed or watered
   in the last month. The `lat`/`lng` half reaches the web app on deploy and
   iOS users only with the next build.
-- **Rotation is unchanged** and counts only the ads the viewer is eligible
-  for, so a local and a nationwide ad alternate evenly near the shop.
+- **Rotation** runs over only the ads the viewer is eligible for, so a
+  local and a nationwide ad alternate evenly near the shop.
 - **Evidence.** `backend/scripts/ad-targeting-check/run.sh` (26 curl checks
+  then; 40 since the multi-slot entry below
   against a running backend and database: inside, outside, unknown, last
   drop, a 31-day-old drop, a request location winning over the drop, clearing
   and re-targeting from admin) and `backend/test/adTargeting.test.js` for the
@@ -6311,3 +6312,41 @@ Left for later, not in this change:
 - **No priority for local ads.** Near the shop, the targeted ad shares the
   rotation evenly with the nationwide ones. If petshops expect to win
   their own street, that is a sort-order decision for the owner.
+
+## 2026-10-09 · One ad in several slots; the picker no longer says "veteriner"
+
+The owner tested PR #18 and asked for two changes to the ad form. Vets may
+not advertise in Türkiye (item 5), so the health-record dialogs will carry
+other brands' ads: the slot is now labelled "Sağlık kaydı", without
+"(veteriner)". And one ad may run in several slots, ticked as checkboxes.
+The slot key `vet_health_record` is unchanged; renaming it is item 5's.
+
+- **Schema.** `advertisers.slots VARCHAR(30)[]`, nullable, beside the old
+  `slot`, which every write keeps equal to the list's first entry (017 and
+  001's table body). Readers use `COALESCE(slots, ARRAY[slot])`
+  (`backend/src/utils/adSlots.js`), so rows from before need no backfill,
+  and reverting the code commit leaves a working system: the old code reads
+  `slot` and simply serves a multi-slot ad in its first slot only.
+- **GET /ads** serves an ad in any of its slots and returns the requested
+  slot as the ad's `slot`; the clients send it back as `?slot=` with the
+  impression and click, so reports count the slot it was seen in. A slot
+  the ad is not in is a 400. The store iOS build sends no `?slot=`; its
+  events go to the ad's first slot.
+- **Rotation now counts by ad, not by the event's slot**: the viewer's
+  impressions of the ads eligible for this request. Counted by slot, an
+  impression the store build reports for a food+water ad lands on food, the
+  water count stops moving whenever that ad comes up, and every water open
+  shows it again. The harness pins this (exactly twice in two rotations).
+  The side effect: impressions of a shared ad in one slot also advance the
+  others' rotation, which keeps brands even across the sheets.
+- **Evidence.** `backend/test/adSlots.test.js` (the form's parser; seen red
+  4/4 against a stub) and the harness's new section, red on 10 of its first
+  12 checks before the controllers changed. `migrate.js` run twice on a database built from
+  main's migration files, a pre-existing ad intact.
+
+Waiting: the owner's first request, picking the ad's centre on a map. The
+petshops thread built an admin map picker on PR #17
+(`admin/src/components/LocationPicker.tsx`); once #17 merges this branch
+merges main and reuses it with optional props for the pin and the radius
+circle, rather than a second picker. Whichever of #17 and #18 merges second
+renumbers its 017 migration to 018.

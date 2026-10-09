@@ -107,7 +107,11 @@ function summarize(entry: AuditEntry): string {
   // Advertiser operations
   if (entry.target_type === 'advertiser') {
     if (typeof d.name === 'string') parts.push(d.name);
+    // Entries from before multi-slot ads carry `slot`, later ones `slots`.
     if (typeof d.slot === 'string') parts.push(SLOT_LABELS[d.slot] ?? d.slot);
+    if (Array.isArray(d.slots)) {
+      parts.push(d.slots.map((s) => SLOT_LABELS[String(s)] ?? String(s)).join(', '));
+    }
     if (d.active === true) parts.push('yayına alındı');
     if (d.active === false) parts.push('durduruldu');
     if (typeof d.targetUrl === 'string') parts.push(d.targetUrl);

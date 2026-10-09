@@ -6,7 +6,9 @@ import { formatDate } from '../format';
 const SLOT_LABELS: Record<AdSlot, string> = {
   food_popup: 'Mama pop-up',
   water_popup: 'Su pop-up',
-  vet_health_record: 'Sağlık kaydı (veteriner)',
+  // Not "veteriner": vets may not advertise (owner, 2026-10-09); the
+  // health-record dialogs carry other brands' ads.
+  vet_health_record: 'Sağlık kaydı',
 };
 
 const SLOT_HINTS: Record<AdSlot, string> = {
@@ -121,7 +123,7 @@ export default function Advertisers() {
                   </a>
                 </td>
                 <td>
-                  <div>{SLOT_LABELS[ad.slot]}</div>
+                  <div>{ad.slots.map((s) => SLOT_LABELS[s]).join(', ')}</div>
                   <div className="muted">{targetLabel(ad)}</div>
                 </td>
                 <td className="num">{ad.sort_order}</td>
@@ -265,7 +267,7 @@ function AdvertiserModal({
   onError: (m: string) => void;
 }) {
   const [name, setName] = useState(advertiser?.name ?? '');
-  const [slot, setSlot] = useState<AdSlot>(advertiser?.slot ?? 'food_popup');
+  const [slots, setSlots] = useState<AdSlot[]>(advertiser?.slots ?? ['food_popup']);
   const [headline, setHeadline] = useState(advertiser?.headline ?? '');
   const [body, setBody] = useState(advertiser?.body ?? '');
   const [targetUrl, setTargetUrl] = useState(advertiser?.target_url ?? 'https://');
@@ -286,7 +288,14 @@ function AdvertiserModal({
   const parsedPoint = parsePoint(point);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function toggleSlot(s: AdSlot, on: boolean) {
+    // SLOTS' order, so the list reads the same however it was ticked.
+    setSlots((current) => SLOTS.filter((x) => (x === s ? on : current.includes(x))));
+  }
+
   async function save() {
+    // The note under the checkboxes already says why.
+    if (slots.length === 0) return;
     let target: AdTarget | null = null;
     if (targeted) {
       const radiusMeters = parseRadiusKm(radiusKm);
@@ -305,7 +314,7 @@ function AdvertiserModal({
     try {
       const payload = {
         name: name.trim(),
-        slot,
+        slots,
         headline: headline.trim() || null,
         body: body.trim() || null,
         targetUrl: targetUrl.trim(),
@@ -334,14 +343,13 @@ function AdvertiserModal({
   return (
     <Modal
       title={advertiser ? advertiser.name : 'Yeni reklam'}
-      hint={SLOT_HINTS[slot]}
       onClose={onClose}
       footer={
         <>
           <button onClick={onClose} disabled={busy}>
             Vazgeç
           </button>
-          <button className="primary" onClick={save} disabled={busy}>
+          <button className="primary" onClick={save} disabled={busy || slots.length === 0}>
             {busy ? 'Kaydediliyor…' : 'Kaydet'}
           </button>
         </>
@@ -352,16 +360,25 @@ function AdvertiserModal({
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Pati Mama" />
       </label>
 
-      <label className="field">
-        <span>Yerleşim</span>
-        <select value={slot} onChange={(e) => setSlot(e.target.value as AdSlot)}>
-          {SLOTS.map((s) => (
-            <option key={s} value={s}>
-              {SLOT_LABELS[s]}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="field">
+        <span>Yerleşim (birden fazla seçilebilir)</span>
+        {SLOTS.map((s) => (
+          <label key={s} className="check-row">
+            <input
+              type="checkbox"
+              checked={slots.includes(s)}
+              onChange={(e) => toggleSlot(s, e.target.checked)}
+            />
+            <div>
+              <div>{SLOT_LABELS[s]}</div>
+              <div className="muted check-hint">{SLOT_HINTS[s]}</div>
+            </div>
+          </label>
+        ))}
+        {slots.length === 0 && (
+          <div className="error-banner field-error">En az bir yerleşim seçin</div>
+        )}
+      </div>
 
       <label className="field">
         <span>Başlık (bantta büyük yazı)</span>

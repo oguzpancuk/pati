@@ -42,11 +42,13 @@ register() { # name email -> prints "token id"
 # fetch is followed by its impression, which is what advances rotation, so
 # live-ad-count + 1 fetches visit every ad the viewer is eligible for.
 # $2 is the query suffix carrying the viewer's location, if any.
-served_ids() { # jwt query-suffix
-  local n=$(( $(psql_db "SELECT count(*) FROM advertisers WHERE slot='$SLOT' AND active") + 1 ))
+live_in() { psql_db "SELECT count(*) FROM advertisers WHERE '$1' = ANY(COALESCE(slots, ARRAY[slot])) AND active"; }
+served_ids() { # jwt query-suffix [slot] [fetches]
+  local slot=${3:-$SLOT}
+  local n=${4:-$(( $(live_in "$slot") + 1 ))}
   local ids=""
   for _ in $(seq 1 "$n"); do
-    get_auth "ads?slot=$SLOT$2" "$1" >/dev/null
+    get_auth "ads?slot=$slot$2" "$1" >/dev/null
     local id=$(j '.ad.id // empty')
     [ -n "$id" ] || continue
     ids="$ids $id"
@@ -54,9 +56,11 @@ served_ids() { # jwt query-suffix
   done
   echo "$ids"; }
 has() { case " $1 " in *" $2 "*) echo yes ;; *) echo no ;; esac; }
+times() { local c=0; for x in $1; do [ "$x" = "$2" ] && c=$((c+1)); done; echo "$c"; }
 
 cleanup() {
-  [ -n "${TARGETED_ID:-}" ] && psql_db "DELETE FROM ad_events WHERE advertiser_id IN (${TARGETED_ID}${NATIONAL_ID:+,$NATIONAL_ID}); DELETE FROM advertisers WHERE id IN (${TARGETED_ID}${NATIONAL_ID:+,$NATIONAL_ID})" >/dev/null
+  local ads="${TARGETED_ID:-0},${NATIONAL_ID:-0},${MULTI_ID:-0}"
+  psql_db "DELETE FROM ad_events WHERE advertiser_id IN ($ads); DELETE FROM advertisers WHERE id IN ($ads)" >/dev/null
   # The three refused ads, should the validation they probe ever let one through.
   psql_db "DELETE FROM advertisers WHERE name='x' AND target_url='https://example.com'" >/dev/null
   local ids="${ADMIN_ID:-0},${NEAR_ID:-0},${FAR_ID:-0},${NONE_ID:-0}"
@@ -134,6 +138,41 @@ check "re-targeting through an edit -> 200" 200 "$code"
 code=$(patch_auth "admin/advertisers/$TARGETED_ID" "$ADMIN_JWT" '{"headline":"Yeni başlık"}')
 check "an edit that does not mention the target -> 200" 200 "$code"
 check "…keeps the circle" "$RADIUS" "$(j .target_radius_m)"
+
+echo "== one ad in two slots (owner, 2026-10-09)"
+code=$(post_auth admin/advertisers "$ADMIN_JWT" "{\"name\":\"İki Yerleşim $STAMP\",\"slots\":[\"water_popup\",\"food_popup\"],\"targetUrl\":\"https://example.com/iki\"}")
+check "an ad in food and water -> 201" 201 "$code"
+MULTI_ID=$(j .id)
+check "…reports both slots, in the fixed order" "food_popup,water_popup" "$(j '.slots | join(",")')"
+check "…and its first one as slot" "food_popup" "$(j .slot)"
+code=$(post_auth admin/advertisers "$ADMIN_JWT" '{"name":"x","slots":[],"targetUrl":"https://example.com"}')
+check "no slot at all -> 400" 400 "$code"
+code=$(get_auth "admin/advertisers?slot=water_popup" "$ADMIN_JWT")
+check "the admin list's water filter finds it" yes "$(j "[.advertisers[].id] | index($MULTI_ID) != null" | sed 's/true/yes/;s/false/no/')"
+ids=$(served_ids "$FAR_JWT" "" food_popup)
+check "served under the food sheet" yes "$(has "$ids" "$MULTI_ID")"
+# Two full rotations of the water slot, impressions reported the way the
+# store build reports them (no slot). Rotation must keep moving through the
+# ad whose first slot is food: exactly twice, not stuck on it. The viewer
+# has no drop and sends no location, so they are eligible for exactly the
+# live nationwide water ads.
+n=$(psql_db "SELECT count(*) FROM advertisers WHERE 'water_popup' = ANY(COALESCE(slots, ARRAY[slot]))
+  AND active AND (starts_at IS NULL OR starts_at <= now()) AND (ends_at IS NULL OR ends_at >= now())
+  AND target_location IS NULL")
+ids=$(served_ids "$FAR_JWT" "" water_popup $((2 * n)))
+check "rotation keeps moving in its second slot ($n eligible, $((2 * n)) opens)" 2 "$(times "$ids" "$MULTI_ID")"
+code=$(patch_auth "admin/advertisers/$MULTI_ID" "$ADMIN_JWT" '{"slots":["vet_health_record"]}')
+check "moved to the health-record slot -> 200" 200 "$code"
+ids=$(served_ids "$FAR_JWT" "" water_popup)
+check "…no longer under the water sheet" no "$(has "$ids" "$MULTI_ID")"
+ids=$(served_ids "$FAR_JWT" "" vet_health_record)
+check "…served under the health-record dialog" yes "$(has "$ids" "$MULTI_ID")"
+code=$(post_auth "ads/$MULTI_ID/impression?slot=vet_health_record" "$FAR_JWT" '{}')
+check "an impression may name its slot" 201 "$code"
+check "…and is recorded there" vet_health_record \
+  "$(psql_db "SELECT slot FROM ad_events WHERE advertiser_id=$MULTI_ID ORDER BY id DESC LIMIT 1")"
+code=$(post_auth "ads/$MULTI_ID/click?slot=water_popup" "$FAR_JWT" '{}')
+check "…but not a slot the ad is not in -> 400" 400 "$code"
 
 echo
 [ "$FAILED" = 0 ] && echo "ad targeting: $PASS checks passed" || echo "ad targeting: FAILED ($PASS passed)"

@@ -33,10 +33,12 @@ export async function fetchAd(slot: AdSlot, near?: Coordinates | null): Promise<
 
 // Impressions and clicks are reported separately: a fetched-but-never-shown
 // ad must not be billed, and rotation must advance by what was actually shown.
-export async function recordAdImpression(adId: number): Promise<void> {
-  await apiClient.post(`/ads/${adId}/impression`);
+// `slot` is where it was shown — the one asked for, which the server returns
+// as the ad's slot — since one ad can run in several.
+export async function recordAdImpression(ad: Pick<Ad, 'id' | 'slot'>): Promise<void> {
+  await apiClient.post(`/ads/${ad.id}/impression`, undefined, { params: { slot: ad.slot } });
 }
 
-export async function recordAdClick(adId: number): Promise<void> {
-  await apiClient.post(`/ads/${adId}/click`);
+export async function recordAdClick(ad: Pick<Ad, 'id' | 'slot'>): Promise<void> {
+  await apiClient.post(`/ads/${ad.id}/click`, undefined, { params: { slot: ad.slot } });
 }

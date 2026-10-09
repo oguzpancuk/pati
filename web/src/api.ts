@@ -793,8 +793,12 @@ export const fetchAd = async (slot: AdSlot, near?: { lat: number; lng: number } 
   return data.ad;
 };
 // Impressions and clicks are separate: a fetched-but-never-shown ad must not be billed.
-export const recordAdImpression = (adId: number) => api.post<void>(`/ads/${adId}/impression`);
-export const recordAdClick = (adId: number) => api.post<void>(`/ads/${adId}/click`);
+// `slot` is where the ad was shown, since one ad can run in several (mobile's
+// recordAdImpression).
+export const recordAdImpression = (ad: Pick<Ad, 'id' | 'slot'>) =>
+  api.post<void>(`/ads/${ad.id}/impression?slot=${ad.slot}`);
+export const recordAdClick = (ad: Pick<Ad, 'id' | 'slot'>) =>
+  api.post<void>(`/ads/${ad.id}/click?slot=${ad.slot}`);
 
 // ---------------------------------------------------------------- health records
 

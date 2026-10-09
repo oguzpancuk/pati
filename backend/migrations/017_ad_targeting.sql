@@ -12,7 +12,7 @@
 -- the new columns (or sit on a table 001 already created), so they live in
 -- this file only (CLAUDE.md, v28). Every statement survives a re-run.
 --
--- Reversible in one commit: drop the constraint, the index and the two
+-- Reversible in one commit: drop the constraints, the index and the three
 -- columns; nothing else reads them.
 ALTER TABLE advertisers ADD COLUMN IF NOT EXISTS target_location GEOGRAPHY(POINT, 4326);
 ALTER TABLE advertisers ADD COLUMN IF NOT EXISTS target_radius_m INTEGER;
@@ -30,3 +30,18 @@ ALTER TABLE advertisers ADD CONSTRAINT advertisers_target_check CHECK (
 -- lookup — on every popup open — would otherwise scan the table.
 CREATE INDEX IF NOT EXISTS idx_care_actions_user_recent
   ON care_actions (user_id, created_at DESC);
+
+-- One ad, several slots (owner, 2026-10-09: a petshop ad can run under the
+-- food sheet AND the health-record dialogs). `slots` is the list; `slot`
+-- stays and is written as its first entry, so a revert of the code that
+-- reads `slots` leaves every ad served from `slot` as before. Readers use
+-- COALESCE(slots, ARRAY[slot]): rows written before this, or by reverted
+-- code, have no list. Nullable for the same reason — old code inserting a
+-- row with `slot` alone must keep working.
+ALTER TABLE advertisers ADD COLUMN IF NOT EXISTS slots VARCHAR(30)[];
+ALTER TABLE advertisers DROP CONSTRAINT IF EXISTS advertisers_slots_check;
+ALTER TABLE advertisers ADD CONSTRAINT advertisers_slots_check CHECK (
+  slots IS NULL
+  OR (cardinality(slots) >= 1
+      AND slots <@ ARRAY['food_popup', 'water_popup', 'vet_health_record']::VARCHAR(30)[])
+);
