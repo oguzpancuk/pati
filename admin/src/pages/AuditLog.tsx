@@ -14,6 +14,9 @@ const ACTION_LABELS: Record<string, string> = {
   'advertiser.update': 'Reklam güncellendi',
   'advertiser.image': 'Reklam görseli değişti',
   'advertiser.delete': 'Reklam silindi',
+  'petshop.create': 'Petshop eklendi',
+  'petshop.update': 'Petshop güncellendi',
+  'petshop.delete': 'Petshop silindi',
 };
 
 const TARGET_LABELS: Record<string, string> = {
@@ -22,6 +25,7 @@ const TARGET_LABELS: Record<string, string> = {
   careAction: 'bakım kaydı',
   comment: 'yorum',
   advertiser: 'reklam',
+  petshop: 'petshop',
 };
 
 const SLOT_LABELS: Record<string, string> = {
@@ -84,6 +88,17 @@ export default function AuditLog() {
   );
 }
 
+const PETSHOP_FIELD_LABELS: Record<string, string> = {
+  address: 'adres',
+  phone: 'telefon',
+  openingHours: 'çalışma saatleri',
+  websiteUrl: 'bağlantı',
+  lat: 'konum',
+  lng: 'konum',
+  startsAt: 'yayın tarihleri',
+  endsAt: 'yayın tarihleri',
+};
+
 /**
  * Audit details are free-form JSON. Raw JSON makes the table unreadable, so
  * the most useful fields are surfaced and the rest is truncated.
@@ -116,6 +131,20 @@ function summarize(entry: AuditEntry): string {
     if (d.active === false) parts.push('durduruldu');
     if (typeof d.targetUrl === 'string') parts.push(d.targetUrl);
     if (typeof d.imageUrl === 'string') parts.push('görsel yüklendi');
+  }
+
+  // Petshop listings: create and delete carry the name, an edit carries
+  // whatever fields the form sent, named here rather than shown as JSON.
+  if (entry.target_type === 'petshop') {
+    if (typeof d.name === 'string') parts.push(d.name);
+    if (d.hidden === true) parts.push('gizlendi');
+    if (d.hidden === false) parts.push('gösterildi');
+    if (entry.action === 'petshop.update') {
+      const fields = Object.keys(d)
+        .map((key) => PETSHOP_FIELD_LABELS[key])
+        .filter((label, i, all): label is string => !!label && all.indexOf(label) === i);
+      if (fields.length) parts.push(`değişen: ${fields.join(', ')}`);
+    }
   }
 
   if (parts.length === 0) {

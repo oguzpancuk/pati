@@ -22,6 +22,14 @@ import {
   type CareType,
 } from '@mobile/map/careMarkers';
 import {
+  PETSHOP_MARKER_HEIGHT,
+  PETSHOP_MARKER_WIDTH,
+  PETSHOP_MIN_ZOOM,
+  PETSHOP_THEMES,
+  petshopMarkerKey,
+  petshopMarkerSvg,
+} from '@mobile/map/petshopMarker';
+import {
   addCareAction,
   Animal,
   ApiError,
@@ -31,6 +39,8 @@ import {
   fetchAnimals,
   fetchCareActionsInBounds,
   fetchCareStatus,
+  fetchPetshopsInBounds,
+  type Petshop,
   type PhotoCheck,
 } from '../api';
 import {
@@ -49,6 +59,7 @@ import { useBadgeAwards } from '../badgeAwards';
 import { AdBanner } from '../components/AdBanner';
 import { HeartBurst, HEART_BURST_MS } from '../components/HeartBurst';
 import { InstallBanner } from '../install';
+import { PetshopSheet } from '../components/PetshopSheet';
 import '../styles/map.css';
 
 // Same rules as mobile's MapScreen: worldwide, one map for food
@@ -207,6 +218,32 @@ function registerCareMarkerImages(map: maplibregl.Map) {
   }
 }
 
+/**
+ * The petshop pin, rasterised like the care markers (mobile ships it as a
+ * PNG from the same SVG). Re-run on every style.load for the same reason.
+ */
+function registerPetshopImages(map: maplibregl.Map) {
+  const ratio = Math.min(window.devicePixelRatio || 1, 3);
+  const w = Math.round(PETSHOP_MARKER_WIDTH * ratio);
+  const h = Math.round(PETSHOP_MARKER_HEIGHT * ratio);
+  for (const theme of PETSHOP_THEMES) {
+    const key = petshopMarkerKey(theme);
+    if (map.hasImage(key)) continue;
+    const img = new Image(w, h);
+    img.onload = () => {
+      if (!map.style || map.hasImage(key)) return;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, w, h);
+      map.addImage(key, ctx.getImageData(0, 0, w, h), { pixelRatio: ratio });
+    };
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(petshopMarkerSvg(theme))}`;
+  }
+}
+
 export default function MapPage() {
   const navigate = useNavigate();
   const mapEl = useRef<HTMLDivElement>(null);
@@ -215,6 +252,11 @@ export default function MapPage() {
   // layers, so `ensureLayers` re-adds them from these refs on style.load.
   const careMarkersRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
   const userRingRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
+  // The petshops in the viewport (zoom ≥ PETSHOP_MIN_ZOOM), as the source's
+  // data and as rows for the card a tapped pin opens.
+  const petshopsRef = useRef<GeoJSON.FeatureCollection>(EMPTY_FC);
+  const petshopRowsRef = useRef<Petshop[]>([]);
+  const petshopsSeqRef = useRef(0);
   // The last fetched records, the spot the dot is drawn at and the dot
   // marker itself: the map is imperative, so the stack layout is
   // re-applied from these refs by paintMarkers() whenever records,
@@ -237,6 +279,8 @@ export default function MapPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const { celebrate } = useBadgeAwards();
   const [hearts, setHearts] = useState<{ id: number; x: number; y: number }[]>([]);
+  // The tapped petshop's card.
+  const [selectedPetshop, setSelectedPetshop] = useState<Petshop | null>(null);
 
   // Which record the open confirm sheet creates; set by the tile pressed.
   const [dropType, setDropType] = useState<CareType>('food');
@@ -546,6 +590,25 @@ export default function MapPage() {
         minzoom: ANIMAL_VISIBLE_MIN_ZOOM,
         paint: { 'line-color': USER_RADIUS_STROKE, 'line-width': 1.2, 'line-dasharray': [4, 6] },
       });
+      // Petshop pins above the care markers, from city scale on. They take
+      // no part in collision placement either way: a shop is always shown
+      // (there are few), and never hides a care record behind it. The pin
+      // points at the shop with its tip, hence the bottom anchor. Not part
+      // of the fan layout: a shop is a fixed place, not a pile to spread.
+      registerPetshopImages(map);
+      map.addSource('petshops', { type: 'geojson', data: petshopsRef.current });
+      map.addLayer({
+        id: 'petshops-icon',
+        type: 'symbol',
+        source: 'petshops',
+        minzoom: PETSHOP_MIN_ZOOM,
+        layout: {
+          'icon-image': petshopMarkerKey(resolvedThemeName()),
+          'icon-anchor': 'bottom',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+      });
     };
     map.on('style.load', ensureLayers);
 
@@ -576,6 +639,7 @@ export default function MapPage() {
         loadMarkers().catch(() => {
           // loadMarkers raised the pill itself; nothing else to say.
         });
+        loadPetshops();
       }, VIEWPORT_REFRESH_MS);
     });
 
@@ -589,6 +653,16 @@ export default function MapPage() {
       // a callout, and a click inside the open callout must not close it.
       const target = e.originalEvent.target as HTMLElement | null;
       if (target?.closest?.('.maplibregl-marker, .maplibregl-popup')) return;
+      // A shop pin draws above the care markers, so it answers first.
+      if (map.getLayer('petshops-icon')) {
+        const shopHit = map.queryRenderedFeatures(e.point, { layers: ['petshops-icon'] })[0];
+        const shop = petshopRowsRef.current.find((p) => p.id === Number(shopHit?.properties?.id));
+        if (shop) {
+          carePopupRef.current?.remove();
+          setSelectedPetshop(shop);
+          return;
+        }
+      }
       if (!map.getLayer('care-markers-icon')) return;
       const hits = map.queryRenderedFeatures(e.point, { layers: ['care-markers-icon'] });
       // Below the avatar zoom only the freshest record of a pile is
@@ -733,6 +807,42 @@ export default function MapPage() {
     }
   }, [paintMarkers]);
 
+  /**
+   * The petshops in the viewport, from city scale on (PETSHOP_MIN_ZOOM;
+   * below it the layer draws nothing, so nothing is asked for). A failed
+   * fetch keeps the pins already drawn: a shop that was there a pan ago is
+   * still there, and the care pill is about records, not shops.
+   */
+  const loadPetshops = useCallback(async () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const seq = ++petshopsSeqRef.current;
+    let shops: Petshop[] = [];
+    if (map.getZoom() >= PETSHOP_MIN_ZOOM) {
+      const b = map.getBounds();
+      const boxes = viewportBoxes([b.getEast(), b.getNorth()], [b.getWest(), b.getSouth()]);
+      try {
+        const parts = await Promise.all(boxes.map((box) => fetchPetshopsInBounds(box)));
+        const byId = new Map<number, Petshop>();
+        for (const part of parts) for (const shop of part) byId.set(shop.id, shop);
+        shops = [...byId.values()];
+      } catch {
+        return;
+      }
+    }
+    if (seq !== petshopsSeqRef.current) return;
+    petshopRowsRef.current = shops;
+    petshopsRef.current = featureCollection(
+      shops.map((shop) => {
+        const [lng, lat] = shop.location.coordinates;
+        return pointFeature({ lat, lng }, { id: shop.id });
+      })
+    );
+    (map.getSource('petshops') as maplibregl.GeoJSONSource | undefined)?.setData(
+      petshopsRef.current
+    );
+  }, []);
+
   /** Both statuses around a point; a failed pair leaves the sheet cautious. */
   const loadStatuses = useCallback(async (center: Coordinates) => {
     const seq = ++statusSeqRef.current;
@@ -814,6 +924,10 @@ export default function MapPage() {
     if (!mapReady) return;
     loadAnimals().catch(() => {});
   }, [mapReady, loadAnimals]);
+
+  useEffect(() => {
+    if (mapReady) loadPetshops();
+  }, [mapReady, loadPetshops]);
 
   useEffect(() => {
     // Without a fix there is no "here" to judge — the sheet says so
@@ -1330,6 +1444,10 @@ export default function MapPage() {
             )}
           </div>
         </div>
+      )}
+
+      {selectedPetshop && (
+        <PetshopSheet shop={selectedPetshop} onClose={() => setSelectedPetshop(null)} />
       )}
 
       {hearts.map((h) => (

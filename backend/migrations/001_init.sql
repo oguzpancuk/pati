@@ -357,12 +357,12 @@ CREATE TABLE IF NOT EXISTS advertisers (
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     -- Optional geographic target: served only to viewers inside the circle.
-    -- Both NULL = nationwide. Also in 017_ad_targeting.sql, which carries the
+    -- Both NULL = nationwide. Also in 018_ad_targeting.sql, which carries the
     -- constraint tying the two together (production never reruns this body).
     target_location GEOGRAPHY(POINT, 4326),
     target_radius_m INTEGER,
     -- Every slot the ad runs in; `slot` above is its first entry. NULL on
-    -- rows that predate it (readers COALESCE to ARRAY[slot]). Also in 017.
+    -- rows that predate it (readers COALESCE to ARRAY[slot]). Also in 018.
     slots VARCHAR(30)[]
 );
 
@@ -389,7 +389,7 @@ CREATE INDEX IF NOT EXISTS idx_ad_events_rotation ON ad_events (user_id, slot, t
 CREATE INDEX IF NOT EXISTS idx_ad_events_report ON ad_events (advertiser_id, type);
 
 -- Where an ad that runs in several placements was last served to a viewer,
--- for events that do not name their placement (017_ad_targeting.sql says
+-- for events that do not name their placement (018_ad_targeting.sql says
 -- why, and carries the same table for production).
 CREATE TABLE IF NOT EXISTS ad_serves (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -421,3 +421,24 @@ CREATE TABLE IF NOT EXISTS content_reports (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_content_reports_unique_open
     ON content_reports (reporter_id, target_type, target_id) WHERE status = 'open';
 CREATE INDEX IF NOT EXISTS idx_content_reports_queue ON content_reports (status, created_at DESC);
+
+-- Petshop listings on the map, managed from the admin panel; the map shows a
+-- listing only inside its starts_at/ends_at window and while not hidden.
+-- Also in 017_petshops.sql, which is what production runs (see there).
+CREATE TABLE IF NOT EXISTS petshops (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    address VARCHAR(300),
+    phone VARCHAR(40),
+    opening_hours VARCHAR(300),
+    website_url VARCHAR(500),
+    location GEOGRAPHY(POINT, 4326) NOT NULL,
+    hidden BOOLEAN NOT NULL DEFAULT false,
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_petshops_location_geom
+  ON petshops USING GIST ((location::geometry));

@@ -1,12 +1,12 @@
 /**
  * Where an ad may appear, and the admin form's choice of them. One ad can
  * run in several slots (owner, 2026-10-09); `advertisers.slots` holds the
- * list and `advertisers.slot` its first entry (017_ad_targeting.sql says
+ * list and `advertisers.slot` its first entry (018_ad_targeting.sql says
  * why both). Kept apart from the controllers so the parser can be pinned
  * without a database (test/adSlots.test.js).
  */
 
-// The same three values are the CHECK constraints in 001 and 017.
+// The same three values are the CHECK constraints in 001 and 018.
 const SLOTS = ['food_popup', 'water_popup', 'vet_health_record'];
 
 /** The SQL for an ad row's slot list, for rows that predate `slots`. */

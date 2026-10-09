@@ -8,8 +8,9 @@ screen files.** Everything comes from `mobile/src/theme/`.
 
 > All three clients (mobile, web PWA, admin excepted) follow the **studio
 > aesthetic**: pure-white surfaces, hairline borders, Quicksand, and the
-> gradient reserved for four uses (logo, primary button, progress bar,
-> selected chip). The source of truth is
+> gradient reserved for five uses (logo, primary button, progress bar,
+> selected chip, and the petshop map pin, which the owner added on
+> 2026-10-09). The source of truth is
 > `docs/design/studio-aesthetic-handoff.md`; this document describes how the
 > mobile theme system implements it.
 
@@ -23,7 +24,7 @@ token names.
 
 | Token | Light | Dark | Where |
 | --- | --- | --- | --- |
-| `gradStart` → `gradEnd` | `#F4581C` → `#F9A052` | same | The gradient — ONLY logo, primary button, progress bar, selected chip |
+| `gradStart` → `gradEnd` | `#F4581C` → `#F9A052` | same | The gradient — ONLY logo, primary button, progress bar, selected chip, petshop map pin (`map/petshopMarker.ts`, owner 2026-10-09) |
 | `brand` | `#E05E2B` | `#F9824E` | Flat accent: links, active icons, micro labels |
 | `brandDark` | `#C94F20` | `#E0693A` | Pressed states |
 | `brandSoft` / `brandTint` | `#FFE9DA` / `#FFF3EA` | `#47301F` / `#33241A` | Accent as light/dark surface |

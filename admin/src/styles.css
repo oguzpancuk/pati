@@ -491,3 +491,35 @@ td.actions button + button {
 .modal .field-error {
   margin: 14px 0 0;
 }
+
+/* The petshop form's map (LocationPicker): a click places the pin. */
+.location-field {
+  margin-top: 14px;
+}
+.location-label {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.location-picker {
+  height: 240px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--sunken);
+}
+.location-picker .maplibregl-canvas-container.maplibregl-interactive {
+  cursor: crosshair;
+}
+.location-picker .maplibregl-canvas-container.maplibregl-interactive:active {
+  cursor: grabbing;
+}
+.location-picker-pin {
+  cursor: grab;
+  line-height: 0;
+}
+.location-hint {
+  font-size: 12px;
+  margin: 6px 0 0;
+}

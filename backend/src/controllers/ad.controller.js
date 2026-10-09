@@ -28,7 +28,7 @@ const LIVE_FILTER = `
  *
  * If the ad list changes (brands added/removed) the order shifts; acceptable.
  *
- * Targeting (017): an ad with a target circle is in the list only when the
+ * Targeting (018): an ad with a target circle is in the list only when the
  * viewer is known to be inside it; an ad without one is nationwide. The
  * viewer's location is the lat/lng the request carries (the map's own fix,
  * or the animal's place under the health-record dialogs), else where they

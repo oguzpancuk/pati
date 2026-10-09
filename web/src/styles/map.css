@@ -89,3 +89,72 @@
   margin-top: 3px;
   color: var(--text-subtle);
 }
+
+/* The petshop card (owner, 2026-10-07): a tapped shop pin opens a sheet
+   with the listing's fields — mobile's PetshopSheet. Rows that act (call,
+   open the link) carry their verb on the right in the brand color. */
+.petshop-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.petshop-kind {
+  /* The design system's micro label: lowercase and spaced, not caps. */
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  color: var(--brand);
+}
+
+.petshop-sheet h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.petshop-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-body);
+  text-decoration: none;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.petshop-row.action {
+  color: var(--text);
+  border-radius: 0;
+}
+
+.petshop-row.action:active {
+  background: var(--brand-tint);
+}
+
+.petshop-row-icon {
+  display: flex;
+  flex: none;
+  color: var(--brand);
+  padding-top: 1px;
+}
+
+.petshop-row-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.petshop-row-cta {
+  flex: none;
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.petshop-sheet .btn {
+  margin-top: 8px;
+}

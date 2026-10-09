@@ -1,5 +1,5 @@
 /**
- * Location-targeted ads (017_ad_targeting.sql): an ad may carry a point and
+ * Location-targeted ads (018_ad_targeting.sql): an ad may carry a point and
  * a radius, and is then served only to viewers known to be inside that
  * circle. These are the two wire-facing parsers — the admin form's target
  * and the viewer's location on GET /ads — kept apart from the controllers so
@@ -10,7 +10,7 @@
 const { coordinate, finiteNumber, isPresent } = require('./numbers');
 
 // A shop's street at the small end, a province at the large one. The same
-// bounds are the table's CHECK constraint (017), so the database refuses
+// bounds are the table's CHECK constraint (018), so the database refuses
 // what this lets through only if the two drift apart.
 const MIN_TARGET_RADIUS_METERS = 100;
 const MAX_TARGET_RADIUS_METERS = 200000;

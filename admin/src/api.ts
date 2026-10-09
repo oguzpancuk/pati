@@ -223,6 +223,23 @@ export async function uploadAdvertiserImage(id: number, file: File): Promise<Adv
   return body as Advertiser;
 }
 
+export interface AdminPetshop {
+  id: number;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  opening_hours: string | null;
+  website_url: string | null;
+  location: { type: 'Point'; coordinates: [number, number] };
+  hidden: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+  /** On the public map right now: not hidden and inside its window. */
+  listed: boolean;
+}
+
 export interface CurrentUser {
   id: number;
   name: string;

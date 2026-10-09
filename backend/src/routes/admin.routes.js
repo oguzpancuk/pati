@@ -26,6 +26,12 @@ const {
   resolveReport,
   listAuditLog,
 } = require('../controllers/admin.controller');
+const {
+  adminListPetshops,
+  createPetshop,
+  updatePetshop,
+  deletePetshop,
+} = require('../controllers/petshop.controller');
 
 const router = express.Router();
 
@@ -57,6 +63,11 @@ router.post('/advertisers', createAdvertiser);
 router.patch('/advertisers/:id', updateAdvertiser);
 router.post('/advertisers/:id/image', upload.single('image'), resizeUploads(), uploadAdvertiserImage);
 router.delete('/advertisers/:id', deleteAdvertiser);
+
+router.get('/petshops', adminListPetshops);
+router.post('/petshops', createPetshop);
+router.patch('/petshops/:id', updatePetshop);
+router.delete('/petshops/:id', deletePetshop);
 
 router.get('/reports', listReports);
 router.patch('/reports/:id', resolveReport);

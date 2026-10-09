@@ -751,7 +751,7 @@ async function createAdvertiser(req, res, next) {
        RETURNING id`,
       [
         String(name).trim(),
-        // slot keeps the first entry, for the code before slots (017).
+        // slot keeps the first entry, for the code before slots (018).
         slots[0],
         headline || null,
         body || null,

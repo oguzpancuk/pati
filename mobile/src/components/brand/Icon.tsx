@@ -30,7 +30,11 @@ export type IconName =
   | 'refresh'
   | 'settings'
   | 'flag'
-  | 'more';
+  | 'more'
+  | 'shop'
+  | 'phone'
+  | 'clock'
+  | 'link';
 
 export type IconProps = {
   name: IconName;
@@ -176,6 +180,32 @@ const PATHS: Record<IconName, (color: string, sw: number) => React.ReactNode> = 
       <Circle cx={5} cy={12} r={1.6} fill={color} stroke="none" />
       <Circle cx={12} cy={12} r={1.6} fill={color} stroke="none" />
       <Circle cx={19} cy={12} r={1.6} fill={color} stroke="none" />
+    </>
+  ),
+  // The petshop card's marks. Web draws the same paths from
+  // map/petshopMarker.ts (PETSHOP_GLYPH_PATHS), as does the map pin's
+  // storefront: change one, change the other.
+  shop: () => (
+    <>
+      <Path d="M4.2 9.6 5.6 4.4h12.8l1.4 5.2" />
+      <Path d="M4.2 9.6a1.95 1.95 0 0 0 3.9 0 1.95 1.95 0 0 0 3.9 0 1.95 1.95 0 0 0 3.9 0 1.95 1.95 0 0 0 3.9 0" />
+      <Path d="M5.6 11.6v8h12.8v-8" />
+      <Path d="M10.2 19.6v-4.4h3.6v4.4" />
+    </>
+  ),
+  phone: () => (
+    <Path d="M8.6 4.2 6 4.6c-.9.2-1.6 1-1.5 2 .6 6.9 6 12.3 12.9 12.9 1 .1 1.8-.6 2-1.5l.4-2.6-3.7-1.6-1.8 2a11 11 0 0 1-4.1-4.1l2-1.8-1.6-3.7Z" />
+  ),
+  clock: () => (
+    <>
+      <Circle cx={12} cy={12} r={7.6} />
+      <Path d="M12 8v4.2l2.8 1.8" />
+    </>
+  ),
+  link: () => (
+    <>
+      <Path d="M10.4 13.6a3.6 3.6 0 0 0 5.1 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1 1" />
+      <Path d="M13.6 10.4a3.6 3.6 0 0 0-5.1 0L5.9 13a3.6 3.6 0 0 0 5.1 5.1l1-1" />
     </>
   ),
   settings: () => (
