@@ -4,8 +4,10 @@ const pool = require('../config/db');
  * The showcase (demo) world is per person: every user has `show_demo` on
  * their row and decides from their own profile whether the bots' animals,
  * records, chat and leaderboard entries are part of their app (owner,
- * 2026-09-09). A signed-out viewer sees the demo world — that is the tour
- * the pilot ships with.
+ * 2026-09-09). It is OFF for people unless they turn it on (owner,
+ * 2026-10-12, migration 019): the real map comes first, the tour is one tap
+ * away in the profile. A signed-out viewer still sees the demo world — the
+ * tour, for someone who has not joined yet.
  *
  * The preference is read on nearly every request, so it is cached per user
  * for a few seconds; the profile toggle writes through the cache, so the
@@ -19,7 +21,7 @@ const CACHE_MAX = 5000;
 const cache = new Map();
 
 // A failing preference read is invisible otherwise: every caller falls back
-// to "show the demo world" and nothing says why.
+// to "hide the demo world" and nothing says why.
 const FAILURE_LOG_MS = 60000;
 let lastFailureLoggedAt = 0;
 
@@ -34,12 +36,12 @@ async function showsDemo(userId) {
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
   try {
     const result = await pool.query('SELECT show_demo FROM users WHERE id = $1', [userId]);
-    const value = result.rows.length ? result.rows[0].show_demo !== false : true;
+    const value = result.rows.length ? result.rows[0].show_demo === true : false;
     remember(userId, value);
     return value;
   } catch (err) {
-    // A preference read must never fail a request; the demo world is the
-    // default state. It is not cached either — but a lasting failure (the
+    // A preference read must never fail a request; the real world without
+    // the showcase is the default state. It is not cached either — but a lasting failure (the
     // column missing because a migration did not run, an exhausted pool)
     // would then re-issue the same query forever in silence, so it is
     // logged once a minute (review finding).
@@ -47,7 +49,7 @@ async function showsDemo(userId) {
       lastFailureLoggedAt = Date.now();
       console.warn(`[settings] show_demo read failed: ${err?.message ?? err}`);
     }
-    return hit ? hit.value : true;
+    return hit ? hit.value : false;
   }
 }
 

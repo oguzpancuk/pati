@@ -114,3 +114,56 @@ test('demoFilter is applied to the discovery paths, and only those', () => {
     'the set of demo-filtered read paths changed — update the rule in utils/settings.js too'
   );
 });
+
+/**
+ * Off by default for people (owner, 2026-10-12): a signed-in user whose
+ * preference cannot be read — no row, or a failing query — gets the real map,
+ * not the showcase. The signed-out visitor above keeps the tour. The pool is
+ * stubbed in place, so no database is touched.
+ */
+test('a signed-in user with no readable preference does not see the showcase', async () => {
+  const pool = require('../src/config/db');
+  const realQuery = pool.query;
+  try {
+    clearSettingsCache();
+    pool.query = async () => ({ rows: [] });
+    assert.strictEqual(await showsDemo(41), false);
+    assert.strictEqual(await demoFilter({ user: { userId: 41 } }, 'a'), ' AND NOT a.is_demo');
+
+    clearSettingsCache();
+    pool.query = async () => {
+      throw new Error('connection refused');
+    };
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      assert.strictEqual(await showsDemo(42), false);
+    } finally {
+      console.warn = warn;
+    }
+  } finally {
+    pool.query = realQuery;
+    clearSettingsCache();
+  }
+});
+
+/**
+ * The column default is what a new sign-up gets, and production only learns
+ * a new default from a numbered migration (001's CREATE TABLE is a no-op
+ * there). Both copies are pinned, plus the one-shot flip of existing rows.
+ */
+test('show_demo defaults to off in 001 and in the migration production runs', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', 'migrations');
+  const init = fs.readFileSync(path.join(dir, '001_init.sql'), 'utf8');
+  assert.match(init, /show_demo BOOLEAN NOT NULL DEFAULT false/);
+
+  const later = fs
+    .readdirSync(dir)
+    .filter((f) => f > '011' && f.endsWith('.sql'))
+    .map((f) => fs.readFileSync(path.join(dir, f), 'utf8'))
+    .join('\n');
+  assert.match(later, /ALTER COLUMN show_demo SET DEFAULT false/);
+  assert.match(later, /UPDATE users SET show_demo = false/);
+});
