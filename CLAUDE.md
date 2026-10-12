@@ -27,7 +27,7 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | install        | `npm ci` in each of backend/, mobile/, web/, admin/; then `cd mobile/ios && bundle install && LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 bundle exec pod install`             |
 | dev            | `bash contracts/init.sh` (DB + backend + health check); `--ios` also launches the simulator                                                                           |
-| test           | `cd mobile && npx jest`; `cd backend && node --test` (17 files, 153 unit tests — no routes, no database; web/admin have none)                                         |
+| test           | `cd mobile && npx jest`; `cd backend && node --test` (17 files, 155 unit tests — no routes, no database; web/admin have none)                                         |
 | typecheck      | `npx tsc --noEmit` in mobile/, web/, admin/                                                                                                                           |
 | lint           | `cd mobile && npm run lint` (mobile only; not yet in the battery)                                                                                                     |
 | quick battery  | `bash .claude/hooks/verify.sh` (tsc ×3, jest, web css parse, backend load + node:test)                                                                                |
@@ -208,7 +208,7 @@ shared/    Plain-SVG generators (avatars, badges, logo) + the basemap builder
 - Never report a check you did not run.
 
 **The backend's tests are unit tests, not HTTP tests.** `cd backend && node
---test` runs seventeen files and 153 tests covering pure logic — badge
+--test` runs seventeen files and 155 tests covering pure logic — badge
 thresholds and staging, rate-limit shapes, demo visibility, block SQL
 fragments, coordinate guards, storage, image resizing, the showcase seed,
 the ad-targeting and ad-slot parsers. None of them touches an application route or a
