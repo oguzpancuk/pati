@@ -136,7 +136,7 @@ export default function ProfilePage() {
 
   async function toggleShowDemo() {
     if (!me || demoBusy) return;
-    const next = me.show_demo === false;
+    const next = me.show_demo !== true;
     setDemoBusy(true);
     // Flipped locally first so the chip answers the click; rolled back if
     // the server refuses.
@@ -271,7 +271,7 @@ export default function ProfilePage() {
           setTheme(mode);
           applyThemeMode(mode);
         }}
-        showDemo={me.show_demo !== false}
+        showDemo={me.show_demo === true}
         demoBusy={demoBusy}
         onToggleDemo={toggleShowDemo}
         onLogout={logout}

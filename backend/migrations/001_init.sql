@@ -43,9 +43,9 @@ CREATE TABLE IF NOT EXISTS users (
     -- Rows the showcase seed created (011): a person who switches the demo
     -- world off in their profile never sees them.
     is_demo BOOLEAN NOT NULL DEFAULT false,
-    -- Whether this person sees the showcase (demo) world. On by default:
-    -- a fresh app should open on a neighbourhood in use (011).
-    show_demo BOOLEAN NOT NULL DEFAULT true
+    -- Whether this person sees the showcase (demo) world. Off by default
+    -- since 2026-10-12 (019): the real map first, the tour one tap away.
+    show_demo BOOLEAN NOT NULL DEFAULT false
 );
 
 -- Every e-mail lookup now compares lower(email) (addresses are stored

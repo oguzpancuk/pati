@@ -6505,3 +6505,27 @@ limits (pilot)" heading. The ROADMAP is the owner's to re-plan; whether
 
 Item 6 of the owner's 2026-10-07 list (vets verify volunteers' records) is
 parked as section 3, item 16.
+
+## 2026-10-12 · The showcase world is off by default
+
+The owner asked for demo data off by default, for existing users and for new
+sign-ups ("demo verisi default kapalı gelsin"). `019_show_demo_default_off.sql`
+sets `users.show_demo` to default false and, once (claimed through
+`schema_backfills`, like 012), switches it off for every existing row; 001
+mirrors the default. On production that UPDATE turns the showcase off for
+every person on the deploy that runs it: true was the default and nothing
+told a deliberate "on" apart from an untouched one. Anyone who turns it back
+on afterwards keeps it, since a re-run returns before touching a row.
+
+`showsDemo` now falls back to "hidden" for a signed-in user whose row is
+missing or whose read fails. A signed-out viewer (the map and animal list
+answer without a token through `identifyUser`) still sees the showcase: that
+is the tour for someone who has not joined, and the owner's ask named users.
+
+No store build is needed: every filter runs on the server, and both clients
+render the toggle from the `show_demo` that `/users/me` always sends. The
+clients now also read an absent field as off (`=== true`), as the server
+does; with today's `/users/me` the field is never absent, so the store build
+behaves the same. Bot accounts are flipped too: bots created after 019 get
+the default false anyway, so excluding them would only make old and new bots
+disagree.

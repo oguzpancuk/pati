@@ -85,8 +85,9 @@ export default function UserProfileScreen({ navigation, route }: any) {
   const { logout } = useAuth();
   const { checkPending } = useBadgeAwards();
   // `show_demo` on the profile is each person's own switch for the showcase
-  // world (owner, 2026-09-09); an absent field means on, matching the column
-  // default. `demoBusy` holds the row while the write is in flight.
+  // world (owner, 2026-09-09); an absent field means off, matching the
+  // server's default since 2026-10-12. `demoBusy` holds the row while the
+  // write is in flight.
   const [me, setMe] = useState<Me | null>(null);
   const [demoBusy, setDemoBusy] = useState(false);
   // When the switch was last written, and to what. A profile reload issued
@@ -213,7 +214,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
 
   async function toggleShowDemo() {
     if (!me || demoBusy) return;
-    const next = me.show_demo === false;
+    const next = me.show_demo !== true;
     demoWrite.current = { at: Date.now(), value: next };
     setDemoBusy(true);
     // Flipped locally first so the chip answers the tap; rolled back if the
@@ -418,7 +419,7 @@ export default function UserProfileScreen({ navigation, route }: any) {
         onClose={() => setSheet(null)}
         mode={mode}
         onSelectMode={setMode}
-        showDemo={me.show_demo !== false}
+        showDemo={me.show_demo === true}
         demoBusy={demoBusy}
         onToggleDemo={toggleShowDemo}
         onLogout={logout}

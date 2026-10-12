@@ -57,8 +57,8 @@ export function SettingsSheet({
       </div>
 
       {/* The showcase (demo) world is each person's own choice (owner,
-          2026-09-09): on by default so a new user finds a neighbourhood in
-          use, off with one tap when the tour is over. */}
+          2026-09-09): off by default since 2026-10-12 (backend migration 019),
+          on with one tap for anyone who wants the tour. */}
       <div className="label">demo verileri</div>
       <div className="row" style={{ gap: 12 }}>
         <div className="grow">
