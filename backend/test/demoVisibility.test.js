@@ -150,7 +150,10 @@ test('a signed-in user with no readable preference does not see the showcase', a
 /**
  * The column default is what a new sign-up gets, and production only learns
  * a new default from a numbered migration (001's CREATE TABLE is a no-op
- * there). Both copies are pinned, plus the one-shot flip of existing rows.
+ * there). Both copies are pinned, plus the one-shot flip of existing rows:
+ * the UPDATE must sit behind 019's schema_backfills claim and its RETURN, or
+ * every deploy would hide the showcase again from anyone who turned it back
+ * on (review finding).
  */
 test('show_demo defaults to off in 001 and in the migration production runs', () => {
   const fs = require('node:fs');
@@ -165,5 +168,15 @@ test('show_demo defaults to off in 001 and in the migration production runs', ()
     .map((f) => fs.readFileSync(path.join(dir, f), 'utf8'))
     .join('\n');
   assert.match(later, /ALTER COLUMN show_demo SET DEFAULT false/);
-  assert.match(later, /UPDATE users SET show_demo = false/);
+
+  const flip = fs.readFileSync(path.join(dir, '019_show_demo_default_off.sql'), 'utf8');
+  assert.match(
+    flip,
+    /INSERT INTO schema_backfills[^;]*'019_show_demo_default_off'[^;]*;[\s\S]*IF claimed = 0 THEN\s+RETURN;\s+END IF;[\s\S]*UPDATE users SET show_demo = false/
+  );
+  assert.strictEqual(
+    (flip.match(/UPDATE users SET show_demo/g) || []).length,
+    1,
+    'the flip appears once, inside the claimed block'
+  );
 });

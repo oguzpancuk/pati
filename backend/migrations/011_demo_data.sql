@@ -37,5 +37,6 @@ CREATE INDEX IF NOT EXISTS idx_notifications_demo ON notifications (id) WHERE is
 -- world (owner, 2026-09-09 — it started as one global admin switch and
 -- moved onto every profile). On by default: someone opening a fresh app
 -- should find a neighbourhood in use, and turn it off when they don't
--- need the tour any more.
+-- need the tour any more. Since 2026-10-12 the default is OFF and every
+-- existing account was switched off once: see 019_show_demo_default_off.sql.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS show_demo BOOLEAN NOT NULL DEFAULT true;

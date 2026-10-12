@@ -6522,6 +6522,10 @@ missing or whose read fails. A signed-out viewer (the map and animal list
 answer without a token through `identifyUser`) still sees the showcase: that
 is the tour for someone who has not joined, and the owner's ask named users.
 
-No client change is needed and no store build: both clients render the toggle
-from the `show_demo` the server sends on `/users/me`, and every filter runs on
-the server. Only two comments in the settings sheets changed.
+No store build is needed: every filter runs on the server, and both clients
+render the toggle from the `show_demo` that `/users/me` always sends. The
+clients now also read an absent field as off (`=== true`), as the server
+does; with today's `/users/me` the field is never absent, so the store build
+behaves the same. Bot accounts are flipped too: bots created after 019 get
+the default false anyway, so excluding them would only make old and new bots
+disagree.

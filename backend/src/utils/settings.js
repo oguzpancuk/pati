@@ -7,7 +7,10 @@ const pool = require('../config/db');
  * 2026-09-09). It is OFF for people unless they turn it on (owner,
  * 2026-10-12, migration 019): the real map comes first, the tour is one tap
  * away in the profile. A signed-out viewer still sees the demo world — the
- * tour, for someone who has not joined yet.
+ * tour, for someone who has not joined yet. One consequence: an expired or
+ * invalid token on a route behind `identifyUser` (the map, the animal list)
+ * reads as signed out and shows the tour, until the next `requireAuth` call
+ * logs the person out (review finding).
  *
  * The preference is read on nearly every request, so it is cached per user
  * for a few seconds; the profile toggle writes through the cache, so the
